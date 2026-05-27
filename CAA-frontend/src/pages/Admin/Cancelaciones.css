@@ -1,0 +1,116 @@
+.adm-cancel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.adm-cancel__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.adm-cancel__card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+}
+
+.adm-cancel__card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.adm-cancel__card-title {
+  font-size: 1.05rem;
+}
+
+.adm-cancel__badge {
+  background-color: #fef08a;
+  color: #854d0e;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.adm-cancel__card-body {
+  flex-grow: 1;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.adm-cancel__card-body p {
+  margin: 0 0 8px 0;
+}
+
+.adm-cancel__card-body strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.adm-cancel__card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.adm-cancel__btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.adm-cancel__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.adm-cancel__btn--reject {
+  background-color: #fef2f2;
+  color: #dc2626;
+}
+
+.adm-cancel__btn--reject:hover:not(:disabled) {
+  background-color: #fee2e2;
+}
+
+.adm-cancel__btn--accept {
+  background-color: #2563eb;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .adm-cancel__list {
+    grid-template-columns: 1fr;
+  }
+
+  .adm-cancel__card {
+    padding: 16px;
+  }
+
+  .adm-cancel__card-actions {
+    flex-direction: column-reverse;
+    gap: 8px;
+  }
+
+  .adm-cancel__btn {
+    width: 100%;
+    text-align: center;
+  }
+}

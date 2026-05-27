@@ -1,0 +1,116 @@
+/* CAAA · Tabla de cuenta corriente (réplica hoja azul, refinada).
+   Mono donde la hoja física usa columnas numéricas alineadas.
+*/
+
+.adf-hoja-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--c-line-1);
+  background: var(--c-surface-1);
+}
+
+.adf-hoja {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  background: var(--c-surface-1);
+}
+
+.adf-hoja thead th {
+  background: var(--c-surface-2);
+  color: var(--c-ink-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  padding: 10px var(--sp-3);
+  text-align: left;
+  border-bottom: 1px solid var(--c-line-2);
+  white-space: nowrap;
+}
+
+.adf-hoja tbody td {
+  padding: 9px var(--sp-3);
+  border-bottom: 1px solid var(--c-line-1);
+  font-size: var(--text-sm);
+  vertical-align: middle;
+  color: var(--c-ink-1);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.adf-hoja tbody tr:last-child td { border-bottom: none; }
+
+.adf-hoja tbody tr:hover td      { background-color: var(--c-surface-2); }
+.adf-hoja tbody tr.anulado td    { color: var(--c-ink-4); text-decoration: line-through; background-color: var(--c-surface-2); }
+
+.adf-hoja__date,
+.adf-hoja__doc,
+.adf-hoja__avion,
+.adf-hoja__num {
+  font-family: var(--font-mono);
+  font-feature-settings: "ss01", "tnum";
+}
+
+.adf-hoja__date  { color: var(--c-ink-2); }
+.adf-hoja__doc   { color: var(--c-ink-2); }
+.adf-hoja__avion { color: var(--c-ink-2); }
+.adf-hoja__doc .muted, .adf-hoja__avion .muted { color: var(--c-ink-4); }
+
+.adf-hoja__instructor {
+  font-weight: 500;
+  color: var(--c-ink-1);
+}
+
+.adf-hoja__num {
+  text-align: right;
+  font-weight: 500;
+  color: var(--c-ink-2);
+}
+
+.adf-hoja__debe  { color: var(--c-danger-700); font-weight: 600; }
+.adf-hoja__haber { color: var(--c-accent-700); font-weight: 600; }
+.adf-hoja__saldo {
+  color: var(--c-ink-1);
+  font-weight: 700;
+  letter-spacing: 0.005em;
+}
+
+.adf-hoja__empty {
+  text-align: center;
+  padding: var(--sp-10) var(--sp-4);
+  color: var(--c-ink-4);
+  font-style: italic;
+}
+
+/* ── Acciones por fila ── */
+.adf-hoja__actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.adf-hoja__action-btn {
+  background: transparent;
+  border: 1px solid var(--c-line-1);
+  color: var(--c-ink-3);
+  padding: 4px 7px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  margin-left: 3px;
+  font-size: 12px;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.adf-hoja__action-btn:hover {
+  background-color: var(--c-surface-3);
+  color: var(--c-ink-1);
+  border-color: var(--c-line-3);
+}
+.adf-hoja__action-btn--danger:hover {
+  background-color: var(--c-danger-50);
+  color: var(--c-danger-700);
+  border-color: oklch(85% 0.075 25);
+}
+.adf-hoja__edited-mark {
+  color: var(--c-warn-500);
+  margin-left: 6px;
+  font-size: 13px;
+}

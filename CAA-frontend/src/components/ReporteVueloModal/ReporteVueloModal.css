@@ -1,0 +1,399 @@
+.rv-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1rem;
+}
+
+.rv-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 860px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Header ── */
+.rv-header {
+  padding: 1.1rem 1.5rem 0.9rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.rv-header-left h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rv-header-meta {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.rv-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* ── Badges ── */
+.rv-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rv-badge--borrador    { background: #fef3c7; color: #92400e; }
+.rv-badge--pendiente   { background: #dbeafe; color: #1e40af; }
+.rv-badge--completado  { background: #dcfce7; color: #166534; }
+.rv-badge--inasistencia { background: #fee2e2; color: #991b1b; }
+
+/* ── Header right (botón inasistencia + close) ── */
+.rv-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Botón Registrar Inasistencia ── */
+.rv-btn-inasistencia {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 2px solid #dc2626;
+  background: #fff;
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.rv-btn-inasistencia:hover {
+  background: #fee2e2;
+}
+
+.rv-btn-inasistencia--activo {
+  background: #dc2626;
+  color: #fff;
+}
+
+.rv-btn-inasistencia--activo:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* ── Body ── */
+.rv-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Secciones ── */
+.rv-section {
+  margin-bottom: 1.4rem;
+}
+
+.rv-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Info grid ── */
+.rv-info-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+}
+
+.rv-info-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rv-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.rv-info-val {
+  font-size: 0.875rem;
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  padding: 4px 8px;
+}
+
+/* ── Data grid (tacómetro, hobbs, combustible) ── */
+.rv-data-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .rv-info-grid  { grid-template-columns: repeat(2, 1fr); }
+  .rv-data-grid  { grid-template-columns: repeat(2, 1fr); }
+}
+
+.rv-data-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* ── Inputs ── */
+.rv-input {
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  font-size: 0.855rem;
+  color: #111;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.rv-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.rv-input:disabled {
+  background: #f9fafb;
+  color: #374151;
+  cursor: not-allowed;
+}
+
+.rv-select {
+  cursor: pointer;
+}
+
+/* ── Firmas ── */
+.rv-firmas-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 700px) {
+  .rv-firmas-grid { grid-template-columns: 1fr; }
+}
+
+.rv-firma-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rv-firma-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.rv-btn-clear {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.rv-btn-clear:hover { background: #f3f4f6; }
+
+.rv-firma-name {
+  font-size: 0.8rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.rv-firma-lic {
+  font-weight: 400;
+  color: #6b7280;
+}
+
+/* ── Footer ── */
+.rv-footer {
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex-shrink: 0;
+}
+
+.rv-btn {
+  padding: 7px 18px;
+  border-radius: 7px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rv-btn:hover    { background: #f3f4f6; }
+.rv-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.rv-btn--primary {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+}
+.rv-btn--primary:hover:not(:disabled) { background: #163059; }
+
+.rv-btn--success {
+  background: #16a34a;
+  color: #fff;
+  border-color: #16a34a;
+}
+.rv-btn--success:hover:not(:disabled) { background: #15803d; }
+
+/* ── Loading / Error ── */
+.rv-loading, .rv-error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+.rv-error { color: #b91c1c; }
+
+/* ── Banner de Inasistencia en body ── */
+.rv-inasistencia-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border: 2px solid #fca5a5;
+  border-left: 6px solid #dc2626;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 1.2rem;
+  animation: rv-pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes rv-pulse-border {
+  0%, 100% { border-left-color: #dc2626; }
+  50%       { border-left-color: #ef4444; }
+}
+
+.rv-inasistencia-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rv-inasistencia-banner strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #991b1b;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.rv-inasistencia-banner p {
+  font-size: 0.78rem;
+  color: #7f1d1d;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Texto de campos omitidos */
+.rv-inasistencia-omit {
+  font-size: 0.82rem;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px dashed #fca5a5;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-style: italic;
+}
+
+.rv-inasistencia-motivo-box {
+  margin-top: 10px;
+}
+
+.rv-inasistencia-motivo-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #991b1b;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.rv-inasistencia-motivo-input {
+  width: 100%;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  background: #fff;
+  color: #111;
+  resize: none;
+  font-family: inherit;
+}
+
+.rv-inasistencia-motivo-input:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+}
+
+.rv-inasistencia-motivo-val {
+  font-size: 0.875rem;
+  color: #111;
+  background: #fff;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: block;
+  min-height: 1.5em;
+}
+

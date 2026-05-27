@@ -1,0 +1,57 @@
+import React from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import "./AdministracionSidebar.css";
+
+export default function AdministracionSidebar({ isOpen, onClose }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+    if (onClose) onClose();
+  };
+
+  const menuItems = [
+    { label: "Dashboard",      path: "/administracion/dashboard",     icon: "bi-speedometer2" },
+    { label: "Cuentas",        path: "/administracion/cuentas",       icon: "bi-person-vcard" },
+    { label: "Recibos",        path: "/administracion/recibos",       icon: "bi-receipt" },
+    { label: "Facturas",       path: "/administracion/facturas",      icon: "bi-file-earmark-text" },
+    { label: "Tarifas",        path: "/administracion/tarifas",       icon: "bi-tag" },
+    { label: "Cursos",         path: "/administracion/cursos",        icon: "bi-mortarboard" },
+    { label: "Egresos",        path: "/administracion/egresos",       icon: "bi-cash-stack" },
+    { label: "Nómina",         path: "/administracion/nomina",        icon: "bi-people-fill" },
+    { label: "Documentación",  path: "/administracion/documentacion", icon: "bi-folder-check" },
+    { label: "Médicos AAC",    path: "/administracion/medicos",       icon: "bi-clipboard2-pulse" },
+    { label: "Aula Virtual",   path: "/administracion/aula-virtual",  icon: "bi-mortarboard-fill" },
+    { label: "Reportes",       path: "/administracion/reportes",      icon: "bi-bar-chart" },
+  ];
+
+  return (
+    <aside className={`adf-sidebar ${isOpen ? "adf-sidebar--open" : ""}`}>
+      <div className="adf-sidebar__menu-title">Contabilidad</div>
+      <nav className="adf-sidebar__nav">
+        {menuItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            className={`adf-sidebar__link ${
+              location.pathname.startsWith(item.path) ? "adf-sidebar__link--active" : ""
+            }`}
+            onClick={onClose}
+          >
+            <i className={`bi ${item.icon} adf-sidebar__icon`}></i>
+            <span>{item.label}</span>
+          </Link>
+        ))}
+      </nav>
+      <div className="adf-sidebar__bottom">
+        <button className="adf-sidebar__logout" onClick={handleLogout}>
+          <i className="bi bi-box-arrow-left"></i>
+          Cerrar sesión
+        </button>
+      </div>
+    </aside>
+  );
+}

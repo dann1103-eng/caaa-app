@@ -1,0 +1,174 @@
+.adm-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+/* ── Topbar ── */
+.adm-topbar {
+  height: 60px;
+  background-color: #1B365D;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 500; /* Higher z-index for topbar */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.adm-topbar__menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 8px;
+}
+
+.adm-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.adm-topbar__logo {
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 1px;
+}
+
+.adm-topbar__divider {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 300;
+}
+
+.adm-topbar__title {
+  font-weight: 400;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.adm-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.adm-topbar__role {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: rgba(255, 255, 255, 0.15);
+  padding: 4px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.adm-topbar__avatar {
+  width: 32px;
+  height: 32px;
+  background-color: #fff;
+  color: #1B365D;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+/* ── Body ── */
+.adm-layout__body {
+  display: flex;
+  flex: 1;
+}
+
+.adm-layout__content {
+  flex: 1;
+  margin-left: 240px;
+  padding: 32px;
+  background-image: 
+    linear-gradient(rgba(27, 54, 93, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27, 54, 93, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+  min-height: calc(100vh - 60px);
+  transition: margin-left 0.3s ease;
+  min-width: 0;
+}
+
+.adm-layout__inner {
+  max-width: 100%;
+  margin: 0;
+  min-width: 0;
+}
+
+.adm-layout__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 300;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Reset styles for admin pages ── */
+.adm-layout__content .header {
+  display: none !important;
+}
+
+.adm-layout__content > div {
+  padding-top: 0 !important;
+}
+
+/* ── Responsiveness ── */
+@media (max-width: 768px) {
+  .adm-topbar__menu-btn {
+    display: block;
+  }
+
+  .adm-layout__content {
+    margin-left: 0;
+    padding: 16px 12px;
+  }
+
+  .adm-topbar__title {
+    display: none;
+  }
+
+  .adm-topbar__divider {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .adm-topbar {
+    padding: 0 12px;
+    height: 56px;
+  }
+
+  .adm-topbar__logo {
+    font-size: 1.1rem;
+  }
+
+  .adm-topbar__role {
+    display: none;
+  }
+
+  .adm-topbar__right {
+    gap: 8px;
+  }
+
+  .adm-layout__content {
+    padding: 12px 10px;
+    min-height: calc(100vh - 56px);
+  }
+}

@@ -1,0 +1,503 @@
+/* ── Variables ──────────────────────────────────────────────────────────── */
+:root {
+  --trn-bg: #f8fafc;
+  --trn-primary: #1B365D; /* Azul Corporativo */
+  --trn-accent: #C53030;  /* Rojo Corporativo */
+  --trn-success: #10b981;
+  --trn-text-main: #1e293b;
+  --trn-text-sub: #64748b;
+  --trn-border: #e2e8f0;
+}
+
+.trn {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 100px 40px 60px;
+  animation: trn-fadeIn 0.5s ease-out;
+}
+
+@keyframes trn-fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Cabecera ────────────────────────────────────────────────────────────── */
+.trn__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 2.5rem;
+}
+
+.trn__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--trn-accent);
+  margin-bottom: 4px;
+}
+
+.trn__title {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--trn-primary);
+  letter-spacing: -0.02em;
+}
+
+.trn__subtitle {
+  font-size: 1rem;
+  color: var(--trn-text-sub);
+  margin-top: 4px;
+}
+
+.trn__counter {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--trn-primary);
+  background: white;
+  padding: 10px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--trn-border);
+}
+
+/* ── Ticker Form (Avisos) ──────────────────────────────────────────────── */
+.trn__ticker-form {
+  background: white;
+  border: 1px solid var(--trn-border);
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 2.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+}
+
+.trn__ticker-form-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.trn__ticker-form-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--trn-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.trn__ticker-form-title::before {
+  content: '';
+  width: 4px;
+  height: 18px;
+  background: var(--trn-accent);
+  border-radius: 4px;
+}
+
+.trn__ticker-clear {
+  background: transparent;
+  color: var(--trn-accent);
+  border: 1px solid var(--trn-accent);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.trn__ticker-clear:hover {
+  background: var(--trn-accent);
+  color: white;
+}
+
+.trn__ticker-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trn__ticker-item {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  padding: 12px 16px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.trn__ticker-item-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--trn-text-main);
+}
+
+.trn__ticker-item-del {
+  background: rgba(197, 48, 48, 0.1);
+  color: var(--trn-accent);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.trn__ticker-item-del:hover {
+  background: var(--trn-accent);
+  color: white;
+}
+
+.trn__ticker-input-row {
+  display: flex;
+  gap: 12px;
+}
+
+.trn__ticker-input {
+  flex: 1;
+  padding: 14px 20px;
+  background: #f8fafc;
+  border: 2px solid #f1f5f9;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.trn__ticker-input:focus {
+  outline: none;
+  border-color: var(--trn-primary);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(27, 54, 93, 0.05);
+}
+
+.trn__ticker-btn {
+  background: var(--trn-primary);
+  color: white;
+  border: none;
+  padding: 0 30px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.trn__ticker-btn:hover:not(:disabled) {
+  background: #152d4e;
+  transform: translateY(-1px);
+}
+
+/* ── Estado de Operaciones (OpsWidget) ────────────────────────────────── */
+.trn__ops {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--trn-border);
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.trn__ops--activo { border-left: 6px solid var(--trn-success); }
+.trn__ops--inactivo { border-left: 6px solid var(--trn-accent); }
+
+.trn__ops-label {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--trn-primary);
+  margin-right: 12px;
+}
+
+.trn__ops-status-badge {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.trn__ops--activo .trn__ops-status-badge { background: #dcfce7; color: #166534; }
+.trn__ops--inactivo .trn__ops-status-badge { background: #fee2e2; color: #991b1b; }
+
+.trn__ops-motivo {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--trn-accent);
+  background: #fff5f5;
+  padding: 4px 12px;
+  border-radius: 6px;
+}
+
+.trn__ops-details {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 12px;
+  vertical-align: middle;
+}
+
+.trn__ops-explicacion {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--trn-text-sub);
+  font-style: italic;
+  max-width: 400px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trn__ops-btn {
+  padding: 10px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.trn__ops-btn--primary { background: var(--trn-primary); color: white; }
+.trn__ops-btn--secondary { background: #f1f5f9; color: var(--trn-primary); }
+
+/* ── Bloques Horarios ─────────────────────────────────────────────────── */
+.trn__bloque {
+  margin-bottom: 3.5rem;
+}
+
+.trn__bloque-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.trn__bloque-hora {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--trn-primary);
+  letter-spacing: -0.02em;
+}
+
+.trn__bloque-count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--trn-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Grid y Tarjetas ────────────────────────────────────────────────────── */
+.trn__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.trn__card {
+  background: white;
+  border: 1px solid var(--trn-border);
+  border-radius: 16px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.trn__card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.08);
+  border-color: var(--trn-primary);
+}
+
+.trn__card-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.trn__aeronave {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--trn-primary);
+  font-family: monospace;
+}
+
+.trn__card-nombres {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trn__alumno {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--trn-text-main);
+}
+
+.trn__instructor {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--trn-text-sub);
+}
+
+/* ── Tags de Estado ────────────────────────────────────────────────────── */
+.trn__tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trn__tag--gris     { background: #f1f5f9; color: #475569; }
+.trn__tag--naranja  { background: #fff7ed; color: #c2410c; }
+.trn__tag--azul     { background: #eff6ff; color: #1d4ed8; }
+.trn__tag--morado   { background: #f5f3ff; color: #6d28d9; }
+.trn__tag--amarillo { background: #fffbeb; color: #d97706; }
+.trn__tag--verde    { background: #ecfdf5; color: #059669; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .trn { padding: 80px 24px; }
+  .trn__cards { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .trn { padding: 72px 12px 40px; }
+  .trn__top { flex-direction: column; align-items: stretch; gap: 0.75rem; margin-bottom: 1.5rem; }
+  .trn__title { font-size: 1.75rem; }
+  .trn__subtitle { font-size: 0.85rem; }
+  .trn__counter { align-self: flex-start; padding: 8px 16px; font-size: 0.8rem; }
+
+  .trn__ops { flex-direction: column; align-items: stretch; gap: 1rem; padding: 16px; }
+  .trn__ops-label { font-size: 1rem; margin-right: 0; }
+  .trn__ops-motivo { margin-left: 0; margin-top: 4px; text-align: center; }
+
+  .trn__ticker-form { padding: 16px; }
+  .trn__ticker-input-row { flex-direction: column; gap: 8px; }
+  .trn__ticker-btn { padding: 12px; }
+
+  .trn__bloque { margin-bottom: 2rem; }
+  .trn__bloque-header { gap: 10px; margin-bottom: 1rem; }
+  .trn__bloque-hora { font-size: 1.1rem; }
+  
+  .trn__cards { grid-template-columns: 1fr; gap: 1rem; }
+  .trn__card { padding: 16px; }
+}
+
+/* ── Acciones de avance de estado en VueloCard ──────────────────────────── */
+.trn__card-actions {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.trn__btn-avanzar {
+  width: 100%;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--trn-primary) 0%, #2a4a7f 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(27, 54, 93, 0.2);
+}
+
+.trn__btn-avanzar:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(27, 54, 93, 0.3);
+}
+
+.trn__btn-avanzar:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.trn__btn-cancelar {
+  padding: 10px 14px;
+  background: #f1f5f9;
+  color: var(--trn-text-sub);
+  border: 1px solid var(--trn-border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.trn__btn-cancelar:hover {
+  background: #fee2e2;
+  color: var(--trn-accent);
+  border-color: var(--trn-accent);
+}
+
+/* ── Modal inline de tiempo de vuelo ───────────────────────────────────── */
+.trn__tiempo-modal {
+  margin-top: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  animation: trn-fadeIn 0.2s ease-out;
+}
+
+.trn__tiempo-modal-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--trn-text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.trn__tiempo-modal-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.trn__tiempo-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid var(--trn-border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--trn-text-main);
+  background: white;
+  transition: border-color 0.2s;
+  min-width: 0;
+}
+
+.trn__tiempo-input:focus {
+  outline: none;
+  border-color: var(--trn-primary);
+  box-shadow: 0 0 0 3px rgba(27, 54, 93, 0.08);
+}
+
+.trn__ops-bloques-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--trn-accent);
+  margin-left: 8px;
+}
+

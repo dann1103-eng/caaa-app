@@ -1,0 +1,41 @@
+.sp-wrapper {
+  position: relative;
+  display: inline-block;
+  border: 2px dashed #94a3b8;
+  border-radius: 6px;
+  background: #f8fafc;
+  cursor: crosshair;
+  overflow: hidden;
+}
+
+.sp-canvas {
+  display: block;
+  touch-action: none;
+}
+
+.sp-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 13px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.sp-readonly {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.sp-readonly.sp-empty {
+  color: #94a3b8;
+  font-size: 13px;
+}

@@ -1,0 +1,204 @@
+.calendar-wrapper {
+  overflow: auto;
+  max-height: 640px;
+  background: #ffffff;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.calendar-wrapper::-webkit-scrollbar { width: 5px; height: 5px; }
+.calendar-wrapper::-webkit-scrollbar-track { background: transparent; }
+.calendar-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+.calendar {
+  border-collapse: collapse;
+  min-width: 1100px;
+  width: 100%;
+  table-layout: fixed;
+  background: #ffffff;
+  font-family: 'Inter', sans-serif;
+}
+
+.calendar thead th {
+  background: #f8fafc;
+  color: #1e293b;
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 16px 12px;
+  border: 1px solid #f1f5f9;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+.calendar td {
+  border: 1px solid #f1f5f9;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.85rem;
+  height: 52px;
+  vertical-align: middle;
+  color: #1e293b;
+}
+
+.hora-cell {
+  background: #ffffff;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #1e293b;
+  text-align: center;
+  vertical-align: middle;
+  width: 100px;
+  border-right: 3px solid #0d9488 !important;
+  letter-spacing: -0.01em;
+}
+
+.aeronave-cell {
+  background: #f8fafc;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+  width: 110px;
+  border-right: 1px solid #f1f5f9 !important;
+  text-align: left !important;
+  padding-left: 15px !important;
+}
+
+.slot-cell {
+  min-width: 120px;
+  background: #080c15;
+  transition: background 0.15s;
+}
+.slot-cell:not(.disabled):hover { background: #0c1220; }
+
+.slot-cell.disabled {
+  background: #080c15;
+  cursor: not-allowed;
+}
+.slot-cell.disabled .slot-card {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.slot-almuerzo {
+  background: repeating-linear-gradient(
+    45deg,
+    #f8fafc,
+    #f8fafc 10px,
+    #f1f5f9 10px,
+    #f1f5f9 20px
+  );
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Empty cell */
+.slot-empty {
+  color: #1c2e47;
+  font-size: 0.8rem;
+}
+
+.slot-card {
+  background: rgba(0, 201, 167, 0.08);
+  border: 1px solid rgba(0, 201, 167, 0.22);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: left;
+  cursor: grab;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.slot-card:active { cursor: grabbing; }
+.slot-card:hover {
+  border-color: rgba(0, 201, 167, 0.45);
+  box-shadow: 0 0 10px rgba(0, 201, 167, 0.14);
+}
+
+.slot-card .alumno {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #1e293b;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slot-card .instructor {
+  font-size: 0.75rem;
+  color: #64748b;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4px;
+}
+
+.estado-BORRADOR {
+  border-left: 4px solid #94a3b8 !important;
+  background: #f8fafc !important;
+}
+.estado-EN_REVISION {
+  border-left: 4px solid #f59e0b !important;
+  background: #fffcf0 !important;
+}
+.estado-PUBLICADO {
+  border-left: 4px solid #10b981 !important;
+  background: #f0fdfa !important;
+}
+.estado-CANCELADO {
+  border-left: 4px solid #ef4444 !important;
+  background: #fef2f2 !important;
+  opacity: 0.8;
+}
+
+.dirty {
+  outline: 2px dashed #3B82F6;
+  outline-offset: 1px;
+}
+
+.btn-cancelar-vuelo {
+  margin-top: 5px;
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 76, 76, 0.35);
+  background: rgba(255, 76, 76, 0.08);
+  color: #FF4C4C;
+  font-weight: 700;
+  font-size: 0.62rem;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.btn-cancelar-vuelo:hover {
+  background: rgba(255, 76, 76, 0.22);
+  border-color: #FF4C4C;
+}
+
+.btn-reasignar-vuelo {
+  margin-top: 5px;
+  width: 100%;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(217, 158, 46, 0.35);
+  background: rgba(217, 158, 46, 0.08);
+  color: #d69e2e;
+  font-weight: 700;
+  font-size: 0.62rem;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-reasignar-vuelo:hover {
+  background: rgba(217, 158, 46, 0.22);
+  border-color: #d69e2e;
+}

@@ -1,0 +1,73 @@
+# ─── Dependencies ──────────────────────────────────────────────
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# ─── Build artifacts ───────────────────────────────────────────
+dist/
+build/
+**/dist/
+**/build/
+.next/
+out/
+*.tsbuildinfo
+
+# ─── Environment / secrets ─────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+**/.env
+**/.env.local
+**/.env.production
+
+# ─── Logs ──────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+logs/
+
+# ─── OS files ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+desktop.ini
+
+# ─── Editor / IDE ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ─── Supabase ──────────────────────────────────────────────────
+.supabase/
+supabase/.temp/
+supabase/.branches/
+# Mantenemos los dumps SQL en supabase/dump/ por trazabilidad,
+# pero no los datos sensibles regenerables:
+supabase/dump/*.csv
+
+# ─── Backend legacy ────────────────────────────────────────────
+legacy/CAA-backend/uploads/
+legacy/CAA-backend/temp.js
+legacy/CAA-backend/.env
+
+# ─── Frontend ──────────────────────────────────────────────────
+# config.js es runtime override (cada deploy genera el suyo)
+CAA-frontend/public/config.js
+frontend/public/config.js
+
+# Mantenemos config.template.js que sí va al repo
+
+# ─── Misc ──────────────────────────────────────────────────────
+*.local
+.cache/
+.parcel-cache/
+.eslintcache
+coverage/
+.nyc_output/

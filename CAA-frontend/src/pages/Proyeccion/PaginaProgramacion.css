@@ -1,0 +1,556 @@
+/* ── Design Tokens ───────────────────────────────────────────────────────── */
+:root {
+  --pp-bg: #0b0f19;
+  --pp-card-bg: rgba(30, 41, 59, 0.6);
+  --pp-card-border: rgba(255, 255, 255, 0.1);
+  --pp-glass-bg: rgba(255, 255, 255, 0.03);
+  
+  --pp-primary: #3b82f6;
+  --pp-accent: #ef4444;
+  --pp-success: #22c55e;
+  --pp-warning: #f59e0b;
+  
+  --pp-text-bright: #ffffff;
+  --pp-text-main: #cbd5e1;
+  --pp-text-muted: #64748b;
+  
+  --pp-header-h: 80px;
+}
+
+/* ── Reset & Base ───────────────────────────────────────────────────────── */
+.pp {
+  background: var(--pp-bg);
+  color: var(--pp-text-main);
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  height: 100vh;
+  overflow: hidden; 
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.pp__container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px 12px;
+  min-height: 0;
+}
+
+/* Custom Ticker Styles for Proyeccion */
+.pp .ticker-bar {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--pp-card-border);
+  height: 40px;
+}
+
+.pp .ticker-bar__label {
+  background: var(--pp-primary);
+  color: white;
+}
+
+.pp .ticker-bar__text {
+  font-weight: 700;
+  color: var(--pp-text-bright);
+}
+
+/* Background elements for depth */
+.pp::before {
+  content: '';
+  position: absolute;
+  top: -10%;
+  right: -10%;
+  width: 50%;
+  height: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Top Bar ────────────────────────────────────────────────────────────── */
+.pp__topbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--pp-card-border);
+  z-index: 10;
+}
+
+.pp__topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.pp__topbar-label {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--pp-text-muted);
+  text-transform: uppercase;
+}
+
+.pp__topbar-metar-list {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pp-primary);
+}
+
+.pp__topbar-metar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pp__topbar-raw {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.pp__topbar-clock {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--pp-text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
+.pp__topbar-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.pp__topbar-badge--vfr  { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.pp__topbar-badge--mvfr { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.pp__topbar-badge--ifr  { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.pp__topbar-badge--lifr { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.pp__page-hdr {
+  height: var(--pp-header-h);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  z-index: 5;
+}
+
+.pp__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--pp-primary);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.pp__page-title {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--pp-text-bright);
+  margin: 0;
+}
+
+.pp__accent {
+  color: var(--pp-primary);
+}
+
+.pp__hdr-right {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.pp__hdr-clock-new {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+
+.pp__clock-time {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--pp-text-bright);
+  line-height: 1;
+}
+
+.pp__clock-date {
+  font-size: 0.8rem;
+  color: var(--pp-text-muted);
+  text-transform: capitalize;
+}
+
+/* ── Dashboard Layout ───────────────────────────────────────────────────── */
+.pp__dashboard-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 24px;
+  min-height: 0; 
+  margin-top: 16px;
+  height: calc(100vh - var(--pp-header-h) - 100px); /* Adjust for header and topbar/ticker */
+}
+
+.pp__main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+.pp__card {
+  background: var(--pp-card-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--pp-card-border);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.pp__card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.pp__card-head {
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--pp-card-border);
+  flex-shrink: 0;
+}
+
+.pp__card-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--pp-text-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pp__card-title i {
+  color: var(--pp-primary);
+  font-size: 1.1rem;
+}
+
+/* ── Vuelos en Curso Table ─────────────────────────────────────────────── */
+.pp__card:has(.pp__table) {
+  flex: 0 0 auto;
+  max-height: 400px; /* Adjust to show ~4-5 flights */
+}
+
+.pp__tbl-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.pp__tbl-wrap::-webkit-scrollbar { width: 6px; }
+.pp__tbl-wrap::-webkit-scrollbar-track { background: transparent; }
+.pp__tbl-wrap::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+
+.pp__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pp__table th {
+  padding: 12px 24px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--pp-text-muted);
+  text-transform: uppercase;
+  text-align: left;
+  border-bottom: 1px solid var(--pp-card-border);
+  position: sticky;
+  top: 0;
+  background: var(--pp-bg);
+  z-index: 1;
+}
+
+.pp__table td {
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.pp__tbl-person {
+  color: var(--pp-text-bright);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.pp__tbl-sub {
+  font-size: 0.75rem;
+  color: var(--pp-text-muted);
+}
+
+.pp__tbl-aero {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--pp-primary);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+.pp__tbl-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.pp__tbl-badge--envuelo { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.pp__tbl-badge--hangar { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.pp__tbl-badge--regreso { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+
+.pp__tbl-bar-wrap {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  margin-top: 8px;
+}
+
+.pp__tbl-bar {
+  height: 100%;
+  background: var(--pp-primary);
+  box-shadow: 0 0 10px var(--pp-primary);
+}
+
+.pp__tbl-hora {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--pp-text-bright);
+}
+
+/* ── Schedule Column ───────────────────────────────────────────────────── */
+.pp__schedule-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pp__day-tabs {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  background: rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.pp__day-tab {
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: var(--pp-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  font-weight: 800;
+  font-size: 0.75rem;
+}
+
+.pp__day-tab--active {
+  color: var(--pp-text-bright);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: var(--pp-primary);
+}
+
+.pp__day-tab--hoy {
+  color: var(--pp-primary);
+}
+
+.pp__flights-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Custom Scrollbar */
+.pp__flights-list::-webkit-scrollbar { width: 6px; }
+.pp__flights-list::-webkit-scrollbar-track { background: transparent; }
+.pp__flights-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+
+.pp__flight-card {
+  display: grid;
+  grid-template-columns: 100px 1fr 180px;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  align-items: center;
+  transition: background 0.2s ease;
+}
+
+.pp__flight-card:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pp__flight-time {
+  display: flex;
+  flex-direction: column;
+}
+
+.pp__time-val {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--pp-text-bright);
+}
+
+.pp__flight-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.pp__info-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pp__info-main {
+  color: var(--pp-text-bright);
+  font-weight: 700;
+  display: block;
+}
+
+.pp__flight-status {
+  text-align: right;
+}
+
+.pp__info-label {
+  font-size: 0.6rem;
+  color: var(--pp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.pp__status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--pp-text-main);
+}
+
+.pp__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pp-text-muted);
+}
+
+.pp__badge--programado .pp__status-dot { background: var(--pp-primary); box-shadow: 0 0 8px var(--pp-primary); }
+.pp__badge--envuelo .pp__status-dot { background: var(--pp-success); box-shadow: 0 0 8px var(--pp-success); }
+.pp__badge--cancelado .pp__status-dot { background: var(--pp-accent); }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+.pp__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  padding-right: 8px;
+  height: 100%;
+}
+
+.pp__sidebar::-webkit-scrollbar { width: 4px; }
+.pp__sidebar::-webkit-scrollbar-track { background: transparent; }
+.pp__sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+
+/* ── Widgets adjustments ── */
+.pp__sb-card {
+  background: var(--pp-card-bg);
+  border: 1px solid var(--pp-card-border);
+  border-radius: 20px;
+  padding: 20px;
+}
+
+.pp__sb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.pp__sb-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--pp-text-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pp__prox-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.pp__prox-dot {
+  width: 4px;
+  background: var(--pp-card-border);
+  border-radius: 2px;
+}
+
+.pp__prox-dot--active {
+  background: var(--pp-primary);
+}
+
+.pp__prox-hora {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--pp-text-bright);
+}
+
+.pp__prox-sub {
+  font-size: 0.75rem;
+  color: var(--pp-text-muted);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .pp {
+    height: auto;
+  }
+}
+
+@media (min-width: 1900px) {
+  :root {
+    --pp-header-h: 100px;
+  }
+  .pp__page-title { font-size: 2.5rem; }
+  .pp__tbl-person { font-size: 1.2rem; }
+  .pp__tbl-sub { font-size: 1rem; }
+  .pp__tbl-aero { font-size: 1rem; padding: 6px 12px; }
+  .pp__tbl-hora { font-size: 1.6rem; }
+  .pp__time-val { font-size: 1.8rem; }
+  .pp__info-main { font-size: 1.1rem; }
+}

@@ -1,0 +1,249 @@
+/* ── MiHorarioList ─────────────────────────────────────────────────────────── */
+
+.mhl {
+  padding: 0;
+}
+
+/* Estado vacío / cargando */
+.mhl__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 56px 24px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.mhl__state--empty svg {
+  color: #cbd5e1;
+}
+
+.mhl__spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #00C9A7;
+  border-radius: 50%;
+  animation: mhl-spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes mhl-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Lista de días */
+.mhl__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Bloque de día */
+.mhl__day {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mhl__day:last-child {
+  border-bottom: none;
+}
+
+.mhl__day-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px 10px;
+}
+
+.mhl__day-name {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.mhl__day-date {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* Vuelo card */
+.mhl__vuelo {
+  margin: 0 16px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mhl__vuelo:last-child {
+  margin-bottom: 14px;
+}
+
+.mhl__vuelo:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.mhl__vuelo--cancelado {
+  opacity: 0.6;
+}
+
+.mhl__vuelo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mhl__vuelo-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mhl__vuelo-hora {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: 0.01em;
+}
+
+.mhl__vuelo-sep {
+  color: #cbd5e1;
+}
+
+.mhl__vuelo-aeronave {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #475569;
+  background: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-family: 'Outfit', monospace;
+}
+
+.mhl__vuelo-sim {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7c3aed;
+  background: #ede9fe;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+/* Badges de estado */
+.mhl__badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.mhl__badge--publicado  { background: #d1fae5; color: #065f46; }
+.mhl__badge--borrador   { background: #fef3c7; color: #92400e; }
+.mhl__badge--cancelado  { background: #fee2e2; color: #991b1b; }
+.mhl__badge--completado { background: #e0f2fe; color: #0c4a6e; }
+.mhl__badge--en-vuelo   { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+.mhl__badge--ajustado   { background: #e0e7ff; color: #4338ca; }
+
+/* Botones de acción */
+.mhl__vuelo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.mhl__btn {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  letter-spacing: 0.02em;
+}
+
+.mhl__btn:active { transform: scale(0.97); }
+
+.mhl__btn--plan {
+  background: #0f172a;
+  color: #ffffff;
+}
+.mhl__btn--plan:hover { background: #1e293b; }
+
+.mhl__btn--wb {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+.mhl__btn--wb:hover { background: #2563eb; }
+
+.mhl__btn--ls {
+  background: #0369a1;
+  color: #ffffff;
+}
+.mhl__btn--ls:hover { background: #0284c7; }
+
+.mhl__btn--cancel {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+.mhl__btn--cancel:hover { background: #ffedd5; }
+
+.mhl__btn--withdraw {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+.mhl__btn--withdraw:hover { background: #dbeafe; }
+
+.mhl__btn--emergency {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.mhl__btn--emergency:hover { background: #fee2e2; }
+
+.mhl__btn--reporte {
+  background: #059669;
+  color: #ffffff;
+}
+.mhl__btn--reporte:hover { background: #047857; }
+
+.mhl__btn-locked {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 6px 14px;
+  background: #f1f5f9;
+  border-radius: 7px;
+  border: 1px dashed #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* Nota BORRADOR */
+.mhl__vuelo-draft-note {
+  font-size: 0.78rem;
+  color: #92400e;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed #fde68a;
+}

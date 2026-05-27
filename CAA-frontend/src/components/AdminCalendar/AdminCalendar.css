@@ -1,0 +1,662 @@
+.admin-calendar-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: white;
+  border-radius: 12px;
+  padding: 1px; /* To prevent collapse */
+  min-width: 0; /* Prevents flex children from stretching parent */
+  max-width: 100%;
+}
+
+.admin-calendar-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--neutral-border);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-calendar-wrapper {
+  overflow-x: auto;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--neutral-border);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-calendar-modern th {
+  padding: 12px 8px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--neutral-border);
+  border-right: 1px solid var(--neutral-border);
+  text-align: center;
+}
+
+.admin-calendar-modern th.current-day .day-label {
+  color: var(--primary);
+  font-weight: 800;
+  border-bottom: 2px solid var(--primary);
+  display: inline-block;
+  padding-bottom: 2px;
+}
+
+.day-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.corner-cell {
+  width: 80px;
+  background: #f8fafc !important;
+}
+
+.time-cell {
+  width: 80px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+  border-right: 1px solid var(--neutral-border);
+  border-bottom: 1px solid var(--neutral-border);
+  padding: 12px 4px;
+}
+
+.calendar-cell {
+  border-right: 1px solid var(--neutral-border);
+  border-bottom: 1px solid var(--neutral-border);
+  vertical-align: top;
+  padding: 4px;
+  background: #ffffff;
+  transition: background 0.2s;
+  height: 100%; /* Changed from 1px to 100% to fill grid row */
+  display: block;
+}
+
+.calendar-cell:not(.readonly):hover {
+  background: #f8fafc;
+}
+
+.lunch-cell {
+  background: repeating-linear-gradient(
+    45deg,
+    #f1f5f9,
+    #f1f5f9 10px,
+    #f8fafc 10px,
+    #f8fafc 20px
+  ) !important;
+  opacity: 0.8; /* Slight opacity as requested for slot-almuerzo style */
+}
+
+.cell-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 80px;
+}
+
+.flight-card {
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  position: relative;
+  cursor: grab;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.flight-card:active {
+  cursor: grabbing;
+}
+
+.flight-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.flight-card.is-dirty {
+  outline: 2px dashed var(--primary);
+  outline-offset: 1px;
+}
+
+/* ── Status Colors ── */
+.vuelo-card--conflicto {
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+}
+
+.vuelo-card--conflicto-inst {
+  animation: pulse-conflict-inst 2s infinite ease-in-out;
+}
+
+@keyframes pulse-conflict-inst {
+  0% { border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { border-color: #fca5a5; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.flight-card.programado {
+  background: #E8EDF5;
+  border-left: 3px solid #1B365D;
+  color: #1B365D;
+}
+
+.flight-card.progreso {
+  background: #FDF3E7;
+  border-left: 3px solid #7A4A00;
+  color: #7A4A00;
+}
+
+.flight-card.completado {
+  background: #f0fdf4;
+  border-left: 3px solid #16a34a;
+  color: #166534;
+}
+
+.flight-card.cancelado {
+  background: #f1f5f9;
+  border-left: 3px solid #94a3b8;
+  color: #64748b;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.flight-alumno {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.conflict-icon {
+  color: #ef4444;
+  font-weight: 900;
+  font-size: 0.9rem;
+  animation: pulse-warn 2s infinite;
+}
+
+@keyframes pulse-warn {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.flight-card.vuelo-card--conflicto {
+  border: 1.5px solid #ef4444 !important;
+  border-left-width: 6px !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.1);
+}
+
+.flight-aeronave {
+  font-size: 0.65rem;
+  opacity: 0.8;
+  margin-top: 1px;
+}
+
+/* ── Legend ── */
+.calendar-legend {
+  display: flex;
+  gap: 24px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--neutral-border);
+  margin-top: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot.programado { background: #1B365D; }
+.dot.progreso { background: #7A4A00; }
+.dot.completado { background: #16a34a; }
+.dot.lunch { 
+  background: #f8fafc;
+  border: 1px solid var(--neutral-border);
+  background-image: repeating-linear-gradient(45deg, #fff, #fff 2px, #eee 2px, #eee 4px);
+}
+
+/* ── Inline actions ── */
+.flight-cancel-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 0.9rem;
+  opacity: 0.5;
+}
+
+.flight-cancel-btn:hover {
+  opacity: 1;
+}
+
+.flight-instr-mini {
+  margin-top: 4px;
+  display: flex;
+  gap: 2px;
+}
+
+.flight-instr-mini select {
+  font-size: 0.6rem;
+  padding: 1px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,0,0,0.1);
+  background: rgba(255,255,255,0.5);
+  max-width: 100%;
+}
+
+.flight-instr-mini button {
+  background: #16a34a;
+  color: white;
+  border: none;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  cursor: pointer;
+}
+
+.readonly {
+  background-color: #fafafa !important;
+}
+
+/* ── Mode Moving (Touch Fallback) ── */
+.mode-moving .calendar-cell.target-cell:not(.readonly):not(.lunch-cell) {
+  background-color: #f0fdfa; /* Light teal */
+  cursor: cell;
+  border: 1px dashed var(--adm-teal);
+}
+
+.mode-moving .calendar-cell.target-cell:not(.readonly):not(.lunch-cell):hover {
+  background-color: #ccfbf1;
+}
+
+.selected-for-move {
+  outline: 3px solid var(--adm-teal) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+  z-index: 10;
+}
+
+.move-indicator {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--adm-teal);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* ── Popover ── */
+.popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+}
+
+.flight-popover {
+  position: absolute;
+  width: 280px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  z-index: 2000;
+  padding: 20px;
+  border: none;
+  animation: popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+}
+
+/* Sticky popover removed in favor of unified absolute popover */
+
+.pop-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pop-row .pop-field {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--neutral-light);
+}
+
+.pop-alumno {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--primary-dark);
+}
+
+.pop-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.pop-status-badge.programado { background: #E8EDF5; color: #1B365D; }
+.pop-status-badge.progreso { background: #FDF3E7; color: #7A4A00; }
+.pop-status-badge.completado { background: #f0fdf4; color: #166534; }
+.pop-status-badge.cancelado { background: #f1f5f9; color: #64748b; }
+
+.pop-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pop-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pop-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pop-field label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.pop-field select {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--neutral-border);
+  font-size: 0.85rem;
+  background-color: #fff;
+  outline: none;
+}
+
+.pop-field select:focus {
+  border-color: var(--primary);
+}
+
+.pop-field--error select {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+  color: #b91c1c !important;
+}
+
+.pop-alert {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+}
+
+.pop-alert--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.pop-alert--warning {
+  background: #fffbeb;
+  border-color: #fef3c7;
+  color: #92400e;
+}
+
+.pop-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-save {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-save:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-move-v {
+  background: none;
+  border: 1px solid var(--adm-teal);
+  color: var(--adm-teal);
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-move-v:hover {
+  background: rgba(0, 201, 167, 0.05);
+}
+
+.pop-danger-zone {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-reject-v {
+  background: none;
+  border: 1px solid #fdba74; /* Orange-300 */
+  color: #c2410c; /* Orange-700 */
+  padding: 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reject-v:hover {
+  background-color: #fff7ed;
+}
+
+.btn-cancel-v {
+  background: none;
+  border: 1px solid #fecaca; /* Red-200 */
+  color: #b91c1c; /* Red-700 */
+  padding: 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-v:hover {
+  background-color: #fef2f2;
+}
+
+.pop-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Responsiveness ── */
+@media (max-width: 768px) {
+  .admin-calendar-root {
+    border-radius: 0;
+    margin: 0 -12px;
+  }
+
+  .admin-calendar-modern {
+    min-width: 600px;
+  }
+  
+  .corner-cell, .time-cell {
+    width: 50px;
+    font-size: 0.65rem;
+    padding: 8px 2px;
+  }
+
+  .calendar-cell {
+    padding: 2px;
+  }
+
+  .cell-content {
+    min-height: 60px;
+    gap: 2px;
+  }
+
+  .flight-card {
+    padding: 4px 6px;
+    font-size: 0.68rem;
+    border-radius: 4px;
+  }
+
+  .flight-alumno {
+    font-size: 0.68rem;
+  }
+
+  .calendar-legend {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .flight-popover {
+    width: calc(100% - 32px);
+    max-width: 320px;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    top: 50% !important;
+    margin-top: -150px;
+    position: fixed;
+    box-shadow: 0 0 0 100vh rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.2);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-calendar-modern {
+    min-width: 100%;
+    table-layout: auto;
+  }
+
+  .calendar-mobile-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--neutral-border);
+    gap: 10px;
+  }
+
+  .calendar-mobile-nav button {
+    padding: 6px 12px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+  }
+
+  .calendar-mobile-nav button:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .calendar-mobile-nav .nav-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  .time-cell {
+    width: 45px;
+    font-size: 0.6rem;
+    padding: 6px 2px;
+  }
+
+  .day-label {
+    font-size: 0.65rem;
+  }
+
+  .flight-card {
+    padding: 3px 5px;
+  }
+
+  .flight-alumno {
+    font-size: 0.6rem;
+  }
+
+  .flight-aeronave {
+    font-size: 0.55rem;
+  }
+
+  .cell-content {
+    min-height: 45px;
+  }
+}
+

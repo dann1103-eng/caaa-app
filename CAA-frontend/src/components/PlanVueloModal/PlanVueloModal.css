@@ -1,0 +1,234 @@
+.pv-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1rem;
+}
+
+.pv-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Encabezado ─────────────────────────────────────────────────────────── */
+.pv-header {
+  padding: 1.1rem 1.5rem 0.9rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.pv-header-left h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.pv-header-meta {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.pv-estado-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pv-estado-badge--borrador {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.pv-estado-badge--completado {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.pv-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* ── Cuerpo ─────────────────────────────────────────────────────────────── */
+.pv-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Secciones ──────────────────────────────────────────────────────────── */
+.pv-section {
+  margin-bottom: 1.25rem;
+}
+
+.pv-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Grid de campos ─────────────────────────────────────────────────────── */
+.pv-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.pv-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.pv-grid--3 { grid-template-columns: repeat(3, 1fr); }
+.pv-grid--4 { grid-template-columns: repeat(4, 1fr); }
+
+.pv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pv-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.pv-input,
+.pv-select,
+.pv-textarea {
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #111;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.pv-input:focus,
+.pv-select:focus,
+.pv-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.pv-input:read-only,
+.pv-select:disabled {
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+.pv-textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+.pv-radio-group {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.pv-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+/* ── Pie / acciones ─────────────────────────────────────────────────────── */
+.pv-footer {
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex-shrink: 0;
+}
+
+.pv-btn {
+  padding: 7px 18px;
+  border-radius: 7px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pv-btn:hover {
+  background: #f3f4f6;
+}
+
+.pv-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pv-btn--primary {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+}
+
+.pv-btn--primary:hover:not(:disabled) {
+  background: #163059;
+}
+
+.pv-btn--success {
+  background: #16a34a;
+  color: #fff;
+  border-color: #16a34a;
+}
+
+.pv-btn--success:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.pv-loading,
+.pv-error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.pv-error {
+  color: #b91c1c;
+}

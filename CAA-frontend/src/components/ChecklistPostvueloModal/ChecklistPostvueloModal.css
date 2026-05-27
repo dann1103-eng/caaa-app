@@ -1,0 +1,274 @@
+.cpv-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1rem;
+}
+
+.cpv-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 620px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Header ── */
+.cpv-header {
+  padding: 1rem 1.5rem 0.85rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.cpv-logo {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1e3a5f;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.cpv-header-left h2 {
+  margin: 0 0 2px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.cpv-subtitle {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+.cpv-meta {
+  font-size: 0.75rem;
+  color: #374151;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.cpv-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* ── Body ── */
+.cpv-body {
+  padding: 1rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Progress ── */
+.cpv-progress {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1e3a5f;
+  margin-bottom: 0.6rem;
+}
+
+/* ── Checklist ── */
+.cpv-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cpv-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+  border: 1px solid transparent;
+}
+
+.cpv-item:hover {
+  background: #f0f9ff;
+}
+
+.cpv-item--checked {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.cpv-checkbox {
+  font-size: 1.1rem;
+  color: #6b7280;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.cpv-item--checked .cpv-checkbox {
+  color: #16a34a;
+}
+
+.cpv-item-label {
+  font-size: 0.845rem;
+  color: #374151;
+}
+
+.cpv-item--checked .cpv-item-label {
+  color: #166534;
+}
+
+/* ── Secciones ── */
+.cpv-section {
+  margin-bottom: 1.2rem;
+}
+
+.cpv-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 0.6rem;
+}
+
+/* ── Textarea ── */
+.cpv-textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.855rem;
+  resize: vertical;
+  box-sizing: border-box;
+  color: #111;
+}
+
+.cpv-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* ── Firma ── */
+.cpv-firma-row {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.cpv-firma-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cpv-btn-clear {
+  align-self: flex-start;
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.cpv-btn-clear:hover { background: #f3f4f6; }
+
+.cpv-firma-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cpv-firma-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.cpv-firma-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111;
+}
+
+.cpv-firma-lic {
+  font-size: 0.85rem;
+  color: #374151;
+}
+
+/* ── Footer ── */
+.cpv-footer {
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex-shrink: 0;
+}
+
+.cpv-hint {
+  font-size: 0.75rem;
+  color: #f59e0b;
+  margin-right: auto;
+}
+
+.cpv-btn {
+  padding: 7px 18px;
+  border-radius: 7px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cpv-btn:hover    { background: #f3f4f6; }
+.cpv-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.cpv-btn--success {
+  background: #1e3a5f;
+  color: #fff;
+  border-color: #1e3a5f;
+}
+
+.cpv-btn--success:hover:not(:disabled) { background: #163059; }
+
+.cpv-btn--disabled-look {
+  opacity: 0.55;
+}
+
+.cpv-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  margin-bottom: 0.8rem;
+}

@@ -1,0 +1,257 @@
+.ap-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1rem;
+}
+
+.ap-modal {
+  background: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+}
+
+/* ── Encabezado ─────────────────────────────────────────────────────────── */
+.ap-header {
+  padding: 1.1rem 1.5rem 0.9rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.ap-header h2 {
+  margin: 0 0 3px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.ap-header-meta {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.ap-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* ── Selector ───────────────────────────────────────────────────────────── */
+.ap-selector-row {
+  padding: 0.9rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.ap-selector-row .ap-label {
+  white-space: nowrap;
+}
+
+.ap-select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #111;
+  background: #fff;
+}
+
+.ap-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* ── Cuerpo ─────────────────────────────────────────────────────────────── */
+.ap-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ap-placeholder,
+.ap-loading {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.875rem;
+  padding: 2rem 0;
+}
+
+.ap-error {
+  color: #b91c1c;
+  text-align: center;
+  padding: 2rem 0;
+  font-size: 0.875rem;
+}
+
+/* ── Advertencia certificado ────────────────────────────────────────────── */
+.ap-warning {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  border-radius: 7px;
+  padding: 0.6rem 1rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.ap-warning--vencido {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+/* ── Secciones ──────────────────────────────────────────────────────────── */
+.ap-section {
+  margin-bottom: 1.2rem;
+}
+
+.ap-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Grilla de campos ───────────────────────────────────────────────────── */
+.ap-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ap-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.ap-grid--3 { grid-template-columns: repeat(3, 1fr); }
+
+.ap-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ap-label {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.ap-val {
+  font-size: 0.875rem;
+  color: #111;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  padding: 5px 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ap-val--alerta {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.ap-val--vencido {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.ap-dias-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ── Toggle soleado ─────────────────────────────────────────────────────── */
+.ap-soleado-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.ap-soleado-note {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.ap-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 8px;
+  border-radius: 99px;
+  border: 2px solid;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ap-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ap-toggle--on {
+  background: #dcfce7;
+  border-color: #16a34a;
+  color: #15803d;
+}
+
+.ap-toggle--off {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #6b7280;
+}
+
+.ap-toggle-thumb {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.ap-toggle--on .ap-toggle-thumb { background: #16a34a; opacity: 1; }
+.ap-toggle--off .ap-toggle-thumb { background: #9ca3af; opacity: 1; }

@@ -1,0 +1,273 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@700;800&family=Outfit:wght@400;500;700&display=swap');
+
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.header__container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header__logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: #1a202c;
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  cursor: default;
+  transition: none;
+}
+
+/* Removed hover effect */
+
+.header__logo-box {
+  width: 32px;
+  height: 32px;
+  background: #0d9488;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header__logo-icon {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.header__nav {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.header__link {
+  color: #4a5568;
+  text-decoration: none;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: color 0.2s;
+}
+
+.header__link:hover {
+  color: #2d3748;
+}
+
+.header__btn-login {
+  background: #00C9A7;
+  color: #07090F;
+  border: none;
+  padding: 9px 22px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.header__btn-login:hover {
+  background: #00e8c0;
+  box-shadow: 0 0 20px rgba(0, 201, 167, 0.3);
+}
+
+.header__user-box {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.header__user {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  color: #718096;
+  border-right: 1px solid #e2e8f0;
+  padding-right: 20px;
+}
+
+.header__user strong {
+  color: #1a202c;
+  font-weight: 700;
+}
+
+.header__user-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap; /* Default no wrap for desktop */
+}
+
+.header__action-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4a5568;
+  text-decoration: none;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap; /* Prevent text wrapping inside buttons */
+}
+
+.header__action-link:hover {
+  background: #f7fafc;
+  color: #38b2ac;
+}
+
+.header__action-icon {
+  font-size: 1rem;
+}
+
+.header__btn-logout-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 76, 76, 0.2);
+  color: #FF4C4C;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.header__btn-logout-new:hover {
+  background: rgba(255, 76, 76, 0.1);
+  border-color: #FF4C4C;
+  box-shadow: 0 0 15px rgba(255, 76, 76, 0.2);
+}
+
+@media (max-width: 1024px) {
+  .header__container {
+    padding: 0 24px;
+  }
+  
+  .header__user-box {
+    gap: 16px;
+  }
+
+  .header__user {
+    padding-right: 12px;
+  }
+
+  .header__action-link span:not(.header__action-icon) {
+    display: none;
+  }
+  
+  .header__btn-logout-new span:not(.header__action-icon) {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: auto;
+    padding: 10px 0;
+    position: sticky; /* Better for mobile overflow */
+  }
+
+  .header__container {
+    padding: 0 15px;
+    flex-direction: row; /* Keep logo and nav in one row if possible, or stack */
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: space-between;
+  }
+
+  .header__logo {
+    font-size: 1.1rem;
+  }
+
+  .header__nav {
+    width: auto;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .header__user-box {
+    width: auto;
+    gap: 10px;
+  }
+
+  .header__user {
+    display: none;
+  }
+
+  .header__user-actions {
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .header__action-link {
+    padding: 8px;
+  }
+
+  .header__btn-logout-new {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header__container {
+    justify-content: center;
+  }
+  
+  .header__logo {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 5px;
+  }
+
+  .header__nav {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .header__user-actions {
+    width: 100%;
+    justify-content: center;
+    gap: 12px;
+  }
+  
+  .header__action-icon {
+    font-size: 1.3rem;
+  }
+}

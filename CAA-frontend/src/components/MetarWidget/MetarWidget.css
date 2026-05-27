@@ -1,0 +1,177 @@
+/* ── Base ────────────────────────────────────────────────────────────────── */
+.mw {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ── Estados ─────────────────────────────────────────────────────────────── */
+.mw--loading,
+.mw--error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  padding: 0.75rem 1rem;
+}
+
+.mw__spinner {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 2px solid #334155;
+  border-top-color: #60a5fa;
+  border-radius: 50%;
+  animation: mw-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes mw-spin { to { transform: rotate(360deg); } }
+
+.mw__error-icon { font-style: normal; }
+
+.mw__retry {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #334155;
+  color: #94a3b8;
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mw__retry:hover { background: #1e293b; }
+
+/* ── Header (compartido) ─────────────────────────────────────────────────── */
+.mw__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.mw__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0 0 0.1rem;
+}
+
+.mw__updated {
+  font-size: 0.63rem;
+  color: #475569;
+  margin: 0;
+}
+
+/* Badge condición */
+.mw__badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.mw__badge--vfr  { background: #14532d; color: #86efac; }
+.mw__badge--mvfr { background: #1e3a5f; color: #93c5fd; }
+.mw__badge--ifr  { background: #7f1d1d; color: #fca5a5; }
+.mw__badge--lifr { background: #3b0764; color: #d8b4fe; }
+
+/* Ícono condición (widget decoded) */
+.mw__cond-icon {
+  font-size: 1.35rem;
+  color: #fbbf24;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Widget 1: Raw codificado ────────────────────────────────────────────── */
+.mw__raw-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
+  margin: 0 0 0.3rem;
+}
+
+.mw__raw {
+  font-size: 0.72rem;
+  font-family: 'Courier New', monospace;
+  color: #7dd3b0;
+  background: #1e293b;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+/* ── Widget 2: Grid 2×2 decodificado ─────────────────────────────────────── */
+.mw__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.mw__cell {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mw__cell-label {
+  font-size: 0.61rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mw__cell-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  line-height: 1.3;
+}
+
+/* Nubes */
+.mw__nubes {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mw__nubes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.mw__nube-tag {
+  font-size: 0.72rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 1px 7px;
+  color: #94a3b8;
+}

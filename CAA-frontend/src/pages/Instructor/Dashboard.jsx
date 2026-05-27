@@ -1,0 +1,659 @@
+import { useEffect, useState, useCallback, useRef } from "react";
+import { toast } from "sonner";
+import { io as socketIO } from "socket.io-client";
+import Header from "../../components/Header/Header";
+import ToastMantenimiento from "../../components/ToastMantenimiento/ToastMantenimiento";
+import ChecklistPostvueloModal from "../../components/ChecklistPostvueloModal/ChecklistPostvueloModal";
+import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
+import {
+  getVuelosSemana,
+  getMisAlumnos,
+  habilitarVueloExtra,
+  avanzarEstadoVuelo,
+  getReportesPendientes,
+  registrarInasistencia,
+} from "../../services/instructorApi";
+import { SOCKET_URL } from "../../api/axiosConfig";
+import "./Dashboard.css";
+
+const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+const ESTADO_TAG = {
+  PUBLICADO:      { label: "Programado",     cls: "ins__tag--publicado" },
+  PROGRAMADO:     { label: "Programado",     cls: "ins__tag--publicado" },
+  SALIDA_HANGAR:  { label: "Salida hangar",  cls: "ins__tag--salida" },
+  EN_PROGRESO:    { label: "En progreso",    cls: "ins__tag--vuelo" },
+  REGRESO_HANGAR: { label: "Regreso hangar", cls: "ins__tag--regreso" },
+  FINALIZANDO:    { label: "Finalizando",    cls: "ins__tag--finalizando" },
+  COMPLETADO:     { label: "Completado",     cls: "ins__tag--completado" },
+  CANCELADO:      { label: "Cancelado",      cls: "ins__tag--cancelado" },
+};
+
+const BTN_LABEL = {
+  PUBLICADO:      "Salida del Hangar",
+  PROGRAMADO:     "Salida del Hangar",
+  SALIDA_HANGAR:  "En Vuelo",
+  EN_PROGRESO:    "Regreso al Hangar",
+  REGRESO_HANGAR: "Finalizar Vuelo",
+  FINALIZANDO:    "Finalizar Vuelo",
+};
+
+function formatHora(h) { return h?.slice(0, 5) ?? ""; }
+
+function hhmmToMin(hhmm) {
+  const [h, m] = (hhmm || "0:0").split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function calcProgreso(vuelo) {
+  const { estado, estado_desde, duracion_estimada_min } = vuelo;
+
+  if (estado === "PUBLICADO" || estado === "PROGRAMADO") return null;
+  if (estado === "REGRESO_HANGAR" || estado === "FINALIZANDO") return 100;
+  if (estado === "COMPLETADO") return null;
+
+  if (!estado_desde || !duracion_estimada_min) return null;
+  if (estado !== "SALIDA_HANGAR" && estado !== "EN_PROGRESO") return null;
+
+  const total = 9 + duracion_estimada_min + 9;
+  const offsetMin = { SALIDA_HANGAR: 0, EN_PROGRESO: 9 };
+  const elapsed = (Date.now() - new Date(estado_desde).getTime()) / 60000;
+  const totalElapsed = offsetMin[estado] + elapsed;
+
+  return Math.min(99, Math.max(0, Math.round((totalElapsed / total) * 100)));
+}
+
+function EstadoTag({ estado }) {
+  const { label, cls } = ESTADO_TAG[estado] ?? { label: estado, cls: "ins__tag--gris" };
+  return <span className={`ins__tag ${cls}`}>{label}</span>;
+}
+
+// ── Tarjeta de vuelo interactiva ──────────────────────────────────────────
+function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrirReporte, advancing, weekMode, isToday, onRefresh }) {
+  const [progreso, setProgreso] = useState(() => calcProgreso(vuelo));
+  const [tiempoMin, setTiempoMin] = useState("");
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    setProgreso(calcProgreso(vuelo));
+    clearInterval(timerRef.current);
+    const activo = ["SALIDA_HANGAR", "EN_PROGRESO"].includes(vuelo.estado);
+    if (!activo) return;
+    timerRef.current = setInterval(() => {
+      setProgreso(calcProgreso(vuelo));
+    }, 15000);
+    return () => clearInterval(timerRef.current);
+  }, [vuelo.estado, vuelo.estado_desde, vuelo.duracion_estimada_min]);
+
+  const tagInfo = ESTADO_TAG[vuelo.estado] ?? { label: vuelo.estado, cls: "ins__tag--gris" };
+  const showBar = progreso !== null;
+
+  const isFinalizando = vuelo.estado === "FINALIZANDO";
+  const isCompletado  = vuelo.estado === "COMPLETADO";
+  const isAdvancing   = advancing === vuelo.id_vuelo;
+
+  // Bloquear acciones si no es hoy o es semana próxima
+  const esSemanaProxima = weekMode === "next";
+  const esSalidaHangar = vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO";
+  const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const bloqueHabilitado = !esSalidaHangar || ahoraMin >= hhmmToMin(vuelo.hora_inicio);
+  
+  const canOperate = isToday && !esSemanaProxima;
+  const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
+  const btnLabel = isSim && (vuelo.estado === 'PUBLICADO' || vuelo.estado === 'PROGRAMADO')
+    ? "Iniciar Sesión"
+    : BTN_LABEL[vuelo.estado];
+
+  const handleConfirmar = () => {
+    onAvanzar(vuelo.id_vuelo, { tiempo_vuelo_min: 0 });
+  };
+
+  const handleInasistencia = async () => {
+    if (!window.confirm(`¿Registrar inasistencia para ${vuelo.alumno_nombre}?`)) return;
+    onInasistencia(vuelo);
+  };
+
+  const btnDisabled = isAdvancing || !bloqueHabilitado;
+
+  const canMarkInasistencia = !isSim && (vuelo.estado === 'PROGRAMADO' || vuelo.estado === 'PUBLICADO' || vuelo.estado === 'SALIDA_HANGAR');
+  const inasistenciaDisabled = isAdvancing || !bloqueHabilitado;
+
+  const handleAccionPrincipal = () => {
+    if (vuelo.checklist_completado || vuelo.es_inasistencia) {
+      onAbrirReporte(vuelo);
+    } else {
+      onCompletarVuelo(vuelo, isFinalizando ? tiempoMin : null);
+    }
+  };
+
+  return (
+    <div className={`ins__card ins__card--vuelo ${isToday ? "ins__card--today" : ""}`}>
+      <div className="ins__card-header">
+        <div className="ins__card-meta">
+          <span className="ins__card-hora">{formatHora(vuelo.hora_inicio)}</span>
+          <span className="ins__card-sep">·</span>
+          <span className="ins__card-aeronave">{vuelo.aeronave_codigo}</span>
+        </div>
+        <span className={`ins__tag ${tagInfo.cls}`}>{tagInfo.label}</span>
+      </div>
+      <div className="ins__card-alumno">
+        {vuelo.alumno_nombre} {vuelo.alumno_apellido}
+      </div>
+
+      {showBar && (
+        <div className="ins__bar-wrap">
+          <div className="ins__bar-track">
+            <div
+              className={`ins__bar${vuelo.estado === "REGRESO_HANGAR" || vuelo.estado === "FINALIZANDO" ? " ins__bar--full" : ""}`}
+              style={{ width: `${progreso}%` }}
+            />
+          </div>
+          <span className="ins__bar-pct">{progreso}%</span>
+        </div>
+      )}
+
+      {isFinalizando && canOperate && vuelo.es_inasistencia && (
+        <div className="ins__inasistencia-banner">
+          ⚠ Inasistencia detectada: Tiempo de vuelo fijado en 0 min
+        </div>
+      )}
+
+      {isCompletado && vuelo.tiempo_vuelo_min > 0 && (
+        <div className="ins__completado-resumen">
+          Tiempo registrado: <strong>{vuelo.tiempo_vuelo_min} min</strong>
+        </div>
+      )}
+
+      <div className="ins__card-actions">
+        {canOperate && !isCompletado && (
+          <div className="ins__action-row">
+            <div className="ins__btn-group">
+              <button
+                className="ins__btn-avanzar"
+                onClick={handleConfirmar}
+                disabled={btnDisabled}
+              >
+                {isAdvancing ? "Procesando…" : btnLabel}
+              </button>
+              {canMarkInasistencia && (
+                <button 
+                  className="ins__btn-inasistencia" 
+                  onClick={handleInasistencia}
+                  disabled={inasistenciaDisabled}
+                  title={!bloqueHabilitado ? "No se puede registrar inasistencia antes de la hora programada" : ""}
+                >
+                  Inasistencia
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isCompletado && (
+          <div className="ins__report-actions">
+            <button className="ins__btn-reporte" onClick={handleAccionPrincipal}>
+              {vuelo.es_inasistencia 
+                ? "Ver Inasistencia" 
+                : (vuelo.checklist_completado ? "Ver Reporte de Vuelo" : "Completar Checklist")}
+            </button>
+            
+            {vuelo.checklist_completado && (
+              <button className="ins__btn-revisar-checklist" onClick={() => onCompletarVuelo(vuelo)}>
+                <i className="bi bi-card-checklist"></i> Revisar Checklist Post-Vuelo
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Fila de alumno ─────────────────────────────────────────────────────────
+function AlumnoFila({ alumno, semana, onGuardado }) {
+  const [nuevoLimiteAvion, setNuevoLimiteAvion] = useState("");
+  const [nuevoLimiteSimulador, setNuevoLimiteSimulador] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleGuardar = async () => {
+    const limAvion = nuevoLimiteAvion.trim() === "" ? alumno.limite_vuelos_avion : Number(nuevoLimiteAvion);
+    const limSim = nuevoLimiteSimulador.trim() === "" ? alumno.limite_vuelos_simulador : Number(nuevoLimiteSimulador);
+
+    if (isNaN(limAvion) || limAvion < 0 || limAvion > 6 || isNaN(limSim) || limSim < 0 || limSim > 6) {
+      setError("Valores entre 0 y 6");
+      return;
+    }
+
+    setError("");
+    setSaving(true);
+    try {
+      await habilitarVueloExtra(alumno.id_alumno, semana.id_semana, limAvion, limSim);
+      setNuevoLimiteAvion("");
+      setNuevoLimiteSimulador("");
+      onGuardado(alumno.id_alumno, limAvion, limSim);
+      toast.success("Límites actualizados");
+    } catch (e) {
+      setError(e.response?.data?.message || "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <tr className="ins__tr">
+      <td className="ins__td">
+        <div className="ins__alumno-nombre">
+          {alumno.nombre} {alumno.apellido}
+        </div>
+        {alumno.numero_licencia && (
+          <div className="ins__alumno-lic">{alumno.numero_licencia}</div>
+        )}
+      </td>
+      <td className="ins__td ins__td--center">
+        {alumno.soleado ? (
+          <span className="ins__badge ins__badge--soleado">Soleado</span>
+        ) : (
+          <span className="ins__badge ins__badge--dual">Dual</span>
+        )}
+      </td>
+      <td className="ins__td ins__td--center">
+        <div className="ins__limite-display">
+          <span title="Límite Avión">✈ {alumno.limite_vuelos_avion ?? 3}</span>
+          <span className="ins__limite-sep">·</span>
+          <span title="Límite Simulador">💻 {alumno.limite_vuelos_simulador ?? 3}</span>
+        </div>
+      </td>
+      <td className="ins__td">
+        {semana ? (
+          <div className="ins__limite-dual-wrap">
+            <div className="ins__limite-field">
+              <label>Avión</label>
+              <input
+                className="ins__limite-input"
+                type="number"
+                min={0}
+                max={6}
+                value={nuevoLimiteAvion}
+                placeholder="0-6"
+                onChange={(e) => { setNuevoLimiteAvion(e.target.value); setError(""); }}
+              />
+            </div>
+            <div className="ins__limite-field">
+              <label>Sim.</label>
+              <input
+                className="ins__limite-input"
+                type="number"
+                min={0}
+                max={6}
+                value={nuevoLimiteSimulador}
+                placeholder="0-6"
+                onChange={(e) => { setNuevoLimiteSimulador(e.target.value); setError(""); }}
+              />
+            </div>
+            <button
+              className="ins__limite-btn"
+              disabled={saving || (!nuevoLimiteAvion.trim() && !nuevoLimiteSimulador.trim())}
+              onClick={handleGuardar}
+            >
+              {saving ? "…" : "Actualizar"}
+            </button>
+          </div>
+        ) : (
+          <span className="ins__sin-semana">Sin semana próxima</span>
+        )}
+        {error && <div className="ins__fila-error">{error}</div>}
+      </td>
+    </tr>
+  );
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
+export default function InstructorDashboard() {
+  const [weekMode, setWeekMode] = useState("current");
+
+  const [vuelos, setVuelos]               = useState([]);
+  const [semana, setSemana]               = useState(null);
+  const [alumnos, setAlumnos]             = useState([]);
+  const [semanaProxima, setSemanaProxima] = useState(null);
+  const [advancing, setAdvancing]         = useState(null);
+  const [searchTerm, setSearchTerm]       = useState("");
+
+  const [loadingVuelos, setLoadingVuelos]   = useState(true);
+  const [loadingAlumnos, setLoadingAlumnos] = useState(true);
+
+  // Checklist post-vuelo
+  const [checklistModal, setChecklistModal] = useState(null); // { vuelo, tiempoMin }
+
+  // Reportes pendientes de firma
+  const [reportesPendientes, setReportesPendientes]   = useState([]);
+  const [loadingReportes, setLoadingReportes]         = useState(true);
+  const [reporteModal, setReporteModal]               = useState(null); // vuelo
+
+  const fetchVuelos = useCallback(async () => {
+    try {
+      const data = await getVuelosSemana(weekMode);
+      setSemana(data.semana);
+      setVuelos(data.vuelos);
+    } catch { 
+      setVuelos([]);
+    } finally {
+      setLoadingVuelos(false);
+    }
+  }, [weekMode]);
+
+  const cargarReportesPendientes = useCallback(async () => {
+    try {
+      const data = await getReportesPendientes();
+      setReportesPendientes(data);
+    } catch { /* silencioso */ }
+  }, []);
+
+  // Carga inicial
+  useEffect(() => {
+    fetchVuelos();
+    getMisAlumnos()
+      .then((data) => { setAlumnos(data.alumnos); setSemanaProxima(data.semana); })
+      .catch(() => {})
+      .finally(() => setLoadingAlumnos(false));
+    cargarReportesPendientes().finally(() => setLoadingReportes(false));
+  }, [fetchVuelos, cargarReportesPendientes]);
+
+  // Polling 30 s (solo semana actual)
+  useEffect(() => {
+    if (weekMode !== "current") return;
+    const t = setInterval(fetchVuelos, 30000);
+    return () => clearInterval(t);
+  }, [weekMode, fetchVuelos]);
+
+  // Socket.io tiempo real
+  useEffect(() => {
+    const socket = socketIO(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
+
+    socket.on("vuelo_estado_changed", ({ id_vuelo, estado, registrado_en, duracion_estimada_min, tiempo_vuelo_min, es_inasistencia }) => {
+      setVuelos((prev) =>
+        prev.map((v) => {
+          if (v.id_vuelo !== id_vuelo) return v;
+          const updated = { ...v, estado, estado_desde: registrado_en };
+          if (duracion_estimada_min != null) updated.duracion_estimada_min = duracion_estimada_min;
+          if (tiempo_vuelo_min != null) updated.tiempo_vuelo_min = tiempo_vuelo_min;
+          if (es_inasistencia != null) updated.es_inasistencia = es_inasistencia;
+          
+          // Si el estado cambió a COMPLETADO, abrimos automáticamente el reporte
+          if (estado === "COMPLETADO" && v.estado !== "COMPLETADO") {
+            setReporteModal(updated);
+          }
+          
+          return updated;
+        })
+      );
+    });
+
+    return () => socket.disconnect();
+  }, []);
+
+  const handleAvanzar = async (id_vuelo, body) => {
+    setAdvancing(id_vuelo);
+    try {
+      const resultado = await avanzarEstadoVuelo(id_vuelo, body);
+      setVuelos((prev) =>
+        prev.map((v) => {
+          if (v.id_vuelo !== resultado.id_vuelo) return v;
+          const updated = { ...v, estado: resultado.estado, estado_desde: resultado.registrado_en };
+          if (resultado.duracion_estimada_min != null) updated.duracion_estimada_min = resultado.duracion_estimada_min;
+          if (resultado.tiempo_vuelo_min != null) updated.tiempo_vuelo_min = resultado.tiempo_vuelo_min;
+          return updated;
+        })
+      );
+    } catch (e) {
+      toast.error(e.response?.data?.message || "No se pudo avanzar el estado");
+      fetchVuelos();
+    } finally {
+      setAdvancing(null);
+    }
+  };
+
+  const handleInasistencia = async (vuelo) => {
+    setAdvancing(vuelo.id_vuelo);
+    try {
+      await registrarInasistencia(vuelo.id_vuelo);
+      toast.success("Inasistencia registrada");
+      
+      // Limpieza de UI: Cerrar cualquier modal abierto y refrescar
+      setChecklistModal(null);
+      setReporteModal(null);
+      fetchVuelos();
+      
+      // Opcional: Abrir reporte si se desea, pero el usuario pidió "refrescar inmediatamente sin intentar abrir Checklist"
+      // setReporteModal({ ...vuelo, es_inasistencia: true });
+    } catch (e) {
+      toast.error("Error al registrar inasistencia");
+    } finally {
+      setAdvancing(null);
+    }
+  };
+
+  const handleAbrirChecklist = (vuelo, tiempoMin) => {
+    if (vuelo.es_inasistencia) return; // Bypass de seguridad: inasistencias no disparan formularios
+    setChecklistModal({ vuelo, tiempoMin: parseInt(tiempoMin, 10) });
+  };
+
+  const handleChecklistCompletado = async () => {
+    setChecklistModal(null);
+    fetchVuelos();
+    cargarReportesPendientes();
+  };
+
+  const handleGuardado = (id_alumno, limAvion, limSim) => {
+    setAlumnos((prev) =>
+      prev.map((a) => a.id_alumno === id_alumno ? { ...a, limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim } : a)
+    );
+  };
+
+  // Agrupar por día
+  const porDia = {};
+  for (const v of vuelos) {
+    if (!porDia[v.dia_semana]) porDia[v.dia_semana] = [];
+    porDia[v.dia_semana].push(v);
+  }
+  const dias = Object.keys(porDia).map(Number).sort();
+  const hoyNum = new Date().getDay(); 
+  const diaHoyDb = hoyNum === 0 ? 7 : hoyNum; // Ajustar si domingo es 7
+
+  return (
+    <>
+      <Header />
+      <ToastMantenimiento />
+
+      {checklistModal && (
+        <ChecklistPostvueloModal
+          id_vuelo={checklistModal.vuelo.id_vuelo}
+          vueloInfo={checklistModal.vuelo}
+          tiempoVueloMin={checklistModal.tiempoMin}
+          onClose={() => setChecklistModal(null)}
+          onCompleted={handleChecklistCompletado}
+        />
+      )}
+
+      {reporteModal && (
+        <ReporteVueloModal
+          id_vuelo={reporteModal.id_vuelo}
+          mode="instructor"
+          onClose={() => { 
+            setReporteModal(null); 
+            cargarReportesPendientes(); 
+            fetchVuelos(); 
+          }}
+        />
+      )}
+
+      <div className="ins">
+        <div className="ins__top">
+          <div>
+            <p className="ins__eyebrow">Panel de instructor</p>
+            <h2 className="ins__title">Mi actividad semanal</h2>
+            <p className="ins__subtitle">Gestioná tus vuelos y alumnos asignados.</p>
+          </div>
+          <div className="ins__tabs">
+            <button
+              className={`ins__tab ${weekMode === "current" ? "ins__tab--active" : ""}`}
+              onClick={() => { setWeekMode("current"); setLoadingVuelos(true); }}
+            >
+              Semana actual
+            </button>
+            <button
+              className={`ins__tab ${weekMode === "next" ? "ins__tab--active" : ""}`}
+              onClick={() => { setWeekMode("next"); setLoadingVuelos(true); }}
+            >
+              Semana siguiente
+            </button>
+          </div>
+        </div>
+
+        <div className="ins__section">
+          {loadingVuelos ? (
+            <p className="ins__loading">Cargando horario…</p>
+          ) : vuelos.length === 0 ? (
+            <p className="ins__empty">No tenés vuelos programados para esta semana.</p>
+          ) : (
+            <div className="ins__semana-grid">
+              {dias.map((dia) => (
+                <div key={dia} className="ins__day-group">
+                  <div className="ins__day-header">
+                    <span className="ins__day-name">{DIAS[dia]}</span>
+                    {dia === diaHoyDb && weekMode === "current" && (
+                      <span className="ins__day-today">Hoy</span>
+                    )}
+                  </div>
+                  <div className="ins__day-cards">
+                    {porDia[dia].map((v) => (
+                      <VueloCard
+                        key={v.id_vuelo}
+                        vuelo={v}
+                        onAvanzar={handleAvanzar}
+                        onInasistencia={handleInasistencia}
+                        onCompletarVuelo={handleAbrirChecklist}
+                        onAbrirReporte={(vl) => setReporteModal(vl)}
+                        onRefresh={fetchVuelos}
+                        advancing={advancing}
+                        weekMode={weekMode}
+                        isToday={dia === diaHoyDb && weekMode === "current"}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="ins__section">
+          <h3 className="ins__section-title">
+            <i className="bi bi-file-earmark-text" style={{ color: 'var(--ins-accent)' }}></i>
+            Reportes enviados al alumno
+            {reportesPendientes.length > 0 && (
+              <span className="ins__badge-count">{reportesPendientes.length}</span>
+            )}
+          </h3>
+          {loadingReportes ? (
+            <p className="ins__loading">Cargando reportes…</p>
+          ) : reportesPendientes.length === 0 ? (
+            <p className="ins__empty">No hay reportes pendientes de firma del alumno.</p>
+          ) : (
+            <div className="ins__table-wrap">
+              <table className="ins__table">
+                <thead>
+                  <tr>
+                    <th className="ins__th">Alumno</th>
+                    <th className="ins__th">Aeronave</th>
+                    <th className="ins__th">Fecha</th>
+                    <th className="ins__th ins__th--center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportesPendientes.map((r) => (
+                    <tr key={r.id_vuelo} className="ins__tr">
+                      <td className="ins__td">{r.alumno_nombre} {r.alumno_apellido}</td>
+                      <td className="ins__td">{r.aeronave_codigo}</td>
+                      <td className="ins__td">
+                        {r.fecha_vuelo ? new Date(r.fecha_vuelo).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                      </td>
+                      <td className="ins__td ins__td--center">
+                        <button className="ins__btn-reporte" onClick={() => setReporteModal(r)}>Ver reporte</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="ins__section ins__section--alumnos">
+          <h3 className="ins__section-title">
+            <i className="bi bi-people" style={{ color: 'var(--ins-accent)' }}></i>
+            Mis alumnos asignados
+          </h3>
+          {semanaProxima && (
+            <p className="ins__semana-label">
+              <i className="bi bi-calendar-event"></i> Límites para semana próxima:{" "}
+              <strong>
+                {new Date(semanaProxima.fecha_inicio).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}
+                {" — "}
+                {new Date(semanaProxima.fecha_fin).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}
+              </strong>
+            </p>
+          )}
+
+          <div className="ins__filters-alumnos">
+            <div className="ins__search-group">
+              <i className="bi bi-search"></i>
+              <input 
+                type="text" 
+                placeholder="Buscar alumno por nombre..." 
+                className="ins__search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {loadingAlumnos ? (
+            <p className="ins__loading">Cargando alumnos…</p>
+          ) : alumnos.length === 0 ? (
+            <p className="ins__empty">No tenés alumnos asignados actualmente.</p>
+          ) : (
+            <div className="ins__table-wrap">
+              <table className="ins__table">
+                <thead>
+                  <tr>
+                    <th className="ins__th">Alumno</th>
+                    <th className="ins__th ins__th--center">Condición</th>
+                    <th className="ins__th ins__th--center">Límite actual</th>
+                    <th className="ins__th">Ajustar límite</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {alumnos
+                    .filter(a => a.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map((a) => (
+                      <AlumnoFila
+                        key={a.id_alumno}
+                        alumno={a}
+                        semana={semanaProxima}
+                        onGuardado={handleGuardado}
+                      />
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}

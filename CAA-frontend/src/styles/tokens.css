@@ -1,0 +1,182 @@
+/* ============================================================================
+   CAAA — Design tokens
+   Fuente única de verdad. Importar antes de cualquier CSS del proyecto.
+   Si necesitas un color o un tamaño, viene de aquí. No invente literales.
+   ========================================================================= */
+
+/* ─── Fuentes ─────────────────────────────────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+:root {
+  /* ───── Color: neutros tintados (hue 250 — azul institucional) ─────── */
+  --c-ink-1:    oklch(20% 0.020 250);
+  --c-ink-2:    oklch(38% 0.015 250);
+  --c-ink-3:    oklch(55% 0.010 250);
+  --c-ink-4:    oklch(72% 0.008 250);
+
+  --c-line-1:   oklch(92% 0.008 250);
+  --c-line-2:   oklch(88% 0.010 250);
+  --c-line-3:   oklch(80% 0.012 250);
+
+  --c-surface-0: oklch(99.2% 0.004 250);
+  --c-surface-1: oklch(98.5% 0.005 250);
+  --c-surface-2: oklch(96.5% 0.008 250);
+  --c-surface-3: oklch(94% 0.010 250);
+
+  /* ───── Marca CAAA: azul-cielo profundo ────────────────────────────── */
+  --c-brand-50:  oklch(96% 0.030 245);
+  --c-brand-100: oklch(90% 0.060 245);
+  --c-brand-200: oklch(82% 0.090 245);
+  --c-brand-300: oklch(70% 0.115 245);
+  --c-brand-500: oklch(48% 0.155 245);
+  --c-brand-700: oklch(35% 0.140 245);
+  --c-brand-900: oklch(22% 0.080 245);
+
+  /* ───── Acento verde aeronáutico (luz de pista / OK) ───────────────── */
+  --c-accent-50:  oklch(95% 0.035 155);
+  --c-accent-100: oklch(88% 0.080 155);
+  --c-accent-300: oklch(70% 0.130 155);
+  --c-accent-500: oklch(55% 0.170 155);
+  --c-accent-700: oklch(40% 0.140 155);
+
+  /* ───── Semánticos ─────────────────────────────────────────────────── */
+  --c-danger-50:  oklch(95% 0.030 25);
+  --c-danger-100: oklch(88% 0.075 25);
+  --c-danger-500: oklch(55% 0.190 25);
+  --c-danger-700: oklch(40% 0.170 25);
+
+  --c-warn-50:    oklch(96% 0.040 75);
+  --c-warn-100:   oklch(90% 0.080 75);
+  --c-warn-500:   oklch(70% 0.150 75);
+  --c-warn-700:   oklch(50% 0.140 65);
+
+  --c-info-50:    oklch(96% 0.030 230);
+  --c-info-100:   oklch(90% 0.065 230);
+  --c-info-500:   oklch(58% 0.140 230);
+  --c-info-700:   oklch(42% 0.130 230);
+
+  /* ───── Tipografía ─────────────────────────────────────────────────── */
+  --font-sans: "Inter", "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-xs:    11px;
+  --text-sm:    13px;
+  --text-base:  14px;
+  --text-md:    16px;
+  --text-lg:    18px;
+  --text-xl:    22px;
+  --text-2xl:   28px;
+  --text-3xl:   36px;
+  --text-4xl:   48px;
+
+  --leading-tight: 1.2;
+  --leading-base:  1.5;
+  --leading-relax: 1.65;
+
+  --tracking-tight: -0.01em;
+  --tracking-base:  0;
+  --tracking-wide:  0.04em;
+  --tracking-wider: 0.08em;
+
+  /* ───── Spacing (escala 4px) ──────────────────────────────────────── */
+  --sp-1:   4px;
+  --sp-2:   8px;
+  --sp-3:   12px;
+  --sp-4:   16px;
+  --sp-5:   20px;
+  --sp-6:   24px;
+  --sp-8:   32px;
+  --sp-10:  40px;
+  --sp-14:  56px;
+  --sp-18:  72px;
+  --sp-24:  96px;
+  --sp-32:  128px;
+
+  /* ───── Radius ─────────────────────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* ───── Elevation (sutil, sin sombras pesadas) ────────────────────── */
+  --shadow-sm: 0 1px 0 oklch(20% 0.020 250 / 0.04);
+  --shadow-md: 0 1px 2px oklch(20% 0.020 250 / 0.06),
+               0 0 0 1px var(--c-line-1);
+  --shadow-lg: 0 8px 24px oklch(20% 0.020 250 / 0.08),
+               0 0 0 1px var(--c-line-2);
+  --shadow-focus: 0 0 0 3px oklch(48% 0.155 245 / 0.18);
+
+  /* ───── Motion ────────────────────────────────────────────────────── */
+  --ease-out:      cubic-bezier(0.22, 1, 0.36, 1);   /* quart */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.30, 1);   /* expo */
+  --dur-fast: 120ms;
+  --dur-med:  220ms;
+  --dur-slow: 380ms;
+
+  /* ───── Layout fijos ──────────────────────────────────────────────── */
+  --topbar-h: 56px;
+  --sidebar-w: 244px;
+  --content-max: 1280px;
+  --content-max-alumno: 1080px;
+}
+
+/* ─── Reset + base global ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background-color: var(--c-surface-0);
+  color: var(--c-ink-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--c-ink-1);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  font-weight: 700;
+}
+
+p { margin: 0; }
+button { font-family: inherit; }
+
+a { color: var(--c-brand-700); text-decoration: none; }
+a:hover { color: var(--c-brand-500); }
+
+/* ─── Helpers ──────────────────────────────────────────────────────── */
+.u-mono     { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.u-tabular  { font-variant-numeric: tabular-nums; }
+.u-label    { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-wide); color: var(--c-ink-3); font-weight: 600; }
+.u-muted    { color: var(--c-ink-3); }
+
+/* ─── Scrollbars discretos ─────────────────────────────────────────── */
+*::-webkit-scrollbar           { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track     { background: transparent; }
+*::-webkit-scrollbar-thumb     { background: var(--c-line-2); border-radius: 999px; border: 2px solid var(--c-surface-0); }
+*::-webkit-scrollbar-thumb:hover { background: var(--c-line-3); }
+
+/* ─── Focus consistente ────────────────────────────────────────────── */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--radius-sm);
+}
+
+/* ─── Reduced motion ──────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

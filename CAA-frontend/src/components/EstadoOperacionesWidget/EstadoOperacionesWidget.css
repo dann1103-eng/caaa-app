@@ -1,0 +1,83 @@
+/* ── EstadoOperacionesWidget ───────────────────────────────────────────────── */
+
+.eow {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.eow__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.eow__title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.eow__badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.eow__badge--activo  { background: #d1fae5; color: #065f46; }
+.eow__badge--inactivo { background: #fee2e2; color: #991b1b; }
+
+.eow__body {
+  padding: 14px 18px;
+}
+
+.eow__body--loading,
+.eow__body--error {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  padding: 14px 18px;
+}
+
+.eow__indicator {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.eow__dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 3px;
+}
+
+.eow__indicator--on .eow__dot {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  animation: eow-pulse 2.5s ease-in-out infinite;
+}
+
+.eow__indicator--off .eow__dot {
+  background: #ef4444;
+}
+
+@keyframes eow-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+  50%       { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.1); }
+}
+
+.eow__text {
+  font-size: 0.83rem;
+  color: #475569;
+  line-height: 1.5;
+}

@@ -1,0 +1,62 @@
+# CAAA · Supabase CLI config
+# Ver https://supabase.com/docs/guides/local-development/cli/config
+
+project_id = ""  # ← ponelo después con: supabase link --project-ref <ref>
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[functions]
+verify_jwt = false  # JWT custom — verificamos en _shared/auth.ts
+
+# Cada function deshabilita verify_jwt explícitamente.
+# Esto es CRÍTICO: si Supabase verifica el token con su auth nativa, rechaza
+# cualquier token custom porque no fue emitido por auth.users.
+
+[functions.auth]
+verify_jwt = false
+
+[functions.administracion]
+verify_jwt = false
+
+[functions.alumno]
+verify_jwt = false
+
+[functions.agendar]
+verify_jwt = false
+
+[functions.admin]
+verify_jwt = false
+
+[functions.programacion]
+verify_jwt = false
+
+[functions.turno]
+verify_jwt = false
+
+[functions.instructor]
+verify_jwt = false
+
+[functions.usuario]
+verify_jwt = false
+
+[functions.calendario]
+verify_jwt = false
+
+[functions.metar]
+verify_jwt = false
+
+[realtime]
+enabled = true

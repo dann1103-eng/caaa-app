@@ -1,0 +1,4 @@
+window.__APP_CONFIG__ = {
+  API_URL: "${VITE_API_URL}",
+  LOADSHEET_URL: "${VITE_LOADSHEET_URL}"
+};
