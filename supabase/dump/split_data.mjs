@@ -1,7 +1,14 @@
 import fs from "node:fs";
 
 // Tablas catálogo: idempotentes. Agregamos ON CONFLICT DO NOTHING para que las migraciones se puedan re-correr.
+// IMPORTANTE: el orden importa cuando hay FK entre catálogos. Las tablas se insertan
+// en el orden en que aparecen en el dump, pero usamos SET session_replication_role = replica
+// para bypasear FK checks durante la carga (re-habilitadas al final).
+//
+// `horas_vuelo_aeronave` se EXCLUYE de catálogo: tiene FK a vuelo (que es operativo).
+// `aeronave` se INCLUYE en catálogo: es reference data estática y otros catálogos la referencian.
 const CATALOG = new Set([
+  "aeronave",                        // padre de tarifas, licencia_aeronave, mantenimiento
   "unidad_teorica",
   "documento_requerido_catalogo",
   "medico_autorizado",
@@ -14,7 +21,6 @@ const CATALOG = new Set([
   "wb_plantilla",
   "licencia",
   "licencia_aeronave",
-  "horas_vuelo_aeronave",
   "webhook_endpoint"
 ]);
 
@@ -31,7 +37,20 @@ const lines = src.split("\n");
 const headerCatalog = [
   "-- ============================================================================",
   "-- CAAA · Seeds de catálogo (idempotente)",
+  "--",
+  "-- Bypasea FK checks durante la carga (session_replication_role = replica)",
+  "-- para evitar errores de orden entre tablas con relaciones cruzadas. Las FK",
+  "-- siguen siendo validadas en runtime para todas las queries normales.",
   "-- ============================================================================",
+  "",
+  "BEGIN;",
+  "SET session_replication_role = 'replica';",
+  ""
+];
+const footerCatalog = [
+  "",
+  "SET session_replication_role = 'origin';",
+  "COMMIT;",
   ""
 ];
 const headerOps = [
@@ -102,7 +121,7 @@ for (const line of lines) {
 }
 flushBuffer();
 
-fs.writeFileSync("data_catalog.sql", headerCatalog.concat(catalogOut).join("\n"));
+fs.writeFileSync("data_catalog.sql", headerCatalog.concat(catalogOut).concat(footerCatalog).join("\n"));
 fs.writeFileSync("data_operational.sql", headerOps.concat(opsOut).join("\n"));
 
 console.log("Catalog lines:", catalogOut.length);

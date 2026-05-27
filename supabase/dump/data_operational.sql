@@ -3,20 +3,6 @@
 -- En producción, NO correr este archivo: deja la app llenar las tablas.
 -- ============================================================================
 
--- ── aeronave ────────────────────────────────────
---
-
-
-INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (5, 'SIM-1', 'SIMULADOR', 'SIMULADOR', true, NULL, NULL, '[]', 0.00, NULL, NULL, 'ACTIVO');
-INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (2, 'YS-333-PE', 'TOMAHAWK', 'AVION', true, 'Amarillo', 3, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 0.00, 50.00, '50HR', 'ACTIVO');
-INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (4, 'YS-127-P', 'ARROW', 'AVION', true, 'Blanco y rojo', 4, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 0.00, 50.00, '50HR', 'ACTIVO');
-INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (3, 'YS-270-P', 'CHEROKEE', 'AVION', true, 'Blanco y rojo', 2, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 3.50, 50.00, '50HR', 'ACTIVO');
-INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (1, 'YS-334-PE', 'CESSNA-152', 'AVION', true, 'Blanco y azul', 1, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 47.00, 50.00, '50HR', 'ACTIVO');
-
-
-
---
-
 -- ── usuario ────────────────────────────────────
 --
 
@@ -244,6 +230,19 @@ INSERT INTO public.factura (id, numero_correlativo, id_alumno, fecha_emision, su
 --
 
 
+
+
+
+--
+
+-- ── horas_vuelo_aeronave ────────────────────────────────────
+--
+
+
+INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (2, 3, 12, 1.00, 1.00, '2026-04-08 09:05:30.190049');
+INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (3, 3, 13, 1.17, 2.17, '2026-04-08 10:02:18.056504');
+INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (4, 3, 14, 1.33, 3.50, '2026-04-08 10:25:34.523434');
+INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (12, 1, NULL, 47.00, 47.00, '2026-04-08 21:16:41.446922');
 
 
 

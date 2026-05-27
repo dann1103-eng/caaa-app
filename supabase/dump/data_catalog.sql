@@ -1,6 +1,13 @@
 -- ============================================================================
 -- CAAA · Seeds de catálogo (idempotente)
+--
+-- Bypasea FK checks durante la carga (session_replication_role = replica)
+-- para evitar errores de orden entre tablas con relaciones cruzadas. Las FK
+-- siguen siendo validadas en runtime para todas las queries normales.
 -- ============================================================================
+
+BEGIN;
+SET session_replication_role = 'replica';
 
 -- ── wb_plantilla ────────────────────────────────────
 --
@@ -12,6 +19,20 @@ INSERT INTO public.wb_plantilla (id_wb_plantilla, nombre, unidad_arm, empty_weig
 INSERT INTO public.wb_plantilla (id_wb_plantilla, nombre, unidad_arm, empty_weight, empty_weight_arm, empty_weight_moment, max_takeoff_weight, max_landing_weight, fuel_capacity_gal, fuel_usable_gal, fuel_burn_gal_hr, estaciones, creado_en, limits_normal, limits_utility, fuel_lb_gal, moment_div1000, fuel_burn_note) VALUES (2, 'PA28-180', 'inches', 1310.00, 86.700, 113577.00, 2450.00, 2450.00, 50.00, 48.00, 8.00, '[{"id": "oil", "arm": 27.5, "is_oil": true, "nombre": "Oil (8qt max, 7lb/gal)", "is_fixed": true, "max_weight": 14, "fixed_weight": 14}, {"id": "front", "arm": 80.5, "nombre": "Front Seat L & R", "max_weight": 400}, {"id": "fuel", "arm": 95, "nombre": "Fuel (48 gal useable)", "is_fuel": true, "max_gal": 48, "max_weight": null}, {"id": "rear", "arm": 118.1, "nombre": "Rear Seat L & R", "max_weight": 300}, {"id": "bag", "arm": 142.8, "nombre": "Baggage (200 lb max)", "max_weight": 200}]', '2026-03-21 01:37:29.647696', '[{"w": 1400, "aft": 93, "fwd": 81}, {"w": 1500, "aft": 93, "fwd": 81}, {"w": 2000, "aft": 93, "fwd": 82.5}, {"w": 2100, "aft": 93, "fwd": 84}, {"w": 2450, "aft": 93.5, "fwd": 87.72}]', '[{"w": 1400, "aft": 89, "fwd": 81}, {"w": 1950, "aft": 89, "fwd": 85}]', 6.00, false, '8 gal/hr') ON CONFLICT DO NOTHING;
 INSERT INTO public.wb_plantilla (id_wb_plantilla, nombre, unidad_arm, empty_weight, empty_weight_arm, empty_weight_moment, max_takeoff_weight, max_landing_weight, fuel_capacity_gal, fuel_usable_gal, fuel_burn_gal_hr, estaciones, creado_en, limits_normal, limits_utility, fuel_lb_gal, moment_div1000, fuel_burn_note) VALUES (1, 'PA38-Tomahawk', 'inches', 1128.00, 73.200, 82569.60, 1670.00, 1670.00, 32.00, 30.00, 6.00, '[{"id": "pilot", "arm": 85.5, "nombre": "Pilot", "max_weight": 300}, {"id": "copilot", "arm": 85.5, "nombre": "Co-pilot", "max_weight": 300}, {"id": "bag1", "arm": 115, "nombre": "Baggage #1 (100 lb MAX)", "max_weight": 100}, {"id": "fuel", "arm": 75.4, "nombre": "Fuel (30 gal MAX)", "is_fuel": true, "max_gal": 30, "max_weight": null}]', '2026-03-21 01:37:03.543942', '[{"w": 1100, "aft": 78.5, "fwd": 72}, {"w": 1200, "aft": 78.5, "fwd": 72}, {"w": 1500, "aft": 78.5, "fwd": 74}, {"w": 1670, "aft": 79, "fwd": 74}]', NULL, 6.00, false, 'Aprox. 6 gal/hr @ 65% Power') ON CONFLICT DO NOTHING;
 INSERT INTO public.wb_plantilla (id_wb_plantilla, nombre, unidad_arm, empty_weight, empty_weight_arm, empty_weight_moment, max_takeoff_weight, max_landing_weight, fuel_capacity_gal, fuel_usable_gal, fuel_burn_gal_hr, estaciones, creado_en, limits_normal, limits_utility, fuel_lb_gal, moment_div1000, fuel_burn_note) VALUES (4, 'PA28R-180', 'inches', 1380.00, 85.500, 117990.00, 2500.00, 2500.00, 50.00, 48.00, 10.00, '[{"id": "oil", "arm": 29.5, "is_oil": true, "nombre": "Oil (8qt max, 7lb/gal)", "is_fixed": true, "max_weight": 14, "fixed_weight": 14}, {"id": "front", "arm": 85.5, "nombre": "Front Seat L & R", "max_weight": 400}, {"id": "fuel", "arm": 95, "nombre": "Fuel (48 gal useable)", "is_fuel": true, "max_gal": 48, "max_weight": null}, {"id": "rear", "arm": 118.1, "nombre": "Rear Seat L & R", "max_weight": 300}, {"id": "bag", "arm": 142.8, "nombre": "Baggage (200 lbs max.)", "max_weight": 200}]', '2026-04-06 20:30:07.957598', '[{"w": 1400, "aft": 93, "fwd": 81}, {"w": 1500, "aft": 93, "fwd": 81}, {"w": 2000, "aft": 93, "fwd": 82.5}, {"w": 2100, "aft": 93, "fwd": 84}, {"w": 2500, "aft": 93.5, "fwd": 87.72}]', '[{"w": 1400, "aft": 89, "fwd": 81}, {"w": 1950, "aft": 89, "fwd": 85}]', 6.00, false, '10 gal/hr') ON CONFLICT DO NOTHING;
+
+
+
+--
+
+-- ── aeronave ────────────────────────────────────
+--
+
+
+INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (5, 'SIM-1', 'SIMULADOR', 'SIMULADOR', true, NULL, NULL, '[]', 0.00, NULL, NULL, 'ACTIVO') ON CONFLICT DO NOTHING;
+INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (2, 'YS-333-PE', 'TOMAHAWK', 'AVION', true, 'Amarillo', 3, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 0.00, 50.00, '50HR', 'ACTIVO') ON CONFLICT DO NOTHING;
+INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (4, 'YS-127-P', 'ARROW', 'AVION', true, 'Blanco y rojo', 4, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 0.00, 50.00, '50HR', 'ACTIVO') ON CONFLICT DO NOTHING;
+INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (3, 'YS-270-P', 'CHEROKEE', 'AVION', true, 'Blanco y rojo', 2, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 3.50, 50.00, '50HR', 'ACTIVO') ON CONFLICT DO NOTHING;
+INSERT INTO public.aeronave (id_aeronave, codigo, modelo, tipo, activa, color, id_wb_plantilla, frecuencias_default, horas_acumuladas, horas_proxima_revision, tipo_proxima_revision, estado) VALUES (1, 'YS-334-PE', 'CESSNA-152', 'AVION', true, 'Blanco y azul', 1, '[{"frecuencia": "121.900", "descripcion": "Torre MSSS"}, {"frecuencia": "118.300", "descripcion": "Torre"}, {"frecuencia": "129.225", "descripcion": "Aprox"}, {"frecuencia": "129.200", "descripcion": "Escuela"}]', 47.00, 50.00, '50HR', 'ACTIVO') ON CONFLICT DO NOTHING;
 
 
 
@@ -184,19 +205,6 @@ INSERT INTO public.unidad_teorica (id, id_curso, numero, nombre, descripcion, ho
 
 --
 
--- ── horas_vuelo_aeronave ────────────────────────────────────
---
-
-
-INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (2, 3, 12, 1.00, 1.00, '2026-04-08 09:05:30.190049') ON CONFLICT DO NOTHING;
-INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (3, 3, 13, 1.17, 2.17, '2026-04-08 10:02:18.056504') ON CONFLICT DO NOTHING;
-INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (4, 3, 14, 1.33, 3.50, '2026-04-08 10:25:34.523434') ON CONFLICT DO NOTHING;
-INSERT INTO public.horas_vuelo_aeronave (id_registro, id_aeronave, id_vuelo, horas_voladas, horas_acumuladas, registrado_en) VALUES (12, 1, NULL, 47.00, 47.00, '2026-04-08 21:16:41.446922') ON CONFLICT DO NOTHING;
-
-
-
---
-
 -- ── instructor_tarifa ────────────────────────────────────
 --
 
@@ -254,3 +262,7 @@ INSERT INTO public.webhook_endpoint (id_webhook, nombre, url, secret_token, acti
 
 
 --
+
+
+SET session_replication_role = 'origin';
+COMMIT;
