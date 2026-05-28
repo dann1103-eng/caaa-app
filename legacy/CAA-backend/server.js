@@ -1,0 +1,275 @@
+require("dotenv").config();
+const http = require("http");
+const express = require("express");
+const helmet = require("helmet");
+const cors = require("cors");
+const path = require("path");
+const { DateTime } = require("luxon");
+const db = require("./config/db");
+const { Server } = require("socket.io");
+
+const authRoutes = require("./routes/authRoutes");
+const alumnoRoutes = require("./routes/alumnoRoutes");
+const agendarRoutes = require("./routes/agendarRoutes");
+const programacionController = require("./routes/programacionRoutes");
+const adminController = require("./routes/adminRoutes");
+const usuarioController = require("./routes/usuarioRoutes");
+const calendarioRoutes = require("./routes/calendarioRoutes");
+const turnoRoutes = require("./routes/turnoRoutes");
+const instructorRoutes = require("./routes/instructorRoutes");
+const metarRoutes = require("./routes/metarRoutes");
+const administracionRoutes = require("./routes/administracionRoutes");
+const { startMetarPoller } = require("./services/metarService");
+const globalErrorHandler = require("./middlewares/errorMiddleware");
+
+process.on("uncaughtException", (err) => {
+  console.error("💥 UNCAUGHT EXCEPTION! Apagando...");
+  console.error(err.name, err.message, err.stack);
+  process.exit(1);
+});
+
+const app = express();
+app.set('trust proxy', 1);
+const httpServer = http.createServer(app);
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+  : [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+  ];
+
+const corsOptions = {
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-proyeccion-key"],
+};
+
+const io = new Server(httpServer, { cors: corsOptions });
+app.set("io", io);
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.get("/api/health", async (req, res) => {
+  try {
+    const r = await db.query("SELECT NOW() as now");
+    res.json({ ok: true, db_time: r.rows[0].now });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+db.query("SELECT NOW()")
+  .then(res => console.log("Hora BD:", res.rows[0]))
+  .catch(err => console.error("Error BD:", err.message));
+
+app.use("/api/auth", authRoutes);
+app.use("/api/alumno", alumnoRoutes);
+app.use("/api/agendar", agendarRoutes);
+app.use("/api/programacion", programacionController);
+app.use("/api/admin", adminController);
+app.use("/api/usuario", usuarioController);
+app.use("/api/calendario", calendarioRoutes);
+app.use("/api/turno", turnoRoutes);
+app.use("/api/instructor", instructorRoutes);
+app.use("/api/metar", metarRoutes);
+app.use("/api/administracion", administracionRoutes);
+
+app.use(globalErrorHandler);
+
+startMetarPoller();
+
+setInterval(async () => {
+  const nowSV = DateTime.now().setZone("America/El_Salvador");
+  const horaActual = nowSV.toFormat("HH:mm:00");
+
+  try {
+    const result = await db.query(
+      `SELECT id_bloque, hora_inicio FROM bloque_horario WHERE hora_inicio = $1::time`,
+      [horaActual]
+    );
+    for (const bloque of result.rows) {
+      io.emit("bloque_iniciado", { id_bloque: bloque.id_bloque, hora_inicio: bloque.hora_inicio });
+    }
+  } catch (e) {
+    console.error("Error bloque_iniciado job:", e);
+  }
+}, 60000);
+
+setInterval(async () => {
+  try {
+    const r = await db.query(`
+      SELECT v.id_vuelo
+      FROM vuelo v
+      JOIN LATERAL (
+        SELECT registrado_en
+        FROM vuelo_estado_tiempo
+        WHERE id_vuelo = v.id_vuelo AND estado = 'SALIDA_HANGAR'
+        ORDER BY registrado_en DESC
+        LIMIT 1
+      ) vet ON true
+      WHERE v.estado = 'SALIDA_HANGAR'
+        AND vet.registrado_en <= NOW() - INTERVAL '15 minutes'
+        AND v.dia_semana = EXTRACT(ISODOW FROM (NOW() AT TIME ZONE 'America/El_Salvador'))::int
+        AND EXISTS (
+          SELECT 1 FROM semana_vuelo sw
+          WHERE sw.id_semana = v.id_semana
+            AND (NOW() AT TIME ZONE 'America/El_Salvador')::date BETWEEN sw.fecha_inicio AND sw.fecha_fin
+            AND sw.publicada = true
+        )
+    `);
+
+    for (const row of r.rows) {
+      const upd = await db.query(
+        `UPDATE vuelo SET estado = 'EN_PROGRESO'
+         WHERE id_vuelo = $1 AND estado = 'SALIDA_HANGAR'
+         RETURNING id_vuelo`,
+        [row.id_vuelo]
+      );
+      if (upd.rows.length === 0) continue;
+
+      const ts = await db.query(
+        `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
+         VALUES ($1, 'EN_PROGRESO', NULL) RETURNING registrado_en`,
+        [row.id_vuelo]
+      );
+
+      io.emit("vuelo_estado_changed", {
+        id_vuelo: row.id_vuelo,
+        estado: "EN_PROGRESO",
+        registrado_en: ts.rows[0].registrado_en,
+        auto: true,
+      });
+      console.log(`[auto] Vuelo #${row.id_vuelo}: SALIDA_HANGAR → EN_PROGRESO`);
+    }
+  } catch (e) {
+    console.error("Error auto-avance SALIDA_HANGAR:", e);
+  }
+}, 60000);
+
+const { logAuditoria } = require("./utils/auditoria");
+
+// Verifica una sola vez al arrancar si el schema soporta el job de auto-reanudación
+let _autoReanudacionEnabled = null;
+async function checkAutoReanudacionEnabled() {
+  if (_autoReanudacionEnabled !== null) return _autoReanudacionEnabled;
+  try {
+    const r = await db.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'estado_operaciones' AND column_name = 'bloques_suspendidos'
+      LIMIT 1
+    `);
+    _autoReanudacionEnabled = r.rows.length > 0;
+    if (!_autoReanudacionEnabled) {
+      console.warn("[server] Job auto-reanudación deshabilitado: falta columna estado_operaciones.bloques_suspendidos");
+    }
+  } catch {
+    _autoReanudacionEnabled = false;
+  }
+  return _autoReanudacionEnabled;
+}
+
+setInterval(async () => {
+  if (!(await checkAutoReanudacionEnabled())) return;
+  try {
+    const opsRes = await db.query(`
+      SELECT estado_general, bloques_suspendidos
+      FROM estado_operaciones
+      WHERE estado_general = 'INACTIVO'
+      LIMIT 1
+    `);
+
+    if (opsRes.rows.length === 0) return;
+
+    const { bloques_suspendidos } = opsRes.rows[0];
+    if (!bloques_suspendidos || (Array.isArray(bloques_suspendidos) && bloques_suspendidos.length === 0)) return;
+
+    const ids = typeof bloques_suspendidos === 'string' ? JSON.parse(bloques_suspendidos) : bloques_suspendidos;
+    if (!Array.isArray(ids) || ids.length === 0) return;
+
+    const maxFinRes = await db.query(
+      `SELECT MAX(hora_fin) as max_fin FROM bloque_horario WHERE id_bloque = ANY($1)`,
+      [ids.map(Number)]
+    );
+
+    const maxFin = maxFinRes.rows[0].max_fin;
+    if (!maxFin) return;
+
+    const nowSV = DateTime.now().setZone("America/El_Salvador");
+    const nowTime = nowSV.toFormat("HH:mm:ss");
+
+    if (nowTime > maxFin) {
+      console.log(`[auto-ops] Reanudando operaciones automáticamente: ${nowTime} > ${maxFin}`);
+
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+
+        await client.query(`
+          UPDATE estado_operaciones 
+          SET estado_general = 'ACTIVO', 
+              motivo_inactivo = NULL, 
+              bloques_suspendidos = '[]',
+              temperatura = NULL,
+              explicacion_detallada = NULL
+        `);
+
+        await client.query(`
+          UPDATE mensaje_turno 
+          SET activo = false 
+          WHERE tipo = 'TURNO' AND contenido LIKE 'OPERACIONES SUSPENDIDAS%'
+        `);
+
+        await logAuditoria(client, {
+          accion: 'OTRO',
+          entidad: 'operaciones',
+          descripcion: `REANUDACIÓN AUTOMÁTICA: Las operaciones se han reanudado automáticamente al finalizar el bloque programado (${maxFin}).`,
+          actor: { id_usuario: null, rol: 'SYSTEM' },
+          origen: 'SYSTEM_JOB'
+        });
+
+        await client.query("COMMIT");
+
+        const payload = {
+          estado_general: "ACTIVO",
+          motivo_inactivo: null,
+          bloques_suspendidos: [],
+          temperatura: null,
+          explicacion_detallada: null
+        };
+        io.emit("estado_operaciones_changed", payload);
+        io.emit("nuevo_ticker", { action: 'clear_all' });
+
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
+      }
+    }
+  } catch (e) {
+    console.error("Error en job de auto-reanudación de operaciones:", e);
+  }
+}, 60000);
+
+const PORT = process.env.PORT || 5000;
+const server = httpServer.listen(PORT, "0.0.0.0", () =>
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`)
+);
+
+process.on("unhandledRejection", (err) => {
+  console.error("💥 UNHANDLED REJECTION! Apagando suavemente...");
+  console.error(err.name, err.message);
+  server.close(() => {
+    process.exit(1);
+  });
+});
+

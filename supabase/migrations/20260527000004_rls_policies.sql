@@ -386,17 +386,29 @@ CREATE POLICY vuelo_estado_write
 CREATE POLICY solicitud_vuelo_select
   ON public.solicitud_vuelo FOR SELECT
   USING (
-    public.is_my_alumno(id_alumno)
+    EXISTS (
+      SELECT 1 FROM public.solicitud_semana ss
+      WHERE ss.id_solicitud = solicitud_vuelo.id_solicitud
+        AND public.is_my_alumno(ss.id_alumno)
+    )
     OR public.has_role('ADMIN','ADMINISTRACION','PROGRAMACION','TURNO')
   );
 CREATE POLICY solicitud_vuelo_write_owner
   ON public.solicitud_vuelo FOR ALL
   USING (
-    public.is_my_alumno(id_alumno)
+    EXISTS (
+      SELECT 1 FROM public.solicitud_semana ss
+      WHERE ss.id_solicitud = solicitud_vuelo.id_solicitud
+        AND public.is_my_alumno(ss.id_alumno)
+    )
     OR public.has_role('ADMIN','PROGRAMACION','TURNO')
   )
   WITH CHECK (
-    public.is_my_alumno(id_alumno)
+    EXISTS (
+      SELECT 1 FROM public.solicitud_semana ss
+      WHERE ss.id_solicitud = solicitud_vuelo.id_solicitud
+        AND public.is_my_alumno(ss.id_alumno)
+    )
     OR public.has_role('ADMIN','PROGRAMACION','TURNO')
   );
 
@@ -527,7 +539,7 @@ CREATE POLICY loadsheet_waypoint_select
     EXISTS (
       SELECT 1 FROM public.loadsheet ls
       JOIN public.vuelo v ON v.id_vuelo = ls.id_vuelo
-      WHERE ls.id = loadsheet_waypoint.id_loadsheet
+      WHERE ls.id_loadsheet = loadsheet_waypoint.id_loadsheet
         AND (public.is_my_alumno(v.id_alumno) OR public.is_my_instructor(v.id_instructor)
              OR public.has_role('ADMIN','PROGRAMACION','TURNO','ADMINISTRACION'))
     )
@@ -538,7 +550,7 @@ CREATE POLICY loadsheet_waypoint_write
     EXISTS (
       SELECT 1 FROM public.loadsheet ls
       JOIN public.vuelo v ON v.id_vuelo = ls.id_vuelo
-      WHERE ls.id = loadsheet_waypoint.id_loadsheet
+      WHERE ls.id_loadsheet = loadsheet_waypoint.id_loadsheet
         AND (public.is_my_alumno(v.id_alumno) OR public.has_role('ADMIN','PROGRAMACION','TURNO','INSTRUCTOR'))
     )
   )
@@ -546,7 +558,7 @@ CREATE POLICY loadsheet_waypoint_write
     EXISTS (
       SELECT 1 FROM public.loadsheet ls
       JOIN public.vuelo v ON v.id_vuelo = ls.id_vuelo
-      WHERE ls.id = loadsheet_waypoint.id_loadsheet
+      WHERE ls.id_loadsheet = loadsheet_waypoint.id_loadsheet
         AND (public.is_my_alumno(v.id_alumno) OR public.has_role('ADMIN','PROGRAMACION','TURNO','INSTRUCTOR'))
     )
   );
