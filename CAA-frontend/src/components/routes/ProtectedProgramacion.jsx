@@ -5,7 +5,8 @@ export default function ProtectedProgramacion({ children }) {
   const user = getSession();
 
   if (!user) return <Navigate to="/login" replace />;
-  if (user.rol !== "PROGRAMACION") return <Navigate to="/" replace />;
+  // ADMIN puede agendar vuelos igual que PROGRAMACION.
+  if (!["PROGRAMACION", "ADMIN"].includes(user.rol)) return <Navigate to="/" replace />;
 
   return children;
 }

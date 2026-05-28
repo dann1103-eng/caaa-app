@@ -71,3 +71,5 @@ frontend/public/config.js
 .eslintcache
 coverage/
 .nyc_output/
+
+.vercel

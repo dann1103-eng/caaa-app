@@ -42,12 +42,13 @@ export default function AdminSidebar({ isOpen, onClose }) {
 
   const menuItems = [
     { label: "Dashboard", path: "/admin/dashboard", icon: "bi-grid-fill" },
-    { 
-      label: "Programación", 
-      path: "/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024", 
+    {
+      label: "Programación",
+      path: "/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024",
       icon: "bi-calendar3",
-      external: true 
+      external: true
     },
+    { label: "Agendar vuelos", path: "/programacion/dashboard", icon: "bi-calendar-plus" },
     { label: "Mantenimiento", path: "/admin/mantenimiento", icon: "bi-tools" },
     { label: "Perfiles", path: "/admin/perfiles", icon: "bi-person-badge" },
     { label: "Alumnos", path: "/admin/alumnos", icon: "bi-people" },

@@ -39,7 +39,8 @@ function requireProgramacion(req, res) {
     res.status(401).json({ message: "No autenticado" });
     return null;
   }
-  if (req.user.rol !== "PROGRAMACION") {
+  // ADMIN puede agendar vuelos igual que PROGRAMACION.
+  if (!["PROGRAMACION", "ADMIN"].includes(req.user.rol)) {
     res.status(403).json({ message: "Acceso denegado" });
     return null;
   }
