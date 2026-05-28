@@ -51,6 +51,20 @@ ALTER TABLE public.solicitud_semana
   ADD COLUMN IF NOT EXISTS limite_vuelos_avion     integer,
   ADD COLUMN IF NOT EXISTS limite_vuelos_simulador integer;
 
+-- ── Tabla vuelo: tipo y bloque de fin (usados por el calendario) ──────────
+ALTER TABLE public.vuelo
+  ADD COLUMN IF NOT EXISTS tipo_vuelo    varchar(20) DEFAULT 'LOCAL',
+  ADD COLUMN IF NOT EXISTS id_bloque_fin integer;
+
+-- ── Tabla reporte_vuelo: marca y motivo de inasistencia ──────────────────
+ALTER TABLE public.reporte_vuelo
+  ADD COLUMN IF NOT EXISTS es_inasistencia     boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS motivo_inasistencia text;
+
+-- ── Tabla instructor: número de licencia (usado en W&B / loadsheet) ──────
+ALTER TABLE public.instructor
+  ADD COLUMN IF NOT EXISTS licencia varchar(30);
+
 -- ── Tabla solicitud_cancelacion: NO existía (subsistema de cancelaciones) ──
 CREATE TABLE IF NOT EXISTS public.solicitud_cancelacion (
   id_solicitud_cancelacion bigserial PRIMARY KEY,
