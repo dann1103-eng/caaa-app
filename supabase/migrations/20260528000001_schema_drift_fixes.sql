@@ -41,3 +41,26 @@ CREATE TABLE IF NOT EXISTS public.mantenimiento_bloque (
   fecha            date NOT NULL,
   id_bloque        integer NOT NULL
 );
+
+-- ── Límites de vuelos por tipo (avión / simulador) ────────────────────────
+ALTER TABLE public.alumno
+  ADD COLUMN IF NOT EXISTS limite_vuelos_avion     integer DEFAULT 3,
+  ADD COLUMN IF NOT EXISTS limite_vuelos_simulador integer DEFAULT 3;
+
+ALTER TABLE public.solicitud_semana
+  ADD COLUMN IF NOT EXISTS limite_vuelos_avion     integer,
+  ADD COLUMN IF NOT EXISTS limite_vuelos_simulador integer;
+
+-- ── Tabla solicitud_cancelacion: NO existía (subsistema de cancelaciones) ──
+CREATE TABLE IF NOT EXISTS public.solicitud_cancelacion (
+  id_solicitud_cancelacion bigserial PRIMARY KEY,
+  id_vuelo     integer NOT NULL,
+  id_alumno    integer NOT NULL,
+  motivo       text,
+  estado       varchar(20) DEFAULT 'PENDIENTE',
+  tiene_multa  boolean DEFAULT false,
+  monto_multa  numeric(10,2) DEFAULT 0,
+  resuelto_en  timestamp without time zone,
+  resuelto_por integer,
+  creado_en    timestamp without time zone DEFAULT now()
+);
