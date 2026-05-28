@@ -10,6 +10,7 @@ import ProtectedProgramacion from "./components/routes/ProtectedProgramacion";
 import ProtectedProgramacionPage from "./components/routes/ProtectedProgramacionPage";
 import AgendarVuelo from "./pages/Alumno/AgendarVuelo";
 import AulaVirtual from "./pages/Alumno/AulaVirtual";
+import LoadsheetPage from "./loadsheet/LoadsheetPage";
 import DashboardProgramacion from "./pages/Programacion/Dashboard";
 import AgendarVueloProgramacion from "./pages/Programacion/AgendarVuelo";
 import PaginaProgramacion from "./pages/Proyeccion/PaginaProgramacion";
@@ -135,6 +136,14 @@ function App() {
             element={
               <ProtectedAlumno>
                 <AulaVirtual />
+              </ProtectedAlumno>
+            }
+          />
+          <Route
+            path="/alumno/loadsheet/:id_vuelo"
+            element={
+              <ProtectedAlumno>
+                <LoadsheetPage />
               </ProtectedAlumno>
             }
           />

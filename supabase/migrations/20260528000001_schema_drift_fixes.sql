@@ -65,6 +65,18 @@ ALTER TABLE public.reporte_vuelo
 ALTER TABLE public.instructor
   ADD COLUMN IF NOT EXISTS licencia varchar(30);
 
+-- ── Loadsheet / Weight & Balance: columnas que el backend escribe ────────
+ALTER TABLE public.weight_balance
+  ADD COLUMN IF NOT EXISTS fuel_burn numeric(6,2);
+
+ALTER TABLE public.loadsheet
+  ADD COLUMN IF NOT EXISTS ops_data            jsonb,
+  ADD COLUMN IF NOT EXISTS identification_data jsonb;
+-- (Los índices únicos en id_vuelo ya existen: weight_balance_id_vuelo_key, loadsheet_id_vuelo_key)
+
+ALTER TABLE public.loadsheet_waypoint
+  ADD COLUMN IF NOT EXISTS data jsonb;
+
 -- ── Tabla solicitud_cancelacion: NO existía (subsistema de cancelaciones) ──
 CREATE TABLE IF NOT EXISTS public.solicitud_cancelacion (
   id_solicitud_cancelacion bigserial PRIMARY KEY,

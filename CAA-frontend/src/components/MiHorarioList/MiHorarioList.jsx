@@ -1,9 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import CancelarVueloModal from "../CancelarVueloModal/CancelarVueloModal";
 import { quitarSolicitudCancelacion } from "../../services/alumnoApi";
 import { toast } from "sonner";
 import ReporteVueloModal from "../ReporteVueloModal/ReporteVueloModal";
-import { LOADSHEET_URL } from "../../api/axiosConfig";
 import "./MiHorarioList.css";
 
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -119,6 +119,7 @@ function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitar
 }
 
 export default function MiHorarioList({ vuelos = [], weekMode, loading, onRefresh }) {
+  const navigate = useNavigate();
   const [modalVuelo, setModalVuelo]     = useState(null);
   const [reporteVuelo, setReporteVuelo] = useState(null);
 
@@ -132,23 +133,8 @@ export default function MiHorarioList({ vuelos = [], weekMode, loading, onRefres
   const dias = Object.keys(porDia).map(Number).sort();
 
   const abrirLoadsheet = (v) => {
-    const jwt = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    const alumnoData = JSON.parse(user || '{}');
-    const nombreAlumno = `${alumnoData.nombre || ''} ${alumnoData.apellido || ''}`.trim();
-
-    const baseUrl = LOADSHEET_URL;
-
-    const params = new URLSearchParams({
-      id_vuelo: v.id_vuelo,
-      jwt: jwt || '',
-      token: user || '',
-      alumno: nombreAlumno,
-      instructor: v.instructor_nombre || '',
-      licencia: v.licencia_nombre || ''
-    });
-
-    window.open(`${baseUrl}?${params.toString()}`, '_blank');
+    // El loadsheet ahora vive dentro de la misma app (no app externa).
+    navigate(`/alumno/loadsheet/${v.id_vuelo}`);
   };
 
   const abrirCancelar = (v) => {
