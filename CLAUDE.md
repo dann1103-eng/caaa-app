@@ -135,7 +135,7 @@ ejercitados aún (administración/contabilidad, aula virtual, nómina, etc.). Mi
 | `u7` | ALUMNO | Sofia Hernandez (alumno id 3) |
 | `u8` | INSTRUCTOR | Alfredo (instructor id 2) |
 | `u9` | TURNO | |
-| `u_admin_fin` | ADMINISTRACION | hash bcrypt desconocido, must_change_password |
+| `u_admin_fin` | ADMINISTRACION | Administración Financiera. Reseteado a `demo123` (flags de bloqueo limpios) vía `supabase/dump/reset_admin_fin.sql`. **Usar para probar administración/contabilidad.** |
 
 - El login acepta password en **texto plano** (`demo123`) y lo convierte a bcrypt al primer login (`authController.js`).
 - Los alumnos demo (u4/u5/u7) tienen documentos rellenados (`supabase/dump/backfill_demo_alumnos.sql`) para pasar el bloqueo `must_complete_profile`.
