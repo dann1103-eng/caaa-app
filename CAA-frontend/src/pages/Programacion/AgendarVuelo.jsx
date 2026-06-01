@@ -37,6 +37,9 @@ export default function AgendarVueloProgramacion() {
   const [showInstructorList, setShowInstructorList] = useState(false);
   const [showAlumnoList, setShowAlumnoList] = useState(false);
 
+  // Marca global: los vuelos de esta sesión son extracurriculares (práctica extra).
+  const [extraMode, setExtraMode] = useState(false);
+
   // Modo de reserva para rutas
   const [modoReserva, setModoReserva] = useState("LOCAL");
   const [rutaAeronave, setRutaAeronave] = useState("");
@@ -139,8 +142,9 @@ export default function AgendarVueloProgramacion() {
     }
 
     try {
-      await guardarSolicitudProgramacion(idAlumno, idInstructor, selecciones);
-      toast.success("Programación guardada correctamente");
+      const payload = selecciones.map(s => ({ ...s, es_extracurricular: extraMode }));
+      await guardarSolicitudProgramacion(idAlumno, idInstructor, payload);
+      toast.success(extraMode ? "Programación extracurricular guardada" : "Programación guardada correctamente");
       navigate("/programacion/dashboard");
     } catch (err) {
       toast.error(err.response?.data?.message || "Error al guardar la programación");
@@ -178,6 +182,20 @@ export default function AgendarVueloProgramacion() {
 
   const removeSeleccion = (idx) => {
     setSelecciones(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Al activar extracurricular: cualquier aeronave activa (no solo las de su
+  // licencia). Al desactivar: volver a las permitidas del alumno.
+  const toggleExtra = async (checked) => {
+    setExtraMode(checked);
+    setSelecciones([]);
+    try {
+      if (checked) {
+        setAeronaves(await getAeronavesActivasAdmin());
+      } else if (idAlumno) {
+        setAeronaves(await getAeronavesPermitidasAlumno(idAlumno));
+      }
+    } catch { /* noop */ }
   };
 
   if (loading) {
@@ -294,6 +312,10 @@ export default function AgendarVueloProgramacion() {
                 <div>
                     <h3 className="ag__section-title">Selección de vuelos</h3>
                     <p className="ag__section-hint">Hacé clic en los bloques para agendar vuelos normales o usá el modo ruta.</p>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, color: extraMode ? '#7c3aed' : '#475569' }}>
+                        <input type="checkbox" checked={extraMode} onChange={(e) => toggleExtra(e.target.checked)} />
+                        Vuelos extracurriculares (práctica extra · no cuentan a la licencia · cualquier aeronave)
+                    </label>
                 </div>
                 <div className="ag__mode-toggle" style={{ display: 'flex', gap: '10px', background: '#f1f5f9', padding: '6px', borderRadius: '8px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'LOCAL' ? '#fff' : 'transparent', borderRadius: '6px', boxShadow: modoReserva === 'LOCAL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', fontWeight: modoReserva === 'LOCAL' ? '600' : '400', color: modoReserva === 'LOCAL' ? '#1e293b' : '#64748b' }}>

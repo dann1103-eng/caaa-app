@@ -199,7 +199,8 @@ exports.getCalendario = catchAsync(async (req, res) => {
       sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
       sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,
       ss.id_alumno, u_al.nombre || ' ' || u_al.apellido AS alumno_nombre,
-      i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre
+      i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
+      COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular
     FROM solicitud_vuelo sv
     JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
     JOIN bloque_horario b ON b.id_bloque = sv.id_bloque

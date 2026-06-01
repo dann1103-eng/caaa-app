@@ -566,6 +566,7 @@ export default function AdminCalendar({
                         <div style={{ padding: '2px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div className="flight-alumno" style={{ fontWeight: 600 }}>
                             {conflictText && <span className="conflict-icon">⚠</span>}
+                            {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                             {item.alumno_nombre.split(" ")[0]}
                           </div>
                           <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>
@@ -645,6 +646,7 @@ export default function AdminCalendar({
                         <div className="flight-alumno" style={{ fontWeight: 600 }}>
                           {conflictText && <span className="conflict-icon">⚠</span>}
                           <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>Ruta</span>
+                          {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                           {item.alumno_nombre.split(" ")[0]}
                         </div>
                         <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>

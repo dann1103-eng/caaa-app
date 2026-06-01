@@ -104,6 +104,7 @@ exports.getCalendario = async (req, res) => {
 
           v.estado AS estado_vuelo,
           v.justificacion_cancelacion,
+          v.es_extracurricular,
 
           'PUBLICADO' AS estado_solicitud,
           v.estado AS estado_mostrar
@@ -154,6 +155,7 @@ exports.getCalendario = async (req, res) => {
 
         NULL::int AS id_vuelo,
         NULL::text AS estado_vuelo,
+        sv.es_extracurricular,
 
         ss.estado AS estado_mostrar
       FROM solicitud_vuelo sv
