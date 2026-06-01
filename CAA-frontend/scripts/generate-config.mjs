@@ -5,8 +5,16 @@
 //   VITE_LOADSHEET_URL  → URL del módulo loadsheet (puede ser igual que API)
 import { writeFileSync } from "fs";
 
-const apiUrl = process.env.VITE_API_URL || "http://localhost:5000";
-const loadsheetUrl = process.env.VITE_LOADSHEET_URL || "http://localhost:5174";
+// Limpia BOM, comillas accidentales y espacios/saltos que a veces se cuelan
+// al definir variables de entorno (p. ej. desde PowerShell).
+const clean = (v, fallback) => {
+  if (v == null) return fallback;
+  const t = String(v).replace(/[﻿​]/g, "").trim().replace(/^["']|["']$/g, "");
+  return t || fallback;
+};
+
+const apiUrl = clean(process.env.VITE_API_URL, "http://localhost:5000");
+const loadsheetUrl = clean(process.env.VITE_LOADSHEET_URL, "http://localhost:5174");
 
 const content = `window.__APP_CONFIG__ = { API_URL: "${apiUrl}", LOADSHEET_URL: "${loadsheetUrl}" };\n`;
 
