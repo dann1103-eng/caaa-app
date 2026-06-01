@@ -37,6 +37,7 @@ const WRITE_ROLES = ["ADMINISTRACION"];
 
 // ── Tarifas ───────────────────────────────────────────────────────────
 router.get("/tarifas/aeronaves",            roleMiddleware(READ_ROLES),  tarifas.listAeronaveTarifas);
+router.get("/tarifas/aeronaves/lista",      roleMiddleware(READ_ROLES),  tarifas.listAeronaves);
 router.get("/tarifas/aeronaves/historial",  roleMiddleware(READ_ROLES),  tarifas.historialAeronave);
 router.put("/tarifas/aeronaves",            roleMiddleware(WRITE_ROLES), tarifas.upsertAeronaveTarifa);
 router.get("/tarifas/instructores",         roleMiddleware(READ_ROLES),  tarifas.listInstructorTarifas);

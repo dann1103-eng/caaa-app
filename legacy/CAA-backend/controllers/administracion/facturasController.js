@@ -118,16 +118,23 @@ exports.list = async (req, res) => {
 exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(client, {
   id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por
 }) {
-  // Buscar tarifa vigente
+  // Buscar tarifa vigente. Se prioriza el match por id_aeronave (vínculo
+  // robusto); si la tarifa no tiene id_aeronave (filas antiguas), se cae al
+  // match por texto de modelo. Así el cargo automático no depende de que el
+  // string de modelo de la aeronave y el de la tarifa sean idénticos.
   const tarifaRes = await client.query(`
     SELECT id, tarifa_hora_usd FROM aeronave_tarifa
-    WHERE modelo_aeronave = $1
-      AND vigente_desde <= $2::date
-      AND (vigente_hasta IS NULL OR vigente_hasta >= $2::date)
-    ORDER BY vigente_desde DESC LIMIT 1
-  `, [modelo_aeronave, fecha]);
+    WHERE (
+            ($1::int IS NOT NULL AND id_aeronave = $1)
+            OR (id_aeronave IS NULL AND modelo_aeronave = $2)
+          )
+      AND vigente_desde <= $3::date
+      AND (vigente_hasta IS NULL OR vigente_hasta >= $3::date)
+    ORDER BY (id_aeronave = $1) DESC NULLS LAST, vigente_desde DESC
+    LIMIT 1
+  `, [id_aeronave || null, modelo_aeronave, fecha]);
   if (tarifaRes.rows.length === 0) {
-    throw new Error(`No hay tarifa vigente para ${modelo_aeronave} en ${fecha}`);
+    throw new Error(`No hay tarifa vigente para ${modelo_aeronave} (aeronave ${id_aeronave || '?'}) en ${fecha}`);
   }
   const tarifa = Number(tarifaRes.rows[0].tarifa_hora_usd);
   const id_aeronave_tarifa = tarifaRes.rows[0].id;

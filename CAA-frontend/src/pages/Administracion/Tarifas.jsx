@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  getAeronaveTarifas, upsertAeronaveTarifa,
+  getAeronaveTarifas, getAeronavesParaTarifa, upsertAeronaveTarifa,
   getInstructorTarifas, getInstructoresDisponibles, upsertInstructorTarifa
 } from "../../services/administracionApi";
 
@@ -38,13 +38,22 @@ const EMPTY_INST_FORM = {
 };
 
 const EMPTY_AERO_FORM = {
-  modelo_aeronave: "",
+  id_aeronave: "",
+  _modelo: "",            // solo para mostrar el modelo al editar una tarifa existente
   tarifa_hora_usd: "",
   vigente_desde: new Date().toISOString().slice(0, 10)
 };
 
+const MOCK_AERONAVES_LISTA = [
+  { id_aeronave: 1, codigo: "YS-334-PE", modelo: "CESSNA-152" },
+  { id_aeronave: 2, codigo: "YS-333-PE", modelo: "TOMAHAWK" },
+  { id_aeronave: 3, codigo: "YS-270-P",  modelo: "CHEROKEE" },
+  { id_aeronave: 4, codigo: "YS-127-P",  modelo: "ARROW" }
+];
+
 export default function Tarifas() {
   const [aero, setAero] = useState([]);
+  const [aeronaves, setAeronaves] = useState([]);
   const [inst, setInst] = useState([]);
   const [instDisp, setInstDisp] = useState([]);
   const [usingMock, setUsingMock] = useState(false);
@@ -59,14 +68,16 @@ export default function Tarifas() {
 
   const load = async () => {
     try {
-      const [a, i, ds] = await Promise.all([getAeronaveTarifas(), getInstructorTarifas(), getInstructoresDisponibles()]);
+      const [a, av, i, ds] = await Promise.all([getAeronaveTarifas(), getAeronavesParaTarifa(), getInstructorTarifas(), getInstructoresDisponibles()]);
       if (a?.ok && i?.ok) {
         setAero(a.data); setInst(i.data);
+        setAeronaves(av?.ok ? av.data : []);
         setInstDisp(ds?.ok ? ds.data : []);
         setUsingMock(false);
       } else throw new Error();
     } catch {
       setAero(MOCK_AERONAVES); setInst(MOCK_INST);
+      setAeronaves(MOCK_AERONAVES_LISTA);
       setInstDisp([
         { id_instructor: 1, username: "H. Amaya",   tipo_pago_actual: "MENSUAL_FIJO" },
         { id_instructor: 2, username: "C. Cáceres", tipo_pago_actual: "POR_HORA" },
@@ -82,12 +93,12 @@ export default function Tarifas() {
   // ── Aeronave ───────────────────────────────────────────────────────
   const handleSaveAero = async (e) => {
     e.preventDefault();
-    if (!aeroForm.modelo_aeronave || !aeroForm.tarifa_hora_usd) {
-      return toast.error("Modelo y tarifa son requeridos");
+    if (!aeroForm.id_aeronave || !aeroForm.tarifa_hora_usd) {
+      return toast.error("Aeronave y tarifa son requeridos");
     }
     try {
       await upsertAeronaveTarifa({
-        modelo_aeronave: aeroForm.modelo_aeronave,
+        id_aeronave: Number(aeroForm.id_aeronave),
         tarifa_hora_usd: Number(aeroForm.tarifa_hora_usd),
         vigente_desde: aeroForm.vigente_desde
       });
@@ -100,7 +111,8 @@ export default function Tarifas() {
 
   const editAeroQuick = (a) => {
     setAeroForm({
-      modelo_aeronave: a.modelo_aeronave,
+      id_aeronave: a.id_aeronave || "",
+      _modelo: a.aeronave_codigo ? `${a.aeronave_codigo} — ${a.aeronave_modelo}` : a.modelo_aeronave,
       tarifa_hora_usd: a.tarifa_hora_usd,
       vigente_desde: new Date().toISOString().slice(0, 10)
     });
@@ -189,19 +201,21 @@ export default function Tarifas() {
               <form onSubmit={handleSaveAero}>
                 <div className="adf-form-grid">
                   <div className="adf-form-field">
-                    <label>Modelo</label>
-                    <input list="modelos-aeronave" required value={aeroForm.modelo_aeronave}
-                      placeholder="Ej: Cessna 152"
-                      onChange={(e) => setAeroForm({...aeroForm, modelo_aeronave: e.target.value})} />
-                    <datalist id="modelos-aeronave">
-                      <option value="Cessna 152" />
-                      <option value="Tomahawk" />
-                      <option value="Cherokee 180" />
-                      <option value="Cherokee Arrow" />
-                      <option value="Bimotor" />
-                      <option value="BATD II" />
-                      <option value="BATD II Bimotor" />
-                    </datalist>
+                    <label>Aeronave</label>
+                    <select required value={aeroForm.id_aeronave}
+                      onChange={(e) => setAeroForm({...aeroForm, id_aeronave: e.target.value})}>
+                      <option value="">— Selecciona una aeronave —</option>
+                      {aeronaves.map(av => (
+                        <option key={av.id_aeronave} value={av.id_aeronave}>
+                          {av.codigo} — {av.modelo}
+                        </option>
+                      ))}
+                    </select>
+                    {aeroForm._modelo && !aeroForm.id_aeronave && (
+                      <p style={{ fontSize: "0.78rem", color: "var(--c-warn, #b45309)", marginTop: 6 }}>
+                        Tarifa antigua sin aeronave vinculada ({aeroForm._modelo}). Selecciona la aeronave correspondiente para habilitar el cargo automático.
+                      </p>
+                    )}
                   </div>
                   <div className="adf-form-field">
                     <label>Tarifa USD/h</label>
@@ -219,7 +233,7 @@ export default function Tarifas() {
                   <button type="button" className="adf-btn secondary" onClick={() => setShowAeroForm(false)}>Cancelar</button>
                 </div>
                 <p style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginTop: 10 }}>
-                  Al guardar, la tarifa anterior del mismo modelo se cierra con `vigente_hasta` un día antes del nuevo desde,
+                  Al guardar, la tarifa anterior de la misma aeronave se cierra con `vigente_hasta` un día antes del nuevo desde,
                   preservando el historial para vuelos pasados.
                 </p>
               </form>
@@ -229,7 +243,7 @@ export default function Tarifas() {
           <table className="adf-table">
             <thead>
               <tr>
-                <th>Modelo de aeronave</th>
+                <th>Aeronave</th>
                 <th style={{ textAlign: "right" }}>Tarifa USD/h</th>
                 <th>Vigente desde</th>
                 <th></th>
@@ -238,7 +252,16 @@ export default function Tarifas() {
             <tbody>
               {aero.map(a => (
                 <tr key={a.id}>
-                  <td><i className="bi bi-airplane-engines me-2"></i><strong>{a.modelo_aeronave}</strong></td>
+                  <td>
+                    <i className="bi bi-airplane-engines me-2"></i>
+                    <strong>{a.aeronave_codigo ? `${a.aeronave_codigo} — ${a.aeronave_modelo}` : a.modelo_aeronave}</strong>
+                    {!a.id_aeronave && (
+                      <span title="Tarifa sin aeronave vinculada — el cargo automático no la encontrará"
+                        style={{ marginLeft: 8, fontSize: "0.72rem", color: "var(--c-warn, #b45309)" }}>
+                        <i className="bi bi-exclamation-triangle"></i> sin vincular
+                      </span>
+                    )}
+                  </td>
                   <td className="amount" style={{ textAlign: "right" }}>${Number(a.tarifa_hora_usd).toFixed(2)}</td>
                   <td style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>{a.vigente_desde}</td>
                   <td style={{ textAlign: "right" }}>

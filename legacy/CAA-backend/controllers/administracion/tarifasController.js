@@ -3,11 +3,32 @@ const db = require("../../config/db");
 exports.listAeronaveTarifas = async (req, res) => {
   try {
     const r = await db.query(`
-      SELECT id, id_aeronave, modelo_aeronave, tarifa_hora_usd,
-             vigente_desde, vigente_hasta
-      FROM aeronave_tarifa
-      WHERE vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE
-      ORDER BY modelo_aeronave, vigente_desde DESC
+      SELECT t.id, t.id_aeronave, t.modelo_aeronave, t.tarifa_hora_usd,
+             t.vigente_desde, t.vigente_hasta,
+             a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo
+      FROM aeronave_tarifa t
+      LEFT JOIN aeronave a ON a.id_aeronave = t.id_aeronave
+      WHERE t.vigente_hasta IS NULL OR t.vigente_hasta >= CURRENT_DATE
+      ORDER BY t.modelo_aeronave, t.vigente_desde DESC
+    `);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/**
+ * Lista de aeronaves activas para asignarles tarifa (dropdown del formulario).
+ * Las tarifas se vinculan por id_aeronave para que el cargo automático al
+ * cerrar un vuelo encuentre la tarifa sin depender del texto del modelo.
+ */
+exports.listAeronaves = async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT id_aeronave, codigo, modelo, tipo
+      FROM aeronave
+      WHERE activa = true
+      ORDER BY codigo
     `);
     res.json({ ok: true, data: r.rows });
   } catch (e) {
@@ -17,13 +38,21 @@ exports.listAeronaveTarifas = async (req, res) => {
 
 exports.historialAeronave = async (req, res) => {
   try {
-    const { modelo } = req.query;
-    const r = await db.query(`
-      SELECT id, modelo_aeronave, tarifa_hora_usd, vigente_desde, vigente_hasta, creado_en
-      FROM aeronave_tarifa
-      WHERE modelo_aeronave = $1
-      ORDER BY vigente_desde DESC
-    `, [modelo]);
+    const { id_aeronave, modelo } = req.query;
+    // Preferir id_aeronave; mantener `modelo` por retrocompatibilidad.
+    const r = id_aeronave
+      ? await db.query(`
+          SELECT id, id_aeronave, modelo_aeronave, tarifa_hora_usd, vigente_desde, vigente_hasta, creado_en
+          FROM aeronave_tarifa
+          WHERE id_aeronave = $1
+          ORDER BY vigente_desde DESC
+        `, [id_aeronave])
+      : await db.query(`
+          SELECT id, id_aeronave, modelo_aeronave, tarifa_hora_usd, vigente_desde, vigente_hasta, creado_en
+          FROM aeronave_tarifa
+          WHERE modelo_aeronave = $1
+          ORDER BY vigente_desde DESC
+        `, [modelo]);
     res.json({ ok: true, data: r.rows });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
@@ -33,20 +62,45 @@ exports.historialAeronave = async (req, res) => {
 exports.upsertAeronaveTarifa = async (req, res) => {
   const client = await db.connect();
   try {
-    const { modelo_aeronave, tarifa_hora_usd, vigente_desde } = req.body;
-    if (!modelo_aeronave || tarifa_hora_usd == null || !vigente_desde) {
+    let { id_aeronave, modelo_aeronave, tarifa_hora_usd, vigente_desde } = req.body;
+    if (tarifa_hora_usd == null || !vigente_desde || (!id_aeronave && !modelo_aeronave)) {
       return res.status(400).json({ ok: false, message: "Datos incompletos" });
     }
+
     await client.query("BEGIN");
-    await client.query(`
-      UPDATE aeronave_tarifa
-      SET vigente_hasta = ($1::date - INTERVAL '1 day')
-      WHERE modelo_aeronave = $2 AND vigente_hasta IS NULL
-    `, [vigente_desde, modelo_aeronave]);
+
+    // Si viene id_aeronave, derivar el modelo desde la aeronave (fuente única
+    // de verdad) para que el texto de la tarifa coincida con el del vuelo.
+    if (id_aeronave) {
+      const aero = await client.query(
+        `SELECT modelo FROM aeronave WHERE id_aeronave = $1`, [id_aeronave]
+      );
+      if (aero.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ ok: false, message: "Aeronave no encontrada" });
+      }
+      modelo_aeronave = aero.rows[0].modelo;
+    }
+
+    // Cerrar la tarifa vigente anterior: por id_aeronave si lo hay, si no por modelo.
+    if (id_aeronave) {
+      await client.query(`
+        UPDATE aeronave_tarifa
+        SET vigente_hasta = ($1::date - INTERVAL '1 day')
+        WHERE id_aeronave = $2 AND vigente_hasta IS NULL
+      `, [vigente_desde, id_aeronave]);
+    } else {
+      await client.query(`
+        UPDATE aeronave_tarifa
+        SET vigente_hasta = ($1::date - INTERVAL '1 day')
+        WHERE modelo_aeronave = $2 AND id_aeronave IS NULL AND vigente_hasta IS NULL
+      `, [vigente_desde, modelo_aeronave]);
+    }
+
     const r = await client.query(`
-      INSERT INTO aeronave_tarifa (modelo_aeronave, tarifa_hora_usd, vigente_desde, creado_por)
-      VALUES ($1, $2, $3, $4) RETURNING *
-    `, [modelo_aeronave, tarifa_hora_usd, vigente_desde, req.user?.id_usuario || null]);
+      INSERT INTO aeronave_tarifa (id_aeronave, modelo_aeronave, tarifa_hora_usd, vigente_desde, creado_por)
+      VALUES ($1, $2, $3, $4, $5) RETURNING *
+    `, [id_aeronave || null, modelo_aeronave, tarifa_hora_usd, vigente_desde, req.user?.id_usuario || null]);
     await client.query("COMMIT");
     res.json({ ok: true, data: r.rows[0] });
   } catch (e) {

@@ -277,7 +277,7 @@ exports.firmarReporteVuelo = async (req, res) => {
           const { emitirFacturaVueloDentroTx } = require("../administracion/facturasController");
           const tacDiff = parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
           const vueloInfo = await client.query(`
-            SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha,
+            SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha_vuelo AS fecha,
                    COALESCE(a.modelo, a.tipo, 'Cessna 152') AS modelo_aeronave
             FROM vuelo v
             LEFT JOIN aeronave a ON a.id_aeronave = v.id_aeronave

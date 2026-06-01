@@ -5,7 +5,8 @@ const BASE = `${API_URL}/administracion`;
 
 // ── Tarifas ─────────────────────────────────────────────────────────
 export const getAeronaveTarifas    = async () => (await axios.get(`${BASE}/tarifas/aeronaves`)).data;
-export const getHistorialAeronave  = async (modelo) => (await axios.get(`${BASE}/tarifas/aeronaves/historial`, { params: { modelo } })).data;
+export const getAeronavesParaTarifa = async () => (await axios.get(`${BASE}/tarifas/aeronaves/lista`)).data;
+export const getHistorialAeronave  = async ({ id_aeronave, modelo } = {}) => (await axios.get(`${BASE}/tarifas/aeronaves/historial`, { params: { id_aeronave, modelo } })).data;
 export const upsertAeronaveTarifa  = async (payload) => (await axios.put(`${BASE}/tarifas/aeronaves`, payload)).data;
 export const getInstructorTarifas       = async () => (await axios.get(`${BASE}/tarifas/instructores`)).data;
 export const getInstructoresDisponibles = async () => (await axios.get(`${BASE}/tarifas/instructores/disponibles`)).data;
