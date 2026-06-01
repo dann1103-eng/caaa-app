@@ -243,6 +243,14 @@ function App() {
               </ProtectedInstructor>
             }
           />
+          <Route
+            path="/instructor/loadsheet/:id_vuelo"
+            element={
+              <ProtectedInstructor>
+                <LoadsheetPage readOnly apiBase="instructor" />
+              </ProtectedInstructor>
+            }
+          />
 
           {/* ── Módulo Administración / Contabilidad ── */}
           <Route path="/administracion" element={<Navigate to="/administracion/dashboard" replace />} />

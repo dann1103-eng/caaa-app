@@ -68,7 +68,7 @@ function buildInitial(idVuelo, data, acKey) {
   return initial;
 }
 
-export default function LoadsheetPage() {
+export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) {
   const { id_vuelo } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -79,7 +79,7 @@ export default function LoadsheetPage() {
     let cancel = false;
     (async () => {
       try {
-        const data = await getWBData(id_vuelo);
+        const data = await getWBData(id_vuelo, apiBase);
         const acKey = findAircraftKey(data.aeronave_codigo);
         if (!acKey) {
           if (!cancel) setError(
@@ -113,7 +113,7 @@ export default function LoadsheetPage() {
 
   return (
     <LoadSheetProvider initial={initial}>
-      <LoadsheetWizard onExit={() => navigate(-1)} />
+      <LoadsheetWizard onExit={() => navigate(-1)} readOnly={readOnly} />
     </LoadSheetProvider>
   );
 }

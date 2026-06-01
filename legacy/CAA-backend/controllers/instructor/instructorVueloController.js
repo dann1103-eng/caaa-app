@@ -36,7 +36,8 @@ exports.getVuelosHoy = async (req, res) => {
          (pv.tiempo_ruta IS NOT NULL) AS tiene_plan_vuelo,
          vet.registrado_en AS estado_desde,
          rv.es_inasistencia,
-         (SELECT 1 FROM checklist_postvuelo WHERE id_vuelo = v.id_vuelo LIMIT 1) IS NOT NULL AS checklist_completado
+         (SELECT 1 FROM checklist_postvuelo WHERE id_vuelo = v.id_vuelo LIMIT 1) IS NOT NULL AS checklist_completado,
+         (SELECT ls.estado FROM loadsheet ls WHERE ls.id_vuelo = v.id_vuelo LIMIT 1) AS loadsheet_estado
        FROM vuelo v
        JOIN bloque_horario bh ON bh.id_bloque = v.id_bloque
        JOIN aeronave a ON a.id_aeronave = v.id_aeronave
@@ -99,7 +100,8 @@ exports.getVuelosSemana = async (req, res) => {
          ua.apellido  AS alumno_apellido,
          vet.registrado_en AS estado_desde,
          rv.es_inasistencia,
-         (SELECT 1 FROM checklist_postvuelo WHERE id_vuelo = v.id_vuelo LIMIT 1) IS NOT NULL AS checklist_completado
+         (SELECT 1 FROM checklist_postvuelo WHERE id_vuelo = v.id_vuelo LIMIT 1) IS NOT NULL AS checklist_completado,
+         (SELECT ls.estado FROM loadsheet ls WHERE ls.id_vuelo = v.id_vuelo LIMIT 1) AS loadsheet_estado
        FROM vuelo v
        JOIN bloque_horario bh ON bh.id_bloque = v.id_bloque
        JOIN aeronave a ON a.id_aeronave = v.id_aeronave

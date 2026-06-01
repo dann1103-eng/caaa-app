@@ -5,6 +5,7 @@ const router = express.Router();
 const instructorVuelo = require("../controllers/instructor/instructorVueloController");
 const instructorAlumno = require("../controllers/instructor/instructorAlumnoController");
 const instructorReporte = require("../controllers/instructor/instructorReporteController");
+const alumnoWb = require("../controllers/alumno/alumnoWbController");
 
 router.get("/vuelos-hoy",                                     authMiddleware, instructorVuelo.getVuelosHoy);
 router.get("/vuelos-semana",                                  authMiddleware, instructorVuelo.getVuelosSemana);
@@ -20,5 +21,9 @@ router.patch("/vuelos/:id/reporte-vuelo/firmar",              authMiddleware, in
 router.get("/vuelos/:id/checklist-postvuelo",                 authMiddleware, instructorReporte.getChecklistPostvuelo);
 router.post("/vuelos/:id/checklist-postvuelo",                authMiddleware, instructorReporte.guardarChecklistPostvuelo);
 router.delete("/vuelos/:id/checklist-postvuelo",              authMiddleware, instructorReporte.eliminarChecklistPostvuelo);
+
+// Ver loadsheet del alumno (solo lectura) — reutiliza los controllers del alumno
+router.get("/vuelos/:id_vuelo/weight-balance",                authMiddleware, alumnoWb.getWB);
+router.get("/vuelos/:id_vuelo/loadsheet",                     authMiddleware, alumnoWb.getLoadsheet);
 
 module.exports = router;

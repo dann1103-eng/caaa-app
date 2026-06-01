@@ -2,8 +2,9 @@ import axios from "axios";
 import { API_URL } from "../api/axiosConfig";
 
 // Carga datos del vuelo + plantilla W&B + loadsheet guardado (si existe).
-export const getWBData = async (idVuelo) => {
-  const res = await axios.get(`${API_URL}/alumno/vuelos/${idVuelo}/weight-balance`);
+// base: "alumno" (edición) o "instructor" (solo lectura).
+export const getWBData = async (idVuelo, base = "alumno") => {
+  const res = await axios.get(`${API_URL}/${base}/vuelos/${idVuelo}/weight-balance`);
   return res.data;
 };
 

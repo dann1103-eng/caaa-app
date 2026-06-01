@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { io as socketIO } from "socket.io-client";
 import Header from "../../components/Header/Header";
@@ -70,6 +71,7 @@ function EstadoTag({ estado }) {
 
 // ── Tarjeta de vuelo interactiva ──────────────────────────────────────────
 function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrirReporte, advancing, weekMode, isToday, onRefresh }) {
+  const navigate = useNavigate();
   const [progreso, setProgreso] = useState(() => calcProgreso(vuelo));
   const [tiempoMin, setTiempoMin] = useState("");
   const timerRef = useRef(null);
@@ -203,6 +205,16 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
               </button>
             )}
           </div>
+        )}
+
+        {(vuelo.loadsheet_estado === "ENVIADO" || vuelo.loadsheet_estado === "COMPLETADO") && (
+          <button
+            className="ins__btn-ver-loadsheet"
+            onClick={() => navigate(`/instructor/loadsheet/${vuelo.id_vuelo}`)}
+            title="El alumno envió su loadsheet — verlo en modo lectura"
+          >
+            <i className="bi bi-clipboard-data"></i> Ver Loadsheet del alumno
+          </button>
         )}
       </div>
     </div>

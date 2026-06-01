@@ -441,6 +441,30 @@
   border-color: #059669;
 }
 
+.ins__btn-ver-loadsheet {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  background: white;
+  color: #1a3a5c;
+  border: 1px solid #1a3a5c;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ins__btn-ver-loadsheet:hover {
+  background: #e8f0f8;
+  color: #122b46;
+  border-color: #122b46;
+}
+
 /* ── Tags ────────────────────────────────────────────────────────────────── */
 .ins__tag {
   font-size: 0.65rem;

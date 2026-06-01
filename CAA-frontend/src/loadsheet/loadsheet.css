@@ -31,6 +31,15 @@
 }
 .ls-back-btn:hover { background: #122b46; }
 
+/* Reset del fieldset usado para el modo solo-lectura (no debe agregar borde/espacio) */
+.ls-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: auto;
+}
+.ls-fieldset:disabled { opacity: 0.85; }
+
 #print-area {
   color-scheme: light only;
   background-color: #ffffff !important;
