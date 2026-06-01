@@ -4,7 +4,8 @@ import {
   getCursos,
   getAulaUnidades, crearAulaUnidad, actualizarAulaUnidad, eliminarAulaUnidad,
   getEvaluaciones, crearEvaluacion, getAlumnosEvaluacion, registrarNota,
-  getAlumnosConSaldo, getProgresoAlumno, setProgresoAlumno
+  getAlumnosConSaldo, getProgresoAlumno, setProgresoAlumno,
+  getMaterialUnidad, subirMaterialUnidad, getMaterialUrl, eliminarMaterial
 } from "../../services/administracionApi";
 
 const MOCK_CURSOS = [
@@ -42,6 +43,36 @@ export default function AulaVirtual() {
   const [showUnidadForm, setShowUnidadForm] = useState(false);
   const [editingUnidad, setEditingUnidad] = useState(null);
   const [unidadForm, setUnidadForm] = useState(EMPTY_UNIDAD);
+
+  // Material por unidad
+  const [matUnidad, setMatUnidad] = useState(null); // id de unidad con panel abierto
+  const [mats, setMats] = useState([]);
+  const abrirMaterialPanel = async (u) => {
+    if (matUnidad === u.id) { setMatUnidad(null); return; }
+    setMatUnidad(u.id);
+    try { const r = await getMaterialUnidad(u.id); setMats(r?.data || []); }
+    catch { setMats([]); }
+  };
+  const subirMat = async (file) => {
+    if (!file || !matUnidad) return;
+    const fd = new FormData();
+    fd.append("archivo", file);
+    fd.append("nombre", file.name);
+    try {
+      await subirMaterialUnidad(matUnidad, fd);
+      toast.success("Material subido");
+      const r = await getMaterialUnidad(matUnidad); setMats(r?.data || []);
+    } catch (e) { toast.error(e?.response?.data?.message || "Error al subir"); }
+  };
+  const abrirMatUrl = async (id) => {
+    try { const r = await getMaterialUrl(id); if (r?.url) window.open(r.url, "_blank"); }
+    catch { toast.error("No se pudo abrir"); }
+  };
+  const borrarMat = async (id) => {
+    if (!confirm("¿Eliminar este material?")) return;
+    try { await eliminarMaterial(id); setMats(prev => prev.filter(m => m.id !== id)); }
+    catch (e) { toast.error("Error al eliminar"); }
+  };
 
   const [showEvalForm, setShowEvalForm] = useState(false);
   const [evalForm, setEvalForm] = useState(EMPTY_EVAL);
@@ -286,8 +317,11 @@ export default function AulaVirtual() {
                   </td>
                   <td className="amount" style={{ textAlign: "right" }}>{Number(u.horas_estimadas).toFixed(1)} h</td>
                   <td style={{ textAlign: "right", color: "var(--c-ink-3)" }}>{u.orden}</td>
-                  <td style={{ textAlign: "right" }}>
-                    <button className="adf-btn small secondary" onClick={() => editUnidad(u)}>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button className="adf-btn small secondary" title="Material" onClick={() => abrirMaterialPanel(u)}>
+                      <i className="bi bi-paperclip"></i>
+                    </button>
+                    <button className="adf-btn small secondary" style={{ marginLeft: 4 }} onClick={() => editUnidad(u)}>
                       <i className="bi bi-pencil"></i>
                     </button>
                     <button className="adf-btn small danger" style={{ marginLeft: 4 }} onClick={() => removerUnidad(u)}>
@@ -295,7 +329,39 @@ export default function AulaVirtual() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )).flatMap((row, idx) => {
+                const u = unidades[idx];
+                const out = [row];
+                if (matUnidad === u.id) {
+                  out.push(
+                    <tr key={`mat-${u.id}`}>
+                      <td colSpan={5} style={{ background: "var(--c-surface-2)", padding: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <strong style={{ fontSize: "0.9rem" }}><i className="bi bi-paperclip me-1"></i>Material de la unidad {u.numero}</strong>
+                          <label className="adf-btn small" style={{ cursor: "pointer" }}>
+                            <i className="bi bi-upload"></i> Subir archivo
+                            <input type="file" accept="application/pdf,image/*" style={{ display: "none" }}
+                              onChange={(e) => subirMat(e.target.files?.[0])} />
+                          </label>
+                        </div>
+                        {mats.length === 0
+                          ? <div style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>Sin material todavía.</div>
+                          : mats.map(m => (
+                            <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
+                              <button onClick={() => abrirMatUrl(m.id)} style={{ background: "none", border: "none", color: "var(--c-brand-700)", cursor: "pointer", fontSize: "0.88rem" }}>
+                                <i className="bi bi-file-earmark-arrow-down me-1"></i>{m.nombre}
+                              </button>
+                              <button onClick={() => borrarMat(m.id)} style={{ background: "none", border: "none", color: "var(--c-danger-700)", cursor: "pointer" }}>
+                                <i className="bi bi-trash"></i>
+                              </button>
+                            </div>
+                          ))}
+                      </td>
+                    </tr>
+                  );
+                }
+                return out;
+              })}
               {unidades.length === 0 && (
                 <tr><td colSpan={5} style={{ textAlign: "center", padding: 30, color: "var(--c-ink-4)" }}>
                   Este curso no tiene unidades. Crea la primera con el botón verde.

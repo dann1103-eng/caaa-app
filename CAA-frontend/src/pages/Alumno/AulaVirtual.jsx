@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Header from "../../components/Header/Header";
-import { getMiAulaVirtual } from "../../services/alumnoApi";
+import { getMiAulaVirtual, getMaterialUrlAlumno } from "../../services/alumnoApi";
 import "./AulaVirtual.css";
 
 const MOCK = {
@@ -70,6 +70,14 @@ export default function AulaVirtual() {
   const cursoActivo = data.cursos?.[0];
   const unidades = data.unidades || [];
   const evaluaciones = data.evaluaciones || [];
+  const materiales = data.materiales || [];
+
+  const abrirMaterial = async (id) => {
+    try {
+      const r = await getMaterialUrlAlumno(id);
+      if (r?.url) window.open(r.url, "_blank");
+    } catch { /* noop */ }
+  };
 
   const totalUnidades = unidades.length;
   const completadas   = unidades.filter(u => u.estado === 'COMPLETADA').length;
@@ -209,6 +217,17 @@ export default function AulaVirtual() {
                   {u.observaciones && (
                     <div className="av-observaciones">
                       <i className="bi bi-chat-square-quote me-1"></i>{u.observaciones}
+                    </div>
+                  )}
+                  {materiales.filter(m => Number(m.id_unidad) === Number(u.id_unidad)).length > 0 && (
+                    <div style={{ marginTop: 10, borderTop: "1px solid #eee", paddingTop: 8 }}>
+                      <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", marginBottom: 4 }}>MATERIAL</div>
+                      {materiales.filter(m => Number(m.id_unidad) === Number(u.id_unidad)).map(m => (
+                        <button key={m.id} onClick={() => abrirMaterial(m.id)}
+                          style={{ display: "block", background: "none", border: "none", color: "#1B365D", cursor: "pointer", padding: "2px 0", fontSize: "0.85rem", textAlign: "left" }}>
+                          <i className="bi bi-file-earmark-arrow-down me-1"></i>{m.nombre}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>

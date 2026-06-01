@@ -115,6 +115,11 @@ export const getEvaluaciones       = async (params) => (await axios.get(`${BASE}
 export const crearEvaluacion       = async (payload) => (await axios.post(`${BASE}/aula/evaluaciones`, payload)).data;
 export const getAlumnosEvaluacion  = async (id) => (await axios.get(`${BASE}/aula/evaluaciones/${id}/alumnos`)).data;
 export const registrarNota         = async (id, payload) => (await axios.patch(`${BASE}/aula/evaluacion-alumno/${id}`, payload)).data;
+// Material por unidad
+export const getMaterialUnidad     = async (idUnidad) => (await axios.get(`${BASE}/aula/unidades/${idUnidad}/material`)).data;
+export const subirMaterialUnidad   = async (idUnidad, formData) => (await axios.post(`${BASE}/aula/unidades/${idUnidad}/material`, formData, { headers: { "Content-Type": "multipart/form-data" } })).data;
+export const getMaterialUrl        = async (id) => (await axios.get(`${BASE}/aula/material/${id}/url`)).data;
+export const eliminarMaterial      = async (id) => (await axios.delete(`${BASE}/aula/material/${id}`)).data;
 
 // ── Reportes ────────────────────────────────────────────────────────
 export const getKpisDashboard = async () => (await axios.get(`${BASE}/reportes/kpis-dashboard`)).data;

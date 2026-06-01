@@ -155,3 +155,8 @@ export const getMiAulaVirtual = async () => {
   const res = await axios.get(`${API_URL}/alumno/mi-aula-virtual`);
   return res.data;
 };
+
+export const getMaterialUrlAlumno = async (id) => {
+  const res = await axios.get(`${API_URL}/administracion/aula/material/${id}/url`);
+  return res.data;
+};

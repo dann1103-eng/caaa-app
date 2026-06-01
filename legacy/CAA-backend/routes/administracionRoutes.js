@@ -120,6 +120,13 @@ router.patch("/aula/evaluacion-alumno/:id",               roleMiddleware(AULA_WR
 // Vista del propio alumno (estaba implementada sin ruta).
 router.get("/aula/mi-aula",                               roleMiddleware(["ALUMNO"]), aula.miAulaVirtual);
 
+// Material por unidad (lectura/descarga también para el alumno).
+const AULA_VIEW = ["ADMINISTRACION","ADMIN","INSTRUCTOR","ALUMNO"];
+router.get("/aula/unidades/:id_unidad/material",          roleMiddleware(AULA_VIEW),  aula.listMaterial);
+router.post("/aula/unidades/:id_unidad/material",         roleMiddleware(AULA_WRITE), upload.single("archivo"), aula.subirMaterial);
+router.get("/aula/material/:id/url",                      roleMiddleware(AULA_VIEW),  aula.materialUrl);
+router.delete("/aula/material/:id",                       roleMiddleware(AULA_WRITE), aula.eliminarMaterial);
+
 // ── Reportes / KPIs ───────────────────────────────────────────────────
 router.get("/reportes/ingresos",            roleMiddleware(READ_ROLES),  reportes.ingresos);
 router.get("/reportes/egresos",             roleMiddleware(READ_ROLES),  reportes.egresos);

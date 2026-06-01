@@ -1,4 +1,6 @@
+const path = require("path");
 const db = require("../../config/db");
+const { subirArchivo, urlFirmada, borrarArchivo, storageDisponible, BUCKETS } = require("../../utils/storage");
 
 // ─────────────────────────────────────────────────────────────────────
 // UNIDADES TEÓRICAS
@@ -62,6 +64,67 @@ exports.eliminarUnidad = async (req, res) => {
   try {
     const { id } = req.params;
     await db.query(`UPDATE unidad_teorica SET activo = FALSE WHERE id = $1`, [id]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// MATERIAL DIDÁCTICO POR UNIDAD
+// ─────────────────────────────────────────────────────────────────────
+
+exports.listMaterial = async (req, res) => {
+  try {
+    const { id_unidad } = req.params;
+    const r = await db.query(
+      `SELECT id, id_unidad, nombre, archivo_path, content_type, creado_en
+       FROM material_unidad WHERE id_unidad = $1 ORDER BY creado_en DESC`,
+      [id_unidad]
+    );
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.subirMaterial = async (req, res) => {
+  try {
+    const { id_unidad } = req.params;
+    if (!req.file) return res.status(400).json({ ok: false, message: "Archivo requerido" });
+    if (!storageDisponible()) return res.status(503).json({ ok: false, message: "Almacenamiento no configurado" });
+    const ext = path.extname(req.file.originalname) || "";
+    const ruta = `aula/unidad_${id_unidad}/${Date.now()}${ext}`;
+    await subirArchivo(BUCKETS.ARCHIVOS, ruta, req.file.buffer, req.file.mimetype);
+    const r = await db.query(
+      `INSERT INTO material_unidad (id_unidad, nombre, archivo_path, content_type, subido_por)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [id_unidad, req.body.nombre || req.file.originalname, ruta, req.file.mimetype, req.user?.id_usuario || null]
+    );
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.materialUrl = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await db.query(`SELECT archivo_path FROM material_unidad WHERE id = $1`, [id]);
+    if (r.rows.length === 0) return res.status(404).json({ ok: false, message: "Material no encontrado" });
+    const url = await urlFirmada(BUCKETS.ARCHIVOS, r.rows[0].archivo_path, 3600);
+    res.json({ ok: true, url });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.eliminarMaterial = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await db.query(`SELECT archivo_path FROM material_unidad WHERE id = $1`, [id]);
+    if (r.rows.length > 0) await borrarArchivo(BUCKETS.ARCHIVOS, r.rows[0].archivo_path);
+    await db.query(`DELETE FROM material_unidad WHERE id = $1`, [id]);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
@@ -328,12 +391,23 @@ exports.miAulaVirtual = async (req, res) => {
       ORDER BY e.fecha_programada DESC NULLS LAST, e.id DESC
     `, [id_alumno]);
 
+    // Material de las unidades del curso activo del alumno
+    const materiales = await db.query(`
+      SELECT m.id, m.id_unidad, m.nombre, m.content_type
+      FROM material_unidad m
+      JOIN unidad_teorica u ON u.id = m.id_unidad
+      JOIN inscripcion_curso ic ON ic.id_curso = u.id_curso
+      WHERE ic.id_alumno = $1 AND ic.estado = 'ACTIVO' AND u.activo = TRUE
+      ORDER BY m.creado_en DESC
+    `, [id_alumno]);
+
     res.json({
       ok: true,
       data: {
         cursos: cursos.rows,
         unidades: unidades.rows,
-        evaluaciones: evals.rows
+        evaluaciones: evals.rows,
+        materiales: materiales.rows
       }
     });
   } catch (e) {
