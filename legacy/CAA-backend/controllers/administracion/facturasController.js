@@ -116,7 +116,8 @@ exports.list = async (req, res) => {
  * @returns {Object} { factura, saldo_resultante }
  */
 exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(client, {
-  id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por
+  id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por,
+  es_extracurricular = false
 }) {
   // Buscar tarifa vigente. Se prioriza el match por id_aeronave (vínculo
   // robusto); si la tarifa no tiene id_aeronave (filas antiguas), se cae al
@@ -184,29 +185,41 @@ exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(c
   `, [id_vuelo]);
   const m = meta.rows[0] || {};
 
+  // Para vuelos extracurriculares: se cobra igual, pero NO se suma a las horas
+  // totales (de licencia) ni se actualiza el avance del curso. Se etiqueta con nota.
+  const horasTotalesMov = es_extracurricular
+    ? Number(m.horas_totales_alumno || 0)
+    : Number(m.horas_totales_alumno || 0) + Number(tacometro);
+  const notaMov = es_extracurricular ? 'Extracurricular' : null;
+  const descMov = es_extracurricular
+    ? `Vuelo extracurricular #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`
+    : `Vuelo #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`;
+
   await client.query(`
     INSERT INTO movimiento_cuenta
       (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, id_vuelo, id_factura,
-       instructor_nombre, avion_codigo, horas_vuelo, horas_totales,
+       instructor_nombre, avion_codigo, horas_vuelo, horas_totales, nota,
        generado_automatico, registrado_por)
-    VALUES ($1, 'CARGO_VUELO', $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, $11)
-  `, [id_alumno, `Vuelo #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`,
+    VALUES ($1, 'CARGO_VUELO', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, $12)
+  `, [id_alumno, descMov,
       -total, nuevo_saldo, id_vuelo, f.rows[0].id,
       m.instructor_nombre || null, m.avion_codigo || modelo_aeronave, tacometro,
-      Number(m.horas_totales_alumno || 0) + Number(tacometro),
+      horasTotalesMov, notaMov,
       emitida_por || null]);
 
-  // Actualizar avance de curso (suma horas al componente correspondiente)
-  await client.query(`
-    UPDATE inscripcion_curso_avance
-    SET horas_acumuladas = horas_acumuladas + $2
-    WHERE id_inscripcion IN (
-      SELECT id FROM inscripcion_curso WHERE id_alumno = $1 AND estado = 'ACTIVO' LIMIT 1
-    )
-    AND ($3 = ANY(string_to_array(tipo_aeronave, ' / ')) OR tipo_aeronave = $3 OR tipo_aeronave ILIKE '%' || $3 || '%')
-  `, [id_alumno, tacometro, modelo_aeronave]);
+  // Avance de curso: solo para vuelos de licencia (NO extracurriculares).
+  if (!es_extracurricular) {
+    await client.query(`
+      UPDATE inscripcion_curso_avance
+      SET horas_acumuladas = horas_acumuladas + $2
+      WHERE id_inscripcion IN (
+        SELECT id FROM inscripcion_curso WHERE id_alumno = $1 AND estado = 'ACTIVO' LIMIT 1
+      )
+      AND ($3 = ANY(string_to_array(tipo_aeronave, ' / ')) OR tipo_aeronave = $3 OR tipo_aeronave ILIKE '%' || $3 || '%')
+    `, [id_alumno, tacometro, modelo_aeronave]);
+  }
 
-  return { factura: f.rows[0], saldo_resultante: nuevo_saldo, tarifa, total };
+  return { factura: f.rows[0], saldo_resultante: nuevo_saldo, tarifa, total, es_extracurricular };
 };
 
 exports.anular = async (req, res) => {

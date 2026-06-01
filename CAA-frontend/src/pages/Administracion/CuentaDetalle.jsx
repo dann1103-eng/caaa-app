@@ -25,7 +25,7 @@ const EMPTY_FORM = {
   fecha: new Date().toISOString().slice(0, 10),
   instructor: "", factura_no: "", avion: "",
   h_v: "", h_t: "",
-  debe: "", haber: "", descripcion: ""
+  debe: "", haber: "", descripcion: "", nota: "", es_multa: false
 };
 const METODOS = ["EFECTIVO", "TRANSFERENCIA", "CHEQUE", "TARJETA", "OTRO"];
 
@@ -89,6 +89,7 @@ export default function CuentaDetalle() {
       h_t: m.horas_totales ?? "",
       debe: debeVal, haber: haberVal,
       descripcion: m.descripcion || "",
+      nota: m.nota || "",
       motivo_edicion: ""
     });
   };
@@ -170,8 +171,11 @@ export default function CuentaDetalle() {
           <button className="adf-btn positive" onClick={() => setOpenPanel(openPanel === "recibo" ? null : "recibo")}>
             <i className="bi bi-plus-lg"></i> Registrar abono (Haber)
           </button>
-          <button className="adf-btn secondary" onClick={() => setOpenPanel(openPanel === "cargo" ? null : "cargo")}>
+          <button className="adf-btn secondary" onClick={() => { setCargoForm(EMPTY_FORM); setOpenPanel(openPanel === "cargo" ? null : "cargo"); }}>
             <i className="bi bi-dash-lg"></i> Cargo manual (Debe)
+          </button>
+          <button className="adf-btn secondary" onClick={() => { setCargoForm({ ...EMPTY_FORM, es_multa: true, nota: "Multa por no-show" }); setOpenPanel("cargo"); }}>
+            <i className="bi bi-exclamation-octagon"></i> Multa (no-show)
           </button>
           <button className="adf-btn ghost small" onClick={() => window.print()}>
             <i className="bi bi-printer"></i> Imprimir extracto
@@ -218,9 +222,14 @@ export default function CuentaDetalle() {
       {/* Panel cargo manual */}
       {openPanel === "cargo" && (
         <div className="adf-card">
-          <h3><i className="bi bi-pencil-square"></i> Cargo manual · Formato hoja azul</h3>
+          <h3>
+            <i className={cargoForm.es_multa ? "bi bi-exclamation-octagon" : "bi bi-pencil-square"}></i>
+            {cargoForm.es_multa ? " Multa / cargo sin horas" : " Cargo manual · Formato hoja azul"}
+          </h3>
           <p style={{ color: "var(--c-ink-3)", fontSize: 13, marginTop: -8, marginBottom: 16 }}>
-            Llena las columnas de la cuenta corriente física: fecha, instructor, factura, avión, H.V., H.T., y monto en Debe o Haber.
+            {cargoForm.es_multa
+              ? "Debita el saldo del alumno sin registrar horas de vuelo. Indica el monto en Debe y describe en Nota el motivo (ej. no-show)."
+              : "Llena las columnas de la cuenta corriente física: fecha, instructor, factura, avión, H.V., H.T., y monto en Debe o Haber."}
           </p>
           <form onSubmit={handleCargo}>
             <div className="adf-form-grid">
@@ -244,27 +253,39 @@ export default function CuentaDetalle() {
                 <input value={cargoForm.avion} placeholder="YS-334PE" style={{ fontFamily: "var(--font-mono)" }}
                   onChange={(e) => setCargoForm({...cargoForm, avion: e.target.value})} />
               </div>
-              <div className="adf-form-field">
-                <label>H.V.</label>
-                <input type="number" step="0.1" min="0" value={cargoForm.h_v} style={{ fontFamily: "var(--font-mono)" }}
-                  onChange={(e) => setCargoForm({...cargoForm, h_v: e.target.value})} />
-              </div>
-              <div className="adf-form-field">
-                <label>H.T.</label>
-                <input type="number" step="0.1" min="0" value={cargoForm.h_t} style={{ fontFamily: "var(--font-mono)" }}
-                  onChange={(e) => setCargoForm({...cargoForm, h_t: e.target.value})} />
-              </div>
+              {!cargoForm.es_multa && (
+                <>
+                  <div className="adf-form-field">
+                    <label>H.V.</label>
+                    <input type="number" step="0.1" min="0" value={cargoForm.h_v} style={{ fontFamily: "var(--font-mono)" }}
+                      onChange={(e) => setCargoForm({...cargoForm, h_v: e.target.value})} />
+                  </div>
+                  <div className="adf-form-field">
+                    <label>H.T.</label>
+                    <input type="number" step="0.1" min="0" value={cargoForm.h_t} style={{ fontFamily: "var(--font-mono)" }}
+                      onChange={(e) => setCargoForm({...cargoForm, h_t: e.target.value})} />
+                  </div>
+                </>
+              )}
               <div className="adf-form-field">
                 <label style={{ color: "var(--c-danger-700)" }}>Debe (cargo)</label>
                 <input type="number" step="0.01" min="0" value={cargoForm.debe}
                   placeholder="USD" style={{ fontFamily: "var(--font-mono)" }}
                   onChange={(e) => setCargoForm({...cargoForm, debe: e.target.value, haber: ""})} />
               </div>
-              <div className="adf-form-field">
-                <label style={{ color: "var(--c-accent-700)" }}>Haber (crédito)</label>
-                <input type="number" step="0.01" min="0" value={cargoForm.haber}
-                  placeholder="USD" style={{ fontFamily: "var(--font-mono)" }}
-                  onChange={(e) => setCargoForm({...cargoForm, haber: e.target.value, debe: ""})} />
+              {!cargoForm.es_multa && (
+                <div className="adf-form-field">
+                  <label style={{ color: "var(--c-accent-700)" }}>Haber (crédito)</label>
+                  <input type="number" step="0.01" min="0" value={cargoForm.haber}
+                    placeholder="USD" style={{ fontFamily: "var(--font-mono)" }}
+                    onChange={(e) => setCargoForm({...cargoForm, haber: e.target.value, debe: ""})} />
+                </div>
+              )}
+              <div className="adf-form-field" style={{ gridColumn: "1 / -1" }}>
+                <label>Nota</label>
+                <input value={cargoForm.nota}
+                  placeholder={cargoForm.es_multa ? "Ej: Multa por no-show del 30/07" : "Ej: Multa, recargo, concepto del movimiento…"}
+                  onChange={(e) => setCargoForm({...cargoForm, nota: e.target.value})} />
               </div>
               <div className="adf-form-field" style={{ gridColumn: "1 / -1" }}>
                 <label>Observaciones</label>
@@ -337,6 +358,11 @@ export default function CuentaDetalle() {
                 <label>Descripción</label>
                 <input value={editForm.descripcion}
                   onChange={(e) => setEditForm({...editForm, descripcion: e.target.value})} />
+              </div>
+              <div className="adf-form-field" style={{ gridColumn: "1 / -1" }}>
+                <label>Nota</label>
+                <input value={editForm.nota}
+                  onChange={(e) => setEditForm({...editForm, nota: e.target.value})} />
               </div>
               <div className="adf-form-field" style={{ gridColumn: "1 / -1" }}>
                 <label style={{ color: "var(--c-warn-700)" }}>Motivo de edición (obligatorio)</label>

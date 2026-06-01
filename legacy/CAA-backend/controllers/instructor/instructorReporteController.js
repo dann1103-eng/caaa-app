@@ -240,20 +240,26 @@ exports.firmarReporteVuelo = async (req, res) => {
           return res.status(400).json({ message: "El Tacómetro de llegada debe ser mayor al de salida." });
         }
 
-        // Obtener el id_aeronave del vuelo
-        const vueloRes = await client.query("SELECT id_aeronave FROM vuelo WHERE id_vuelo = $1", [id]);
+        // Obtener datos del vuelo
+        const vueloRes = await client.query(
+          "SELECT id_aeronave, id_alumno, es_extracurricular FROM vuelo WHERE id_vuelo = $1",
+          [id]
+        );
         const id_aeronave = vueloRes.rows[0].id_aeronave;
 
         // Actualizar horas acumuladas de la aeronave y disparar mantenimiento/alertas
         const io = req.app.get("io");
         await actualizarHorasAeronave(client, id, id_aeronave, diff, io);
 
-        // Actualizar horas acumuladas del Alumno basadas en TAC (1.0 TAC = 1.0 Hora de vuelo)
+        // Actualizar horas acumuladas del Alumno basadas en TAC (1.0 TAC = 1.0 Hora de vuelo).
+        // Los vuelos extracurriculares NO suman a las horas de licencia del alumno.
         const id_alumno = vueloRes.rows[0].id_alumno;
-        await client.query(
-          `UPDATE alumno SET horas_acumuladas = horas_acumuladas + $1 WHERE id_alumno = $2`,
-          [diff, id_alumno]
-        );
+        if (!vueloRes.rows[0].es_extracurricular && id_alumno) {
+          await client.query(
+            `UPDATE alumno SET horas_acumuladas = horas_acumuladas + $1 WHERE id_alumno = $2`,
+            [diff, id_alumno]
+          );
+        }
       }
 
       // Avanzar el estado del vuelo a COMPLETADO
@@ -278,6 +284,7 @@ exports.firmarReporteVuelo = async (req, res) => {
           const tacDiff = parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
           const vueloInfo = await client.query(`
             SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha_vuelo AS fecha,
+                   v.es_extracurricular,
                    COALESCE(a.modelo, a.tipo, 'Cessna 152') AS modelo_aeronave
             FROM vuelo v
             LEFT JOIN aeronave a ON a.id_aeronave = v.id_aeronave
@@ -292,7 +299,8 @@ exports.firmarReporteVuelo = async (req, res) => {
               tacometro: tacDiff,
               modelo_aeronave: info.modelo_aeronave,
               fecha: info.fecha,
-              emitida_por: req.user.id_usuario
+              emitida_por: req.user.id_usuario,
+              es_extracurricular: info.es_extracurricular
             });
           }
         } catch (eFin) {

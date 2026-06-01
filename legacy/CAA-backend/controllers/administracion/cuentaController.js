@@ -120,7 +120,7 @@ exports.cargoManual = async (req, res) => {
     const { id_alumno } = req.params;
     const {
       fecha, instructor, factura_no, avion, h_v, h_t,
-      debe, haber, descripcion
+      debe, haber, descripcion, nota, es_multa
     } = req.body;
 
     const debeNum = Number(debe || 0);
@@ -134,7 +134,12 @@ exports.cargoManual = async (req, res) => {
 
     const esCargo = debeNum > 0;
     const monto = esCargo ? -debeNum : haberNum;
-    const tipo  = esCargo ? 'CARGO_OTRO' : 'DEPOSITO';
+    // Una multa (ej. no-show) es un cargo que debita saldo pero NO registra horas
+    // de vuelo ni se suma a horas totales.
+    const tipo  = esCargo ? (es_multa ? 'CARGO_MULTA' : 'CARGO_OTRO') : 'DEPOSITO';
+    // En multas se ignoran las horas aunque vengan en el body.
+    const horasVuelo  = es_multa ? null : (h_v != null && h_v !== '' ? Number(h_v) : null);
+    const horasTotales = es_multa ? null : (h_t != null && h_t !== '' ? Number(h_t) : null);
 
     await client.query("BEGIN");
 
@@ -153,23 +158,25 @@ exports.cargoManual = async (req, res) => {
     `, [id_alumno, nuevo_saldo]);
 
     const descripcionFinal = descripcion ||
-      (esCargo
-        ? `Cargo manual${avion ? ' ' + avion : ''}${h_v ? ' ' + h_v + 'h' : ''}${instructor ? ' - ' + instructor : ''}`
-        : `Depósito manual${descripcion ? ' - ' + descripcion : ''}`);
+      (es_multa
+        ? `Multa${instructor ? ' - ' + instructor : ''}`
+        : esCargo
+          ? `Cargo manual${avion ? ' ' + avion : ''}${h_v ? ' ' + h_v + 'h' : ''}${instructor ? ' - ' + instructor : ''}`
+          : `Depósito manual${descripcion ? ' - ' + descripcion : ''}`);
 
     const mov = await client.query(`
       INSERT INTO movimiento_cuenta
         (id_alumno, tipo, fecha, descripcion, monto_usd, saldo_resultante_usd,
-         instructor_nombre, avion_codigo, horas_vuelo, horas_totales,
+         instructor_nombre, avion_codigo, horas_vuelo, horas_totales, nota,
          generado_automatico, registrado_por)
-      VALUES ($1, $2, COALESCE($3, NOW()), $4, $5, $6, $7, $8, $9, $10, FALSE, $11)
+      VALUES ($1, $2, COALESCE($3, NOW()), $4, $5, $6, $7, $8, $9, $10, $11, FALSE, $12)
       RETURNING *
     `, [
       id_alumno, tipo, fecha || null, descripcionFinal,
       monto, nuevo_saldo,
       instructor || null, avion || null,
-      h_v != null && h_v !== '' ? Number(h_v) : null,
-      h_t != null && h_t !== '' ? Number(h_t) : null,
+      horasVuelo, horasTotales,
+      nota || null,
       req.user?.id_usuario || null
     ]);
 
@@ -214,7 +221,7 @@ exports.editarMovimiento = async (req, res) => {
     const { id } = req.params;
     const {
       fecha, instructor, factura_no, avion, h_v, h_t,
-      debe, haber, descripcion, motivo_edicion
+      debe, haber, descripcion, nota, motivo_edicion
     } = req.body;
 
     if (!motivo_edicion || motivo_edicion.trim().length < 3) {
@@ -252,9 +259,10 @@ exports.editarMovimiento = async (req, res) => {
         avion_codigo      = COALESCE($6, avion_codigo),
         horas_vuelo       = COALESCE($7, horas_vuelo),
         horas_totales     = COALESCE($8, horas_totales),
+        nota              = COALESCE($9, nota),
         editado_en        = NOW(),
-        editado_por       = $9,
-        motivo_edicion    = $10
+        editado_por       = $10,
+        motivo_edicion    = $11
       WHERE id = $1
     `, [
       id,
@@ -265,6 +273,7 @@ exports.editarMovimiento = async (req, res) => {
       avion || null,
       h_v != null && h_v !== '' ? Number(h_v) : null,
       h_t != null && h_t !== '' ? Number(h_t) : null,
+      nota || null,
       req.user?.id_usuario || null,
       motivo_edicion
     ]);

@@ -5,7 +5,7 @@ import "./MovimientoCuentaTable.css";
  * Réplica digital de la hoja "CUENTA CORRIENTE — PILOTO ESTUDIANTE" CAAA.
  *
  * Columnas (mismo orden que la hoja física):
- *   FECHA · INSTRUCTOR · FACTURA NO. · AVION · H.V. · H.T. · DEBE · HABER · SALDO
+ *   FECHA · INSTRUCTOR · FACTURA NO. · AVION · H.V. · H.T. · NOTA · DEBE · HABER · SALDO
  *
  * Props:
  *   movimientos: Array de movimientos
@@ -29,6 +29,7 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
             <th style={{ width: 110 }}>Avión</th>
             <th style={{ width: 64,  textAlign: "right" }}>H.V.</th>
             <th style={{ width: 70,  textAlign: "right" }}>H.T.</th>
+            <th style={{ width: 150 }}>Nota</th>
             <th style={{ width: 110, textAlign: "right" }}>Debe</th>
             <th style={{ width: 110, textAlign: "right" }}>Haber</th>
             <th style={{ width: 124, textAlign: "right" }}>Saldo</th>
@@ -38,7 +39,7 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
         <tbody>
           {movimientos.length === 0 && (
             <tr>
-              <td colSpan={showActions ? 10 : 9} className="adf-hoja__empty">
+              <td colSpan={showActions ? 11 : 10} className="adf-hoja__empty">
                 Sin movimientos aún. Los cargos por vuelos y depósitos aparecerán aquí.
               </td>
             </tr>
@@ -65,6 +66,7 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
                 <td className="adf-hoja__avion">{m.avion_codigo || <span className="muted">—</span>}</td>
                 <td className="adf-hoja__num">{m.horas_vuelo != null ? Number(m.horas_vuelo).toFixed(1) : ""}</td>
                 <td className="adf-hoja__num">{m.horas_totales != null ? Number(m.horas_totales).toFixed(1) : ""}</td>
+                <td className="adf-hoja__nota">{m.nota || ""}</td>
                 <td className="adf-hoja__num adf-hoja__debe">{debe != null ? fmt(debe) : ""}</td>
                 <td className="adf-hoja__num adf-hoja__haber">{haber != null ? fmt(haber) : ""}</td>
                 <td className="adf-hoja__num adf-hoja__saldo">{fmt(m.saldo_resultante_usd)}</td>
