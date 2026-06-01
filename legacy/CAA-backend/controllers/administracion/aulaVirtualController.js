@@ -421,7 +421,7 @@ exports.registrarNota = async (req, res) => {
     if (ea) {
       // ¿Aprobó un examen FINAL interno? → habilitar comité con la AAC.
       const ev = await client.query(
-        `SELECT id_curso, tipo, origen, nota_aprobacion FROM evaluacion WHERE id = $1`,
+        `SELECT id_curso, tipo, origen, nota_aprobacion, id_instructor FROM evaluacion WHERE id = $1`,
         [ea.id_evaluacion]
       );
       const e = ev.rows[0];
@@ -436,14 +436,16 @@ exports.registrarNota = async (req, res) => {
         `, [ea.id_alumno, e.id_curso]);
         listoParaComite = up.rows.length > 0;
         if (listoParaComite) {
-          // Datos del alumno + su instructor para la notificación.
+          // Datos del alumno, su instructor y el pago de teoría del curso.
           const info = await client.query(`
-            SELECT u.nombre || ' ' || u.apellido AS alumno, c.nombre AS curso, iu.id_usuario AS instructor_uid
+            SELECT u.nombre || ' ' || u.apellido AS alumno, c.nombre AS curso,
+                   c.pago_teoria_instructor_usd AS pago_teoria,
+                   a.id_instructor AS alumno_instructor, iu.id_usuario AS instructor_uid
             FROM alumno a
             JOIN usuario u ON u.id_usuario = a.id_usuario
             LEFT JOIN instructor i ON i.id_instructor = a.id_instructor
             LEFT JOIN usuario iu ON iu.id_usuario = i.id_usuario
-            CROSS JOIN (SELECT nombre FROM curso WHERE id = $2) c
+            CROSS JOIN (SELECT nombre, pago_teoria_instructor_usd FROM curso WHERE id = $2) c
             WHERE a.id_alumno = $1
           `, [ea.id_alumno, e.id_curso]);
           const d = info.rows[0] || {};
@@ -453,6 +455,17 @@ exports.registrarNota = async (req, res) => {
             await notificarUsuario(client, d.instructor_uid, { tipo: 'EXAMEN_FINAL', mensaje: msg });
           }
           // (Correo: pendiente de configurar SMTP / MAIL_ENABLED.)
+
+          // Pago de teoría: al instructor del examen final (o el titular del alumno).
+          const id_instructor_pago = e.id_instructor || d.alumno_instructor || null;
+          const montoTeoria = Number(d.pago_teoria || 0);
+          if (id_instructor_pago && montoTeoria > 0) {
+            await client.query(`
+              INSERT INTO pago_teoria_pendiente (id_instructor, id_curso, id_alumno, monto_usd)
+              VALUES ($1, $2, $3, $4)
+              ON CONFLICT (id_curso, id_alumno) DO NOTHING
+            `, [id_instructor_pago, e.id_curso, ea.id_alumno, montoTeoria]);
+          }
         }
       }
     }

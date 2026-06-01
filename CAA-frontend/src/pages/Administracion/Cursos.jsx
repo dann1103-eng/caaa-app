@@ -36,6 +36,7 @@ const EMPTY_FORM = {
   costo_teorico_usd: 0,
   horas_teoricas: 0,
   total_usd_estimado: 0,
+  pago_teoria_instructor_usd: 0,
   componentes: [{ ...EMPTY_COMP }]
 };
 
@@ -69,6 +70,7 @@ export default function Cursos() {
       costo_teorico_usd: Number(curso.costo_teorico_usd || 0),
       horas_teoricas: Number(curso.horas_teoricas || 0),
       total_usd_estimado: Number(curso.total_usd_estimado || 0),
+      pago_teoria_instructor_usd: Number(curso.pago_teoria_instructor_usd || 0),
       componentes: (curso.componentes || []).map(c => ({
         tipo_aeronave: c.tipo_aeronave,
         horas_requeridas: Number(c.horas_requeridas),
@@ -106,6 +108,7 @@ export default function Cursos() {
       costo_teorico_usd: Number(form.costo_teorico_usd || 0),
       horas_teoricas: Number(form.horas_teoricas || 0),
       total_usd_estimado: Number(form.total_usd_estimado || 0),
+      pago_teoria_instructor_usd: Number(form.pago_teoria_instructor_usd || 0),
       componentes: form.componentes.filter(c => c.tipo_aeronave).map(c => ({
         tipo_aeronave: c.tipo_aeronave,
         horas_requeridas: Number(c.horas_requeridas || 0),
@@ -186,6 +189,12 @@ export default function Cursos() {
                 <input type="number" step="0.01" min="0" value={form.costo_teorico_usd}
                   onChange={(e) => setForm({...form, costo_teorico_usd: e.target.value})}
                   onBlur={recalcTotal} />
+              </div>
+              <div className="adf-form-field">
+                <label>Pago teoría al instructor (USD)</label>
+                <input type="number" step="0.01" min="0" value={form.pago_teoria_instructor_usd}
+                  onChange={(e) => setForm({...form, pago_teoria_instructor_usd: e.target.value})} />
+                <small style={{ color: "var(--c-ink-3)", fontSize: "0.72rem" }}>Monto fijo que se le paga al instructor cuando un alumno aprueba el examen final de este curso.</small>
               </div>
             </div>
 

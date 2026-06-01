@@ -23,14 +23,14 @@ exports.list = async (req, res) => {
 exports.create = async (req, res) => {
   const client = await db.connect();
   try {
-    const { codigo, nombre, descripcion, gastos_administrativos_usd, costo_teorico_usd, horas_teoricas, total_usd_estimado, componentes } = req.body;
+    const { codigo, nombre, descripcion, gastos_administrativos_usd, costo_teorico_usd, horas_teoricas, total_usd_estimado, pago_teoria_instructor_usd, componentes } = req.body;
     await client.query("BEGIN");
     const c = await client.query(`
       INSERT INTO curso (codigo, nombre, descripcion, gastos_administrativos_usd,
-                         costo_teorico_usd, horas_teoricas, total_usd_estimado)
-      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *
+                         costo_teorico_usd, horas_teoricas, total_usd_estimado, pago_teoria_instructor_usd)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *
     `, [codigo, nombre, descripcion || null, gastos_administrativos_usd || 0,
-        costo_teorico_usd || 0, horas_teoricas || 0, total_usd_estimado || 0]);
+        costo_teorico_usd || 0, horas_teoricas || 0, total_usd_estimado || 0, pago_teoria_instructor_usd || 0]);
     if (Array.isArray(componentes)) {
       for (const cp of componentes) {
         await client.query(`
@@ -56,7 +56,7 @@ exports.update = async (req, res) => {
     const {
       nombre, descripcion,
       gastos_administrativos_usd, costo_teorico_usd, horas_teoricas,
-      total_usd_estimado, activo,
+      total_usd_estimado, activo, pago_teoria_instructor_usd,
       componentes // si viene, reemplaza completamente la lista
     } = req.body;
 
@@ -70,9 +70,10 @@ exports.update = async (req, res) => {
         costo_teorico_usd = COALESCE($5, costo_teorico_usd),
         horas_teoricas = COALESCE($6, horas_teoricas),
         total_usd_estimado = COALESCE($7, total_usd_estimado),
-        activo = COALESCE($8, activo)
+        activo = COALESCE($8, activo),
+        pago_teoria_instructor_usd = COALESCE($9, pago_teoria_instructor_usd)
       WHERE id = $1 RETURNING *
-    `, [id, nombre, descripcion, gastos_administrativos_usd, costo_teorico_usd, horas_teoricas, total_usd_estimado, activo]);
+    `, [id, nombre, descripcion, gastos_administrativos_usd, costo_teorico_usd, horas_teoricas, total_usd_estimado, activo, pago_teoria_instructor_usd]);
 
     if (Array.isArray(componentes)) {
       await client.query(`DELETE FROM curso_componente_practico WHERE id_curso = $1`, [id]);

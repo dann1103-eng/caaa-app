@@ -104,19 +104,25 @@ exports.calcular = async (req, res) => {
       const tarTeoria = Number(inst.tarifa_hora_teoria || 0);
 
       const horasVuelo = horasPorInstructor.get(id_inst) || 0;
-      const horasTeoria = 0; // se ingresan manualmente luego editando el detalle
+      const horasTeoria = 0; // las horas teóricas no se pagan por hora; ver pago por curso abajo.
 
-      let monto_vuelo = 0, monto_teorico = 0, salario_mensual = 0;
+      // Pago de teoría por CURSO aprobado: pagos pendientes del instructor aún no
+      // incluidos en otra nómina. Aplica a todos los tipos de pago (es adicional).
+      const teoriaRes = await client.query(`
+        SELECT id, monto_usd FROM pago_teoria_pendiente
+        WHERE id_instructor = $1 AND estado = 'PENDIENTE' AND id_nomina_detalle IS NULL
+      `, [id_inst]);
+      const pagoTeoriaCursos = teoriaRes.rows.reduce((s, p) => s + Number(p.monto_usd), 0);
+
+      let monto_vuelo = 0, monto_teorico = +pagoTeoriaCursos.toFixed(2), salario_mensual = 0;
       if (tipo_pago === 'MENSUAL_FIJO') {
         salario_mensual = salMens;
       } else if (tipo_pago === 'POR_HORA') {
         monto_vuelo   = +(horasVuelo * tarVuelo).toFixed(2);
-        monto_teorico = +(horasTeoria * tarTeoria).toFixed(2);
       } else {
         // MIXTO
         salario_mensual = salMens;
         monto_vuelo   = +(horasVuelo * tarVuelo).toFixed(2);
-        monto_teorico = +(horasTeoria * tarTeoria).toFixed(2);
       }
 
       const subtotal = +(monto_vuelo + monto_teorico + salario_mensual).toFixed(2);
@@ -134,6 +140,14 @@ exports.calcular = async (req, res) => {
           horasVuelo, tarVuelo, monto_vuelo,
           horasTeoria, tarTeoria, monto_teorico,
           salario_mensual, subtotal]);
+
+      // Vincular los pagos de teoría a este detalle (se marcan PAGADO al pagar el periodo).
+      if (teoriaRes.rows.length > 0) {
+        await client.query(
+          `UPDATE pago_teoria_pendiente SET id_nomina_detalle = $1 WHERE id = ANY($2::bigint[])`,
+          [det.rows[0].id, teoriaRes.rows.map(p => p.id)]
+        );
+      }
 
       // Trazabilidad por vuelo (solo si tiene tarifa por hora de vuelo)
       if (tarVuelo > 0 && horasVuelo > 0) {
@@ -267,6 +281,15 @@ exports.pagar = async (req, res) => {
       INSERT INTO egreso (categoria, concepto, monto_usd, fecha, id_nomina, registrado_por)
       VALUES ('NOMINA', $1, $2, CURRENT_DATE, $3, $4)
     `, [`Nómina ${p.rows[0].periodo_inicio} a ${p.rows[0].periodo_fin}`, total.rows[0].t, id, req.user?.id_usuario || null]);
+
+    // Marcar como PAGADO los pagos de teoría vinculados a los detalles de este periodo.
+    await client.query(`
+      UPDATE pago_teoria_pendiente SET estado = 'PAGADO', pagado_en = NOW()
+      WHERE estado = 'PENDIENTE' AND id_nomina_detalle IN (
+        SELECT id FROM nomina_detalle WHERE id_periodo = $1
+      )
+    `, [id]);
+
     await client.query("COMMIT");
     res.json({ ok: true, data: p.rows[0] });
   } catch (e) {
