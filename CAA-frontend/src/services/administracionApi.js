@@ -91,6 +91,13 @@ export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/docum
 export const getDocumentosAlumno   = async (id) => (await axios.get(`${BASE}/documentos/alumno/${id}`)).data;
 export const getAlertasVencimiento = async () => (await axios.get(`${BASE}/documentos/alertas`)).data;
 export const revisarDocumento      = async (id, payload) => (await axios.patch(`${BASE}/documentos/${id}`, payload)).data;
+export const subirDocumentoAlumno  = async (idAlumno, formData) => (await axios.post(`${BASE}/documentos/alumno/${idAlumno}`, formData, { headers: { "Content-Type": "multipart/form-data" } })).data;
+export const getArchivoUrlDoc      = async (id) => (await axios.get(`${BASE}/documentos/${id}/archivo-url`)).data;
+
+// ── Ficha de alumno (consolidada) ───────────────────────────────────
+export const getAlumnoFicha        = async (id) => (await axios.get(`${BASE}/alumnos/${id}/ficha`)).data;
+export const actualizarAlumnoFicha = async (id, payload) => (await axios.put(`${BASE}/alumnos/${id}`, payload)).data;
+export const getLicencias          = async () => (await axios.get(`${BASE}/licencias`)).data;
 
 // ── Médicos ─────────────────────────────────────────────────────────
 export const getMedicos       = async () => (await axios.get(`${BASE}/medicos`)).data;

@@ -89,7 +89,10 @@ export default function Cuentas() {
               <td style={{ color: "var(--c-ink-3)", fontSize: "0.88rem" }}>
                 {a.ultimo_movimiento_en ? new Date(a.ultimo_movimiento_en).toLocaleDateString("es-SV") : "—"}
               </td>
-              <td style={{ textAlign: "right" }}>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                <Link className="adf-btn small secondary" to={`/administracion/alumnos/${a.id_alumno}`} style={{ marginRight: 6 }}>
+                  <i className="bi bi-person-vcard"></i>Ficha
+                </Link>
                 <Link className="adf-btn small secondary" to={`/administracion/cuentas/${a.id_alumno}`}>
                   <i className="bi bi-eye"></i>Ver extracto
                 </Link>
