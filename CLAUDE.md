@@ -178,6 +178,8 @@ Antes era una app separada (`C:\Users\Daniel\Desktop\loadsheet_calculator`, corr
 - **`toTime()` en `alumnoWbController.js`** solo acepta `HH:MM[:SS]`; valores inválidos → null (evita `invalid input syntax for type time`).
 - **El clasificador de auto-mode** bloquea: push a `master`, deploys, borrar `.git`, `CREATE INDEX`, migraciones de esquema. Pedir autorización o usar alternativas no destructivas.
 - **Fecha del sistema avanza** entre sesiones → re-correr `reubicar_vuelos_semana_actual.sql` si los vuelos de prueba no aparecen.
+- **Columna de fecha del vuelo:** la canónica es `vuelo.fecha_vuelo` (NO existe `vuelo.fecha`). Cuidado al copiar queries del módulo contabilidad.
+- **Modelo de aeronave vs tarifa:** `aeronave.modelo` usa códigos (`CESSNA-152`, `TOMAHAWK`, `CHEROKEE`, `ARROW`); las tarifas se vinculan por `aeronave_tarifa.id_aeronave` (no por texto de modelo). El cargo automático al cerrar un vuelo busca tarifa por `id_aeronave` con fallback al texto de modelo.
 
 ---
 
@@ -185,8 +187,16 @@ Antes era una app separada (`C:\Users\Daniel\Desktop\loadsheet_calculator`, corr
 
 **Funcionando en producción:** login, dashboard admin (mantenimiento, perfiles, alumnos, cancelaciones), ADMIN puede agendar vuelos, proyección + ticker de TURNO, dashboard alumno + horario, dashboard instructor (marcar vuelos, reportes, checklists), loadsheet completo (alumno edita/envía, instructor ve en lectura con PDF).
 
+**Módulo Administración/Contabilidad (sesión 2026-06-01):** barrido de los GET → todos 200.
+Corregidos dos bugs que lo rompían: (1) `v.fecha`→`v.fecha_vuelo` (nómina 500 + cargo
+automático a cuenta corriente fallaba en silencio al cerrar vuelos), (2) match de tarifa
+por texto de modelo → ahora por `id_aeronave` (UI de Tarifas usa selector de aeronave;
+`emitirFacturaVueloDentroTx` busca por id con fallback). Desplegado (commit d4e44b5).
+**PENDIENTE del usuario:** correr `supabase/dump/backfill_tarifa_id_aeronave.sql`
+(vincula las tarifas existentes a su aeronave; sin esto el cargo automático no halla tarifa).
+
 **Pendiente / siguiente:**
 - **Observaciones del instructor** sobre el loadsheet (el usuario lo quiere: que el instructor escriba comentarios que el alumno luego ve). Aún no implementado.
 - Configurar SMTP si se quiere envío de correo real del loadsheet.
-- Seguir probando módulos no ejercitados (Administración/Contabilidad, Aula Virtual, Nómina, etc.) → esperar más deriva de esquema y arreglar con el proceso de la sección 6.
+- Seguir probando módulos no ejercitados (Aula Virtual, Recibos/Facturas/Egresos manuales, etc.) → esperar más deriva de esquema y arreglar con el proceso de la sección 6.
 - `PLAN_IMPLEMENTACION.md` tiene el plan original por fases (Fases 1-2 ya implementadas, 4-5 en curso).
