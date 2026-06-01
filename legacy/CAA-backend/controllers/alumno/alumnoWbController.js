@@ -238,7 +238,8 @@ exports.enviarLoadsheetPDF = catchAsync(async (req, res) => {
     depAtis, arrAtis
   } = req.body;
 
-  if (!pdfBase64) return res.status(400).json({ message: "PDF requerido" });
+  // El PDF es opcional: el envío (marcar ENVIADO) no debe depender de generar el PDF.
+  // Si no hay PDF, se guarda como ENVIADO igual y solo se omite el correo.
 
   const client = await db.connect();
   try {
@@ -324,8 +325,9 @@ exports.enviarLoadsheetPDF = catchAsync(async (req, res) => {
     await client.query("COMMIT");
     client.release();
 
-    // --- BLOQUE 2: ENVÍO DE CORREO (INDEPENDIENTE) ---
+    // --- BLOQUE 2: ENVÍO DE CORREO (INDEPENDIENTE, solo si hay PDF) ---
     try {
+      if (!pdfBase64) throw new Error("Sin PDF: se omite el correo");
       const recipient = process.env.RECIPIENT_EMAIL || process.env.MAIL_FROM_ADDRESS;
       await transporter.sendMail({
         from: `"CAAA Load Sheet" <${process.env.MAIL_USERNAME}>`,

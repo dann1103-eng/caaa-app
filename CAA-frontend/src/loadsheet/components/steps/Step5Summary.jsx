@@ -84,8 +84,15 @@ export default function Step5Summary() {
     if (!state.idVuelo) { alert('No hay vuelo asociado.'); return }
     setEmailLoading(true)
     try {
-      const pdf = await buildPdf()
-      const base64 = pdf.output('datauristring').split(',')[1]
+      // PDF "mejor esfuerzo": si falla la generación, igual se envía (sin adjunto).
+      // Así el envío al instructor NUNCA depende de que el PDF se genere bien.
+      let base64 = null
+      try {
+        const pdf = await buildPdf()
+        base64 = pdf.output('datauristring').split(',')[1]
+      } catch (pdfErr) {
+        console.warn('No se pudo generar el PDF; se envía sin adjunto:', pdfErr)
+      }
       // Guardar primero el W&B, luego enviar el loadsheet (persiste + correo).
       await guardarWB(state.idVuelo, buildWBPayload(state, ac))
       await enviarLoadsheet(state.idVuelo, {
