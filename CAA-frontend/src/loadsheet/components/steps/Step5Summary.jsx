@@ -186,21 +186,25 @@ export default function Step5Summary() {
           {pdfLoading ? 'Generando PDF...' : '⬇ Descargar PDF'}
         </button>
 
-        <button
-          onClick={handleSubmit}
-          disabled={state.submitStatus === 'submitting'}
-          className="px-4 py-2 rounded-md text-sm font-semibold border border-[#15803d] text-[#15803d] hover:bg-[#eafaf0] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          {state.submitStatus === 'submitting' ? 'Guardando...' : '💾 Guardar borrador'}
-        </button>
+        {!state.readOnly && (
+          <>
+            <button
+              onClick={handleSubmit}
+              disabled={state.submitStatus === 'submitting'}
+              className="px-4 py-2 rounded-md text-sm font-semibold border border-[#15803d] text-[#15803d] hover:bg-[#eafaf0] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {state.submitStatus === 'submitting' ? 'Guardando...' : '💾 Guardar borrador'}
+            </button>
 
-        <button
-          onClick={handleSendEmail}
-          disabled={emailLoading}
-          className="px-6 py-2 rounded-md text-sm font-semibold bg-[#15803d] text-white hover:bg-[#166534] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          {emailLoading ? 'Enviando...' : '✉ Guardar y enviar'}
-        </button>
+            <button
+              onClick={handleSendEmail}
+              disabled={emailLoading}
+              className="px-6 py-2 rounded-md text-sm font-semibold bg-[#15803d] text-white hover:bg-[#166534] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {emailLoading ? 'Enviando...' : '✉ Guardar y enviar'}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Inline print preview */}

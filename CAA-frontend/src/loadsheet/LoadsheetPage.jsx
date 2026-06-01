@@ -87,7 +87,7 @@ export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) 
           );
           return;
         }
-        if (!cancel) setInitial(buildInitial(id_vuelo, data, acKey));
+        if (!cancel) setInitial({ ...buildInitial(id_vuelo, data, acKey), readOnly });
       } catch (e) {
         if (!cancel) setError(e?.response?.data?.message || "No se pudo cargar el vuelo.");
       } finally {

@@ -42,7 +42,10 @@ export default function LoadsheetWizard({ onExit, readOnly = false }) {
             </div>
           )}
           <StepNav />
-          <fieldset disabled={readOnly} className="ls-fieldset">
+          {/* En modo lectura deshabilitamos la edición en los pasos 1-4, pero NO el
+              paso 5 (Resumen), para que el instructor pueda usar vista previa,
+              imprimir y descargar PDF. Los botones Guardar/Enviar se ocultan en Step5. */}
+          <fieldset disabled={readOnly && state.step !== 4} className="ls-fieldset">
             <CurrentStep />
           </fieldset>
         </div>

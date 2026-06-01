@@ -3,6 +3,7 @@ import { AIRCRAFT } from '../data/aircraft'
 
 const initialState = {
   idVuelo: null,
+  readOnly: false,
   currentAC: 'pa28r180',
   step: 0,
 
