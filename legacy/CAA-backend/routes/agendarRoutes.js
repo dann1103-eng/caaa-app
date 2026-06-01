@@ -8,9 +8,11 @@ const { guardarSolicitud } = require("../controllers/agendarController");
 const { getBloquesHorario } = require("../controllers/agendarController");
 const { getBloquesOcupados } = require("../controllers/agendarController");
 const { getBloquesBloqueados } = require("../controllers/agendarController");
+const { getExtracurricularInfo } = require("../controllers/agendarController");
 
 router.get("/bloques-ocupados",authMiddleware, getBloquesOcupados);
 router.get("/aeronaves-permitidas",authMiddleware, getAeronavesPermitidas);
+router.get("/extracurricular-info",authMiddleware, getExtracurricularInfo);
 router.post("/solicitar-vuelos",authMiddleware, guardarSolicitud);
 router.get("/bloques-bloqueados",authMiddleware, getBloquesBloqueados);
 router.get("/mis-solicitudes",authMiddleware, getMisSolicitudes);

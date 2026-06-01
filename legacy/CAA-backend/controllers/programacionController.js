@@ -792,18 +792,19 @@ exports.guardarSolicitudProgramacion = async (req, res) => {
     for (const v of vuelos) {
       await client.query(
         `
-        INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
         [
-          Number(id_solicitud), 
-          Number(id_semana), 
-          Number(v.dia_semana), 
-          Number(v.id_bloque), 
-          Number(v.id_aeronave), 
-          v.tipo_vuelo || 'LOCAL', 
+          Number(id_solicitud),
+          Number(id_semana),
+          Number(v.dia_semana),
+          Number(v.id_bloque),
+          Number(v.id_aeronave),
+          v.tipo_vuelo || 'LOCAL',
           Number(v.id_bloque_fin || v.id_bloque),
-          Number(id_instructor)
+          Number(id_instructor),
+          v.es_extracurricular === true
         ]
       );
     }

@@ -35,3 +35,8 @@ export const getBloquesBloqueados = async () => {
   const res = await axios.get(`${API_URL}/agendar/bloques-bloqueados`);
   return res.data;
 };
+
+export const getExtracurricularInfo = async () => {
+  const res = await axios.get(`${API_URL}/agendar/extracurricular-info`);
+  return res.data;
+};

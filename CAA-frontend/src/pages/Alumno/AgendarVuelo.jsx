@@ -8,6 +8,7 @@ import {
   getAeronavesPermitidas,
   getMisSolicitudes,
   guardarSolicitud,
+  getExtracurricularInfo,
 } from "../../services/agendarApi";
 
 import "./AgendarVuelo.css";
@@ -24,10 +25,17 @@ export default function AgendarVuelo() {
   const [yaGuardado, setYaGuardado] = useState(false);
   const [initialSelecciones, setInitialSelecciones] = useState([]);
 
+  // Extracurricular: habilitado solo cuando el alumno ya completó sus horas de licencia.
+  const [extraHabilitado, setExtraHabilitado] = useState(false);
+  const [extraAeronaves, setExtraAeronaves] = useState([]); // todas las activas
+  const [extraAero, setExtraAero] = useState("");
+  const [extraDia, setExtraDia] = useState("1");
+  const [extraBloque, setExtraBloque] = useState("");
+
   // Comparar si hay cambios reales respecto a lo cargado de la BD
   const tieneCambios = (() => {
     if (selecciones.length !== initialSelecciones.length) return true;
-    const normalize = (s) => `${s.dia_semana}-${s.id_bloque}-${s.id_aeronave}-${s.tipo_vuelo || 'LOCAL'}-${s.id_bloque_fin || ''}`;
+    const normalize = (s) => `${s.dia_semana}-${s.id_bloque}-${s.id_aeronave}-${s.tipo_vuelo || 'LOCAL'}-${s.id_bloque_fin || ''}-${s.es_extracurricular ? 'X' : ''}`;
     const set1 = new Set(selecciones.map(normalize));
     const set2 = new Set(initialSelecciones.map(normalize));
     if (set1.size !== set2.size) return true;
@@ -64,6 +72,12 @@ export default function AgendarVuelo() {
 
         setLicencia(lic);
         setAeronaves(aero);
+
+        try {
+          const extra = await getExtracurricularInfo();
+          setExtraHabilitado(!!extra?.habilitado);
+          setExtraAeronaves(extra?.aeronaves || []);
+        } catch { /* opcional: si falla, modo extracurricular oculto */ }
 
         if (solicitud) {
           setEstadoSolicitud(solicitud.estado);
@@ -105,11 +119,13 @@ export default function AgendarVuelo() {
 
   // Conteos por tipo
   const numAvionesSeleccionados = selecciones.filter(s => {
+    if (s.es_extracurricular) return false;
     const aero = aeronaves.find(a => Number(a.id_aeronave) === Number(s.id_aeronave));
     return aero && aero.tipo !== 'SIMULADOR';
   }).length;
 
   const numSimuladoresSeleccionados = selecciones.filter(s => {
+    if (s.es_extracurricular) return false;
     const aero = aeronaves.find(a => Number(a.id_aeronave) === Number(s.id_aeronave));
     return aero && aero.tipo === 'SIMULADOR';
   }).length;
@@ -120,6 +136,7 @@ export default function AgendarVuelo() {
   const tieneConflictoAvionDia = (() => {
     const avionesPorDia = {};
     for (const s of selecciones) {
+      if (s.es_extracurricular) continue;
       const aero = aeronaves.find(a => Number(a.id_aeronave) === Number(s.id_aeronave));
       if (aero?.tipo !== 'SIMULADOR') {
         const dia = Number(s.dia_semana);
@@ -183,6 +200,32 @@ export default function AgendarVuelo() {
     setRutaBloqueInicio("");
     setRutaBloqueFin("");
   };
+
+  const handleAgregarExtra = () => {
+    if (!extraAero || !extraDia || !extraBloque) {
+      toast.warning("Completá aeronave, día y bloque del vuelo extracurricular");
+      return;
+    }
+    setSelecciones(prev => [
+      ...prev,
+      {
+        dia_semana: Number(extraDia),
+        id_bloque: Number(extraBloque),
+        id_aeronave: Number(extraAero),
+        tipo_vuelo: 'LOCAL',
+        id_bloque_fin: Number(extraBloque),
+        es_extracurricular: true,
+      }
+    ]);
+    toast.success("Vuelo extracurricular añadido a la selección");
+    setExtraAero("");
+    setExtraBloque("");
+  };
+
+  // Busca una aeronave en la lista de permitidas o en la de todas (extracurricular).
+  const findAero = (id) =>
+    aeronaves.find(a => Number(a.id_aeronave) === Number(id)) ||
+    extraAeronaves.find(a => Number(a.id_aeronave) === Number(id));
 
   const removeSeleccion = (idx) => {
     setSelecciones(prev => prev.filter((_, i) => i !== idx));
@@ -330,6 +373,12 @@ export default function AgendarVuelo() {
                 <input type="radio" name="modo_reserva" checked={modoReserva === 'RUTA'} onChange={() => setModoReserva('RUTA')} style={{ margin: 0 }} />
                 Ruta
               </label>
+              {extraHabilitado && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'EXTRA' ? '#fff' : 'transparent', borderRadius: '6px', boxShadow: modoReserva === 'EXTRA' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', fontWeight: modoReserva === 'EXTRA' ? '600' : '400', color: modoReserva === 'EXTRA' ? '#7c3aed' : '#64748b' }}>
+                  <input type="radio" name="modo_reserva" checked={modoReserva === 'EXTRA'} onChange={() => setModoReserva('EXTRA')} style={{ margin: 0 }} />
+                  Extracurricular
+                </label>
+              )}
             </div>
           </div>
           
@@ -338,17 +387,18 @@ export default function AgendarVuelo() {
               selecciones={selecciones}
               setSelecciones={(updater) => {
                 setSelecciones(prev => {
-                  const locales = prev.filter(p => p.tipo_vuelo !== 'RUTA');
+                  const extra = prev.filter(p => p.es_extracurricular);
+                  const rutas = prev.filter(p => p.tipo_vuelo === 'RUTA' && !p.es_extracurricular);
+                  const locales = prev.filter(p => p.tipo_vuelo !== 'RUTA' && !p.es_extracurricular);
                   const nuevosLocales = typeof updater === 'function' ? updater(locales) : updater;
-                  const rutas = prev.filter(p => p.tipo_vuelo === 'RUTA');
-                  return [...rutas, ...nuevosLocales];
+                  return [...extra, ...rutas, ...nuevosLocales];
                 });
               }}
               bloqueado={calendarBloqueado}
               limiteAvion={limiteAvion}
               limiteSimulador={limiteSimulador}
             />
-          ) : (
+          ) : modoReserva === 'RUTA' ? (
             <div className="ag__ruta-form" style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Agendar Ruta</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
@@ -386,6 +436,42 @@ export default function AgendarVuelo() {
                 <button onClick={handleAgregarRuta} disabled={calendarBloqueado} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 600, cursor: calendarBloqueado ? 'not-allowed' : 'pointer' }}>Agregar a Selección</button>
               </div>
             </div>
+          ) : (
+            <div className="ag__ruta-form" style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #ddd6fe', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#6d28d9' }}>Vuelo extracurricular</h4>
+                <p style={{ margin: '6px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                  Práctica extra (ya completaste las horas de tu licencia). Se cobra a tarifa, no cuenta a tu límite semanal y puede usar cualquier aeronave. Tiene prioridad de agenda menor.
+                </p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Aeronave</label>
+                  <select value={extraAero} onChange={e => setExtraAero(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                    <option value="">Seleccione...</option>
+                    {extraAeronaves.map(a => (
+                      <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} - {a.modelo}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Día</label>
+                  <select value={extraDia} onChange={e => setExtraDia(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                    {DIAS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Hora (Bloque)</label>
+                  <select value={extraBloque} onChange={e => setExtraBloque(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                    <option value="">Seleccione...</option>
+                    {bloques.map(b => <option key={b.id_bloque} value={b.id_bloque}>{b.hora_inicio.slice(0, 5)}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ alignSelf: 'flex-end' }}>
+                <button onClick={handleAgregarExtra} disabled={calendarBloqueado} style={{ background: '#7c3aed', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 600, cursor: calendarBloqueado ? 'not-allowed' : 'pointer' }}>Agregar a Selección</button>
+              </div>
+            </div>
           )}
 
           {selecciones.length > 0 && (
@@ -393,15 +479,18 @@ export default function AgendarVuelo() {
               <h4 style={{ fontSize: '1rem', color: '#1e293b', marginBottom: '12px' }}>Vuelos Seleccionados (Recordá presionar "Guardar" arriba para confirmar)</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {selecciones.map((s, i) => {
-                  const aero = aeronaves.find(a => Number(a.id_aeronave) === Number(s.id_aeronave));
+                  const aero = findAero(s.id_aeronave);
                   const dia = DIAS.find(d => d.id === Number(s.dia_semana))?.label;
-                  const bloqueStr = s.tipo_vuelo === 'RUTA' 
+                  const bloqueStr = s.tipo_vuelo === 'RUTA'
                     ? `Salida: Bloque ${s.id_bloque} | Llegada: Bloque ${s.id_bloque_fin}`
                     : `Bloque: ${s.id_bloque}`;
                   return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: s.es_extracurricular ? '#faf5ff' : '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: s.es_extracurricular ? '1px solid #ddd6fe' : '1px solid #e2e8f0' }}>
                       <div>
                         <strong style={{ color: '#0f172a' }}>{aero?.codigo}</strong> <span style={{ color: '#64748b', fontSize: '0.9rem' }}>({s.tipo_vuelo || 'LOCAL'})</span> - {dia}
+                        {s.es_extracurricular && (
+                          <span style={{ marginLeft: 8, fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '2px 8px', borderRadius: '999px' }}>EXTRACURRICULAR</span>
+                        )}
                         <div style={{ fontSize: '0.85rem', color: '#475569', marginTop: '4px' }}>{bloqueStr}</div>
                       </div>
                       <button onClick={() => removeSeleccion(i)} disabled={calendarBloqueado} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>

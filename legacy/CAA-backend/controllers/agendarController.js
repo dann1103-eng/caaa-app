@@ -3,6 +3,42 @@ const catchAsync = require("../utils/catchAsync");
 const { DateTime } = require("luxon");
 const { verificarSaldoSuficiente } = require("../utils/saldoHelper");
 
+/**
+ * Un alumno queda habilitado para vuelos extracurriculares solo cuando ya
+ * completó las horas que su licencia le exige (su curso activo no tiene horas
+ * pendientes). El staff (PROGRAMACION/ADMIN) puede crear extracurriculares sin
+ * esta restricción.
+ */
+async function alumnoCompletoHorasLicencia(conn, id_alumno) {
+  const r = await conn.query(`
+    SELECT COALESCE(SUM(ica.horas_requeridas), 0) AS req,
+           COALESCE(SUM(ica.horas_acumuladas), 0) AS acc
+    FROM inscripcion_curso ic
+    JOIN inscripcion_curso_avance ica ON ica.id_inscripcion = ic.id
+    WHERE ic.id_alumno = $1 AND ic.estado = 'ACTIVO'
+  `, [id_alumno]);
+  const req = Number(r.rows[0].req);
+  const acc = Number(r.rows[0].acc);
+  return req > 0 && acc >= req;
+}
+exports.alumnoCompletoHorasLicencia = alumnoCompletoHorasLicencia;
+
+/**
+ * Info para habilitar el modo extracurricular en la UI del alumno:
+ * si está habilitado (completó horas de licencia) y la lista de TODAS las
+ * aeronaves activas (un extracurricular puede usar cualquier avión/simulador,
+ * no solo los de su licencia).
+ */
+exports.getExtracurricularInfo = catchAsync(async (req, res) => {
+  const a = await db.query("SELECT id_alumno FROM alumno WHERE id_usuario = $1", [req.user.id_usuario]);
+  if (a.rows.length === 0) return res.status(404).json({ message: "Alumno no encontrado" });
+  const habilitado = await alumnoCompletoHorasLicencia(db, a.rows[0].id_alumno);
+  const aeronaves = await db.query(
+    "SELECT id_aeronave, codigo, modelo, tipo FROM aeronave WHERE activa = true ORDER BY codigo"
+  );
+  res.json({ habilitado, aeronaves: aeronaves.rows });
+});
+
 exports.getAeronavesPermitidas = catchAsync(async (req, res) => {
   const user = req.user;
   if (!user) {
@@ -97,7 +133,7 @@ exports.getMisSolicitudes = async (req, res) => {
 
     const vuelosRes = await db.query(
       `
-      SELECT dia_semana, id_bloque, id_aeronave, estado, tipo_vuelo, id_bloque_fin
+      SELECT dia_semana, id_bloque, id_aeronave, estado, tipo_vuelo, id_bloque_fin, es_extracurricular
       FROM solicitud_vuelo
       WHERE id_solicitud = $1 AND (estado IS NULL OR estado != 'RECHAZADA')
       `,
@@ -216,6 +252,19 @@ exports.guardarSolicitud = async (req, res) => {
     // Aquí el sistema parece que 'guardar' es el paso final del alumno.
     await client.query("UPDATE solicitud_semana SET estado = 'BORRADOR', fecha_actualizacion = now() WHERE id_solicitud = $1", [id_solicitud]);
 
+    // --- Gate de extracurricular ---
+    // Un alumno solo puede solicitar vuelos extracurriculares si ya completó
+    // las horas que su licencia le exige.
+    if (vuelos.some(v => v.es_extracurricular)) {
+      const habilitado = await alumnoCompletoHorasLicencia(client, id_alumno);
+      if (!habilitado) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          message: "Los vuelos extracurriculares se habilitan solo cuando completas las horas de tu licencia."
+        });
+      }
+    }
+
     // --- Validación de Límites ---
     const aeroIds = [...new Set(vuelos.map(v => Number(v.id_aeronave)))];
     const tiposRes = await client.query(
@@ -230,6 +279,8 @@ exports.guardarSolicitud = async (req, res) => {
     const avionesPorDia = {};
 
     for (const v of vuelos) {
+      // Los extracurriculares no cuentan al límite semanal ni a la regla 1/día.
+      if (v.es_extracurricular) continue;
       if (tipoMap[v.id_aeronave] === 'SIMULADOR') {
         countSim++;
       } else {
@@ -259,15 +310,19 @@ exports.guardarSolicitud = async (req, res) => {
     await client.query("DELETE FROM solicitud_vuelo WHERE id_solicitud = $1", [id_solicitud]);
 
     for (const v of vuelos) {
-      const permitida = await client.query(
-        `SELECT 1 FROM licencia_aeronave WHERE id_licencia = $1 AND id_aeronave = $2`,
-        [id_licencia, v.id_aeronave]
-      );
-      if (permitida.rows.length === 0) throw new Error("Aeronave no permitida");
+      // Los extracurriculares pueden usar cualquier aeronave activa (no se exige
+      // que esté en la licencia del alumno).
+      if (!v.es_extracurricular) {
+        const permitida = await client.query(
+          `SELECT 1 FROM licencia_aeronave WHERE id_licencia = $1 AND id_aeronave = $2`,
+          [id_licencia, v.id_aeronave]
+        );
+        if (permitida.rows.length === 0) throw new Error("Aeronave no permitida");
+      }
 
       await client.query(
-        `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque]
+        `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, es_extracurricular) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque, v.es_extracurricular === true]
       );
     }
 
