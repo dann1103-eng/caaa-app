@@ -26,7 +26,7 @@ const TIPOS = ["EXAMEN", "QUIZ", "TAREA", "PRACTICA", "FINAL"];
 
 const EMPTY_UNIDAD = { numero: 1, nombre: "", descripcion: "", horas_estimadas: 1, orden: 0, recursos_url: "" };
 const EMPTY_EVAL = {
-  id_curso: "", id_unidad: "", nombre: "", tipo: "EXAMEN",
+  id_curso: "", id_unidad: "", nombre: "", tipo: "EXAMEN", origen: "INTERNO",
   fecha_programada: "", puntos_max: 100, nota_aprobacion: 70, descripcion: ""
 };
 
@@ -335,6 +335,13 @@ export default function AulaVirtual() {
                     </select>
                   </div>
                   <div className="adf-form-field">
+                    <label>Origen</label>
+                    <select value={evalForm.origen} onChange={(e) => setEvalForm({...evalForm, origen: e.target.value})}>
+                      <option value="INTERNO">Interno (escuela)</option>
+                      <option value="AAC">Autoridad (AAC / chequeo)</option>
+                    </select>
+                  </div>
+                  <div className="adf-form-field">
                     <label>Unidad</label>
                     <select value={evalForm.id_unidad} onChange={(e) => setEvalForm({...evalForm, id_unidad: e.target.value})}>
                       <option value="">(Sin unidad / integradora)</option>
@@ -384,7 +391,10 @@ export default function AulaVirtual() {
                 <tr key={ev.id}>
                   <td><strong>{ev.nombre}</strong>
                     <div style={{ fontSize: "0.78rem", color: "var(--c-ink-3)" }}>Máx {ev.puntos_max} · aprueba {ev.nota_aprobacion}</div></td>
-                  <td><span className="adf-tag blue">{ev.tipo}</span></td>
+                  <td>
+                    <span className="adf-tag blue">{ev.tipo}</span>
+                    {ev.origen === 'AAC' && <span className="adf-tag amber" style={{ marginLeft: 4 }}>AAC</span>}
+                  </td>
                   <td>{ev.unidad_numero ? `U${ev.unidad_numero}` : "—"}</td>
                   <td>{ev.fecha_programada || "—"}</td>
                   <td style={{ textAlign: "right" }}>{ev.total_inscritos || 0}</td>

@@ -133,6 +133,19 @@ export default function AulaVirtual() {
           </div>
         )}
 
+        {/* Listo para comité con la AAC */}
+        {cursoActivo?.listo_para_comite && (
+          <div style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 12, padding: "16px 20px", margin: "16px 0", display: "flex", alignItems: "center", gap: 12 }}>
+            <i className="bi bi-trophy-fill" style={{ fontSize: 24, color: "#157347" }}></i>
+            <div>
+              <strong style={{ color: "#065f46" }}>¡Aprobaste tu examen final interno!</strong>
+              <div style={{ fontSize: "0.9rem", color: "#047857" }}>
+                Ya estás listo para solicitar tu comité (chequeo) con la Autoridad de Aviación Civil (AAC). Coordiná con la escuela.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* KPIs */}
         <div className="av-kpis">
           <div className="av-kpi blue">
@@ -226,7 +239,10 @@ export default function AulaVirtual() {
                           <i className={`bi ${tipo.icon}`}></i>
                         </div>
                         <div className="av-eval-content">
-                          <div className="av-eval-tipo">{e.tipo} · {e.curso_codigo} {e.unidad_numero ? `· Unidad ${e.unidad_numero}` : ''}</div>
+                          <div className="av-eval-tipo">
+                            {e.tipo} · {e.curso_codigo} {e.unidad_numero ? `· Unidad ${e.unidad_numero}` : ''}
+                            {e.origen === 'AAC' && <span style={{ marginLeft: 6, fontSize: "0.7rem", fontWeight: 700, color: "#b45309", background: "#fef3c7", padding: "1px 6px", borderRadius: 999 }}>AAC</span>}
+                          </div>
                           <h4>{e.nombre}</h4>
                           <div className="av-eval-meta">
                             <span><i className="bi bi-calendar"></i> {fmtFecha(e.fecha_programada)}</span>
@@ -257,7 +273,10 @@ export default function AulaVirtual() {
                           <i className={`bi ${tipo.icon}`}></i>
                         </div>
                         <div className="av-eval-content">
-                          <div className="av-eval-tipo">{e.tipo} · {e.curso_codigo} {e.unidad_numero ? `· Unidad ${e.unidad_numero}` : ''}</div>
+                          <div className="av-eval-tipo">
+                            {e.tipo} · {e.curso_codigo} {e.unidad_numero ? `· Unidad ${e.unidad_numero}` : ''}
+                            {e.origen === 'AAC' && <span style={{ marginLeft: 6, fontSize: "0.7rem", fontWeight: 700, color: "#b45309", background: "#fef3c7", padding: "1px 6px", borderRadius: 999 }}>AAC</span>}
+                          </div>
                           <h4>{e.nombre}</h4>
                           <div className="av-eval-meta">
                             <span><i className="bi bi-calendar-check"></i> {fmtFecha(e.calificado_en || e.fecha_programada)}</span>

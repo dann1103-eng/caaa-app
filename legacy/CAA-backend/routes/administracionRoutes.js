@@ -117,6 +117,9 @@ router.post("/aula/evaluaciones",                         roleMiddleware(AULA_WR
 router.get("/aula/evaluaciones/:id_evaluacion/alumnos",   roleMiddleware(AULA_READ),  aula.listEvaluacionAlumnos);
 router.patch("/aula/evaluacion-alumno/:id",               roleMiddleware(AULA_WRITE), aula.registrarNota);
 
+// Vista del propio alumno (estaba implementada sin ruta).
+router.get("/aula/mi-aula",                               roleMiddleware(["ALUMNO"]), aula.miAulaVirtual);
+
 // ── Reportes / KPIs ───────────────────────────────────────────────────
 router.get("/reportes/ingresos",            roleMiddleware(READ_ROLES),  reportes.ingresos);
 router.get("/reportes/egresos",             roleMiddleware(READ_ROLES),  reportes.egresos);

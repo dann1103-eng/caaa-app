@@ -178,16 +178,17 @@ exports.listEvaluaciones = async (req, res) => {
 exports.crearEvaluacion = async (req, res) => {
   const client = await db.connect();
   try {
-    const { id_curso, id_unidad, nombre, tipo, fecha_programada, puntos_max, nota_aprobacion, id_instructor, descripcion, inscribir_alumnos } = req.body;
+    const { id_curso, id_unidad, nombre, tipo, fecha_programada, puntos_max, nota_aprobacion, id_instructor, descripcion, inscribir_alumnos, origen } = req.body;
     if (!id_curso || !nombre) return res.status(400).json({ ok: false, message: "id_curso y nombre requeridos" });
 
     await client.query("BEGIN");
     const r = await client.query(`
-      INSERT INTO evaluacion (id_curso, id_unidad, nombre, tipo, fecha_programada, puntos_max, nota_aprobacion, id_instructor, descripcion)
-      VALUES ($1, $2, $3, COALESCE($4,'EXAMEN'), $5, COALESCE($6,100), COALESCE($7,70), $8, $9)
+      INSERT INTO evaluacion (id_curso, id_unidad, nombre, tipo, fecha_programada, puntos_max, nota_aprobacion, id_instructor, descripcion, origen)
+      VALUES ($1, $2, $3, COALESCE($4,'EXAMEN'), $5, COALESCE($6,100), COALESCE($7,70), $8, $9, COALESCE($10,'INTERNO'))
       RETURNING *
     `, [id_curso, id_unidad || null, nombre, tipo, fecha_programada || null,
-        puntos_max, nota_aprobacion, id_instructor || null, descripcion || null]);
+        puntos_max, nota_aprobacion, id_instructor || null, descripcion || null,
+        origen === 'AAC' ? 'AAC' : 'INTERNO']);
 
     // Inscribir automáticamente a todos los alumnos activos del curso si se pidió
     if (inscribir_alumnos !== false) {
@@ -228,10 +229,12 @@ exports.listEvaluacionAlumnos = async (req, res) => {
 };
 
 exports.registrarNota = async (req, res) => {
+  const client = await db.connect();
   try {
     const { id } = req.params;
     const { nota, estado, fecha_presentacion, observaciones } = req.body;
-    const r = await db.query(`
+    await client.query("BEGIN");
+    const r = await client.query(`
       UPDATE evaluacion_alumno SET
         nota               = COALESCE($2, nota),
         estado             = COALESCE($3, estado),
@@ -241,9 +244,37 @@ exports.registrarNota = async (req, res) => {
         calificado_en      = CASE WHEN $3 = 'CALIFICADA' THEN NOW() ELSE calificado_en END
       WHERE id = $1 RETURNING *
     `, [id, nota, estado, fecha_presentacion || null, observaciones || null, req.user?.id_usuario || null]);
-    res.json({ ok: true, data: r.rows[0] });
+
+    const ea = r.rows[0];
+    let listoParaComite = false;
+    if (ea) {
+      // ¿Aprobó un examen FINAL interno? → habilitar comité con la AAC.
+      const ev = await client.query(
+        `SELECT id_curso, tipo, origen, nota_aprobacion FROM evaluacion WHERE id = $1`,
+        [ea.id_evaluacion]
+      );
+      const e = ev.rows[0];
+      if (e && e.tipo === 'FINAL' && e.origen === 'INTERNO' &&
+          ea.estado === 'CALIFICADA' && ea.nota != null &&
+          Number(ea.nota) >= Number(e.nota_aprobacion)) {
+        const up = await client.query(`
+          UPDATE inscripcion_curso
+          SET listo_para_comite = TRUE, fecha_listo_comite = COALESCE(fecha_listo_comite, NOW())
+          WHERE id_alumno = $1 AND id_curso = $2 AND estado = 'ACTIVO'
+          RETURNING id
+        `, [ea.id_alumno, e.id_curso]);
+        listoParaComite = up.rows.length > 0;
+        // (Fase 3D) Aquí se emitirá la notificación a admin/instructores.
+      }
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true, data: ea, listo_para_comite: listoParaComite });
   } catch (e) {
+    await client.query("ROLLBACK");
     res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -261,7 +292,8 @@ exports.miAulaVirtual = async (req, res) => {
     // Cursos activos
     const cursos = await db.query(`
       SELECT ic.id AS id_inscripcion, c.id AS id_curso, c.codigo, c.nombre,
-             ic.fecha_inicio, ic.estado AS estado_inscripcion
+             ic.fecha_inicio, ic.estado AS estado_inscripcion,
+             ic.listo_para_comite, ic.fecha_listo_comite
       FROM inscripcion_curso ic
       JOIN curso c ON c.id = ic.id_curso
       WHERE ic.id_alumno = $1 AND ic.estado = 'ACTIVO'
@@ -286,7 +318,7 @@ exports.miAulaVirtual = async (req, res) => {
     const evals = await db.query(`
       SELECT ea.id, ea.estado, ea.nota, ea.fecha_presentacion, ea.observaciones, ea.calificado_en,
              e.id AS id_evaluacion, e.nombre, e.tipo, e.fecha_programada,
-             e.puntos_max, e.nota_aprobacion,
+             e.puntos_max, e.nota_aprobacion, e.origen,
              c.codigo AS curso_codigo, u.numero AS unidad_numero, u.nombre AS unidad_nombre
       FROM evaluacion_alumno ea
       JOIN evaluacion e ON e.id = ea.id_evaluacion
