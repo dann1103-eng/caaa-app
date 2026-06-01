@@ -56,10 +56,11 @@ ALTER TABLE public.vuelo
   ADD COLUMN IF NOT EXISTS tipo_vuelo    varchar(20) DEFAULT 'LOCAL',
   ADD COLUMN IF NOT EXISTS id_bloque_fin integer;
 
--- ── Tabla reporte_vuelo: marca y motivo de inasistencia ──────────────────
+-- ── Tabla reporte_vuelo: marca y motivo de inasistencia + observaciones ──
 ALTER TABLE public.reporte_vuelo
   ADD COLUMN IF NOT EXISTS es_inasistencia     boolean DEFAULT false,
-  ADD COLUMN IF NOT EXISTS motivo_inasistencia text;
+  ADD COLUMN IF NOT EXISTS motivo_inasistencia text,
+  ADD COLUMN IF NOT EXISTS observaciones       text;
 
 -- ── Tabla instructor: número de licencia (usado en W&B / loadsheet) ──────
 ALTER TABLE public.instructor

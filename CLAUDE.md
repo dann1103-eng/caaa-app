@@ -105,7 +105,7 @@ luego `node run-sql.js`. El usuario autorizó cambios aditivos de esquema durant
 - `mensaje_turno`: expira_en
 - `solicitud_semana`: limite_vuelos_avion, limite_vuelos_simulador
 - `vuelo`: tipo_vuelo, id_bloque_fin
-- `reporte_vuelo`: es_inasistencia, motivo_inasistencia
+- `reporte_vuelo`: es_inasistencia, motivo_inasistencia, observaciones
 - `instructor`: licencia
 - `weight_balance`: fuel_burn
 - `loadsheet`: ops_data, identification_data
