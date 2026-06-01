@@ -192,8 +192,18 @@ Corregidos dos bugs que lo rompían: (1) `v.fecha`→`v.fecha_vuelo` (nómina 50
 automático a cuenta corriente fallaba en silencio al cerrar vuelos), (2) match de tarifa
 por texto de modelo → ahora por `id_aeronave` (UI de Tarifas usa selector de aeronave;
 `emitirFacturaVueloDentroTx` busca por id con fallback). Desplegado (commit d4e44b5).
-**PENDIENTE del usuario:** correr `supabase/dump/backfill_tarifa_id_aeronave.sql`
-(vincula las tarifas existentes a su aeronave; sin esto el cargo automático no halla tarifa).
+Backfill `backfill_tarifa_id_aeronave.sql` ya ejecutado (tarifas existentes vinculadas).
+
+**Plan "enrobustecer administración"** (`~/.claude/plans/los-siguientes-cambios-que-federated-quilt.md`):
+3 fases — (1) Cuenta+Tarifas → (2) Ficha de alumno → (3) Aula Virtual. Decisiones: archivos en
+**Supabase Storage**; extracurricular = facturación + prioridad de agenda; notificaciones in-app + correo después.
+- **Fase 1A+1B (facturación) HECHO y desplegado** (commit d32713a, migración 20260601000001):
+  `movimiento_cuenta.nota` (columna entre H.T. y Debe), tipo `CARGO_MULTA` (multa no-show, sin horas),
+  `vuelo.es_extracurricular` (cobra a tarifa pero NO suma a horas de licencia ni avance de curso).
+  Botón "Multa (no-show)" en CuentaDetalle. Tarifa de simulador se da de alta por `id_aeronave`.
+- **PENDIENTE Fase 1B — prioridad de agenda extracurricular:** toca el módulo de programación
+  (validación de límites en `agendarController.guardarSolicitud`, permiso `licencia_aeronave`, y la
+  resolución de prioridades de PROGRAMACIÓN). Requiere explorar ese módulo antes de tocar.
 
 **Pendiente / siguiente:**
 - **Observaciones del instructor** sobre el loadsheet (el usuario lo quiere: que el instructor escriba comentarios que el alumno luego ve). Aún no implementado.
