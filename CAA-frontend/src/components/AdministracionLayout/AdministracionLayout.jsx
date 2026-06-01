@@ -1,5 +1,6 @@
 import React from "react";
 import AdministracionSidebar from "../AdministracionSidebar/AdministracionSidebar";
+import NotificationBell from "../NotificationBell/NotificationBell";
 import "./AdministracionLayout.css";
 
 export default function AdministracionLayout({ children }) {
@@ -24,6 +25,7 @@ export default function AdministracionLayout({ children }) {
           </span>
         </div>
         <div className="adf-topbar__right">
+          <NotificationBell />
           <span className="adf-topbar__year">2026</span>
           <span className="adf-topbar__role">{user.rol || 'ADMINISTRACION'}</span>
           <div className="adf-topbar__avatar">

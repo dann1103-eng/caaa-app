@@ -1,6 +1,7 @@
 const path = require("path");
 const db = require("../../config/db");
 const { subirArchivo, urlFirmada, borrarArchivo, storageDisponible, BUCKETS } = require("../../utils/storage");
+const { notificarRoles, notificarUsuario } = require("../../utils/notificaciones");
 
 // ─────────────────────────────────────────────────────────────────────
 // UNIDADES TEÓRICAS
@@ -434,7 +435,25 @@ exports.registrarNota = async (req, res) => {
           RETURNING id
         `, [ea.id_alumno, e.id_curso]);
         listoParaComite = up.rows.length > 0;
-        // (Fase 3D) Aquí se emitirá la notificación a admin/instructores.
+        if (listoParaComite) {
+          // Datos del alumno + su instructor para la notificación.
+          const info = await client.query(`
+            SELECT u.nombre || ' ' || u.apellido AS alumno, c.nombre AS curso, iu.id_usuario AS instructor_uid
+            FROM alumno a
+            JOIN usuario u ON u.id_usuario = a.id_usuario
+            LEFT JOIN instructor i ON i.id_instructor = a.id_instructor
+            LEFT JOIN usuario iu ON iu.id_usuario = i.id_usuario
+            CROSS JOIN (SELECT nombre FROM curso WHERE id = $2) c
+            WHERE a.id_alumno = $1
+          `, [ea.id_alumno, e.id_curso]);
+          const d = info.rows[0] || {};
+          const msg = `${d.alumno || 'Un alumno'} aprobó el examen final de ${d.curso || 'su curso'} y está listo para el comité con la AAC.`;
+          await notificarRoles(client, ['ADMINISTRACION', 'ADMIN'], { tipo: 'EXAMEN_FINAL', mensaje: msg, enlace: `/administracion/alumnos/${ea.id_alumno}` });
+          if (d.instructor_uid) {
+            await notificarUsuario(client, d.instructor_uid, { tipo: 'EXAMEN_FINAL', mensaje: msg });
+          }
+          // (Correo: pendiente de configurar SMTP / MAIL_ENABLED.)
+        }
       }
     }
 

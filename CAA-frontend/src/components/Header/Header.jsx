@@ -1,5 +1,6 @@
 import "./Header.css";
 import { Link, useNavigate } from "react-router-dom";
+import NotificationBell from "../NotificationBell/NotificationBell";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -45,6 +46,8 @@ export default function Header() {
               </span>
 
               <div className="header__user-actions">
+                <NotificationBell />
+
                 <Link to={getDashboardLink()} className="header__action-link">
                   <span className="header__action-icon">📊</span>
                   Dashboard
