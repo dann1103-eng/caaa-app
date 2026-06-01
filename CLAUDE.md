@@ -201,9 +201,17 @@ Backfill `backfill_tarifa_id_aeronave.sql` ya ejecutado (tarifas existentes vinc
   `movimiento_cuenta.nota` (columna entre H.T. y Debe), tipo `CARGO_MULTA` (multa no-show, sin horas),
   `vuelo.es_extracurricular` (cobra a tarifa pero NO suma a horas de licencia ni avance de curso).
   Botón "Multa (no-show)" en CuentaDetalle. Tarifa de simulador se da de alta por `id_aeronave`.
-- **PENDIENTE Fase 1B — prioridad de agenda extracurricular:** toca el módulo de programación
-  (validación de límites en `agendarController.guardarSolicitud`, permiso `licencia_aeronave`, y la
-  resolución de prioridades de PROGRAMACIÓN). Requiere explorar ese módulo antes de tocar.
+- **Fase 1B (agenda extracurricular) HECHO y desplegado** (commits 198ed27 + 2f98fb3,
+  migración 20260601000002): el agendado es **100% manual** (no hay algoritmo de prioridad), así
+  que "prioridad menor" = reglas duras + marca visual. Extracurriculares no cuentan al límite
+  semanal, usan cualquier aeronave, y solo se habilitan al alumno cuando completó sus horas de
+  licencia (`agendarController.alumnoCompletoHorasLicencia`). Creables por alumno (pestaña
+  "Extracurricular" en Agendar, gated por endpoint `GET /agendar/extracurricular-info`) y por
+  staff (checkbox en `Programacion/AgendarVuelo`). Insignia "EXC" en `AdminCalendar`. La migración
+  además **reparó deriva** de `solicitud_vuelo` (faltaban tipo_vuelo, id_bloque_fin, id_instructor,
+  estado, que el código ya usaba → el guardado de solicitudes desde la app estaba roto).
+  **FASE 1 COMPLETA.** Siguiente: Fase 2 (ficha de alumno consolidada) — requiere crear bucket
+  `caaa-archivos` en Supabase + envs SUPABASE_URL/SUPABASE_SERVICE_KEY en Railway.
 
 **Pendiente / siguiente:**
 - **Observaciones del instructor** sobre el loadsheet (el usuario lo quiere: que el instructor escriba comentarios que el alumno luego ve). Aún no implementado.
