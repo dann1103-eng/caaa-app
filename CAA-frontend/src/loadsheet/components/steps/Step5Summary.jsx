@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toJpeg } from 'html-to-image'
 import jsPDF from 'jspdf'
+import { toast } from 'sonner'
 import { useLoadSheet } from '../../context/LoadSheetContext'
 import { AIRCRAFT } from '../../data/aircraft'
 import StatusStrip from '../StatusStrip'
@@ -75,13 +76,13 @@ export default function Step5Summary() {
       const pdf = await buildPdf()
       pdf.save(filename)
     } catch (err) {
-      alert('Error PDF: ' + (err?.message || String(err)))
+      toast.error('Error al generar el PDF: ' + (err?.message || String(err)))
     }
     setPdfLoading(false)
   }
 
   const handleSendEmail = async () => {
-    if (!state.idVuelo) { alert('No hay vuelo asociado.'); return }
+    if (!state.idVuelo) { toast.error('No hay vuelo asociado.'); return }
     setEmailLoading(true)
     try {
       // PDF "mejor esfuerzo": si falla la generación, igual se envía (sin adjunto).
@@ -103,24 +104,24 @@ export default function Step5Summary() {
         date: state.flightData.date,
         aircraft: ac?.reg,
       })
-      alert('Loadsheet guardado y enviado al instructor correctamente.')
+      toast.success('Loadsheet guardado y enviado al instructor correctamente.')
     } catch (err) {
-      alert('Error al enviar: ' + (err?.response?.data?.message || err?.message || String(err)))
+      toast.error('Error al enviar: ' + (err?.response?.data?.message || err?.message || String(err)))
     }
     setEmailLoading(false)
   }
 
   const handleSubmit = async () => {
-    if (!state.idVuelo) { alert('No hay vuelo asociado.'); return }
+    if (!state.idVuelo) { toast.error('No hay vuelo asociado.'); return }
     dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'submitting' })
     try {
       await guardarWB(state.idVuelo, buildWBPayload(state, ac))
       await guardarLoadsheet(state.idVuelo, buildLoadsheetPayload(state))
       dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'submitted' })
-      alert('Loadsheet guardado correctamente (borrador).')
+      toast.success('Loadsheet guardado correctamente (borrador).')
     } catch (err) {
       dispatch({ type: 'SET_SUBMIT_STATUS', payload: 'error' })
-      alert('Error al guardar: ' + (err?.response?.data?.message || err?.message || String(err)))
+      toast.error('Error al guardar: ' + (err?.response?.data?.message || err?.message || String(err)))
     }
   }
 
