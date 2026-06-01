@@ -121,8 +121,16 @@ const toNum = (val) => {
 };
 
 const toTime = (val) => {
-  if (val === null || val === undefined || String(val).trim() === "") return null;
-  return String(val).trim();
+  if (val === null || val === undefined) return null;
+  const s = String(val).trim();
+  if (s === "") return null;
+  // Aceptar solo horas válidas HH:MM o HH:MM:SS; cualquier otra cosa => null
+  // (evita errores de Postgres tipo: invalid input syntax for type time: "10")
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return null;
+  const h = Number(m[1]), mn = Number(m[2]), sec = m[3] ? Number(m[3]) : 0;
+  if (h > 23 || mn > 59 || sec > 59) return null;
+  return s;
 };
 
 exports.guardarLoadsheet = catchAsync(async (req, res) => {
