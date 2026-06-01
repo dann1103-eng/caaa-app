@@ -57,6 +57,13 @@ export default function Header() {
                   </a>
                 )}
 
+                {user.rol === "INSTRUCTOR" && (
+                  <Link to="/instructor/aula-virtual" className="header__action-link">
+                    <span className="header__action-icon">🎓</span>
+                    Aula Virtual
+                  </Link>
+                )}
+
                 <Link to="/perfil" className="header__action-link">
                   <span className="header__action-icon">👤</span>
                   Perfil

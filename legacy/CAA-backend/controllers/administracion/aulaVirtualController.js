@@ -70,6 +70,113 @@ exports.eliminarUnidad = async (req, res) => {
   }
 };
 
+// Cursos activos (accesible también al instructor, que no tiene /cursos).
+exports.listCursos = async (req, res) => {
+  try {
+    const r = await db.query(`SELECT id, codigo, nombre FROM curso WHERE activo = TRUE ORDER BY id`);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// ASISTENCIA A CLASES TEÓRICAS
+// ─────────────────────────────────────────────────────────────────────
+
+exports.listSesiones = async (req, res) => {
+  try {
+    const { id_curso } = req.query;
+    const params = [];
+    let where = "";
+    if (id_curso) { params.push(id_curso); where = `WHERE s.id_curso = $${params.length}`; }
+    const r = await db.query(`
+      SELECT s.id, s.id_curso, s.id_unidad, s.fecha, s.tema, s.id_instructor,
+             c.codigo AS curso_codigo, u.numero AS unidad_numero, u.nombre AS unidad_nombre,
+             (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id) AS total,
+             (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id AND a.estado='PRESENTE') AS presentes
+      FROM sesion_clase s
+      JOIN curso c ON c.id = s.id_curso
+      LEFT JOIN unidad_teorica u ON u.id = s.id_unidad
+      ${where}
+      ORDER BY s.fecha DESC, s.id DESC
+    `, params);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.crearSesion = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id_curso, id_unidad, fecha, tema, id_instructor } = req.body;
+    if (!id_curso) return res.status(400).json({ ok: false, message: "id_curso requerido" });
+    await client.query("BEGIN");
+    const r = await client.query(`
+      INSERT INTO sesion_clase (id_curso, id_unidad, fecha, tema, id_instructor, creado_por)
+      VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5, $6) RETURNING *
+    `, [id_curso, id_unidad || null, fecha || null, tema || null, id_instructor || null, req.user?.id_usuario || null]);
+
+    // Pre-cargar la lista con todos los alumnos activos del curso (default PRESENTE).
+    await client.query(`
+      INSERT INTO asistencia_alumno (id_sesion, id_alumno, estado, registrado_por)
+      SELECT $1, ic.id_alumno, 'PRESENTE', $2
+      FROM inscripcion_curso ic
+      WHERE ic.id_curso = $3 AND ic.estado = 'ACTIVO'
+      ON CONFLICT (id_sesion, id_alumno) DO NOTHING
+    `, [r.rows[0].id, req.user?.id_usuario || null, id_curso]);
+
+    await client.query("COMMIT");
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.listAsistencia = async (req, res) => {
+  try {
+    const { id_sesion } = req.params;
+    const r = await db.query(`
+      SELECT a.id, a.id_alumno, a.estado, a.observacion,
+             u.username AS alumno_username, al.numero_licencia
+      FROM asistencia_alumno a
+      LEFT JOIN alumno al ON al.id_alumno = a.id_alumno
+      LEFT JOIN usuario u ON u.id_usuario = al.id_usuario
+      WHERE a.id_sesion = $1
+      ORDER BY u.username
+    `, [id_sesion]);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Registra/actualiza la asistencia de un alumno en una sesión.
+exports.registrarAsistencia = async (req, res) => {
+  try {
+    const { id_sesion } = req.params;
+    const { id_alumno, estado, observacion } = req.body;
+    if (!id_alumno || !['PRESENTE','AUSENTE','TARDE','JUSTIFICADO'].includes(estado)) {
+      return res.status(400).json({ ok: false, message: "id_alumno y estado válidos requeridos" });
+    }
+    const r = await db.query(`
+      INSERT INTO asistencia_alumno (id_sesion, id_alumno, estado, observacion, registrado_por)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (id_sesion, id_alumno) DO UPDATE SET
+        estado = EXCLUDED.estado, observacion = EXCLUDED.observacion,
+        registrado_por = EXCLUDED.registrado_por, registrado_en = NOW()
+      RETURNING *
+    `, [id_sesion, id_alumno, estado, observacion || null, req.user?.id_usuario || null]);
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────
 // MATERIAL DIDÁCTICO POR UNIDAD
 // ─────────────────────────────────────────────────────────────────────

@@ -115,6 +115,12 @@ export const getEvaluaciones       = async (params) => (await axios.get(`${BASE}
 export const crearEvaluacion       = async (payload) => (await axios.post(`${BASE}/aula/evaluaciones`, payload)).data;
 export const getAlumnosEvaluacion  = async (id) => (await axios.get(`${BASE}/aula/evaluaciones/${id}/alumnos`)).data;
 export const registrarNota         = async (id, payload) => (await axios.patch(`${BASE}/aula/evaluacion-alumno/${id}`, payload)).data;
+// Cursos / asistencia (aula)
+export const getAulaCursos         = async () => (await axios.get(`${BASE}/aula/cursos`)).data;
+export const getSesiones           = async (params) => (await axios.get(`${BASE}/aula/sesiones`, { params })).data;
+export const crearSesion           = async (payload) => (await axios.post(`${BASE}/aula/sesiones`, payload)).data;
+export const getAsistencia         = async (idSesion) => (await axios.get(`${BASE}/aula/sesiones/${idSesion}/asistencia`)).data;
+export const registrarAsistencia   = async (idSesion, payload) => (await axios.post(`${BASE}/aula/sesiones/${idSesion}/asistencia`, payload)).data;
 // Material por unidad
 export const getMaterialUnidad     = async (idUnidad) => (await axios.get(`${BASE}/aula/unidades/${idUnidad}/material`)).data;
 export const subirMaterialUnidad   = async (idUnidad, formData) => (await axios.post(`${BASE}/aula/unidades/${idUnidad}/material`, formData, { headers: { "Content-Type": "multipart/form-data" } })).data;

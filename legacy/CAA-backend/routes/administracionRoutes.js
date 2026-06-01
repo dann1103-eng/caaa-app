@@ -120,6 +120,15 @@ router.patch("/aula/evaluacion-alumno/:id",               roleMiddleware(AULA_WR
 // Vista del propio alumno (estaba implementada sin ruta).
 router.get("/aula/mi-aula",                               roleMiddleware(["ALUMNO"]), aula.miAulaVirtual);
 
+// Cursos para el aula (incluye instructor).
+router.get("/aula/cursos",                                roleMiddleware(AULA_READ),  aula.listCursos);
+
+// Asistencia a clases teóricas (instructor incluido).
+router.get("/aula/sesiones",                              roleMiddleware(AULA_READ),  aula.listSesiones);
+router.post("/aula/sesiones",                             roleMiddleware(AULA_WRITE), aula.crearSesion);
+router.get("/aula/sesiones/:id_sesion/asistencia",        roleMiddleware(AULA_READ),  aula.listAsistencia);
+router.post("/aula/sesiones/:id_sesion/asistencia",       roleMiddleware(AULA_WRITE), aula.registrarAsistencia);
+
 // Material por unidad (lectura/descarga también para el alumno).
 const AULA_VIEW = ["ADMINISTRACION","ADMIN","INSTRUCTOR","ALUMNO"];
 router.get("/aula/unidades/:id_unidad/material",          roleMiddleware(AULA_VIEW),  aula.listMaterial);

@@ -20,6 +20,7 @@ import MantenimientoAdmin from "./pages/Admin/Mantenimiento";
 import TurnoDashboard from "./pages/Turno/Dashboard";
 import ProtectedTurno from "./components/routes/ProtectedTurno";
 import InstructorDashboard from "./pages/Instructor/Dashboard";
+import InstructorAulaVirtual from "./pages/Instructor/AulaVirtual";
 import ProtectedInstructor from "./components/routes/ProtectedInstructor";
 import ForcePasswordChange from "./components/routes/ForcePasswordChange";
 import Perfil from "./pages/Perfil/Perfil";
@@ -241,6 +242,14 @@ function App() {
             element={
               <ProtectedInstructor>
                 <InstructorDashboard />
+              </ProtectedInstructor>
+            }
+          />
+          <Route
+            path="/instructor/aula-virtual"
+            element={
+              <ProtectedInstructor>
+                <InstructorAulaVirtual />
               </ProtectedInstructor>
             }
           />
