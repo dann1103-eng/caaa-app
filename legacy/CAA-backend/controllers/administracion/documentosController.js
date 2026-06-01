@@ -1,4 +1,6 @@
+const path = require("path");
 const db = require("../../config/db");
+const { subirArchivo, urlFirmada, storageDisponible, BUCKETS } = require("../../utils/storage");
 
 exports.catalogo = async (req, res) => {
   try {
@@ -33,7 +35,19 @@ exports.subirDocumento = async (req, res) => {
   try {
     const { id_alumno } = req.params;
     const { id_documento_requerido, fecha_entrega, fecha_vencimiento } = req.body;
-    const archivo_path = req.file ? `/uploads/documentos/${req.file.filename}` : null;
+
+    // El archivo se guarda en Supabase Storage (persistente). archivo_path guarda
+    // la ruta del objeto dentro del bucket DOCUMENTOS.
+    let archivo_path = null;
+    if (req.file) {
+      if (!storageDisponible()) {
+        return res.status(503).json({ ok: false, message: "Almacenamiento de archivos no configurado (SUPABASE_SERVICE_KEY)." });
+      }
+      const ext = path.extname(req.file.originalname) || "";
+      const ruta = `alumno_${id_alumno}/${Date.now()}_doc${id_documento_requerido || "x"}${ext}`;
+      await subirArchivo(BUCKETS.DOCUMENTOS, ruta, req.file.buffer, req.file.mimetype);
+      archivo_path = ruta;
+    }
     const r = await db.query(`
       INSERT INTO documento_alumno
         (id_alumno, id_documento_requerido, fecha_entrega, fecha_vencimiento, archivo_path, estado, revisado_por)
@@ -58,6 +72,28 @@ exports.revisar = async (req, res) => {
       WHERE id = $1 RETURNING *
     `, [id, estado, observaciones || null, req.user?.id_usuario || null]);
     res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/**
+ * Devuelve una URL temporal para ver/descargar el archivo de un documento.
+ * Si es un archivo legacy en disco (/uploads/...), devuelve esa ruta pública.
+ */
+exports.archivoUrl = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await db.query("SELECT archivo_path FROM documento_alumno WHERE id = $1", [id]);
+    if (r.rows.length === 0 || !r.rows[0].archivo_path) {
+      return res.status(404).json({ ok: false, message: "Documento sin archivo" });
+    }
+    const ruta = r.rows[0].archivo_path;
+    if (ruta.startsWith("/uploads/")) {
+      return res.json({ ok: true, url: ruta, legacy: true });
+    }
+    const url = await urlFirmada(BUCKETS.DOCUMENTOS, ruta, 3600);
+    res.json({ ok: true, url });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
   }

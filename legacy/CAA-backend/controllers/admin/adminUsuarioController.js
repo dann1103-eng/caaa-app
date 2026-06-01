@@ -22,6 +22,81 @@ exports.getAlumnoPerfilAdmin = catchAsync(async (req, res) => {
   res.json(result.rows[0]);
 });
 
+// Ficha completa del alumno (todos los campos que admin/instructor/alumno pueden ver/editar).
+exports.getAlumnoFichaAdmin = catchAsync(async (req, res) => {
+  const { id_alumno } = req.params;
+  const result = await db.query(`
+    SELECT u.id_usuario, u.nombre, u.apellido, u.correo, u.username,
+           a.id_alumno, a.id_instructor, a.id_licencia, a.numero_licencia,
+           a.telefono, a.soleado, a.horas_acumuladas,
+           a.certificado_medico, a.certificado_medico_numero,
+           a.seguro_vida, a.seguro_vida_vencimiento, a.seguro_vida_numero,
+           a.limite_vuelos_avion, a.limite_vuelos_simulador,
+           l.nombre AS licencia_nombre,
+           i_u.nombre || ' ' || i_u.apellido AS instructor_nombre
+    FROM alumno a
+    JOIN usuario u ON u.id_usuario = a.id_usuario
+    LEFT JOIN licencia l ON l.id_licencia = a.id_licencia
+    LEFT JOIN instructor i ON i.id_instructor = a.id_instructor
+    LEFT JOIN usuario i_u ON i_u.id_usuario = i.id_usuario
+    WHERE a.id_alumno = $1
+  `, [id_alumno]);
+  if (result.rows.length === 0) return res.status(404).json({ message: "Alumno no encontrado" });
+  res.json(result.rows[0]);
+});
+
+// Edición completa del perfil del alumno por ADMIN/ADMINISTRACION (lo mismo que el
+// alumno edita de sí mismo + lo que ajusta el instructor). Solo actualiza los campos
+// presentes en el body (COALESCE), para edición parcial segura.
+exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
+  const { id_alumno } = req.params;
+  const {
+    telefono, numero_licencia, id_licencia, soleado,
+    certificado_medico, certificado_medico_numero,
+    seguro_vida, seguro_vida_vencimiento, seguro_vida_numero,
+    limite_vuelos_avion, limite_vuelos_simulador,
+  } = req.body;
+
+  const r = await db.query(`
+    UPDATE alumno SET
+      telefono                  = COALESCE($2, telefono),
+      numero_licencia           = COALESCE($3, numero_licencia),
+      id_licencia               = COALESCE($4, id_licencia),
+      soleado                   = COALESCE($5, soleado),
+      certificado_medico        = COALESCE($6, certificado_medico),
+      certificado_medico_numero = COALESCE($7, certificado_medico_numero),
+      seguro_vida               = COALESCE($8, seguro_vida),
+      seguro_vida_vencimiento   = COALESCE($9, seguro_vida_vencimiento),
+      seguro_vida_numero        = COALESCE($10, seguro_vida_numero),
+      limite_vuelos_avion       = COALESCE($11, limite_vuelos_avion),
+      limite_vuelos_simulador   = COALESCE($12, limite_vuelos_simulador)
+    WHERE id_alumno = $1
+    RETURNING id_alumno
+  `, [
+    id_alumno,
+    telefono ?? null, numero_licencia ?? null, id_licencia ?? null,
+    typeof soleado === "boolean" ? soleado : null,
+    certificado_medico || null, certificado_medico_numero ?? null,
+    seguro_vida ?? null, seguro_vida_vencimiento || null, seguro_vida_numero ?? null,
+    limite_vuelos_avion ?? null, limite_vuelos_simulador ?? null,
+  ]);
+  if (r.rows.length === 0) return res.status(404).json({ message: "Alumno no encontrado" });
+
+  await logAuditoria(client_safe(), {
+    accion: "OTRO", entidad: "alumno", id_entidad: id_alumno, actor: req.user, req,
+    descripcion: `Admin/Administración actualizó la ficha del alumno ${id_alumno}`,
+  }).catch(() => {});
+
+  res.json({ ok: true, message: "Ficha actualizada" });
+});
+// logAuditoria espera un client/db; usamos db directo.
+function client_safe() { return db; }
+
+exports.listLicencias = catchAsync(async (req, res) => {
+  const r = await db.query(`SELECT id_licencia, nombre FROM licencia ORDER BY id_licencia`);
+  res.json(r.rows);
+});
+
 exports.setSoleado = catchAsync(async (req, res) => {
   const { id_alumno } = req.params;
   const { soleado } = req.body;

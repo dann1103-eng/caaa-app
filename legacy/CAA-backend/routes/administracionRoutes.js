@@ -18,15 +18,11 @@ const documentos = require("../controllers/administracion/documentosController")
 const medicos = require("../controllers/administracion/medicosController");
 const reportes = require("../controllers/administracion/reportesController");
 const aula     = require("../controllers/administracion/aulaVirtualController");
+const adminUsuario = require("../controllers/admin/adminUsuarioController");
 
-// Upload de documentos
-const docDir = path.join(__dirname, "..", "uploads", "documentos");
-if (!fs.existsSync(docDir)) fs.mkdirSync(docDir, { recursive: true });
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, docDir),
-  filename: (_, file, cb) => cb(null, `doc_${Date.now()}_${file.originalname}`)
-});
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+// Upload de documentos: en memoria, para subir el buffer a Supabase Storage
+// (persistente). El disco de Railway es efímero y se borra en cada redeploy.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // Auth para todas las rutas
 router.use(authMiddleware);
@@ -34,6 +30,11 @@ router.use(authMiddleware);
 // Roles: ADMINISTRACION puede TODO. ADMIN tiene SOLO lectura (GET) en todo el módulo.
 const READ_ROLES = ["ADMINISTRACION", "ADMIN"];
 const WRITE_ROLES = ["ADMINISTRACION"];
+
+// ── Ficha de alumno (consolidada) ─────────────────────────────────────
+router.get("/licencias",                    roleMiddleware(READ_ROLES),  adminUsuario.listLicencias);
+router.get("/alumnos/:id_alumno/ficha",     roleMiddleware(READ_ROLES),  adminUsuario.getAlumnoFichaAdmin);
+router.put("/alumnos/:id_alumno",           roleMiddleware(WRITE_ROLES), adminUsuario.actualizarAlumnoFull);
 
 // ── Tarifas ───────────────────────────────────────────────────────────
 router.get("/tarifas/aeronaves",            roleMiddleware(READ_ROLES),  tarifas.listAeronaveTarifas);
@@ -89,6 +90,7 @@ router.patch("/nomina/:id/pagar",           roleMiddleware(WRITE_ROLES), nomina.
 // ── Documentación ─────────────────────────────────────────────────────
 router.get("/documentos/catalogo",          roleMiddleware(READ_ROLES),  documentos.catalogo);
 router.get("/documentos/alumno/:id_alumno", roleMiddleware(READ_ROLES),  documentos.documentosAlumno);
+router.get("/documentos/:id/archivo-url",   roleMiddleware(READ_ROLES),  documentos.archivoUrl);
 router.post("/documentos/alumno/:id_alumno",roleMiddleware(WRITE_ROLES), upload.single("archivo"), documentos.subirDocumento);
 router.patch("/documentos/:id",             roleMiddleware(WRITE_ROLES), documentos.revisar);
 router.get("/documentos/alertas",           roleMiddleware(READ_ROLES),  documentos.alertasVencimiento);
