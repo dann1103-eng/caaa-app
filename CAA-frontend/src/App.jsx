@@ -256,7 +256,8 @@ function App() {
           {/* ── Módulo Administración / Contabilidad ── */}
           <Route path="/administracion" element={<Navigate to="/administracion/dashboard" replace />} />
           <Route path="/administracion/dashboard"     element={<ProtectedAdministracion><AdministracionLayout><AdmDashboard /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/cuentas"       element={<ProtectedAdministracion><AdministracionLayout><AdmCuentas /></AdministracionLayout></ProtectedAdministracion>} />
+          <Route path="/administracion/alumnos"       element={<ProtectedAdministracion><AdministracionLayout><AdmCuentas /></AdministracionLayout></ProtectedAdministracion>} />
+          <Route path="/administracion/cuentas"       element={<Navigate to="/administracion/alumnos" replace />} />
           <Route path="/administracion/cuentas/:id"   element={<ProtectedAdministracion><AdministracionLayout><AdmCuentaDetalle /></AdministracionLayout></ProtectedAdministracion>} />
           <Route path="/administracion/alumnos/:id_alumno" element={<ProtectedAdministracion><AdministracionLayout><AdmAlumnoFicha /></AdministracionLayout></ProtectedAdministracion>} />
           <Route path="/administracion/recibos"       element={<ProtectedAdministracion><AdministracionLayout><AdmRecibos /></AdministracionLayout></ProtectedAdministracion>} />

@@ -123,8 +123,8 @@ export default function AlumnoFicha() {
 
   return (
     <div>
-      <Link to="/administracion/cuentas" className="adf-btn ghost small" style={{ marginBottom: 12 }}>
-        <i className="bi bi-arrow-left"></i> Volver a cuentas
+      <Link to="/administracion/alumnos" className="adf-btn ghost small" style={{ marginBottom: 12 }}>
+        <i className="bi bi-arrow-left"></i> Volver a alumnos
       </Link>
 
       <header style={{ marginBottom: 20 }}>

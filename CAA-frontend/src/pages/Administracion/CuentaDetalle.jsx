@@ -120,8 +120,8 @@ export default function CuentaDetalle() {
 
   return (
     <div>
-      <Link to="/administracion/cuentas" className="adf-btn ghost small" style={{ marginBottom: 12 }}>
-        <i className="bi bi-arrow-left"></i> Volver a cuentas
+      <Link to={`/administracion/alumnos/${id}`} className="adf-btn ghost small" style={{ marginBottom: 12 }}>
+        <i className="bi bi-arrow-left"></i> Volver a la ficha
       </Link>
 
       <header style={{ marginBottom: 24, display: "flex", flexWrap: "wrap", gap: 16, alignItems: "baseline", justifyContent: "space-between" }}>

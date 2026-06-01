@@ -41,9 +41,9 @@ export default function Cuentas() {
 
   return (
     <div>
-      <h1 className="adf-section-title"><i className="bi bi-person-vcard"></i>Cuentas Corrientes</h1>
+      <h1 className="adf-section-title"><i className="bi bi-people"></i>Alumnos</h1>
       <p className="adf-section-subtitle">
-        Saldo prepagado de cada alumno. Los cargos por hora de vuelo se debitan automáticamente al firmar el reporte.
+        Entrá a la ficha de cada alumno para ver y gestionar su perfil, documentos, contratos y cuenta corriente.
         {usingMock && <span className="adf-tag amber" style={{ marginLeft: 10 }}>Datos demo</span>}
       </p>
 
@@ -90,11 +90,8 @@ export default function Cuentas() {
                 {a.ultimo_movimiento_en ? new Date(a.ultimo_movimiento_en).toLocaleDateString("es-SV") : "—"}
               </td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                <Link className="adf-btn small secondary" to={`/administracion/alumnos/${a.id_alumno}`} style={{ marginRight: 6 }}>
-                  <i className="bi bi-person-vcard"></i>Ficha
-                </Link>
-                <Link className="adf-btn small secondary" to={`/administracion/cuentas/${a.id_alumno}`}>
-                  <i className="bi bi-eye"></i>Ver extracto
+                <Link className="adf-btn small" to={`/administracion/alumnos/${a.id_alumno}`}>
+                  <i className="bi bi-person-vcard"></i>Abrir ficha
                 </Link>
               </td>
             </tr>
