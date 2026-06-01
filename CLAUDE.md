@@ -210,8 +210,18 @@ Backfill `backfill_tarifa_id_aeronave.sql` ya ejecutado (tarifas existentes vinc
   staff (checkbox en `Programacion/AgendarVuelo`). Insignia "EXC" en `AdminCalendar`. La migración
   además **reparó deriva** de `solicitud_vuelo` (faltaban tipo_vuelo, id_bloque_fin, id_instructor,
   estado, que el código ya usaba → el guardado de solicitudes desde la app estaba roto).
-  **FASE 1 COMPLETA.** Siguiente: Fase 2 (ficha de alumno consolidada) — requiere crear bucket
-  `caaa-archivos` en Supabase + envs SUPABASE_URL/SUPABASE_SERVICE_KEY en Railway.
+  **FASE 1 COMPLETA.**
+- **Fase 2 (ficha de alumno consolidada) HECHO y desplegado** (commits 83a57b4 + d7dc3c9,
+  migración 20260601000003 contratos): nueva página `/administracion/alumnos/:id_alumno`
+  (`AlumnoFicha.jsx`, acceso "Ficha" desde Cuentas) con tabs **Perfil** (admin edita teléfono,
+  licencia, certificado médico, seguro, límites, soleado vía `PUT /administracion/alumnos/:id` →
+  `adminUsuarioController.actualizarAlumnoFull`), **Documentos/contratos** y **Cuenta** (enlace al
+  extracto). **Archivos en Supabase Storage** (`utils/storage.js`, bucket `documentos-alumno`):
+  `documentosController.subirDocumento` sube el buffer (multer en memoria) y
+  `GET /documentos/:id/archivo-url` da URL firmada. Env en Railway: `SUPABASE_URL` +
+  `SUPABASE_SERVICE_KEY` (⚠️ la service key se compartió en chat — conviene rotarla en Supabase).
+  Buckets en Supabase: `documentos-alumno` (pdf/jpeg/png, usado), `caaa-archivos`, etc.
+  **FASE 2 COMPLETA.** Siguiente: Fase 3 (Aula Virtual tipo Moodle).
 
 **Pendiente / siguiente:**
 - **Observaciones del instructor** sobre el loadsheet (el usuario lo quiere: que el instructor escriba comentarios que el alumno luego ve). Aún no implementado.
