@@ -112,7 +112,12 @@ luego `node run-sql.js`. El usuario autorizó cambios aditivos de esquema durant
 - `loadsheet_waypoint`: data
 - Tablas nuevas: `mantenimiento_bloque`, `solicitud_cancelacion`
 
-**Es muy probable que aparezcan MÁS columnas faltantes** al probar módulos no
+La deriva también afecta **CHECK constraints** (no solo columnas): el código a veces
+usa valores que el constraint viejo no permite (error `violates check constraint`). Fix:
+ampliar el constraint con DROP + ADD (requiere autorización del usuario, no es aditivo).
+Ya corregido: `reporte_vuelo_estado_check` ahora incluye `PENDIENTE_ALUMNO`.
+
+**Es muy probable que aparezcan MÁS columnas/constraints faltantes** al probar módulos no
 ejercitados aún (administración/contabilidad, aula virtual, nómina, etc.). Mismo proceso.
 
 ---
