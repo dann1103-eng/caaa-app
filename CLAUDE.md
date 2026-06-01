@@ -221,7 +221,25 @@ Backfill `backfill_tarifa_id_aeronave.sql` ya ejecutado (tarifas existentes vinc
   `GET /documentos/:id/archivo-url` da URL firmada. Env en Railway: `SUPABASE_URL` +
   `SUPABASE_SERVICE_KEY` (⚠️ la service key se compartió en chat — conviene rotarla en Supabase).
   Buckets en Supabase: `documentos-alumno` (pdf/jpeg/png, usado), `caaa-archivos`, etc.
-  **FASE 2 COMPLETA.** Siguiente: Fase 3 (Aula Virtual tipo Moodle).
+  **FASE 2 COMPLETA.**
+- **Fase 3 (Aula Virtual tipo Moodle) HECHO y desplegado** (commits 053fa61, 931906d, f0c9252,
+  cf96aaa, 7eb3040; migraciones 20260601000004–8). Por incrementos:
+  - **Exámenes internos vs AAC**: `evaluacion.origen` (INTERNO/AAC). Al aprobar el FINAL interno →
+    `inscripcion_curso.listo_para_comite` + banner al alumno. Vista alumno separa notas AAC.
+  - **Material por unidad**: tabla `material_unidad`, subida a Storage (`caaa-archivos`), URL firmada.
+  - **Asistencia**: `sesion_clase` + `asistencia_alumno` (instructor pasa lista; precarga PRESENTE).
+  - **Página de instructor** `/instructor/aula-virtual` (`pages/Instructor/AulaVirtual.jsx`, link en
+    Header): material + calificar + asistencia. Reusa endpoints `/administracion/aula/*` (AULA_READ/WRITE
+    incluyen INSTRUCTOR; ALUMNO en AULA_VIEW para material).
+  - **Notificaciones in-app**: tabla `notificacion`, `utils/notificaciones.js`, `/api/notificaciones`,
+    componente `NotificationBell` (campana en Header y en topbar de AdministracionLayout). Aviso al
+    aprobar el FINAL. Correo pendiente de SMTP.
+  - **Pago de teoría**: `curso.pago_teoria_instructor_usd` (monto fijo por curso, editable en Cursos) +
+    `pago_teoria_pendiente`. Al aprobar el FINAL se genera pago al instructor del examen; la nómina lo
+    suma a `monto_teorico` y lo marca PAGADO al pagar el periodo.
+  **FASE 3 COMPLETA — plan "enrobustecer administración" terminado.**
+  Nota: para probar el aula con datos reales falta sembrar inscripciones de alumnos demo a un curso
+  (`inscripcion_curso` + `inscripcion_curso_avance`); hoy los alumnos demo no están inscritos.
 
 **Pendiente / siguiente:**
 - **Observaciones del instructor** sobre el loadsheet (el usuario lo quiere: que el instructor escriba comentarios que el alumno luego ve). Aún no implementado.
