@@ -62,6 +62,12 @@ ALTER TABLE public.reporte_vuelo
   ADD COLUMN IF NOT EXISTS motivo_inasistencia text,
   ADD COLUMN IF NOT EXISTS observaciones       text;
 
+-- Ampliar el CHECK de estado para incluir PENDIENTE_ALUMNO (el código lo usa al
+-- firmar/enviar el reporte al alumno). Solo amplía los valores permitidos.
+ALTER TABLE public.reporte_vuelo DROP CONSTRAINT IF EXISTS reporte_vuelo_estado_check;
+ALTER TABLE public.reporte_vuelo ADD CONSTRAINT reporte_vuelo_estado_check
+  CHECK (estado IN ('BORRADOR','PENDIENTE_INSTRUCTOR','PENDIENTE_ALUMNO','COMPLETADO'));
+
 -- ── Tabla instructor: número de licencia (usado en W&B / loadsheet) ──────
 ALTER TABLE public.instructor
   ADD COLUMN IF NOT EXISTS licencia varchar(30);
