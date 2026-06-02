@@ -280,7 +280,7 @@ exports.firmarReporteVuelo = async (req, res) => {
       let cargoAutomatico = null;
       if (!esInasistencia) {
         try {
-          const { emitirFacturaVueloDentroTx } = require("../administracion/facturasController");
+          const { cargarVueloACuentaDentroTx } = require("../administracion/facturasController");
           const tacDiff = parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
           const vueloInfo = await client.query(`
             SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha_vuelo AS fecha,
@@ -292,7 +292,7 @@ exports.firmarReporteVuelo = async (req, res) => {
           `, [id]);
           if (vueloInfo.rows.length > 0 && vueloInfo.rows[0].id_alumno) {
             const info = vueloInfo.rows[0];
-            cargoAutomatico = await emitirFacturaVueloDentroTx(client, {
+            cargoAutomatico = await cargarVueloACuentaDentroTx(client, {
               id_vuelo: info.id_vuelo,
               id_alumno: info.id_alumno,
               id_aeronave: info.id_aeronave,
@@ -321,7 +321,7 @@ exports.firmarReporteVuelo = async (req, res) => {
         });
         if (cargoAutomatico) {
           io.emit("cuenta_alumno_movimiento", {
-            id_alumno: cargoAutomatico.factura.id_alumno,
+            id_alumno: cargoAutomatico.id_alumno,
             saldo: cargoAutomatico.saldo_resultante
           });
         }

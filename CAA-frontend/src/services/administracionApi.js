@@ -91,6 +91,12 @@ export const getEmpleados       = async () => (await axios.get(`${BASE}/empleado
 export const crearEmpleado      = async (payload) => (await axios.post(`${BASE}/empleados`, payload)).data;
 export const actualizarEmpleado = async (id, payload) => (await axios.patch(`${BASE}/empleados/${id}`, payload)).data;
 
+// ── Usuarios (alumnos + personal con login) ─────────────────────────
+export const getUsuariosAlumnos   = async () => (await axios.get(`${BASE}/usuarios/alumnos`)).data;
+export const crearUsuarioAlumno   = async (payload) => (await axios.post(`${BASE}/usuarios/alumnos`, payload)).data;
+export const getUsuariosPersonal  = async () => (await axios.get(`${BASE}/usuarios/personal`)).data;
+export const crearUsuarioPersonal = async (payload) => (await axios.post(`${BASE}/usuarios/personal`, payload)).data;
+
 // ── Documentación ───────────────────────────────────────────────────
 export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/documentos/catalogo`)).data;
 export const getDocumentosAlumno   = async (id) => (await axios.get(`${BASE}/documentos/alumno/${id}`)).data;

@@ -108,14 +108,19 @@ exports.list = async (req, res) => {
 };
 
 /**
- * Helper interno: emite factura por vuelo y debita cuenta corriente.
- * Usado por instructor reporteController al firmar reporte final.
+ * Helper interno: aplica el CARGO por vuelo a la cuenta corriente del alumno.
+ * Usado por instructor reporteController al firmar el reporte final.
+ *
+ * IMPORTANTE: el vuelo NO genera una factura formal. El modelo de negocio es de
+ * saldo prepagado: el alumno deposita (recibo) y el vuelo solo DEBITA su cuenta
+ * corriente (movimiento_cuenta tipo CARGO_VUELO). Las facturas son documentos
+ * fiscales aparte que se emiten manualmente cuando hace falta (emitirManual).
  *
  * @param {pg.Client} client - cliente dentro de transacción
- * @param {Object} params - { id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por }
- * @returns {Object} { factura, saldo_resultante }
+ * @param {Object} params - { id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por, es_extracurricular }
+ * @returns {Object} { id_alumno, saldo_resultante, tarifa, total, es_extracurricular }
  */
-exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(client, {
+exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(client, {
   id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por,
   es_extracurricular = false
 }) {
@@ -138,26 +143,7 @@ exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(c
     throw new Error(`No hay tarifa vigente para ${modelo_aeronave} (aeronave ${id_aeronave || '?'}) en ${fecha}`);
   }
   const tarifa = Number(tarifaRes.rows[0].tarifa_hora_usd);
-  const id_aeronave_tarifa = tarifaRes.rows[0].id;
-  const subtotal = +(tarifa * Number(tacometro)).toFixed(2);
-  const total = subtotal;
-
-  // Generar correlativo
-  const corr = await client.query(`SELECT nextval('factura_correlativo_seq') AS n`);
-  const numero = corr.rows[0].n;
-
-  // Insertar factura
-  const f = await client.query(`
-    INSERT INTO factura (numero_correlativo, id_alumno, subtotal_usd, total_usd,
-                         id_vuelo, concepto, emitida_por)
-    VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
-  `, [numero, id_alumno, subtotal, total, id_vuelo,
-      `Vuelo #${id_vuelo} - ${modelo_aeronave} - ${tacometro}h`, emitida_por || null]);
-
-  await client.query(`
-    INSERT INTO factura_detalle (id_factura, descripcion, cantidad_horas, tarifa_hora_usd, subtotal_usd, id_aeronave_tarifa, id_vuelo)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-  `, [f.rows[0].id, `${modelo_aeronave} - hora de vuelo`, tacometro, tarifa, subtotal, id_aeronave_tarifa, id_vuelo]);
+  const total = +(tarifa * Number(tacometro)).toFixed(2);
 
   // Lock + actualizar cuenta
   let cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
@@ -168,9 +154,9 @@ exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(c
   const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) - total;
   await client.query(`
     UPDATE cuenta_corriente_alumno
-    SET saldo_actual_usd = $2, ultimo_movimiento_en = NOW(), ultima_factura_correlativo = $3
+    SET saldo_actual_usd = $2, ultimo_movimiento_en = NOW()
     WHERE id_alumno = $1
-  `, [id_alumno, nuevo_saldo, numero]);
+  `, [id_alumno, nuevo_saldo]);
 
   // Buscar nombre del instructor y código de aeronave para columnas hoja azul
   const meta = await client.query(`
@@ -197,12 +183,12 @@ exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(c
 
   await client.query(`
     INSERT INTO movimiento_cuenta
-      (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, id_vuelo, id_factura,
+      (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, id_vuelo,
        instructor_nombre, avion_codigo, horas_vuelo, horas_totales, nota,
        generado_automatico, registrado_por)
-    VALUES ($1, 'CARGO_VUELO', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, $12)
+    VALUES ($1, 'CARGO_VUELO', $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, $11)
   `, [id_alumno, descMov,
-      -total, nuevo_saldo, id_vuelo, f.rows[0].id,
+      -total, nuevo_saldo, id_vuelo,
       m.instructor_nombre || null, m.avion_codigo || modelo_aeronave, tacometro,
       horasTotalesMov, notaMov,
       emitida_por || null]);
@@ -219,7 +205,7 @@ exports.emitirFacturaVueloDentroTx = async function emitirFacturaVueloDentroTx(c
     `, [id_alumno, tacometro, modelo_aeronave]);
   }
 
-  return { factura: f.rows[0], saldo_resultante: nuevo_saldo, tarifa, total, es_extracurricular };
+  return { id_alumno, saldo_resultante: nuevo_saldo, tarifa, total, es_extracurricular };
 };
 
 exports.anular = async (req, res) => {

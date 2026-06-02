@@ -15,6 +15,7 @@ const facturas = require("../controllers/administracion/facturasController");
 const egresos = require("../controllers/administracion/egresosController");
 const nomina = require("../controllers/administracion/nominaController");
 const empleados = require("../controllers/administracion/empleadosController");
+const usuarios = require("../controllers/administracion/usuariosController");
 const documentos = require("../controllers/administracion/documentosController");
 const medicos = require("../controllers/administracion/medicosController");
 const reportes = require("../controllers/administracion/reportesController");
@@ -92,6 +93,12 @@ router.patch("/nomina/:id/pagar",           roleMiddleware(WRITE_ROLES), nomina.
 router.get("/empleados",                    roleMiddleware(READ_ROLES),  empleados.list);
 router.post("/empleados",                   roleMiddleware(WRITE_ROLES), empleados.create);
 router.patch("/empleados/:id",              roleMiddleware(WRITE_ROLES), empleados.update);
+
+// ── Usuarios (alumnos + personal con login) ───────────────────────────
+router.get("/usuarios/alumnos",             roleMiddleware(READ_ROLES),  usuarios.listAlumnos);
+router.post("/usuarios/alumnos",            roleMiddleware(WRITE_ROLES), usuarios.crearAlumno);
+router.get("/usuarios/personal",            roleMiddleware(READ_ROLES),  usuarios.listPersonal);
+router.post("/usuarios/personal",           roleMiddleware(WRITE_ROLES), usuarios.crearPersonal);
 
 // ── Documentación ─────────────────────────────────────────────────────
 router.get("/documentos/catalogo",          roleMiddleware(READ_ROLES),  documentos.catalogo);

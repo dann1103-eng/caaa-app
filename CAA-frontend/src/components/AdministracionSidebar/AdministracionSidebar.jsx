@@ -15,6 +15,7 @@ export default function AdministracionSidebar({ isOpen, onClose }) {
 
   const menuItems = [
     { label: "Dashboard",      path: "/administracion/dashboard",     icon: "bi-speedometer2" },
+    { label: "Usuarios",       path: "/administracion/usuarios",      icon: "bi-person-gear" },
     { label: "Alumnos",        path: "/administracion/alumnos",       icon: "bi-people" },
     { label: "Contabilidad",   path: "/administracion/contabilidad",  icon: "bi-cash-coin" },
     { label: "Cursos",         path: "/administracion/cursos",        icon: "bi-mortarboard" },

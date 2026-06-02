@@ -10,7 +10,29 @@ const MOCK = [
   { id: 5, categoria: "SUMINISTROS",    proveedor: "Office Depot",     concepto: "Material didáctico", monto_usd: 145.50, fecha: "2026-05-11" }
 ];
 
-const CATEGORIAS = ["COMBUSTIBLE","MANTENIMIENTO","NOMINA","SUMINISTROS","PROVEEDOR","SERVICIOS","OTRO"];
+// Códigos = los del CHECK en BD (migración 007). Etiqueta = texto legible.
+const CATEGORIAS = [
+  { v: "COMBUSTIBLE",       t: "Combustible" },
+  { v: "MANTENIMIENTO",     t: "Mantenimiento" },
+  { v: "REPUESTOS",         t: "Repuestos / Partes" },
+  { v: "NOMINA",            t: "Nómina" },
+  { v: "HONORARIOS",        t: "Honorarios profesionales" },
+  { v: "SUMINISTROS",       t: "Suministros" },
+  { v: "PROVEEDOR",         t: "Proveedor" },
+  { v: "SERVICIOS",         t: "Servicios generales" },
+  { v: "SERVICIOS_BASICOS", t: "Servicios básicos (agua/luz/internet)" },
+  { v: "ALQUILER",          t: "Alquiler / Renta" },
+  { v: "HANGAR",            t: "Hangar" },
+  { v: "IMPUESTOS",         t: "Impuestos" },
+  { v: "SEGUROS",           t: "Seguros" },
+  { v: "TASAS_AAC",         t: "Tasas / Derechos AAC" },
+  { v: "PUBLICIDAD",        t: "Publicidad / Marketing" },
+  { v: "VIATICOS",          t: "Viáticos" },
+  { v: "CAPACITACION",      t: "Capacitación" },
+  { v: "BANCARIO",          t: "Comisiones bancarias" },
+  { v: "OTRO",              t: "Otro" },
+];
+const CAT_LABEL = Object.fromEntries(CATEGORIAS.map(c => [c.v, c.t]));
 
 export default function Egresos() {
   const [egresos, setEgresos] = useState([]);
@@ -53,7 +75,7 @@ export default function Egresos() {
           <label>Filtrar categoría</label>
           <select value={filtro} onChange={(e) => setFiltro(e.target.value)}>
             <option value="">Todas</option>
-            {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+            {CATEGORIAS.map(c => <option key={c.v} value={c.v}>{c.t}</option>)}
           </select>
         </div>
         <div style={{ marginLeft: "auto" }}>
@@ -71,7 +93,7 @@ export default function Egresos() {
               <div className="adf-form-field">
                 <label>Categoría</label>
                 <select value={form.categoria} onChange={(e) => setForm({...form, categoria: e.target.value})}>
-                  {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+                  {CATEGORIAS.map(c => <option key={c.v} value={c.v}>{c.t}</option>)}
                 </select>
               </div>
               <div className="adf-form-field">
@@ -111,7 +133,7 @@ export default function Egresos() {
           {egresos.map(e => (
             <tr key={e.id}>
               <td>{new Date(e.fecha).toLocaleDateString("es-SV")}</td>
-              <td><span className="adf-tag blue">{e.categoria}</span></td>
+              <td><span className="adf-tag blue">{CAT_LABEL[e.categoria] || e.categoria}</span></td>
               <td>{e.proveedor || "—"}</td>
               <td style={{ color: "var(--c-ink-3)" }}>{e.concepto}</td>
               <td className="amount neg" style={{ textAlign: "right" }}>${Number(e.monto_usd).toFixed(2)}</td>

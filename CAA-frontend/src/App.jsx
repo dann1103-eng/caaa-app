@@ -37,6 +37,7 @@ import AdmCuentas from "./pages/Administracion/Cuentas";
 import AdmCuentaDetalle from "./pages/Administracion/CuentaDetalle";
 import AdmAlumnoFicha from "./pages/Administracion/AlumnoFicha";
 import AdmContabilidad from "./pages/Administracion/Contabilidad";
+import AdmUsuarios from "./pages/Administracion/Usuarios";
 import AdmCursos from "./pages/Administracion/Cursos";
 import AdmDocumentacion from "./pages/Administracion/Documentacion";
 import AdmMedicos from "./pages/Administracion/Medicos";
@@ -265,6 +266,8 @@ function App() {
           <Route path="/administracion/cuentas"       element={<Navigate to="/administracion/alumnos" replace />} />
           <Route path="/administracion/cuentas/:id"   element={<ProtectedAdministracion><AdministracionLayout><AdmCuentaDetalle /></AdministracionLayout></ProtectedAdministracion>} />
           <Route path="/administracion/alumnos/:id_alumno" element={<ProtectedAdministracion><AdministracionLayout><AdmAlumnoFicha /></AdministracionLayout></ProtectedAdministracion>} />
+          {/* Usuarios (alumnos + personal con login) */}
+          <Route path="/administracion/usuarios"      element={<ProtectedAdministracion><AdministracionLayout><AdmUsuarios /></AdministracionLayout></ProtectedAdministracion>} />
           {/* Contabilidad consolidada (Ingresos / Egresos / Nómina / Tarifas) */}
           <Route path="/administracion/contabilidad"  element={<ProtectedAdministracion><AdministracionLayout><AdmContabilidad /></AdministracionLayout></ProtectedAdministracion>} />
           {/* Rutas antiguas → redirigen a la sub-pestaña correspondiente */}
