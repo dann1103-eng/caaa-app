@@ -86,6 +86,11 @@ export const pagarNomina       = async (id) => (await axios.patch(`${BASE}/nomin
 export const editarNominaDetalle = async (idDet, payload) =>
   (await axios.patch(`${BASE}/nomina/detalles/${idDet}`, payload)).data;
 
+// ── Empleados de planta (personal administrativo) ───────────────────
+export const getEmpleados       = async () => (await axios.get(`${BASE}/empleados`)).data;
+export const crearEmpleado      = async (payload) => (await axios.post(`${BASE}/empleados`, payload)).data;
+export const actualizarEmpleado = async (id, payload) => (await axios.patch(`${BASE}/empleados/${id}`, payload)).data;
+
 // ── Documentación ───────────────────────────────────────────────────
 export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/documentos/catalogo`)).data;
 export const getDocumentosAlumno   = async (id) => (await axios.get(`${BASE}/documentos/alumno/${id}`)).data;

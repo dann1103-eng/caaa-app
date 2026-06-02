@@ -16,12 +16,8 @@ export default function AdministracionSidebar({ isOpen, onClose }) {
   const menuItems = [
     { label: "Dashboard",      path: "/administracion/dashboard",     icon: "bi-speedometer2" },
     { label: "Alumnos",        path: "/administracion/alumnos",       icon: "bi-people" },
-    { label: "Recibos",        path: "/administracion/recibos",       icon: "bi-receipt" },
-    { label: "Facturas",       path: "/administracion/facturas",      icon: "bi-file-earmark-text" },
-    { label: "Tarifas",        path: "/administracion/tarifas",       icon: "bi-tag" },
+    { label: "Contabilidad",   path: "/administracion/contabilidad",  icon: "bi-cash-coin" },
     { label: "Cursos",         path: "/administracion/cursos",        icon: "bi-mortarboard" },
-    { label: "Egresos",        path: "/administracion/egresos",       icon: "bi-cash-stack" },
-    { label: "Nómina",         path: "/administracion/nomina",        icon: "bi-people-fill" },
     { label: "Documentación",  path: "/administracion/documentacion", icon: "bi-folder-check" },
     { label: "Médicos AAC",    path: "/administracion/medicos",       icon: "bi-clipboard2-pulse" },
     { label: "Aula Virtual",   path: "/administracion/aula-virtual",  icon: "bi-mortarboard-fill" },

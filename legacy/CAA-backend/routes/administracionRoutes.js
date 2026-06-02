@@ -14,6 +14,7 @@ const recibos = require("../controllers/administracion/recibosController");
 const facturas = require("../controllers/administracion/facturasController");
 const egresos = require("../controllers/administracion/egresosController");
 const nomina = require("../controllers/administracion/nominaController");
+const empleados = require("../controllers/administracion/empleadosController");
 const documentos = require("../controllers/administracion/documentosController");
 const medicos = require("../controllers/administracion/medicosController");
 const reportes = require("../controllers/administracion/reportesController");
@@ -86,6 +87,11 @@ router.post("/nomina/calcular",             roleMiddleware(WRITE_ROLES), nomina.
 router.patch("/nomina/detalles/:idDet",     roleMiddleware(WRITE_ROLES), nomina.editarDetalle);
 router.patch("/nomina/:id/aprobar",         roleMiddleware(WRITE_ROLES), nomina.aprobar);
 router.patch("/nomina/:id/pagar",           roleMiddleware(WRITE_ROLES), nomina.pagar);
+
+// ── Empleados de planta (personal administrativo) ─────────────────────
+router.get("/empleados",                    roleMiddleware(READ_ROLES),  empleados.list);
+router.post("/empleados",                   roleMiddleware(WRITE_ROLES), empleados.create);
+router.patch("/empleados/:id",              roleMiddleware(WRITE_ROLES), empleados.update);
 
 // ── Documentación ─────────────────────────────────────────────────────
 router.get("/documentos/catalogo",          roleMiddleware(READ_ROLES),  documentos.catalogo);

@@ -117,6 +117,7 @@ exports.listInstructorTarifas = async (req, res) => {
       SELECT it.id, it.id_instructor, u.username as instructor_nombre,
              it.tipo_pago, it.salario_mensual_fijo,
              it.tarifa_hora_vuelo, it.tarifa_hora_teoria,
+             it.es_servicios_profesionales,
              it.tarifa_hora_usd, it.vigente_desde, it.vigente_hasta
       FROM instructor_tarifa it
       LEFT JOIN instructor i ON i.id_instructor = it.id_instructor
@@ -161,6 +162,7 @@ exports.upsertInstructorTarifa = async (req, res) => {
       salario_mensual_fijo,
       tarifa_hora_vuelo,
       tarifa_hora_teoria,
+      es_servicios_profesionales,
       vigente_desde
     } = req.body;
 
@@ -169,6 +171,10 @@ exports.upsertInstructorTarifa = async (req, res) => {
     if (!['MENSUAL_FIJO','POR_HORA','MIXTO'].includes(tp)) {
       return res.status(400).json({ ok: false, message: "tipo_pago inválido" });
     }
+    // Por defecto: mensual fijo → planta; lo demás → servicios. El selector explícito manda.
+    const esServicios = es_servicios_profesionales != null
+      ? !!es_servicios_profesionales
+      : (tp !== 'MENSUAL_FIJO');
     const desde = vigente_desde || new Date().toISOString().slice(0, 10);
 
     await client.query("BEGIN");
@@ -186,10 +192,10 @@ exports.upsertInstructorTarifa = async (req, res) => {
       INSERT INTO instructor_tarifa
         (id_instructor, tipo_pago, salario_mensual_fijo,
          tarifa_hora_vuelo, tarifa_hora_teoria, tarifa_hora_usd,
-         vigente_desde, creado_por)
-      VALUES ($1, $2, $3, $4, $5, $4, $6, $7)
+         es_servicios_profesionales, vigente_desde, creado_por)
+      VALUES ($1, $2, $3, $4, $5, $4, $6, $7, $8)
       RETURNING *
-    `, [id_instructor, tp, salMens, tarVuelo, tarTeoria, desde, req.user?.id_usuario || null]);
+    `, [id_instructor, tp, salMens, tarVuelo, tarTeoria, esServicios, desde, req.user?.id_usuario || null]);
 
     await client.query("COMMIT");
     res.json({ ok: true, data: r.rows[0] });

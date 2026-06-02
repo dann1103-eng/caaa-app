@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   getAeronaveTarifas, getAeronavesParaTarifa, upsertAeronaveTarifa,
-  getInstructorTarifas, getInstructoresDisponibles, upsertInstructorTarifa
+  getInstructorTarifas, getInstructoresDisponibles, upsertInstructorTarifa,
+  getEmpleados, crearEmpleado, actualizarEmpleado
 } from "../../services/administracionApi";
 
 const MOCK_AERONAVES = [
@@ -34,7 +35,19 @@ const EMPTY_INST_FORM = {
   salario_mensual_fijo: "",
   tarifa_hora_vuelo: "",
   tarifa_hora_teoria: "",
+  es_servicios_profesionales: true,
   vigente_desde: new Date().toISOString().slice(0, 10)
+};
+
+const EMPTY_EMP_FORM = {
+  nombre: "",
+  cargo: "",
+  dui: "",
+  nit: "",
+  isss_num: "",
+  afp_num: "",
+  sueldo_base: "",
+  es_servicios_profesionales: false
 };
 
 const EMPTY_AERO_FORM = {
@@ -66,7 +79,20 @@ export default function Tarifas() {
   const [instForm, setInstForm] = useState(EMPTY_INST_FORM);
   const [editingInst, setEditingInst] = useState(null);
 
+  const [empleados, setEmpleados] = useState([]);
+  const [showEmpForm, setShowEmpForm] = useState(false);
+  const [empForm, setEmpForm] = useState(EMPTY_EMP_FORM);
+  const [editingEmp, setEditingEmp] = useState(null);
+
+  const loadEmpleados = async () => {
+    try {
+      const r = await getEmpleados();
+      if (r?.ok) setEmpleados(r.data);
+    } catch { /* mock: deja la lista como esté */ }
+  };
+
   const load = async () => {
+    loadEmpleados();
     try {
       const [a, av, i, ds] = await Promise.all([getAeronaveTarifas(), getAeronavesParaTarifa(), getInstructorTarifas(), getInstructoresDisponibles()]);
       if (a?.ok && i?.ok) {
@@ -140,6 +166,7 @@ export default function Tarifas() {
         salario_mensual_fijo: sal,
         tarifa_hora_vuelo: tv,
         tarifa_hora_teoria: tt,
+        es_servicios_profesionales: !!instForm.es_servicios_profesionales,
         vigente_desde: instForm.vigente_desde
       });
       toast.success(editingInst ? "Tarifa de instructor actualizada" : "Tarifa de instructor creada");
@@ -158,6 +185,7 @@ export default function Tarifas() {
       salario_mensual_fijo: i.salario_mensual_fijo || "",
       tarifa_hora_vuelo: i.tarifa_hora_vuelo || "",
       tarifa_hora_teoria: i.tarifa_hora_teoria || "",
+      es_servicios_profesionales: i.es_servicios_profesionales ?? (i.tipo_pago !== 'MENSUAL_FIJO'),
       vigente_desde: new Date().toISOString().slice(0, 10)
     });
     setShowInstForm(true);
@@ -167,6 +195,52 @@ export default function Tarifas() {
     setEditingInst(null);
     setInstForm(EMPTY_INST_FORM);
     setShowInstForm(true);
+  };
+
+  // ── Empleados de planta ────────────────────────────────────────────
+  const handleSaveEmp = async (e) => {
+    e.preventDefault();
+    if (!empForm.nombre.trim()) return toast.error("El nombre es obligatorio");
+    const payload = {
+      nombre: empForm.nombre.trim(),
+      cargo: empForm.cargo || null,
+      dui: empForm.dui || null,
+      nit: empForm.nit || null,
+      isss_num: empForm.isss_num || null,
+      afp_num: empForm.afp_num || null,
+      sueldo_base: Number(empForm.sueldo_base || 0),
+      es_servicios_profesionales: !!empForm.es_servicios_profesionales
+    };
+    try {
+      if (editingEmp) await actualizarEmpleado(editingEmp.id, payload);
+      else await crearEmpleado(payload);
+      toast.success(editingEmp ? "Empleado actualizado" : "Empleado creado");
+      setShowEmpForm(false);
+      setEditingEmp(null);
+      setEmpForm(EMPTY_EMP_FORM);
+      loadEmpleados();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
+  const editEmp = (em) => {
+    setEditingEmp(em);
+    setEmpForm({
+      nombre: em.nombre || "",
+      cargo: em.cargo || "",
+      dui: em.dui || "",
+      nit: em.nit || "",
+      isss_num: em.isss_num || "",
+      afp_num: em.afp_num || "",
+      sueldo_base: em.sueldo_base || "",
+      es_servicios_profesionales: !!em.es_servicios_profesionales
+    });
+    setShowEmpForm(true);
+  };
+
+  const newEmp = () => {
+    setEditingEmp(null);
+    setEmpForm(EMPTY_EMP_FORM);
+    setShowEmpForm(true);
   };
 
   return (
@@ -183,6 +257,9 @@ export default function Tarifas() {
         </button>
         <button className={`adf-btn ${tab === 'inst' ? '' : 'secondary'}`} onClick={() => setTab("inst")}>
           <i className="bi bi-person-badge"></i>Instructores
+        </button>
+        <button className={`adf-btn ${tab === 'emp' ? '' : 'secondary'}`} onClick={() => setTab("emp")}>
+          <i className="bi bi-people-fill"></i>Empleados (planta)
         </button>
       </div>
 
@@ -369,6 +446,23 @@ export default function Tarifas() {
                   )}
                 </div>
 
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+                  <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
+                    PLANILLA
+                  </div>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.9rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!instForm.es_servicios_profesionales}
+                      onChange={(e) => setInstForm({...instForm, es_servicios_profesionales: e.target.checked})} />
+                    <span>
+                      <strong>Servicios profesionales</strong> — entra en la planilla de servicios (retención del 10%).
+                      <br />
+                      <span style={{ fontSize: "0.8rem", color: "var(--c-ink-3)" }}>
+                        Desmárcalo para tratarlo como personal de planta (deducciones ISR + ISSS + AFP).
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
                 <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
                   <button type="submit" className="adf-btn"><i className="bi bi-check"></i>Guardar configuración</button>
                   <button type="button" className="adf-btn secondary"
@@ -383,6 +477,7 @@ export default function Tarifas() {
               <tr>
                 <th>Instructor</th>
                 <th>Modalidad</th>
+                <th>Planilla</th>
                 <th style={{ textAlign: "right" }}>Mensual fijo</th>
                 <th style={{ textAlign: "right" }}>USD / hora vuelo</th>
                 <th style={{ textAlign: "right" }}>USD / hora teoría</th>
@@ -397,6 +492,11 @@ export default function Tarifas() {
                   <tr key={i.id}>
                     <td><i className="bi bi-person-circle me-2"></i><strong>{i.instructor_nombre}</strong></td>
                     <td><span className={`adf-tag ${tl.color}`}><i className={`bi ${tl.icon} me-1`}></i>{tl.label}</span></td>
+                    <td>
+                      {(i.es_servicios_profesionales ?? (i.tipo_pago !== 'MENSUAL_FIJO'))
+                        ? <span className="adf-tag green">Servicios 10%</span>
+                        : <span className="adf-tag blue">Planta ISR</span>}
+                    </td>
                     <td className="amount" style={{ textAlign: "right", color: i.tipo_pago === 'POR_HORA' ? 'var(--c-ink-4)' : 'var(--c-ink-1)' }}>
                       ${Number(i.salario_mensual_fijo || 0).toFixed(2)}
                     </td>
@@ -416,8 +516,127 @@ export default function Tarifas() {
                 );
               })}
               {inst.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
+                <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
                   No hay tarifas de instructor configuradas. Crea la primera con el botón verde.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {/* ────────────────── EMPLEADOS (PLANTA) ────────────────── */}
+      {tab === "emp" && (
+        <>
+          <p className="adf-section-subtitle" style={{ marginTop: 4 }}>
+            Personal administrativo (no instructor). El selector <strong>Servicios profesionales</strong> decide su planilla:
+            marcado = retención del 10%; desmarcado = planta con ISR + ISSS + AFP sobre el sueldo base.
+          </p>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+            <button className="adf-btn" onClick={newEmp}>
+              <i className="bi bi-plus-circle"></i>Nuevo empleado
+            </button>
+          </div>
+
+          {showEmpForm && (
+            <div className="adf-card">
+              <h3>
+                <i className="bi bi-person-vcard me-2"></i>
+                {editingEmp ? `Editar empleado: ${editingEmp.nombre}` : "Nuevo empleado de planta"}
+              </h3>
+              <form onSubmit={handleSaveEmp}>
+                <div className="adf-form-grid">
+                  <div className="adf-form-field">
+                    <label>Nombre completo</label>
+                    <input required value={empForm.nombre}
+                      onChange={(e) => setEmpForm({...empForm, nombre: e.target.value})} />
+                  </div>
+                  <div className="adf-form-field">
+                    <label>Cargo</label>
+                    <input value={empForm.cargo} placeholder="Secretaria, Jefe de operaciones..."
+                      onChange={(e) => setEmpForm({...empForm, cargo: e.target.value})} />
+                  </div>
+                  <div className="adf-form-field">
+                    <label><i className="bi bi-cash me-1"></i>Sueldo base mensual (USD)</label>
+                    <input type="number" step="0.01" min="0" value={empForm.sueldo_base} placeholder="600.00"
+                      onChange={(e) => setEmpForm({...empForm, sueldo_base: e.target.value})} />
+                  </div>
+                  <div className="adf-form-field">
+                    <label>DUI</label>
+                    <input value={empForm.dui}
+                      onChange={(e) => setEmpForm({...empForm, dui: e.target.value})} />
+                  </div>
+                  <div className="adf-form-field">
+                    <label>NIT</label>
+                    <input value={empForm.nit}
+                      onChange={(e) => setEmpForm({...empForm, nit: e.target.value})} />
+                  </div>
+                  <div className="adf-form-field">
+                    <label>N° ISSS</label>
+                    <input value={empForm.isss_num}
+                      onChange={(e) => setEmpForm({...empForm, isss_num: e.target.value})} />
+                  </div>
+                  <div className="adf-form-field">
+                    <label>N° AFP</label>
+                    <input value={empForm.afp_num}
+                      onChange={(e) => setEmpForm({...empForm, afp_num: e.target.value})} />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.9rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!empForm.es_servicios_profesionales}
+                      onChange={(e) => setEmpForm({...empForm, es_servicios_profesionales: e.target.checked})} />
+                    <span>
+                      <strong>Servicios profesionales</strong> — planilla de servicios (retención del 10%).
+                      <br />
+                      <span style={{ fontSize: "0.8rem", color: "var(--c-ink-3)" }}>
+                        Desmárcalo para personal de planta (deducciones ISR + ISSS + AFP).
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
+                  <button type="submit" className="adf-btn"><i className="bi bi-check"></i>Guardar empleado</button>
+                  <button type="button" className="adf-btn secondary"
+                    onClick={() => { setShowEmpForm(false); setEditingEmp(null); }}>Cancelar</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          <table className="adf-table">
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Cargo</th>
+                <th>Planilla</th>
+                <th style={{ textAlign: "right" }}>Sueldo base</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {empleados.map(em => (
+                <tr key={em.id}>
+                  <td><i className="bi bi-person-circle me-2"></i><strong>{em.nombre}</strong></td>
+                  <td style={{ color: "var(--c-ink-3)" }}>{em.cargo || "—"}</td>
+                  <td>
+                    {em.es_servicios_profesionales
+                      ? <span className="adf-tag green">Servicios 10%</span>
+                      : <span className="adf-tag blue">Planta ISR</span>}
+                  </td>
+                  <td className="amount" style={{ textAlign: "right" }}>${Number(em.sueldo_base || 0).toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="adf-btn small secondary" onClick={() => editEmp(em)}>
+                      <i className="bi bi-pencil"></i>Editar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {empleados.length === 0 && (
+                <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
+                  No hay empleados de planta registrados. Agrega el primero con el botón verde.
                 </td></tr>
               )}
             </tbody>

@@ -36,12 +36,8 @@ import AdmDashboard from "./pages/Administracion/Dashboard";
 import AdmCuentas from "./pages/Administracion/Cuentas";
 import AdmCuentaDetalle from "./pages/Administracion/CuentaDetalle";
 import AdmAlumnoFicha from "./pages/Administracion/AlumnoFicha";
-import AdmRecibos from "./pages/Administracion/Recibos";
-import AdmFacturas from "./pages/Administracion/Facturas";
-import AdmTarifas from "./pages/Administracion/Tarifas";
+import AdmContabilidad from "./pages/Administracion/Contabilidad";
 import AdmCursos from "./pages/Administracion/Cursos";
-import AdmEgresos from "./pages/Administracion/Egresos";
-import AdmNomina from "./pages/Administracion/Nomina";
 import AdmDocumentacion from "./pages/Administracion/Documentacion";
 import AdmMedicos from "./pages/Administracion/Medicos";
 import AdmReportes from "./pages/Administracion/Reportes";
@@ -269,12 +265,15 @@ function App() {
           <Route path="/administracion/cuentas"       element={<Navigate to="/administracion/alumnos" replace />} />
           <Route path="/administracion/cuentas/:id"   element={<ProtectedAdministracion><AdministracionLayout><AdmCuentaDetalle /></AdministracionLayout></ProtectedAdministracion>} />
           <Route path="/administracion/alumnos/:id_alumno" element={<ProtectedAdministracion><AdministracionLayout><AdmAlumnoFicha /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/recibos"       element={<ProtectedAdministracion><AdministracionLayout><AdmRecibos /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/facturas"      element={<ProtectedAdministracion><AdministracionLayout><AdmFacturas /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/tarifas"       element={<ProtectedAdministracion><AdministracionLayout><AdmTarifas /></AdministracionLayout></ProtectedAdministracion>} />
+          {/* Contabilidad consolidada (Ingresos / Egresos / Nómina / Tarifas) */}
+          <Route path="/administracion/contabilidad"  element={<ProtectedAdministracion><AdministracionLayout><AdmContabilidad /></AdministracionLayout></ProtectedAdministracion>} />
+          {/* Rutas antiguas → redirigen a la sub-pestaña correspondiente */}
+          <Route path="/administracion/recibos"       element={<Navigate to="/administracion/contabilidad?tab=ingresos&sub=recibos" replace />} />
+          <Route path="/administracion/facturas"      element={<Navigate to="/administracion/contabilidad?tab=ingresos&sub=facturas" replace />} />
+          <Route path="/administracion/tarifas"       element={<Navigate to="/administracion/contabilidad?tab=tarifas" replace />} />
+          <Route path="/administracion/egresos"       element={<Navigate to="/administracion/contabilidad?tab=egresos" replace />} />
+          <Route path="/administracion/nomina"        element={<Navigate to="/administracion/contabilidad?tab=nomina" replace />} />
           <Route path="/administracion/cursos"        element={<ProtectedAdministracion><AdministracionLayout><AdmCursos /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/egresos"       element={<ProtectedAdministracion><AdministracionLayout><AdmEgresos /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/nomina"        element={<ProtectedAdministracion><AdministracionLayout><AdmNomina /></AdministracionLayout></ProtectedAdministracion>} />
           <Route path="/administracion/documentacion" element={<ProtectedAdministracion><AdministracionLayout><AdmDocumentacion /></AdministracionLayout></ProtectedAdministracion>} />
           <Route path="/administracion/medicos"       element={<ProtectedAdministracion><AdministracionLayout><AdmMedicos /></AdministracionLayout></ProtectedAdministracion>} />
           <Route path="/administracion/reportes"      element={<ProtectedAdministracion><AdministracionLayout><AdmReportes /></AdministracionLayout></ProtectedAdministracion>} />
