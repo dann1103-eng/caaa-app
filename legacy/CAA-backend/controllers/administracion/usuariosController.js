@@ -20,6 +20,19 @@ async function crearUsuarioTx(client, { username, password, nombre, apellido, co
   return r.rows[0].id_usuario;
 }
 
+/**
+ * Garantiza que exista una fila `instructor` para el usuario dado (necesaria para
+ * asignarle alumnos, sesiones de clase, exámenes, etc.). Devuelve su id_instructor.
+ */
+async function asegurarInstructorTx(client, id_usuario) {
+  const ex = await client.query(`SELECT id_instructor FROM instructor WHERE id_usuario = $1 LIMIT 1`, [id_usuario]);
+  if (ex.rows.length) return ex.rows[0].id_instructor;
+  const r = await client.query(
+    `INSERT INTO instructor (id_usuario, activo) VALUES ($1, TRUE) RETURNING id_instructor`, [id_usuario]
+  );
+  return r.rows[0].id_instructor;
+}
+
 // ── Alumnos ───────────────────────────────────────────────────────────
 exports.listAlumnos = async (req, res) => {
   try {
@@ -90,9 +103,12 @@ exports.crearAlumno = async (req, res) => {
 exports.listPersonal = async (req, res) => {
   try {
     const r = await db.query(`
-      SELECT e.*, u.username, u.rol, u.correo AS usuario_correo, u.activo AS usuario_activo
+      SELECT e.*, u.username, u.rol, u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
+             u.correo AS usuario_correo, u.activo AS usuario_activo,
+             ins.id_instructor
       FROM empleado e
-      LEFT JOIN usuario u ON u.id_usuario = e.id_usuario
+      LEFT JOIN usuario u    ON u.id_usuario   = e.id_usuario
+      LEFT JOIN instructor ins ON ins.id_usuario = e.id_usuario
       ORDER BY e.nombre
     `);
     res.json({ ok: true, data: r.rows });
@@ -136,6 +152,11 @@ exports.crearPersonal = async (req, res) => {
       !!es_servicios_profesionales, id_usuario
     ]);
 
+    // Si el rol es INSTRUCTOR, crear su ficha de instructor (para asignarle alumnos).
+    if (rolFinal === 'INSTRUCTOR') {
+      await asegurarInstructorTx(client, id_usuario);
+    }
+
     await client.query("COMMIT");
     res.json({ ok: true, data: { ...emp.rows[0], id_usuario, username, rol: rolFinal } });
   } catch (e) {
@@ -143,6 +164,153 @@ exports.crearPersonal = async (req, res) => {
     if (e.code === '23505') {
       return res.status(409).json({ ok: false, message: "Ese nombre de usuario ya existe" });
     }
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+// ── Editar personal (empleado + usuario) ──────────────────────────────
+exports.editarPersonal = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id } = req.params; // empleado.id
+    const {
+      nombre, apellido, correo, cargo, dui, nit, isss_num, afp_num,
+      sueldo_base, es_servicios_profesionales, rol, activo
+    } = req.body;
+
+    await client.query("BEGIN");
+    const empRes = await client.query(`SELECT * FROM empleado WHERE id = $1 FOR UPDATE`, [id]);
+    if (!empRes.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ ok: false, message: "Personal no encontrado" });
+    }
+    const emp = empRes.rows[0];
+
+    // empleado.nombre guarda el nombre completo
+    const nombreCompleto = (nombre != null || apellido != null)
+      ? `${nombre ?? ''} ${apellido ?? ''}`.trim()
+      : null;
+
+    await client.query(`
+      UPDATE empleado SET
+        nombre                      = COALESCE($2, nombre),
+        cargo                       = COALESCE($3, cargo),
+        dui                         = COALESCE($4, dui),
+        nit                         = COALESCE($5, nit),
+        isss_num                    = COALESCE($6, isss_num),
+        afp_num                     = COALESCE($7, afp_num),
+        sueldo_base                 = COALESCE($8, sueldo_base),
+        es_servicios_profesionales  = COALESCE($9, es_servicios_profesionales)
+      WHERE id = $1
+    `, [id, nombreCompleto || null, cargo, dui, nit, isss_num, afp_num,
+        sueldo_base != null ? Number(sueldo_base) : null, es_servicios_profesionales]);
+
+    if (emp.id_usuario) {
+      const rolFinal = rol ? rol.toUpperCase() : null;
+      if (rolFinal && !ROLES_PERSONAL.includes(rolFinal)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ ok: false, message: "Rol inválido para personal" });
+      }
+      await client.query(`
+        UPDATE usuario SET
+          rol     = COALESCE($2, rol),
+          activo  = COALESCE($3, activo),
+          correo  = COALESCE($4, correo),
+          nombre  = COALESCE($5, nombre),
+          apellido = COALESCE($6, apellido)
+        WHERE id_usuario = $1
+      `, [emp.id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null]);
+
+      if (rolFinal === 'INSTRUCTOR') {
+        await asegurarInstructorTx(client, emp.id_usuario);
+      }
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+// ── Resetear contraseña del personal ──────────────────────────────────
+exports.resetPasswordPersonal = async (req, res) => {
+  try {
+    const { id } = req.params; // empleado.id
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ ok: false, message: "Contraseña requerida" });
+    const emp = await db.query(`SELECT id_usuario FROM empleado WHERE id = $1`, [id]);
+    if (!emp.rows.length || !emp.rows[0].id_usuario) {
+      return res.status(404).json({ ok: false, message: "Este personal no tiene cuenta de login" });
+    }
+    const hash = await bcrypt.hash(String(password), 10);
+    await db.query(
+      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE WHERE id_usuario = $1`,
+      [emp.rows[0].id_usuario, hash]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// ── Reasignar alumno a otro instructor ────────────────────────────────
+exports.reasignarAlumno = async (req, res) => {
+  try {
+    const { id_alumno } = req.params;
+    const { id_instructor } = req.body;
+    if (!id_instructor) return res.status(400).json({ ok: false, message: "id_instructor requerido" });
+    const r = await db.query(
+      `UPDATE alumno SET id_instructor = $2 WHERE id_alumno = $1 RETURNING id_alumno`,
+      [id_alumno, id_instructor]
+    );
+    if (!r.rows.length) return res.status(404).json({ ok: false, message: "Alumno no encontrado" });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// ── Cursos del aula que imparte un instructor ─────────────────────────
+exports.getInstructorCursos = async (req, res) => {
+  try {
+    const { id_instructor } = req.params;
+    const r = await db.query(`
+      SELECT c.id, c.codigo, c.nombre,
+             (ic.id_curso IS NOT NULL) AS asignado
+      FROM curso c
+      LEFT JOIN instructor_curso ic ON ic.id_curso = c.id AND ic.id_instructor = $1
+      WHERE c.activo = TRUE
+      ORDER BY c.id
+    `, [id_instructor]);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.setInstructorCursos = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id_instructor } = req.params;
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM instructor_curso WHERE id_instructor = $1`, [id_instructor]);
+    for (const cid of ids) {
+      await client.query(
+        `INSERT INTO instructor_curso (id_instructor, id_curso) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [id_instructor, cid]
+      );
+    }
+    await client.query("COMMIT");
+    res.json({ ok: true, data: { count: ids.length } });
+  } catch (e) {
+    await client.query("ROLLBACK");
     res.status(500).json({ ok: false, message: e.message });
   } finally {
     client.release();

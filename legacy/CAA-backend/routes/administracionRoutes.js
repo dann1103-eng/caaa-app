@@ -97,8 +97,13 @@ router.patch("/empleados/:id",              roleMiddleware(WRITE_ROLES), emplead
 // ── Usuarios (alumnos + personal con login) ───────────────────────────
 router.get("/usuarios/alumnos",             roleMiddleware(READ_ROLES),  usuarios.listAlumnos);
 router.post("/usuarios/alumnos",            roleMiddleware(WRITE_ROLES), usuarios.crearAlumno);
+router.patch("/usuarios/alumnos/:id_alumno/instructor", roleMiddleware(WRITE_ROLES), usuarios.reasignarAlumno);
 router.get("/usuarios/personal",            roleMiddleware(READ_ROLES),  usuarios.listPersonal);
 router.post("/usuarios/personal",           roleMiddleware(WRITE_ROLES), usuarios.crearPersonal);
+router.patch("/usuarios/personal/:id",      roleMiddleware(WRITE_ROLES), usuarios.editarPersonal);
+router.post("/usuarios/personal/:id/reset-password", roleMiddleware(WRITE_ROLES), usuarios.resetPasswordPersonal);
+router.get("/usuarios/instructores/:id_instructor/cursos", roleMiddleware(READ_ROLES),  usuarios.getInstructorCursos);
+router.put("/usuarios/instructores/:id_instructor/cursos", roleMiddleware(WRITE_ROLES), usuarios.setInstructorCursos);
 
 // ── Documentación ─────────────────────────────────────────────────────
 router.get("/documentos/catalogo",          roleMiddleware(READ_ROLES),  documentos.catalogo);

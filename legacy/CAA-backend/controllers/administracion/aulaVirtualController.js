@@ -71,9 +71,28 @@ exports.eliminarUnidad = async (req, res) => {
   }
 };
 
-// Cursos activos (accesible también al instructor, que no tiene /cursos).
+// Cursos activos. Para un INSTRUCTOR se filtran a los que tiene asignados
+// (instructor_curso); si no tiene ninguna asignación, ve todos (retrocompat).
+// Admin/Administración siempre ven todos.
 exports.listCursos = async (req, res) => {
   try {
+    if (req.user?.rol === 'INSTRUCTOR') {
+      const ins = await db.query(
+        `SELECT id_instructor FROM instructor WHERE id_usuario = $1 LIMIT 1`, [req.user.id_usuario]
+      );
+      const idInst = ins.rows[0]?.id_instructor;
+      if (idInst) {
+        const asign = await db.query(`
+          SELECT c.id, c.codigo, c.nombre
+          FROM instructor_curso ic
+          JOIN curso c ON c.id = ic.id_curso
+          WHERE ic.id_instructor = $1 AND c.activo = TRUE
+          ORDER BY c.id
+        `, [idInst]);
+        if (asign.rows.length > 0) return res.json({ ok: true, data: asign.rows });
+        // Sin asignaciones → cae al listado completo (retrocompatibilidad).
+      }
+    }
     const r = await db.query(`SELECT id, codigo, nombre FROM curso WHERE activo = TRUE ORDER BY id`);
     res.json({ ok: true, data: r.rows });
   } catch (e) {

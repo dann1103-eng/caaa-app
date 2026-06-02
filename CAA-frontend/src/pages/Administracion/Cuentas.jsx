@@ -14,6 +14,8 @@ export default function Cuentas() {
   const [data, setData] = useState([]);
   const [q, setQ] = useState("");
   const [filtro, setFiltro] = useState("todos");
+  const [filtroInstructor, setFiltroInstructor] = useState("");
+  const [filtroLicencia, setFiltroLicencia] = useState("");
   const [usingMock, setUsingMock] = useState(false);
 
   useEffect(() => {
@@ -28,11 +30,17 @@ export default function Cuentas() {
     })();
   }, []);
 
+  // Opciones distintas para los filtros (derivadas de los datos cargados).
+  const instructores = [...new Set(data.map(a => a.instructor_username).filter(Boolean))].sort();
+  const licencias = [...new Set(data.map(a => a.licencia_nombre).filter(Boolean))].sort();
+
   const filtrados = data.filter(a => {
     const matchQ = !q || (a.username || "").toLowerCase().includes(q.toLowerCase()) ||
                    (a.correo || "").toLowerCase().includes(q.toLowerCase()) ||
                    (a.numero_licencia || "").toLowerCase().includes(q.toLowerCase());
     if (!matchQ) return false;
+    if (filtroInstructor && a.instructor_username !== filtroInstructor) return false;
+    if (filtroLicencia && a.licencia_nombre !== filtroLicencia) return false;
     if (filtro === "saldo_bajo") return Number(a.saldo_actual_usd) < 200;
     if (filtro === "saldo_negativo") return Number(a.saldo_actual_usd) < 0;
     if (filtro === "saldo_alto") return Number(a.saldo_actual_usd) >= 1000;
@@ -53,13 +61,27 @@ export default function Cuentas() {
             <label>Buscar</label>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre, correo, licencia..." />
           </div>
-          <div className="adf-form-field" style={{ flex: "0 0 200px" }}>
-            <label>Filtro</label>
+          <div className="adf-form-field" style={{ flex: "0 0 180px" }}>
+            <label>Saldo</label>
             <select value={filtro} onChange={(e) => setFiltro(e.target.value)}>
               <option value="todos">Todos</option>
               <option value="saldo_bajo">Saldo bajo (&lt; $200)</option>
               <option value="saldo_negativo">Saldo negativo</option>
               <option value="saldo_alto">Saldo alto (&gt; $1000)</option>
+            </select>
+          </div>
+          <div className="adf-form-field" style={{ flex: "0 0 180px" }}>
+            <label>Instructor</label>
+            <select value={filtroInstructor} onChange={(e) => setFiltroInstructor(e.target.value)}>
+              <option value="">Todos</option>
+              {instructores.map(i => <option key={i} value={i}>{i}</option>)}
+            </select>
+          </div>
+          <div className="adf-form-field" style={{ flex: "0 0 180px" }}>
+            <label>Licencia</label>
+            <select value={filtroLicencia} onChange={(e) => setFiltroLicencia(e.target.value)}>
+              <option value="">Todas</option>
+              {licencias.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
           <div style={{ marginLeft: "auto", color: "var(--c-ink-3)", fontSize: "0.88rem" }}>
@@ -73,6 +95,7 @@ export default function Cuentas() {
           <tr>
             <th>Alumno</th>
             <th>Licencia</th>
+            <th>Instructor</th>
             <th>Correo</th>
             <th style={{ textAlign: "right" }}>Saldo</th>
             <th>Último movimiento</th>
@@ -83,7 +106,11 @@ export default function Cuentas() {
           {filtrados.map(a => (
             <tr key={a.id_alumno}>
               <td><i className="bi bi-person-circle me-2"></i><strong>{a.username}</strong></td>
-              <td><code style={{ color: "var(--c-brand-700)" }}>{a.numero_licencia || "—"}</code></td>
+              <td>
+                <code style={{ color: "var(--c-brand-700)" }}>{a.numero_licencia || "—"}</code>
+                {a.licencia_nombre && <span style={{ color: "var(--c-ink-3)", fontSize: "0.8rem", marginLeft: 6 }}>{a.licencia_nombre}</span>}
+              </td>
+              <td style={{ color: "var(--c-ink-3)" }}>{a.instructor_username || "—"}</td>
               <td style={{ color: "var(--c-ink-3)" }}>{a.correo}</td>
               <td style={{ textAlign: "right" }}><SaldoBadge saldo={a.saldo_actual_usd} /></td>
               <td style={{ color: "var(--c-ink-3)", fontSize: "0.88rem" }}>
@@ -97,7 +124,7 @@ export default function Cuentas() {
             </tr>
           ))}
           {filtrados.length === 0 && (
-            <tr><td colSpan={6} style={{ textAlign: "center", padding: 30, color: "var(--c-ink-4)" }}>
+            <tr><td colSpan={7} style={{ textAlign: "center", padding: 30, color: "var(--c-ink-4)" }}>
               Sin resultados.
             </td></tr>
           )}

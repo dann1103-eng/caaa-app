@@ -8,10 +8,15 @@ exports.listAlumnosConSaldo = async (req, res) => {
              u.correo,
              COALESCE(c.saldo_actual_usd, 0) AS saldo_actual_usd,
              c.ultimo_movimiento_en,
-             a.numero_licencia
+             a.numero_licencia,
+             a.id_instructor, iu.username AS instructor_username,
+             a.id_licencia, l.nombre AS licencia_nombre
       FROM alumno a
       LEFT JOIN usuario u ON u.id_usuario = a.id_usuario
       LEFT JOIN cuenta_corriente_alumno c ON c.id_alumno = a.id_alumno
+      LEFT JOIN instructor i ON i.id_instructor = a.id_instructor
+      LEFT JOIN usuario iu ON iu.id_usuario = i.id_usuario
+      LEFT JOIN licencia l ON l.id_licencia = a.id_licencia
       ORDER BY u.username
     `);
     res.json({ ok: true, data: r.rows });

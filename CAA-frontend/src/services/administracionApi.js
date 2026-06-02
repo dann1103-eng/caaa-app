@@ -94,8 +94,16 @@ export const actualizarEmpleado = async (id, payload) => (await axios.patch(`${B
 // ── Usuarios (alumnos + personal con login) ─────────────────────────
 export const getUsuariosAlumnos   = async () => (await axios.get(`${BASE}/usuarios/alumnos`)).data;
 export const crearUsuarioAlumno   = async (payload) => (await axios.post(`${BASE}/usuarios/alumnos`, payload)).data;
+export const reasignarAlumnoInstructor = async (idAlumno, id_instructor) =>
+  (await axios.patch(`${BASE}/usuarios/alumnos/${idAlumno}/instructor`, { id_instructor })).data;
 export const getUsuariosPersonal  = async () => (await axios.get(`${BASE}/usuarios/personal`)).data;
 export const crearUsuarioPersonal = async (payload) => (await axios.post(`${BASE}/usuarios/personal`, payload)).data;
+export const editarUsuarioPersonal = async (id, payload) => (await axios.patch(`${BASE}/usuarios/personal/${id}`, payload)).data;
+export const resetPasswordPersonal = async (id, password) =>
+  (await axios.post(`${BASE}/usuarios/personal/${id}/reset-password`, { password })).data;
+export const getInstructorCursos  = async (idInstructor) => (await axios.get(`${BASE}/usuarios/instructores/${idInstructor}/cursos`)).data;
+export const setInstructorCursos  = async (idInstructor, ids) =>
+  (await axios.put(`${BASE}/usuarios/instructores/${idInstructor}/cursos`, { ids })).data;
 
 // ── Documentación ───────────────────────────────────────────────────
 export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/documentos/catalogo`)).data;

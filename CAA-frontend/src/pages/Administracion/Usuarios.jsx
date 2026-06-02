@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  getUsuariosAlumnos, crearUsuarioAlumno,
-  getUsuariosPersonal, crearUsuarioPersonal,
+  getUsuariosAlumnos, crearUsuarioAlumno, reasignarAlumnoInstructor,
+  getUsuariosPersonal, crearUsuarioPersonal, editarUsuarioPersonal,
+  resetPasswordPersonal, getInstructorCursos, setInstructorCursos,
   getInstructoresDisponibles, getLicencias
 } from "../../services/administracionApi";
 
@@ -38,6 +39,12 @@ export default function Usuarios() {
   const [alumnoForm, setAlumnoForm] = useState(EMPTY_ALUMNO);
   const [showPersonalForm, setShowPersonalForm] = useState(false);
   const [personalForm, setPersonalForm] = useState(EMPTY_PERSONAL);
+
+  // Edición de personal
+  const [editP, setEditP] = useState(null);      // fila de personal en edición
+  const [editPForm, setEditPForm] = useState({});
+  const [pwNueva, setPwNueva] = useState("");
+  const [instrCursos, setInstrCursos] = useState([]); // [{id, nombre, asignado}]
 
   const changeTab = (key) => {
     setTab(key);
@@ -87,6 +94,67 @@ export default function Usuarios() {
       setShowPersonalForm(false);
       setPersonalForm(EMPTY_PERSONAL);
       loadPersonal();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
+  // ── Edición de personal ──
+  const openEditP = async (p) => {
+    setEditP(p);
+    setPwNueva("");
+    setInstrCursos([]);
+    const nombre = p.usuario_nombre || (p.nombre || "").split(" ")[0] || "";
+    const apellido = p.usuario_apellido || (p.nombre || "").split(" ").slice(1).join(" ") || "";
+    setEditPForm({
+      nombre, apellido,
+      correo: p.usuario_correo || "",
+      cargo: p.cargo || "",
+      sueldo_base: p.sueldo_base ?? "",
+      es_servicios_profesionales: !!p.es_servicios_profesionales,
+      dui: p.dui || "", nit: p.nit || "", isss_num: p.isss_num || "", afp_num: p.afp_num || "",
+      rol: p.rol || "ADMINISTRACION",
+      activo: p.usuario_activo !== false,
+    });
+    if (p.id_instructor) {
+      try { const r = await getInstructorCursos(p.id_instructor); if (r?.ok) setInstrCursos(r.data); } catch { /* */ }
+    }
+  };
+
+  const handleGuardarP = async (e) => {
+    e.preventDefault();
+    try {
+      await editarUsuarioPersonal(editP.id, { ...editPForm, sueldo_base: Number(editPForm.sueldo_base || 0) });
+      toast.success("Personal actualizado");
+      setEditP(null);
+      loadPersonal();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
+  const handleResetPw = async () => {
+    if (!pwNueva) return toast.error("Escribe la nueva contraseña");
+    try {
+      await resetPasswordPersonal(editP.id, pwNueva);
+      toast.success("Contraseña reseteada (debe cambiarla en su próximo ingreso)");
+      setPwNueva("");
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
+  const handleReasignar = async (id_alumno, id_instructor) => {
+    if (!id_instructor) return;
+    try {
+      await reasignarAlumnoInstructor(id_alumno, Number(id_instructor));
+      toast.success("Alumno reasignado");
+      loadAlumnos();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
+  const toggleCurso = (id) =>
+    setInstrCursos(cs => cs.map(c => c.id === id ? { ...c, asignado: !c.asignado } : c));
+
+  const handleGuardarCursos = async () => {
+    try {
+      const ids = instrCursos.filter(c => c.asignado).map(c => c.id);
+      await setInstructorCursos(editP.id_instructor, ids);
+      toast.success("Cursos del instructor actualizados");
     } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
   };
 
@@ -308,11 +376,139 @@ export default function Usuarios() {
             </div>
           )}
 
+          {editP && (
+            <div className="adf-card" style={{ background: "var(--c-warn-50)", borderColor: "oklch(85% 0.080 75)" }}>
+              <h3><i className="bi bi-pencil-square me-2" style={{ color: "var(--c-warn-700)" }}></i>Editar: {editP.nombre}</h3>
+              <form onSubmit={handleGuardarP}>
+                <div className="adf-form-grid">
+                  <div className="adf-form-field"><label>Nombre</label>
+                    <input value={editPForm.nombre} onChange={(e) => setEditPForm({...editPForm, nombre: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>Apellido</label>
+                    <input value={editPForm.apellido} onChange={(e) => setEditPForm({...editPForm, apellido: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>Correo</label>
+                    <input type="email" value={editPForm.correo} onChange={(e) => setEditPForm({...editPForm, correo: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>Cargo</label>
+                    <input value={editPForm.cargo} onChange={(e) => setEditPForm({...editPForm, cargo: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>Sueldo base (USD)</label>
+                    <input type="number" step="0.01" min="0" value={editPForm.sueldo_base}
+                      onChange={(e) => setEditPForm({...editPForm, sueldo_base: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>Rol de acceso</label>
+                    <select value={editPForm.rol} onChange={(e) => setEditPForm({...editPForm, rol: e.target.value})}>
+                      {ROLES_PERSONAL.map(r => <option key={r.v} value={r.v}>{r.t}</option>)}
+                    </select></div>
+                  <div className="adf-form-field"><label>DUI</label>
+                    <input value={editPForm.dui} onChange={(e) => setEditPForm({...editPForm, dui: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>NIT</label>
+                    <input value={editPForm.nit} onChange={(e) => setEditPForm({...editPForm, nit: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>N° ISSS</label>
+                    <input value={editPForm.isss_num} onChange={(e) => setEditPForm({...editPForm, isss_num: e.target.value})} /></div>
+                  <div className="adf-form-field"><label>N° AFP</label>
+                    <input value={editPForm.afp_num} onChange={(e) => setEditPForm({...editPForm, afp_num: e.target.value})} /></div>
+                </div>
+                <div style={{ display: "flex", gap: 20, marginTop: 12, flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!editPForm.es_servicios_profesionales}
+                      onChange={(e) => setEditPForm({...editPForm, es_servicios_profesionales: e.target.checked})} />
+                    Servicios profesionales (retención 10%)
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                    <input type="checkbox" checked={!!editPForm.activo}
+                      onChange={(e) => setEditPForm({...editPForm, activo: e.target.checked})} />
+                    Acceso activo
+                  </label>
+                </div>
+                <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+                  <button type="submit" className="adf-btn"><i className="bi bi-check"></i>Guardar</button>
+                  <button type="button" className="adf-btn secondary" onClick={() => setEditP(null)}>Cerrar</button>
+                </div>
+                {editPForm.rol === "INSTRUCTOR" && !editP.id_instructor && (
+                  <p style={{ fontSize: "0.8rem", color: "var(--c-warn-700)", marginTop: 8 }}>
+                    <i className="bi bi-info-circle me-1"></i>Al guardar con rol Instructor se creará su ficha; reabre la edición para asignarle alumnos y cursos.
+                  </p>
+                )}
+              </form>
+
+              {/* Resetear contraseña */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)", display: "flex", gap: 10, alignItems: "end", flexWrap: "wrap" }}>
+                <div className="adf-form-field" style={{ flex: "0 0 240px" }}>
+                  <label><i className="bi bi-key me-1"></i>Nueva contraseña</label>
+                  <input value={pwNueva} onChange={(e) => setPwNueva(e.target.value)} placeholder="contraseña temporal" />
+                </div>
+                <button type="button" className="adf-btn secondary" onClick={handleResetPw}>Resetear contraseña</button>
+              </div>
+
+              {/* Instructor: alumnos + cursos */}
+              {editP.id_instructor && (
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+                  <h4 style={{ margin: "0 0 8px" }}><i className="bi bi-people me-2"></i>Alumnos de este instructor</h4>
+                  <table className="adf-table">
+                    <thead><tr><th>Alumno</th><th>Reasignar a otro instructor</th></tr></thead>
+                    <tbody>
+                      {alumnos.filter(a => a.id_instructor === editP.id_instructor).map(a => (
+                        <tr key={a.id_alumno}>
+                          <td><strong>{a.nombre} {a.apellido}</strong></td>
+                          <td>
+                            <select defaultValue="" onChange={(e) => handleReasignar(a.id_alumno, e.target.value)}>
+                              <option value="">— Mover a... —</option>
+                              {instructores.filter(i => Number(i.id_instructor) !== Number(editP.id_instructor))
+                                .map(i => <option key={i.id_instructor} value={i.id_instructor}>{i.username}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                      {alumnos.filter(a => a.id_instructor === editP.id_instructor).length === 0 && (
+                        <tr><td colSpan={2} style={{ color: "var(--c-ink-4)", textAlign: "center", padding: 16 }}>Sin alumnos asignados.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  <h4 style={{ margin: "16px 0 8px" }}><i className="bi bi-person-plus me-2"></i>Asignar otros alumnos</h4>
+                  <table className="adf-table">
+                    <thead><tr><th>Alumno</th><th>Instructor actual</th><th></th></tr></thead>
+                    <tbody>
+                      {alumnos.filter(a => a.id_instructor !== editP.id_instructor).map(a => (
+                        <tr key={a.id_alumno}>
+                          <td>{a.nombre} {a.apellido}</td>
+                          <td style={{ color: "var(--c-ink-3)" }}>{a.instructor_username || "—"}</td>
+                          <td style={{ textAlign: "right" }}>
+                            <button className="adf-btn small secondary" onClick={() => handleReasignar(a.id_alumno, editP.id_instructor)}>
+                              <i className="bi bi-arrow-left-right"></i>Asignar
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {alumnos.filter(a => a.id_instructor !== editP.id_instructor).length === 0 && (
+                        <tr><td colSpan={3} style={{ color: "var(--c-ink-4)", textAlign: "center", padding: 16 }}>No hay otros alumnos.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+
+                  <h4 style={{ margin: "16px 0 8px" }}><i className="bi bi-mortarboard-fill me-2"></i>Cursos que imparte (Aula Virtual)</h4>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+                    {instrCursos.map(c => (
+                      <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!c.asignado} onChange={() => toggleCurso(c.id)} />
+                        {c.codigo} · {c.nombre}
+                      </label>
+                    ))}
+                    {instrCursos.length === 0 && <span style={{ color: "var(--c-ink-4)" }}>No hay cursos activos.</span>}
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <button className="adf-btn small" onClick={handleGuardarCursos}><i className="bi bi-check"></i>Guardar cursos</button>
+                    <span style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginLeft: 10 }}>
+                      Sin marcar ninguno, el instructor ve todos los cursos (retrocompatibilidad).
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <table className="adf-table">
             <thead>
               <tr>
                 <th>Personal</th><th>Usuario</th><th>Rol</th><th>Cargo</th>
-                <th>Planilla</th><th style={{ textAlign: "right" }}>Sueldo base</th>
+                <th>Planilla</th><th style={{ textAlign: "right" }}>Sueldo base</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -328,10 +524,15 @@ export default function Usuarios() {
                       : <span className="adf-tag blue">Planta ISR</span>}
                   </td>
                   <td className="amount" style={{ textAlign: "right" }}>${Number(p.sueldo_base || 0).toFixed(2)}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="adf-btn small secondary" onClick={() => openEditP(p)}>
+                      <i className="bi bi-pencil"></i>Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
               {personal.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
+                <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
                   No hay personal registrado. Crea el primero con el botón verde.
                 </td></tr>
               )}
