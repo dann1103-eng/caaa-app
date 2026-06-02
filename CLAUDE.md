@@ -241,8 +241,17 @@ Backfill `backfill_tarifa_id_aeronave.sql` ya ejecutado (tarifas existentes vinc
   Nota: para probar el aula con datos reales falta sembrar inscripciones de alumnos demo a un curso
   (`inscripcion_curso` + `inscripcion_curso_avance`); hoy los alumnos demo no están inscritos.
 
-**Pendiente / siguiente:**
-- **Observaciones del instructor** sobre el loadsheet (el usuario lo quiere: que el instructor escriba comentarios que el alumno luego ve). Aún no implementado.
-- Configurar SMTP si se quiere envío de correo real del loadsheet.
-- Seguir probando módulos no ejercitados (Aula Virtual, Recibos/Facturas/Egresos manuales, etc.) → esperar más deriva de esquema y arreglar con el proceso de la sección 6.
-- `PLAN_IMPLEMENTACION.md` tiene el plan original por fases (Fases 1-2 ya implementadas, 4-5 en curso).
+**Pendiente / siguiente (al cierre del plan de administración, 2026-06-02):**
+- **Rotar `SUPABASE_SERVICE_KEY`**: la service role key se compartió en el chat al configurarla.
+  Cuando el usuario la rote en Supabase, actualizar la variable en Railway (`railway variables --set`)
+  y redeployar.
+- **Sembrar datos demo del Aula Virtual**: los alumnos demo NO están inscritos en ningún curso
+  (`inscripcion_curso` vacío para ellos), así que el aula se ve vacía. Para probar de extremo a extremo
+  (material/asistencia/exámenes/pago de teoría) hay que sembrar una inscripción + `inscripcion_curso_avance`
+  + `unidad_teorica`. El usuario aún no lo pidió.
+- **Configurar SMTP** (`MAIL_ENABLED` + credenciales) si se quiere correo real: notificación de examen
+  final aprobado y envío del loadsheet. Hoy todo funciona in-app sin correo.
+- **Observaciones del instructor sobre el loadsheet** (el instructor escribe comentarios que el alumno ve).
+  Aún no implementado.
+- Seguir probando módulos no ejercitados → si aparece deriva de esquema, arreglar con el proceso de la sección 6.
+- `PLAN_IMPLEMENTACION.md` es el plan original (referencia histórica).
