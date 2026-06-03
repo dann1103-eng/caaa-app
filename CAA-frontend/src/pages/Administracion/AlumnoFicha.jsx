@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   getAlumnoFicha, actualizarAlumnoFicha, getLicencias,
   getDocumentosAlumno, subirDocumentoAlumno, revisarDocumento, getArchivoUrlDoc,
-  getCuentaAlumno,
+  getCuentaAlumno, getInstructoresDisponibles,
 } from "../../services/administracionApi";
 import SaldoBadge from "../../components/SaldoBadge/SaldoBadge";
 
@@ -28,6 +28,7 @@ export default function AlumnoFicha() {
   const [tab, setTab] = useState("perfil");
   const [ficha, setFicha] = useState(null);
   const [licencias, setLicencias] = useState([]);
+  const [instructores, setInstructores] = useState([]);
   const [docs, setDocs] = useState([]);
   const [cuenta, setCuenta] = useState(null);
   const [form, setForm] = useState(null);
@@ -35,17 +36,19 @@ export default function AlumnoFicha() {
 
   const load = async () => {
     try {
-      const [f, lic, d, c] = await Promise.all([
+      const [f, lic, d, c, inst] = await Promise.all([
         getAlumnoFicha(id_alumno),
         getLicencias().catch(() => []),
         getDocumentosAlumno(id_alumno).catch(() => ({ data: [] })),
         getCuentaAlumno(id_alumno).catch(() => ({ data: null })),
+        getInstructoresDisponibles().catch(() => ({ data: [] })),
       ]);
       setFicha(f);
       setForm({
         telefono: f.telefono || "",
         numero_licencia: f.numero_licencia || "",
         id_licencia: f.id_licencia || "",
+        id_instructor: f.id_instructor || "",
         soleado: !!f.soleado,
         certificado_medico: f.certificado_medico ? String(f.certificado_medico).slice(0, 10) : "",
         certificado_medico_numero: f.certificado_medico_numero || "",
@@ -56,6 +59,7 @@ export default function AlumnoFicha() {
         limite_vuelos_simulador: f.limite_vuelos_simulador ?? "",
       });
       setLicencias(Array.isArray(lic) ? lic : []);
+      setInstructores(inst?.ok ? inst.data : (Array.isArray(inst) ? inst : []));
       setDocs(d?.data || []);
       setCuenta(c?.data || null);
     } catch (e) {
@@ -71,6 +75,7 @@ export default function AlumnoFicha() {
       const payload = {
         ...form,
         id_licencia: form.id_licencia ? Number(form.id_licencia) : null,
+        id_instructor: form.id_instructor ? Number(form.id_instructor) : null,
         limite_vuelos_avion: form.limite_vuelos_avion === "" ? null : Number(form.limite_vuelos_avion),
         limite_vuelos_simulador: form.limite_vuelos_simulador === "" ? null : Number(form.limite_vuelos_simulador),
       };
@@ -160,6 +165,13 @@ export default function AlumnoFicha() {
                 <label>Teléfono</label>
                 <input value={form.telefono} placeholder="7777-7777"
                   onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
+              </div>
+              <div className="adf-form-field">
+                <label><i className="bi bi-person-badge me-1"></i>Instructor asignado</label>
+                <select value={form.id_instructor} onChange={(e) => setForm({ ...form, id_instructor: e.target.value })}>
+                  <option value="">— Sin asignar —</option>
+                  {instructores.map(i => <option key={i.id_instructor} value={i.id_instructor}>{i.username}</option>)}
+                </select>
               </div>
               <div className="adf-form-field">
                 <label>Licencia (programa)</label>
