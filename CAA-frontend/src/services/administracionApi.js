@@ -104,6 +104,8 @@ export const resetPasswordPersonal = async (id, password) =>
 export const getInstructorCursos  = async (idInstructor) => (await axios.get(`${BASE}/usuarios/instructores/${idInstructor}/cursos`)).data;
 export const setInstructorCursos  = async (idInstructor, ids) =>
   (await axios.put(`${BASE}/usuarios/instructores/${idInstructor}/cursos`, { ids })).data;
+export const getHistorialInstructor = async (idInstructor) => (await axios.get(`${BASE}/usuarios/instructores/${idInstructor}/historial`)).data;
+export const getHistorialAlumno   = async (idAlumno) => (await axios.get(`${BASE}/usuarios/alumnos/${idAlumno}/historial`)).data;
 
 // ── Documentación ───────────────────────────────────────────────────
 export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/documentos/catalogo`)).data;

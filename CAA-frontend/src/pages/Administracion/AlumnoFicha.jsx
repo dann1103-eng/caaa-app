@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   getAlumnoFicha, actualizarAlumnoFicha, getLicencias,
   getDocumentosAlumno, subirDocumentoAlumno, revisarDocumento, getArchivoUrlDoc,
-  getCuentaAlumno, getInstructoresDisponibles,
+  getCuentaAlumno, getInstructoresDisponibles, getHistorialAlumno,
 } from "../../services/administracionApi";
 import SaldoBadge from "../../components/SaldoBadge/SaldoBadge";
 
@@ -12,6 +12,7 @@ const TABS = [
   { key: "perfil", label: "Perfil", icon: "bi-person-vcard" },
   { key: "documentos", label: "Documentos y contratos", icon: "bi-folder2-open" },
   { key: "cuenta", label: "Cuenta corriente", icon: "bi-cash-stack" },
+  { key: "historial", label: "Historial", icon: "bi-clock-history" },
 ];
 
 const DOC_ESTADOS = ["PENDIENTE", "ENTREGADO", "VENCIDO", "RECHAZADO"];
@@ -31,17 +32,19 @@ export default function AlumnoFicha() {
   const [instructores, setInstructores] = useState([]);
   const [docs, setDocs] = useState([]);
   const [cuenta, setCuenta] = useState(null);
+  const [historial, setHistorial] = useState(null);
   const [form, setForm] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
   const load = async () => {
     try {
-      const [f, lic, d, c, inst] = await Promise.all([
+      const [f, lic, d, c, inst, hist] = await Promise.all([
         getAlumnoFicha(id_alumno),
         getLicencias().catch(() => []),
         getDocumentosAlumno(id_alumno).catch(() => ({ data: [] })),
         getCuentaAlumno(id_alumno).catch(() => ({ data: null })),
         getInstructoresDisponibles().catch(() => ({ data: [] })),
+        getHistorialAlumno(id_alumno).catch(() => ({ data: null })),
       ]);
       setFicha(f);
       setForm({
@@ -62,6 +65,7 @@ export default function AlumnoFicha() {
       setInstructores(inst?.ok ? inst.data : (Array.isArray(inst) ? inst : []));
       setDocs(d?.data || []);
       setCuenta(c?.data || null);
+      setHistorial(hist?.ok ? hist.data : (hist?.data || null));
     } catch (e) {
       toast.error(e?.response?.data?.message || "No se pudo cargar la ficha del alumno");
     }
@@ -310,6 +314,110 @@ export default function AlumnoFicha() {
               Este alumno aún no tiene cuenta corriente.
               <Link to={`/administracion/cuentas/${id_alumno}`} style={{ marginLeft: 8 }}>Abrir cuenta</Link>
             </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Historial ── */}
+      {tab === "historial" && (
+        <div className="adf-card">
+          <h3><i className="bi bi-clock-history me-2"></i>Historial del alumno</h3>
+          {!historial ? (
+            <p style={{ color: "var(--c-ink-3)" }}>Sin historial disponible.</p>
+          ) : (
+            <>
+              {/* Bitácora de vuelos */}
+              <h4 style={{ margin: "6px 0 8px" }}><i className="bi bi-airplane me-2"></i>Bitácora de vuelos</h4>
+              <table className="adf-table">
+                <thead><tr><th>Fecha</th><th>Aeronave</th><th style={{ textAlign: "right" }}>Horas</th><th>Instructor</th></tr></thead>
+                <tbody>
+                  {historial.vuelos.map(v => (
+                    <tr key={v.id_vuelo}>
+                      <td>{v.fecha_vuelo ? String(v.fecha_vuelo).slice(0, 10) : "—"}</td>
+                      <td>{v.aeronave_codigo || v.aeronave_modelo || "—"}{v.inasistencia && <span className="adf-tag amber" style={{ marginLeft: 6 }}>inasistencia</span>}</td>
+                      <td className="amount" style={{ textAlign: "right" }}>{Number(v.horas || 0).toFixed(1)}</td>
+                      <td style={{ color: "var(--c-ink-3)" }}>{v.instructor_username || "—"}</td>
+                    </tr>
+                  ))}
+                  {historial.vuelos.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin vuelos completados.</td></tr>}
+                </tbody>
+              </table>
+
+              {/* Cursos / inscripciones */}
+              <h4 style={{ margin: "16px 0 8px" }}><i className="bi bi-mortarboard me-2"></i>Cursos</h4>
+              <table className="adf-table">
+                <thead><tr><th>Curso</th><th>Estado</th><th>Inicio</th><th>Finalización</th></tr></thead>
+                <tbody>
+                  {historial.inscripciones.map(ic => (
+                    <tr key={ic.id}>
+                      <td><strong>{ic.codigo}</strong> · {ic.nombre}</td>
+                      <td><span className="adf-tag">{ic.estado}</span></td>
+                      <td>{ic.fecha_inicio ? String(ic.fecha_inicio).slice(0, 10) : "—"}</td>
+                      <td>{ic.fecha_finalizacion ? String(ic.fecha_finalizacion).slice(0, 10) : "—"}</td>
+                    </tr>
+                  ))}
+                  {historial.inscripciones.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin inscripciones.</td></tr>}
+                </tbody>
+              </table>
+
+              {/* Exámenes / notas */}
+              <h4 style={{ margin: "16px 0 8px" }}><i className="bi bi-card-checklist me-2"></i>Exámenes y notas</h4>
+              <table className="adf-table">
+                <thead><tr><th>Examen</th><th>Tipo</th><th style={{ textAlign: "right" }}>Nota</th><th>Estado</th></tr></thead>
+                <tbody>
+                  {historial.notas.map(n => (
+                    <tr key={n.id}>
+                      <td>{n.examen} {n.origen && <span className="adf-tag" style={{ marginLeft: 4 }}>{n.origen}</span>}</td>
+                      <td style={{ color: "var(--c-ink-3)" }}>{n.tipo || "—"}</td>
+                      <td className="amount" style={{ textAlign: "right", fontWeight: 700,
+                        color: n.nota != null && n.nota_aprobacion != null ? (Number(n.nota) >= Number(n.nota_aprobacion) ? "var(--c-accent-700)" : "var(--c-danger-700)") : "var(--c-ink-3)" }}>
+                        {n.nota != null ? Number(n.nota).toFixed(1) : "—"}
+                      </td>
+                      <td>{n.estado || "—"}</td>
+                    </tr>
+                  ))}
+                  {historial.notas.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin notas.</td></tr>}
+                </tbody>
+              </table>
+
+              {/* Facturas + Recibos */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 18, marginTop: 16 }}>
+                <div>
+                  <h4 style={{ margin: "0 0 8px" }}><i className="bi bi-file-earmark-text me-2"></i>Facturas</h4>
+                  <table className="adf-table">
+                    <thead><tr><th>N°</th><th>Fecha</th><th style={{ textAlign: "right" }}>Total</th><th>Estado</th></tr></thead>
+                    <tbody>
+                      {historial.facturas.map(f => (
+                        <tr key={f.id}>
+                          <td>#{f.numero_correlativo}</td>
+                          <td>{f.fecha_emision ? String(f.fecha_emision).slice(0, 10) : "—"}</td>
+                          <td className="amount" style={{ textAlign: "right" }}>${Number(f.total_usd || 0).toFixed(2)}</td>
+                          <td>{f.estado === "ANULADA" ? <span className="adf-tag amber">ANULADA</span> : <span className="adf-tag green">EMITIDA</span>}</td>
+                        </tr>
+                      ))}
+                      {historial.facturas.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin facturas.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <h4 style={{ margin: "0 0 8px" }}><i className="bi bi-receipt me-2"></i>Recibos / pagos</h4>
+                  <table className="adf-table">
+                    <thead><tr><th>N°</th><th>Fecha</th><th style={{ textAlign: "right" }}>Monto</th><th>Método</th></tr></thead>
+                    <tbody>
+                      {historial.recibos.map(r => (
+                        <tr key={r.id} style={{ opacity: r.anulado ? 0.5 : 1 }}>
+                          <td>#{r.numero_correlativo}</td>
+                          <td>{r.fecha ? String(r.fecha).slice(0, 10) : "—"}</td>
+                          <td className="amount pos" style={{ textAlign: "right" }}>${Number(r.monto_usd || 0).toFixed(2)}</td>
+                          <td style={{ color: "var(--c-ink-3)" }}>{r.metodo}{r.anulado && " (anulado)"}</td>
+                        </tr>
+                      ))}
+                      {historial.recibos.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin recibos.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

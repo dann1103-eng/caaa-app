@@ -5,7 +5,7 @@ import {
   getUsuariosAlumnos, crearUsuarioAlumno, reasignarAlumnoInstructor,
   getUsuariosPersonal, crearUsuarioPersonal, editarUsuarioPersonal,
   resetPasswordPersonal, getInstructorCursos, setInstructorCursos,
-  getInstructoresDisponibles, getLicencias
+  getHistorialInstructor, getInstructoresDisponibles, getLicencias
 } from "../../services/administracionApi";
 
 const ROLES_PERSONAL = [
@@ -45,6 +45,7 @@ export default function Usuarios() {
   const [editPForm, setEditPForm] = useState({});
   const [pwNueva, setPwNueva] = useState("");
   const [instrCursos, setInstrCursos] = useState([]); // [{id, nombre, asignado}]
+  const [instrHist, setInstrHist] = useState(null);   // historial del instructor
 
   const changeTab = (key) => {
     setTab(key);
@@ -112,8 +113,10 @@ export default function Usuarios() {
       rol: p.rol || "ADMINISTRACION",
       activo: p.activo !== false,
     });
+    setInstrHist(null);
     if (p.id_instructor) {
       try { const r = await getInstructorCursos(p.id_instructor); if (r?.ok) setInstrCursos(r.data); } catch { /* */ }
+      try { const h = await getHistorialInstructor(p.id_instructor); if (h?.ok) setInstrHist(h.data); } catch { /* */ }
     }
   };
 
@@ -513,6 +516,56 @@ export default function Usuarios() {
                       Sin marcar ninguno, el instructor ve todos los cursos (retrocompatibilidad).
                     </span>
                   </div>
+
+                  {/* Historial del instructor */}
+                  {instrHist && (
+                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+                      <h4 style={{ margin: "0 0 10px" }}><i className="bi bi-clock-history me-2"></i>Historial</h4>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 14 }}>
+                        <div style={{ background: "white", padding: 10, borderRadius: 8 }}>
+                          <div style={{ fontSize: "0.74rem", color: "var(--c-ink-3)" }}>Horas instruidas</div>
+                          <div style={{ fontSize: "1.1rem", fontWeight: 800 }}>{Number(instrHist.horas?.horas_total || 0).toFixed(1)} h</div>
+                          <div style={{ fontSize: "0.72rem", color: "var(--c-ink-4)" }}>{instrHist.horas?.vuelos || 0} vuelos</div>
+                        </div>
+                        <div style={{ background: "white", padding: 10, borderRadius: 8 }}>
+                          <div style={{ fontSize: "0.74rem", color: "var(--c-ink-3)" }}>Clases dadas</div>
+                          <div style={{ fontSize: "1.1rem", fontWeight: 800 }}>{instrHist.clases?.length || 0}</div>
+                        </div>
+                        <div style={{ background: "white", padding: 10, borderRadius: 8 }}>
+                          <div style={{ fontSize: "0.74rem", color: "var(--c-ink-3)" }}>Exámenes creados</div>
+                          <div style={{ fontSize: "1.1rem", fontWeight: 800 }}>{instrHist.examenes_total || 0}</div>
+                        </div>
+                        <div style={{ background: "white", padding: 10, borderRadius: 8 }}>
+                          <div style={{ fontSize: "0.74rem", color: "var(--c-ink-3)" }}>Pago de teoría</div>
+                          <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--c-brand-700)" }}>${Number(instrHist.teoria?.pagado || 0).toFixed(2)}</div>
+                          <div style={{ fontSize: "0.72rem", color: "var(--c-warn-700)" }}>${Number(instrHist.teoria?.pendiente || 0).toFixed(2)} pend.</div>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--c-ink-2)", marginBottom: 6 }}>Planillas</div>
+                      <table className="adf-table">
+                        <thead><tr><th>Periodo</th><th>Tipo</th><th>Estado</th><th style={{ textAlign: "right" }}>Neto</th><th>Pagada</th></tr></thead>
+                        <tbody>
+                          {(instrHist.planillas || []).map(pl => (
+                            <tr key={pl.id_periodo}>
+                              <td>{pl.periodo_inicio} → {pl.periodo_fin}</td>
+                              <td>{pl.tipo_planilla === "PLANTA" ? "Planta" : "Servicios"}</td>
+                              <td>
+                                {pl.estado === "PAGADA" ? <span className="adf-tag green">PAGADA</span>
+                                  : pl.estado === "APROBADA" ? <span className="adf-tag blue">APROBADA</span>
+                                  : <span className="adf-tag amber">BORRADOR</span>}
+                              </td>
+                              <td className="amount" style={{ textAlign: "right", fontWeight: 700 }}>${Number(pl.neto || 0).toFixed(2)}</td>
+                              <td style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>{pl.fecha_pago || "—"}</td>
+                            </tr>
+                          ))}
+                          {(instrHist.planillas || []).length === 0 && (
+                            <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin planillas.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

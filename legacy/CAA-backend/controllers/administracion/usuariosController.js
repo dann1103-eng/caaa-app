@@ -322,3 +322,115 @@ exports.setInstructorCursos = async (req, res) => {
     client.release();
   }
 };
+
+// ── Historial del instructor ──────────────────────────────────────────
+exports.historialInstructor = async (req, res) => {
+  try {
+    const { id_instructor } = req.params;
+
+    const planillas = await db.query(`
+      SELECT p.id AS id_periodo, p.periodo_inicio, p.periodo_fin, p.tipo_planilla, p.estado, p.fecha_pago,
+             d.bruto, d.isr, d.isss, d.afp, d.retencion, d.total AS neto
+      FROM nomina_detalle d
+      JOIN nomina_periodo p ON p.id = d.id_periodo
+      WHERE d.id_instructor = $1
+      ORDER BY p.periodo_inicio DESC
+    `, [id_instructor]);
+
+    const horas = await db.query(`
+      SELECT COALESCE(SUM(rv.tacometro_llegada - rv.tacometro_salida), 0) AS horas_total,
+             COUNT(*) AS vuelos
+      FROM vuelo v
+      JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+      WHERE v.id_instructor = $1 AND v.estado = 'COMPLETADO'
+        AND COALESCE(rv.es_inasistencia, false) = false
+    `, [id_instructor]);
+
+    const clases = await db.query(`
+      SELECT s.id, s.fecha, s.tema, c.codigo AS curso_codigo, c.nombre AS curso_nombre
+      FROM sesion_clase s
+      LEFT JOIN curso c ON c.id = s.id_curso
+      WHERE s.id_instructor = $1
+      ORDER BY s.fecha DESC
+    `, [id_instructor]);
+
+    const examenes = await db.query(
+      `SELECT COUNT(*) AS total FROM evaluacion WHERE id_instructor = $1`, [id_instructor]
+    );
+
+    const teoria = await db.query(`
+      SELECT COALESCE(SUM(monto_usd) FILTER (WHERE estado = 'PAGADO'), 0)    AS pagado,
+             COALESCE(SUM(monto_usd) FILTER (WHERE estado = 'PENDIENTE'), 0) AS pendiente
+      FROM pago_teoria_pendiente WHERE id_instructor = $1
+    `, [id_instructor]);
+
+    res.json({ ok: true, data: {
+      planillas: planillas.rows,
+      horas: horas.rows[0],
+      clases: clases.rows,
+      examenes_total: Number(examenes.rows[0].total),
+      teoria: teoria.rows[0],
+    }});
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// ── Historial del alumno ──────────────────────────────────────────────
+exports.historialAlumno = async (req, res) => {
+  try {
+    const { id_alumno } = req.params;
+
+    const vuelos = await db.query(`
+      SELECT v.id_vuelo, v.fecha_vuelo,
+             a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo,
+             COALESCE(rv.tacometro_llegada - rv.tacometro_salida, 0) AS horas,
+             iu.username AS instructor_username,
+             COALESCE(rv.es_inasistencia, false) AS inasistencia
+      FROM vuelo v
+      LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+      LEFT JOIN aeronave a ON a.id_aeronave = v.id_aeronave
+      LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+      LEFT JOIN usuario iu ON iu.id_usuario = i.id_usuario
+      WHERE v.id_alumno = $1 AND v.estado = 'COMPLETADO'
+      ORDER BY v.fecha_vuelo DESC
+    `, [id_alumno]);
+
+    const facturas = await db.query(`
+      SELECT id, numero_correlativo, fecha_emision, total_usd, estado, concepto
+      FROM factura WHERE id_alumno = $1 ORDER BY fecha_emision DESC
+    `, [id_alumno]);
+
+    const recibos = await db.query(`
+      SELECT id, numero_correlativo, fecha, monto_usd, metodo, descripcion, anulado
+      FROM recibo_pago WHERE id_alumno = $1 ORDER BY fecha DESC
+    `, [id_alumno]);
+
+    const inscripciones = await db.query(`
+      SELECT ic.id, ic.estado, ic.fecha_inicio, ic.fecha_finalizacion,
+             c.codigo, c.nombre
+      FROM inscripcion_curso ic
+      JOIN curso c ON c.id = ic.id_curso
+      WHERE ic.id_alumno = $1 ORDER BY ic.fecha_inicio DESC
+    `, [id_alumno]);
+
+    const notas = await db.query(`
+      SELECT ea.id, e.nombre AS examen, e.tipo, e.origen,
+             ea.nota, e.nota_aprobacion, ea.estado, ea.calificado_en
+      FROM evaluacion_alumno ea
+      JOIN evaluacion e ON e.id = ea.id_evaluacion
+      WHERE ea.id_alumno = $1
+      ORDER BY ea.calificado_en DESC NULLS LAST, ea.id DESC
+    `, [id_alumno]);
+
+    res.json({ ok: true, data: {
+      vuelos: vuelos.rows,
+      facturas: facturas.rows,
+      recibos: recibos.rows,
+      inscripciones: inscripciones.rows,
+      notas: notas.rows,
+    }});
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
