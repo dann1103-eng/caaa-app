@@ -100,8 +100,8 @@ router.post("/usuarios/alumnos",            roleMiddleware(WRITE_ROLES), usuario
 router.patch("/usuarios/alumnos/:id_alumno/instructor", roleMiddleware(WRITE_ROLES), usuarios.reasignarAlumno);
 router.get("/usuarios/personal",            roleMiddleware(READ_ROLES),  usuarios.listPersonal);
 router.post("/usuarios/personal",           roleMiddleware(WRITE_ROLES), usuarios.crearPersonal);
-router.patch("/usuarios/personal/:id",      roleMiddleware(WRITE_ROLES), usuarios.editarPersonal);
-router.post("/usuarios/personal/:id/reset-password", roleMiddleware(WRITE_ROLES), usuarios.resetPasswordPersonal);
+router.patch("/usuarios/personal/:id_usuario", roleMiddleware(WRITE_ROLES), usuarios.editarPersonal);
+router.post("/usuarios/personal/:id_usuario/reset-password", roleMiddleware(WRITE_ROLES), usuarios.resetPasswordPersonal);
 router.get("/usuarios/instructores/:id_instructor/cursos", roleMiddleware(READ_ROLES),  usuarios.getInstructorCursos);
 router.put("/usuarios/instructores/:id_instructor/cursos", roleMiddleware(WRITE_ROLES), usuarios.setInstructorCursos);
 

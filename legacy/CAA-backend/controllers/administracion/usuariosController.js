@@ -100,16 +100,22 @@ exports.crearAlumno = async (req, res) => {
 };
 
 // ── Personal (empleado + login) ───────────────────────────────────────
+// Lista TODO el staff interno (usuario con rol de personal). El empleado (datos de
+// nómina) es una extensión opcional; los instructores sembrados no lo tienen pero
+// igual deben aparecer aquí para gestionarlos y ver sus alumnos.
 exports.listPersonal = async (req, res) => {
   try {
     const r = await db.query(`
-      SELECT e.*, u.username, u.rol, u.nombre AS usuario_nombre, u.apellido AS usuario_apellido,
-             u.correo AS usuario_correo, u.activo AS usuario_activo,
-             ins.id_instructor
-      FROM empleado e
-      LEFT JOIN usuario u    ON u.id_usuario   = e.id_usuario
-      LEFT JOIN instructor ins ON ins.id_usuario = e.id_usuario
-      ORDER BY e.nombre
+      SELECT u.id_usuario, u.username, u.rol, u.nombre, u.apellido, u.correo, u.activo,
+             e.id AS id_empleado, e.cargo, e.sueldo_base, e.es_servicios_profesionales,
+             e.dui, e.nit, e.isss_num, e.afp_num,
+             ins.id_instructor,
+             (SELECT COUNT(*) FROM alumno a WHERE a.id_instructor = ins.id_instructor) AS num_alumnos
+      FROM usuario u
+      LEFT JOIN empleado e     ON e.id_usuario   = u.id_usuario
+      LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
+      WHERE u.rol IN ('ADMIN','PROGRAMACION','TURNO','INSTRUCTOR','ADMINISTRACION')
+      ORDER BY u.nombre, u.apellido
     `);
     res.json({ ok: true, data: r.rows });
   } catch (e) {
@@ -170,62 +176,65 @@ exports.crearPersonal = async (req, res) => {
   }
 };
 
-// ── Editar personal (empleado + usuario) ──────────────────────────────
+// ── Editar personal (usuario + empleado opcional) ─────────────────────
+// Se opera por id_usuario (todo staff interno tiene uno). Los datos de nómina
+// (empleado) se actualizan solo si ese empleado ya existe.
 exports.editarPersonal = async (req, res) => {
   const client = await db.connect();
   try {
-    const { id } = req.params; // empleado.id
+    const { id_usuario } = req.params;
     const {
       nombre, apellido, correo, cargo, dui, nit, isss_num, afp_num,
       sueldo_base, es_servicios_profesionales, rol, activo
     } = req.body;
 
     await client.query("BEGIN");
-    const empRes = await client.query(`SELECT * FROM empleado WHERE id = $1 FOR UPDATE`, [id]);
-    if (!empRes.rows.length) {
+    const uRes = await client.query(`SELECT id_usuario FROM usuario WHERE id_usuario = $1 FOR UPDATE`, [id_usuario]);
+    if (!uRes.rows.length) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ ok: false, message: "Personal no encontrado" });
+      return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
     }
-    const emp = empRes.rows[0];
 
-    // empleado.nombre guarda el nombre completo
-    const nombreCompleto = (nombre != null || apellido != null)
-      ? `${nombre ?? ''} ${apellido ?? ''}`.trim()
-      : null;
+    const rolFinal = rol ? rol.toUpperCase() : null;
+    if (rolFinal && !ROLES_PERSONAL.includes(rolFinal)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ ok: false, message: "Rol inválido para personal" });
+    }
 
     await client.query(`
-      UPDATE empleado SET
-        nombre                      = COALESCE($2, nombre),
-        cargo                       = COALESCE($3, cargo),
-        dui                         = COALESCE($4, dui),
-        nit                         = COALESCE($5, nit),
-        isss_num                    = COALESCE($6, isss_num),
-        afp_num                     = COALESCE($7, afp_num),
-        sueldo_base                 = COALESCE($8, sueldo_base),
-        es_servicios_profesionales  = COALESCE($9, es_servicios_profesionales)
-      WHERE id = $1
-    `, [id, nombreCompleto || null, cargo, dui, nit, isss_num, afp_num,
-        sueldo_base != null ? Number(sueldo_base) : null, es_servicios_profesionales]);
+      UPDATE usuario SET
+        rol      = COALESCE($2, rol),
+        activo   = COALESCE($3, activo),
+        correo   = COALESCE($4, correo),
+        nombre   = COALESCE($5, nombre),
+        apellido = COALESCE($6, apellido)
+      WHERE id_usuario = $1
+    `, [id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null]);
 
-    if (emp.id_usuario) {
-      const rolFinal = rol ? rol.toUpperCase() : null;
-      if (rolFinal && !ROLES_PERSONAL.includes(rolFinal)) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ ok: false, message: "Rol inválido para personal" });
-      }
+    // Datos de nómina: solo si ya tiene ficha de empleado (no se crea aquí; los
+    // instructores configuran su pago en Tarifas → Instructores).
+    const emp = await client.query(`SELECT id FROM empleado WHERE id_usuario = $1`, [id_usuario]);
+    if (emp.rows.length) {
+      const nombreCompleto = (nombre != null || apellido != null)
+        ? `${nombre ?? ''} ${apellido ?? ''}`.trim()
+        : null;
       await client.query(`
-        UPDATE usuario SET
-          rol     = COALESCE($2, rol),
-          activo  = COALESCE($3, activo),
-          correo  = COALESCE($4, correo),
-          nombre  = COALESCE($5, nombre),
-          apellido = COALESCE($6, apellido)
+        UPDATE empleado SET
+          nombre                      = COALESCE($2, nombre),
+          cargo                       = COALESCE($3, cargo),
+          dui                         = COALESCE($4, dui),
+          nit                         = COALESCE($5, nit),
+          isss_num                    = COALESCE($6, isss_num),
+          afp_num                     = COALESCE($7, afp_num),
+          sueldo_base                 = COALESCE($8, sueldo_base),
+          es_servicios_profesionales  = COALESCE($9, es_servicios_profesionales)
         WHERE id_usuario = $1
-      `, [emp.id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null]);
+      `, [id_usuario, nombreCompleto || null, cargo, dui, nit, isss_num, afp_num,
+          sueldo_base != null ? Number(sueldo_base) : null, es_servicios_profesionales]);
+    }
 
-      if (rolFinal === 'INSTRUCTOR') {
-        await asegurarInstructorTx(client, emp.id_usuario);
-      }
+    if (rolFinal === 'INSTRUCTOR') {
+      await asegurarInstructorTx(client, id_usuario);
     }
 
     await client.query("COMMIT");
@@ -241,18 +250,15 @@ exports.editarPersonal = async (req, res) => {
 // ── Resetear contraseña del personal ──────────────────────────────────
 exports.resetPasswordPersonal = async (req, res) => {
   try {
-    const { id } = req.params; // empleado.id
+    const { id_usuario } = req.params;
     const { password } = req.body;
     if (!password) return res.status(400).json({ ok: false, message: "Contraseña requerida" });
-    const emp = await db.query(`SELECT id_usuario FROM empleado WHERE id = $1`, [id]);
-    if (!emp.rows.length || !emp.rows[0].id_usuario) {
-      return res.status(404).json({ ok: false, message: "Este personal no tiene cuenta de login" });
-    }
     const hash = await bcrypt.hash(String(password), 10);
-    await db.query(
-      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE WHERE id_usuario = $1`,
-      [emp.rows[0].id_usuario, hash]
+    const r = await db.query(
+      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE WHERE id_usuario = $1 RETURNING id_usuario`,
+      [id_usuario, hash]
     );
+    if (!r.rows.length) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });

@@ -102,17 +102,15 @@ export default function Usuarios() {
     setEditP(p);
     setPwNueva("");
     setInstrCursos([]);
-    const nombre = p.usuario_nombre || (p.nombre || "").split(" ")[0] || "";
-    const apellido = p.usuario_apellido || (p.nombre || "").split(" ").slice(1).join(" ") || "";
     setEditPForm({
-      nombre, apellido,
-      correo: p.usuario_correo || "",
+      nombre: p.nombre || "", apellido: p.apellido || "",
+      correo: p.correo || "",
       cargo: p.cargo || "",
       sueldo_base: p.sueldo_base ?? "",
       es_servicios_profesionales: !!p.es_servicios_profesionales,
       dui: p.dui || "", nit: p.nit || "", isss_num: p.isss_num || "", afp_num: p.afp_num || "",
       rol: p.rol || "ADMINISTRACION",
-      activo: p.usuario_activo !== false,
+      activo: p.activo !== false,
     });
     if (p.id_instructor) {
       try { const r = await getInstructorCursos(p.id_instructor); if (r?.ok) setInstrCursos(r.data); } catch { /* */ }
@@ -122,7 +120,7 @@ export default function Usuarios() {
   const handleGuardarP = async (e) => {
     e.preventDefault();
     try {
-      await editarUsuarioPersonal(editP.id, { ...editPForm, sueldo_base: Number(editPForm.sueldo_base || 0) });
+      await editarUsuarioPersonal(editP.id_usuario, { ...editPForm, sueldo_base: Number(editPForm.sueldo_base || 0) });
       toast.success("Personal actualizado");
       setEditP(null);
       loadPersonal();
@@ -132,7 +130,7 @@ export default function Usuarios() {
   const handleResetPw = async () => {
     if (!pwNueva) return toast.error("Escribe la nueva contraseña");
     try {
-      await resetPasswordPersonal(editP.id, pwNueva);
+      await resetPasswordPersonal(editP.id_usuario, pwNueva);
       toast.success("Contraseña reseteada (debe cambiarla en su próximo ingreso)");
       setPwNueva("");
     } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
@@ -378,7 +376,7 @@ export default function Usuarios() {
 
           {editP && (
             <div className="adf-card" style={{ background: "var(--c-warn-50)", borderColor: "oklch(85% 0.080 75)" }}>
-              <h3><i className="bi bi-pencil-square me-2" style={{ color: "var(--c-warn-700)" }}></i>Editar: {editP.nombre}</h3>
+              <h3><i className="bi bi-pencil-square me-2" style={{ color: "var(--c-warn-700)" }}></i>Editar: {editP.nombre} {editP.apellido}</h3>
               <form onSubmit={handleGuardarP}>
                 <div className="adf-form-grid">
                   <div className="adf-form-field"><label>Nombre</label>
@@ -387,30 +385,46 @@ export default function Usuarios() {
                     <input value={editPForm.apellido} onChange={(e) => setEditPForm({...editPForm, apellido: e.target.value})} /></div>
                   <div className="adf-form-field"><label>Correo</label>
                     <input type="email" value={editPForm.correo} onChange={(e) => setEditPForm({...editPForm, correo: e.target.value})} /></div>
-                  <div className="adf-form-field"><label>Cargo</label>
-                    <input value={editPForm.cargo} onChange={(e) => setEditPForm({...editPForm, cargo: e.target.value})} /></div>
-                  <div className="adf-form-field"><label>Sueldo base (USD)</label>
-                    <input type="number" step="0.01" min="0" value={editPForm.sueldo_base}
-                      onChange={(e) => setEditPForm({...editPForm, sueldo_base: e.target.value})} /></div>
                   <div className="adf-form-field"><label>Rol de acceso</label>
                     <select value={editPForm.rol} onChange={(e) => setEditPForm({...editPForm, rol: e.target.value})}>
                       {ROLES_PERSONAL.map(r => <option key={r.v} value={r.v}>{r.t}</option>)}
                     </select></div>
-                  <div className="adf-form-field"><label>DUI</label>
-                    <input value={editPForm.dui} onChange={(e) => setEditPForm({...editPForm, dui: e.target.value})} /></div>
-                  <div className="adf-form-field"><label>NIT</label>
-                    <input value={editPForm.nit} onChange={(e) => setEditPForm({...editPForm, nit: e.target.value})} /></div>
-                  <div className="adf-form-field"><label>N° ISSS</label>
-                    <input value={editPForm.isss_num} onChange={(e) => setEditPForm({...editPForm, isss_num: e.target.value})} /></div>
-                  <div className="adf-form-field"><label>N° AFP</label>
-                    <input value={editPForm.afp_num} onChange={(e) => setEditPForm({...editPForm, afp_num: e.target.value})} /></div>
                 </div>
-                <div style={{ display: "flex", gap: 20, marginTop: 12, flexWrap: "wrap" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
-                    <input type="checkbox" checked={!!editPForm.es_servicios_profesionales}
-                      onChange={(e) => setEditPForm({...editPForm, es_servicios_profesionales: e.target.checked})} />
-                    Servicios profesionales (retención 10%)
-                  </label>
+
+                {editP.id_empleado ? (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--c-line-2)" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>DATOS DE NÓMINA</div>
+                    <div className="adf-form-grid">
+                      <div className="adf-form-field"><label>Cargo</label>
+                        <input value={editPForm.cargo} onChange={(e) => setEditPForm({...editPForm, cargo: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>Sueldo base (USD)</label>
+                        <input type="number" step="0.01" min="0" value={editPForm.sueldo_base}
+                          onChange={(e) => setEditPForm({...editPForm, sueldo_base: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>DUI</label>
+                        <input value={editPForm.dui} onChange={(e) => setEditPForm({...editPForm, dui: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>NIT</label>
+                        <input value={editPForm.nit} onChange={(e) => setEditPForm({...editPForm, nit: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>N° ISSS</label>
+                        <input value={editPForm.isss_num} onChange={(e) => setEditPForm({...editPForm, isss_num: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>N° AFP</label>
+                        <input value={editPForm.afp_num} onChange={(e) => setEditPForm({...editPForm, afp_num: e.target.value})} /></div>
+                    </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer", marginTop: 10 }}>
+                      <input type="checkbox" checked={!!editPForm.es_servicios_profesionales}
+                        onChange={(e) => setEditPForm({...editPForm, es_servicios_profesionales: e.target.checked})} />
+                      Servicios profesionales (retención 10%)
+                    </label>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: "0.8rem", color: "var(--c-ink-3)", marginTop: 10 }}>
+                    <i className="bi bi-info-circle me-1"></i>
+                    {editP.id_instructor
+                      ? "El pago de este instructor se configura en Contabilidad → Tarifas → Instructores."
+                      : "Este usuario no tiene ficha de nómina (empleado)."}
+                  </p>
+                )}
+
+                <div style={{ marginTop: 12 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
                     <input type="checkbox" checked={!!editPForm.activo}
                       onChange={(e) => setEditPForm({...editPForm, activo: e.target.checked})} />
@@ -507,23 +521,29 @@ export default function Usuarios() {
           <table className="adf-table">
             <thead>
               <tr>
-                <th>Personal</th><th>Usuario</th><th>Rol</th><th>Cargo</th>
+                <th>Personal</th><th>Usuario</th><th>Rol</th><th>Alumnos</th>
                 <th>Planilla</th><th style={{ textAlign: "right" }}>Sueldo base</th><th></th>
               </tr>
             </thead>
             <tbody>
               {personal.map(p => (
-                <tr key={p.id}>
-                  <td><i className="bi bi-person-circle me-2"></i><strong>{p.nombre}</strong></td>
+                <tr key={p.id_usuario}>
+                  <td><i className="bi bi-person-circle me-2"></i><strong>{p.nombre} {p.apellido}</strong></td>
                   <td>{p.username || <span style={{ color: "var(--c-ink-4)" }}>sin login</span>}</td>
                   <td>{p.rol ? <span className="adf-tag blue">{p.rol}</span> : "—"}</td>
-                  <td style={{ color: "var(--c-ink-3)" }}>{p.cargo || "—"}</td>
+                  <td>{p.id_instructor
+                    ? <span className="adf-tag green">{Number(p.num_alumnos || 0)} alumno(s)</span>
+                    : <span style={{ color: "var(--c-ink-4)" }}>—</span>}</td>
                   <td>
-                    {p.es_servicios_profesionales
-                      ? <span className="adf-tag green">Servicios 10%</span>
-                      : <span className="adf-tag blue">Planta ISR</span>}
+                    {p.es_servicios_profesionales == null
+                      ? <span style={{ color: "var(--c-ink-4)" }}>—</span>
+                      : p.es_servicios_profesionales
+                        ? <span className="adf-tag green">Servicios 10%</span>
+                        : <span className="adf-tag blue">Planta ISR</span>}
                   </td>
-                  <td className="amount" style={{ textAlign: "right" }}>${Number(p.sueldo_base || 0).toFixed(2)}</td>
+                  <td className="amount" style={{ textAlign: "right" }}>
+                    {p.id_empleado != null ? `$${Number(p.sueldo_base || 0).toFixed(2)}` : "—"}
+                  </td>
                   <td style={{ textAlign: "right" }}>
                     <button className="adf-btn small secondary" onClick={() => openEditP(p)}>
                       <i className="bi bi-pencil"></i>Editar
