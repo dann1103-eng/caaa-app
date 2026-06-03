@@ -241,7 +241,72 @@ Backfill `backfill_tarifa_id_aeronave.sql` ya ejecutado (tarifas existentes vinc
   Nota: para probar el aula con datos reales falta sembrar inscripciones de alumnos demo a un curso
   (`inscripcion_curso` + `inscripcion_curso_avance`); hoy los alumnos demo no están inscritos.
 
-**Pendiente / siguiente (al cierre del plan de administración, 2026-06-02):**
+**Sesión 2026-06-03 — Consolidación "Contabilidad" + módulo "Usuarios" + nómina dual + historiales.**
+Migraciones nuevas del módulo admin: `legacy/CAA-backend/migrations/006`, `007`, `008` (las tres
+**aplicadas en prod**). Estas migraciones numeradas se corren con `node run-sql.js "migrations/00X_*.sql"`.
+
+- **Contabilidad consolidada** (`CAA-frontend/src/pages/Administracion/Contabilidad.jsx`): una sola
+  pestaña con sub-navegación **Ingresos (Recibos|Facturas) · Egresos · Nómina · Tarifas**. El sidebar
+  (`AdministracionSidebar.jsx`) ya NO tiene Recibos/Facturas/Tarifas/Egresos/Nómina sueltos: hay un solo
+  ítem **Contabilidad**. Las rutas viejas `/administracion/{recibos,facturas,tarifas,egresos,nomina}`
+  **redirigen** a `…/contabilidad?tab=…` (no romper enlaces). Las páginas viejas se embeben como paneles.
+
+- **Módulo "Usuarios"** (ítem nuevo en sidebar; `pages/Administracion/Usuarios.jsx`,
+  `controllers/administracion/usuariosController.js`, rutas `/administracion/usuarios/*`): selector
+  **Alumnos | Personal**.
+  - Crear **alumno**: `usuario` rol ALUMNO + ficha `alumno` (instructor+licencia) + cuenta corriente en 0.
+  - Crear **personal**: `usuario` (rol configurable) + `empleado` + **login bcrypt** (debe cambiar pass al
+    1er ingreso). Si el rol es INSTRUCTOR se crea su fila `instructor` (`asegurarInstructorTx`).
+  - **`listPersonal` sale FROM `usuario`** (rol de personal), NO FROM `empleado` — así aparecen los
+    instructores sembrados (u6 Ricardo, u8 Alfredo) que no tienen fila `empleado`. `empleado` es extensión
+    opcional de nómina. Editar/reset-password operan por **`id_usuario`**.
+  - **Asignar/reasignar alumnos a instructores** desde ambos lados: edición del instructor (Usuarios) y
+    selector "Instructor asignado" en la ficha del alumno (`AlumnoFicha` → Perfil; `actualizarAlumnoFull`
+    ahora acepta `id_instructor`). `alumno.id_instructor` es NOT NULL → "desasignar" = reasignar a otro.
+
+- **Nómina dual** (migración 006, `utils/deducciones.js`): **dos planillas separadas**:
+  `nomina_periodo.tipo_planilla` = **PLANTA** (mensual fijo → ISR por tramos + ISSS 3% tope $30 + AFP 6.25%)
+  o **SERVICIOS** (10% retención). Columnas en `nomina_detalle`: bruto/isr/isss/afp/retencion (total=neto).
+  `nomina_detalle.id_instructor` ahora nullable + `id_empleado`. Selector booleano
+  `instructor_tarifa.es_servicios_profesionales` y tabla `empleado` (personal admin) deciden la planilla.
+  ISR oficial El Salvador (verificado: sueldo $1000 → ISR $63.30, ISSS $30, AFP $62.50).
+
+- **Aula virtual por instructor** (migración 008, tabla `instructor_curso`): el instructor puede tener
+  cursos asignados (checkboxes en su edición); `aulaVirtualController.listCursos` le muestra solo esos
+  (si no tiene ninguno → todos, retrocompat). Admin/Administración ven todos.
+
+- **Desacople vuelo ↔ factura (IMPORTANTE)**: el cierre de vuelo del instructor ya **NO crea factura
+  formal** — solo **debita la cuenta corriente** (`movimiento_cuenta` tipo `CARGO_VUELO`) y avanza el curso.
+  `facturasController.emitirFacturaVueloDentroTx` → renombrada **`cargarVueloACuentaDentroTx`** (sin
+  factura/correlativo); `instructorReporteController` usa `cargoAutomatico.id_alumno`/`.saldo_resultante`.
+  **Modelo de negocio = saldo prepagado**: el alumno deposita (recibo) y se le va debitando por vuelos,
+  cursos teóricos, etc. Conceptos: **Recibo = DEPÓSITO (haber, +saldo)** vs **Factura = CARGO (debe,
+  -saldo)**; ambos escriben en `movimiento_cuenta`. Las facturas quedan como documentos fiscales que se
+  emiten **manualmente** (`emitirManual`, ~30/mes). ⚠️ `emitirManual` TODAVÍA debita (`CARGO_OTRO`);
+  pendiente decidir si debe ser puro documento sin tocar saldo.
+
+- **Egresos**: 19 categorías (CHECK ampliado en migración 007): + Repuestos, Honorarios, Servicios básicos,
+  Alquiler, Hangar, Impuestos, Seguros, Tasas AAC, Publicidad, Viáticos, Capacitación, Bancario.
+
+- **Historiales por persona** (solo lectura; endpoints `/usuarios/instructores/:id/historial` y
+  `/usuarios/alumnos/:id/historial`):
+  - **Instructor** (en su edición): horas instruidas, clases dadas (`sesion_clase`), exámenes creados
+    (`evaluacion`), pago de teoría (pagado/pendiente) + tabla de planillas (`nomina_detalle`+`nomina_periodo`).
+  - **Alumno** (pestaña "Historial" en `AlumnoFicha`): bitácora de vuelos (`reporte_vuelo`), cursos
+    (`inscripcion_curso`), exámenes/notas (`evaluacion_alumno`), facturas y recibos.
+
+- **Sistema de referencia de nómina**: `C:\Users\Daniel\Desktop\Gestión ML` (Next.js+Prisma, centro
+  cultural El Molino). De ahí se portó la tabla de ISR (`src/lib/planillas/deducciones.ts`). NO se copió
+  código (stacks distintos), solo la lógica.
+
+**Pendiente / siguiente (sesión 2026-06-03):**
+- **Reportes generales (fase 2 de historiales)**: horas voladas por aeronave/mes/instructor, cursos
+  completados del año, historial global de planillas pagadas por periodo y tipo. (El usuario pidió empezar
+  por los historiales por persona, ya hechos.)
+- **Botón "crear acceso"** para personal sin login (empleados creados por la pestaña vieja Tarifas →
+  Empleados, que tienen `empleado` pero no `usuario`).
+- **Decisión factura manual**: ¿`emitirManual` deja de debitar el saldo (puro documento fiscal)? Los cargos
+  manuales al saldo ya existen vía `cuentaController.cargoManual`.
 - **Rotar `SUPABASE_SERVICE_KEY`**: la service role key se compartió en el chat al configurarla.
   Cuando el usuario la rote en Supabase, actualizar la variable en Railway (`railway variables --set`)
   y redeployar.
