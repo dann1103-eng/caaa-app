@@ -18,16 +18,16 @@ const FIELDS = [
 export default function Step4Ops() {
   const { state, dispatch } = useLoadSheet()
 
-  const inputClass = 'w-full px-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-[#1a3a5c] focus:ring-1 focus:ring-[#1a3a5c]'
+  const inputClass = 'w-full px-2.5 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-[var(--c-brand-700)] focus:ring-1 focus:ring-[var(--c-brand-700)]'
 
   return (
     <div>
-      <h2 className="text-sm font-bold text-[#1a3a5c] uppercase tracking-wider mb-4">Operaciones</h2>
+      <h2 className="text-sm font-bold text-[var(--c-brand-700)] uppercase tracking-wider mb-4">Operaciones</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         {SECTIONS.map(sec => (
           <div key={sec.key} className="border border-gray-300 rounded-lg overflow-hidden">
-            <div className="bg-[#1a3a5c] text-white px-3 py-2 text-xs font-bold uppercase tracking-wider">
+            <div className="bg-[var(--c-brand-700)] text-white px-3 py-2 text-xs font-bold uppercase tracking-wider">
               {sec.title}
             </div>
             <div className="p-3 space-y-3">
@@ -57,7 +57,7 @@ export default function Step4Ops() {
       </div>
 
       <div className="border border-gray-300 rounded-lg overflow-hidden mb-4">
-        <div className="bg-[#1a3a5c] text-white px-3 py-2 text-xs font-bold uppercase tracking-wider">
+        <div className="bg-[var(--c-brand-700)] text-white px-3 py-2 text-xs font-bold uppercase tracking-wider">
           Ruta (Remarks)
         </div>
         <div className="p-3">

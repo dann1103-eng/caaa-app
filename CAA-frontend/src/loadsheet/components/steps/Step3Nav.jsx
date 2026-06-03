@@ -11,13 +11,13 @@ export default function Step3Nav() {
   const setId = (field, value) => dispatch({ type: 'SET_IDENTIFICATION', field, value })
   const setTime = (field, value) => dispatch({ type: 'SET_TIMES', field, value })
 
-  const inputClass = 'w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:border-[#1a3a5c] focus:ring-1 focus:ring-[#1a3a5c]'
+  const inputClass = 'w-full px-2 py-1.5 border border-gray-300 rounded text-xs focus:outline-none focus:border-[var(--c-brand-700)] focus:ring-1 focus:ring-[var(--c-brand-700)]'
   const readonlyClass = 'w-full px-2 py-1.5 border border-gray-200 rounded text-xs bg-gray-100 text-gray-500'
   const labelClass = 'block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5'
 
   return (
     <div>
-      <h2 className="text-sm font-bold text-[#1a3a5c] uppercase tracking-wider mb-3">Plan de Navegacion</h2>
+      <h2 className="text-sm font-bold text-[var(--c-brand-700)] uppercase tracking-wider mb-3">Plan de Navegacion</h2>
 
       <div className="overflow-x-auto">
         <NavTable />
@@ -25,7 +25,7 @@ export default function Step3Nav() {
 
       <button
         onClick={() => dispatch({ type: 'ADD_NAV_ROW' })}
-        className="mb-6 px-3 py-1.5 text-xs font-semibold text-[#1a3a5c] border border-[#1a3a5c] rounded hover:bg-[#e8f0f8] cursor-pointer"
+        className="mb-6 px-3 py-1.5 text-xs font-semibold text-[var(--c-brand-700)] border border-[var(--c-brand-700)] rounded hover:bg-[var(--c-brand-50)] cursor-pointer"
       >
         + Agregar tramo
       </button>
@@ -40,7 +40,7 @@ export default function Step3Nav() {
         <div className="space-y-4">
           {/* Flight Identification */}
           <div>
-            <h3 className="text-xs font-bold text-[#1a3a5c] uppercase tracking-wider mb-2">Identificacion del Vuelo</h3>
+            <h3 className="text-xs font-bold text-[var(--c-brand-700)] uppercase tracking-wider mb-2">Identificacion del Vuelo</h3>
             <div className="grid grid-cols-2 gap-2">
               <div><label className={labelClass}>DEP</label><input className={inputClass} value={state.identification.dep} onChange={e => setId('dep', e.target.value)} /></div>
               <div><label className={labelClass}>DEST</label><input className={inputClass} value={state.identification.dest} onChange={e => setId('dest', e.target.value)} /></div>
@@ -61,7 +61,7 @@ export default function Step3Nav() {
 
           {/* Times */}
           <div>
-            <h3 className="text-xs font-bold text-[#1a3a5c] uppercase tracking-wider mb-2">Tiempos</h3>
+            <h3 className="text-xs font-bold text-[var(--c-brand-700)] uppercase tracking-wider mb-2">Tiempos</h3>
             <div className="grid grid-cols-4 gap-2">
               {[
                 ['TOD (m)', 'tod'], ['LD (m)', 'ld'],
@@ -79,7 +79,7 @@ export default function Step3Nav() {
 
           {/* ATIS & Notes */}
           <div>
-            <h3 className="text-xs font-bold text-[#1a3a5c] uppercase tracking-wider mb-2">ATIS & Notas</h3>
+            <h3 className="text-xs font-bold text-[var(--c-brand-700)] uppercase tracking-wider mb-2">ATIS & Notas</h3>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <label className={labelClass}>DEP ATIS</label>

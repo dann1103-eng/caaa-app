@@ -1,14 +1,14 @@
 .calendar-wrapper {
-  background: #ffffff;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  background: var(--c-surface-1);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--c-line-1);
+  box-shadow: var(--shadow-md);
   overflow: auto;
   max-height: 800px;
   position: relative;
   margin-top: 10px;
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f8fafc;
+  scrollbar-color: var(--c-line-3) var(--c-surface-1);
 }
 
 .calendar-wrapper::-webkit-scrollbar {
@@ -17,12 +17,12 @@
 }
 
 .calendar-wrapper::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: var(--c-surface-1);
 }
 
 .calendar-wrapper::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
+  background: var(--c-line-3);
+  border-radius: var(--radius-md);
 }
 
 .calendar {
@@ -37,16 +37,16 @@
 .calendar thead th {
   position: sticky;
   top: 0;
-  background: #f8fafc;
+  background: var(--c-surface-2);
   z-index: 20;
   padding: 16px 12px;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #64748b;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--c-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid #e2e8f0;
+  letter-spacing: var(--tracking-wide);
+  border-bottom: 2px solid var(--c-line-2);
   text-align: center;
 }
 
@@ -64,31 +64,32 @@
 .hora-cell {
   position: sticky;
   left: 0;
-  background: #ffffff;
+  background: var(--c-surface-1);
   z-index: 10;
   width: 90px;
   text-align: center;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 800;
-  font-size: 1.05rem;
-  color: #1e293b;
-  border-right: 2px solid #f1f5f9;
-  border-bottom: 3px solid #94a3b8;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: var(--text-md);
+  color: var(--c-ink-1);
+  border-right: 2px solid var(--c-line-1);
+  border-bottom: 3px solid var(--c-line-3);
 }
 
 .aeronave-cell {
   position: sticky;
   left: 90px;
-  background: #ffffff;
+  background: var(--c-surface-1);
   z-index: 10;
   width: 120px;
   padding: 12px;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: #0f766e;
-  border-right: 1px solid #f1f5f9;
-  border-bottom: 1px solid #f1f5f9;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--c-brand-700);
+  border-right: 1px solid var(--c-line-1);
+  border-bottom: 1px solid var(--c-line-1);
   display: table-cell;
   vertical-align: middle;
 }
@@ -97,26 +98,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f0fdfa;
-  color: #0d9488;
+  background: var(--c-brand-50);
+  color: var(--c-brand-700);
   padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #ccfbf1;
-  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-brand-100);
+  font-size: var(--text-sm);
   white-space: nowrap;
+  font-family: var(--font-mono);
 }
 
 .aeronave-badge--sim {
-  background: #fdf2f8;
-  color: #be185d;
-  border-color: #fce7f3;
+  background: var(--c-info-50);
+  color: var(--c-info-700);
+  border-color: var(--c-info-100);
 }
 
 /* Slots */
 .slot-cell {
   padding: 6px;
-  border-bottom: 1px solid #f1f5f9;
-  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--c-line-1);
+  border-right: 1px solid var(--c-line-1);
   width: 130px;
   height: 60px;
 }
@@ -124,17 +126,17 @@
 .slot-btn {
   width: 100%;
   height: 100%;
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
   cursor: pointer;
   font-weight: 700;
-  font-size: 0.8rem;
-  border-radius: 10px;
-  color: #94a3b8;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-md);
+  color: var(--c-ink-4);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out), color var(--dur-med) var(--ease-out), transform var(--dur-med) var(--ease-out);
   position: relative;
   overflow: hidden;
 }
@@ -148,30 +150,31 @@
   height: 100%;
   background: currentColor;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity var(--dur-med);
 }
 
 .slot-btn:hover:not(:disabled):not(.ocupado) {
-  border-color: #5eead4;
-  background: #f0fdfa;
-  color: #0d9488;
+  border-color: var(--c-brand-300);
+  background: var(--c-brand-50);
+  color: var(--c-brand-700);
   transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .slot-btn.selected {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-color: #10b981;
-  color: #ffffff;
-  box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
-  font-size: 1.1rem;
+  background: var(--c-primary-500);
+  border-color: var(--c-primary-500);
+  color: var(--c-surface-0);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-md);
 }
 
 .slot-btn.is-ruta {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-  border-color: #047857 !important;
+  background: var(--c-success-500) !important;
+  border-color: var(--c-success-700) !important;
+  color: var(--c-surface-0) !important;
   cursor: not-allowed !important;
-  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.4) !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 .slot-btn.is-ruta::after {
@@ -179,75 +182,77 @@
   position: absolute;
   top: 2px;
   right: 4px;
-  font-size: 0.6rem;
-  font-weight: 800;
-  color: rgba(255,255,255,0.7);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--c-surface-0);
+  opacity: 0.7;
 }
 
 .slot-dot {
   width: 6px;
   height: 6px;
-  background: #cbd5e1;
+  background: var(--c-line-3);
   border-radius: 50%;
-  transition: all 0.2s;
+  transition: background-color var(--dur-med), transform var(--dur-med);
 }
 
 .slot-btn:hover .slot-dot {
-  background: #0d9488;
+  background: var(--c-brand-700);
   transform: scale(1.5);
 }
 
 .slot-btn.ocupado {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-  color: #94a3b8;
+  background: var(--c-surface-2);
+  border-color: var(--c-line-1);
+  color: var(--c-ink-4);
   cursor: not-allowed;
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .slot-btn.ocupado::after {
-  content: '🔒';
+  content: '\f47b'; /* bi-lock-fill */
+  font-family: "bootstrap-icons";
   margin-left: 4px;
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
 }
 
 /* ── Conflicto: 2+ alumnos en el mismo bloque/aeronave/día ── */
 .slot-btn.conflicto {
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  border: 2px solid #ef4444;
-  color: #b91c1c;
+  background: var(--c-danger-50);
+  border: 2px solid var(--c-danger-500);
+  color: var(--c-danger-700);
   cursor: pointer;
   font-weight: 700;
-  font-size: 0.78rem;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15), inset 0 1px 3px rgba(239, 68, 68, 0.1);
+  font-size: var(--text-sm);
+  box-shadow: 0 0 0 3px oklch(52% 0.200 25 / 0.15);
   animation: conflictPulse 2s ease-in-out infinite;
 }
 
 .slot-btn.conflicto:hover {
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-  border-color: #dc2626;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+  background: var(--c-danger-100);
+  border-color: var(--c-danger-700);
+  box-shadow: 0 0 0 4px oklch(52% 0.200 25 / 0.2);
   transform: scale(1.03);
 }
 
 @keyframes conflictPulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15); }
-  50%       { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.28); }
+  0%, 100% { box-shadow: 0 0 0 3px oklch(52% 0.200 25 / 0.15); }
+  50%      { box-shadow: 0 0 0 5px oklch(52% 0.200 25 / 0.28); }
 }
 
 .slot-almuerzo {
   background: repeating-linear-gradient(
     45deg,
-    #f8fafc,
-    #f8fafc 10px,
-    #f1f5f9 10px,
-    #f1f5f9 20px
+    var(--c-surface-1),
+    var(--c-surface-1) 10px,
+    var(--c-surface-2) 10px,
+    var(--c-surface-2) 20px
   );
-  border-bottom: 1px solid #f1f5f9;
-  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--c-line-1);
+  border-right: 1px solid var(--c-line-1);
   opacity: 0.5;
 }
 
@@ -273,22 +278,22 @@
 }
 
 .calendar tr.last-in-block td {
-  border-bottom: 3px solid #94a3b8; /* Línea divisora mucho más clara y gruesa */
+  border-bottom: 3px solid var(--c-line-3);
 }
 
 .calendar tr.last-in-block td.hora-cell {
-  border-bottom: 3px solid #94a3b8;
+  border-bottom: 3px solid var(--c-line-3);
 }
 
 .calendar tr:hover .hora-cell,
 .calendar tr:hover .aeronave-cell {
-  background: #f8fafc;
+  background: var(--c-surface-2);
 }
 
 /* ── Responsiveness ── */
 @media (max-width: 768px) {
   .calendar-wrapper {
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     margin: 0 -12px;
   }
 
@@ -298,7 +303,7 @@
 
   .hora-cell {
     width: 60px;
-    font-size: 0.8rem;
+    font-size: var(--text-sm);
   }
 
   .aeronave-cell {
@@ -309,7 +314,7 @@
 
   .aeronave-badge {
     padding: 4px 6px;
-    font-size: 0.7rem;
+    font-size: var(--text-xs);
   }
 
   .calendar thead th:nth-child(2) {
@@ -328,21 +333,21 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+    background: var(--c-surface-2);
+    border-bottom: 1px solid var(--c-line-1);
     gap: 10px;
   }
 
   .calendar-mobile-nav button {
     padding: 6px 12px;
-    border: 1px solid #cbd5e1;
-    background: white;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #475569;
+    border: 1px solid var(--c-line-2);
+    background: var(--c-surface-1);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--c-ink-2);
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    box-shadow: var(--shadow-sm);
   }
 
   .calendar-mobile-nav button:disabled {
@@ -351,14 +356,14 @@
   }
 
   .calendar-mobile-nav .nav-label {
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: #1e293b;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--c-ink-1);
   }
 
   .hora-cell {
     width: 50px;
-    font-size: 0.75rem;
+    font-size: var(--text-xs);
   }
 
   .aeronave-cell {
@@ -368,7 +373,7 @@
   }
 
   .aeronave-badge {
-    font-size: 0.65rem;
+    font-size: var(--text-xs);
     padding: 3px 5px;
   }
 
@@ -384,16 +389,15 @@
   }
 
   .slot-btn {
-    font-size: 0.65rem;
-    border-radius: 6px;
+    font-size: var(--text-xs);
+    border-radius: var(--radius-sm);
   }
 
   .slot-btn.selected {
-    font-size: 0.9rem;
+    font-size: var(--text-base);
   }
 
   .slot-btn.ocupado::after {
     display: none;
   }
 }
-

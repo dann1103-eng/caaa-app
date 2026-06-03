@@ -86,11 +86,11 @@ export default function PerfilesAdmin() {
   return (
     <div className="perf">
       <div className="perf__card perf__selector-card">
-        <div className="perf__card-header" style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <i className="bi bi-person-badge" style={{ color: '#1B365D', fontSize: '1.2rem' }}></i>
+        <div className="perf__card-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-line-1)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <i className="bi bi-person-badge" style={{ color: 'var(--c-brand-700)', fontSize: '1.2rem' }}></i>
           <div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#1B365D' }}>Perfiles de Alumnos</h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>Gestión de documentación y estados</p>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--c-brand-900)' }}>Perfiles de Alumnos</h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--c-ink-3)' }}>Gestión de documentación y estados</p>
           </div>
         </div>
         <div className="perf__selector-row" style={{ padding: '24px' }}>
@@ -114,19 +114,19 @@ export default function PerfilesAdmin() {
               disabled={loadingList}
             />
             {showDropdown && filteredAlumnos.length > 0 && (
-              <ul style={{ position: 'absolute', top: '100%', left: 0, width: '100%', background: '#fff', border: '1px solid #1B365D', borderRadius: '4px', zIndex: 10, maxHeight: '250px', overflowY: 'auto', listStyle: 'none', padding: 0, margin: '4px 0 0 0', color: '#1B365D', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+              <ul style={{ position: 'absolute', top: '100%', left: 0, width: '100%', background: 'var(--c-surface-0)', border: '1px solid var(--c-line-2)', borderRadius: 'var(--radius-sm)', zIndex: 10, maxHeight: '250px', overflowY: 'auto', listStyle: 'none', padding: 0, margin: '4px 0 0 0', color: 'var(--c-ink-1)', boxShadow: 'var(--shadow-lg)' }}>
                 {filteredAlumnos.map(a => (
                   <li
                     key={a.id_alumno}
-                    style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid #e2e8f0', fontSize: '0.9rem', fontWeight: '500' }}
+                    style={{ padding: '0.75rem 1rem', cursor: 'pointer', borderBottom: '1px solid var(--c-line-1)', fontSize: '0.9rem', fontWeight: '500' }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       setSelectedId(a.id_alumno);
                       setSearch(a.nombre_completo);
                       setShowDropdown(false);
                     }}
-                    onMouseEnter={(e) => { e.target.style.background = '#1B365D'; e.target.style.color = '#fff'; }}
-                    onMouseLeave={(e) => { e.target.style.background = '#fff'; e.target.style.color = '#1B365D'; }}
+                    onMouseEnter={(e) => { e.target.style.background = 'var(--c-surface-2)'; e.target.style.color = 'var(--c-ink-1)'; }}
+                    onMouseLeave={(e) => { e.target.style.background = 'var(--c-surface-0)'; e.target.style.color = 'var(--c-ink-1)'; }}
                   >
                     {a.nombre_completo}
                   </li>
@@ -200,7 +200,7 @@ export default function PerfilesAdmin() {
                   <span className={`perf__field-val ${certPorVencer ? (dias < 0 ? "text-danger" : "text-warning") : ""}`}>
                     {formatFecha(perfil.certificado_medico)}
                     {dias !== null && (
-                      <span className={`perf__dias-badge ${dias < 0 ? "perf__dias-badge--danger" : "perf__dias-badge--warning"}`} style={dias > 30 ? { background: '#dcfce7', color: '#166534' } : {}}>
+                      <span className={`perf__dias-badge ${dias < 0 ? "perf__dias-badge--danger" : "perf__dias-badge--warning"}`} style={dias > 30 ? { background: 'var(--c-success-50)', color: 'var(--c-success-700)' } : {}}>
                         {dias < 0 ? `VENCIDO` : dias <= 30 ? `${dias} días` : 'VIGENTE'}
                       </span>
                     )}
@@ -215,7 +215,7 @@ export default function PerfilesAdmin() {
                   <span className={`perf__field-val ${seguroPorVencer ? (diasSeguro < 0 ? "text-danger" : "text-warning") : ""}`}>
                     {formatFecha(perfil.seguro_vida_vencimiento)}
                     {diasSeguro !== null && (
-                      <span className={`perf__dias-badge ${diasSeguro < 0 ? "perf__dias-badge--danger" : diasSeguro <= 30 ? "perf__dias-badge--warning" : ""}`} style={diasSeguro > 30 ? { background: '#dcfce7', color: '#166534' } : {}}>
+                      <span className={`perf__dias-badge ${diasSeguro < 0 ? "perf__dias-badge--danger" : diasSeguro <= 30 ? "perf__dias-badge--warning" : ""}`} style={diasSeguro > 30 ? { background: 'var(--c-success-50)', color: 'var(--c-success-700)' } : {}}>
                         {diasSeguro < 0 ? `VENCIDO` : diasSeguro <= 30 ? `${diasSeguro} días` : 'VIGENTE'}
                       </span>
                     )}

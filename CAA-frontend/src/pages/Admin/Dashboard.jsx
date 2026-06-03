@@ -324,7 +324,7 @@ export default function AdminDashboard() {
               <span className="adm__stat-lbl">CAMBIOS PENDIENTES</span>
               <i className="bi bi-arrow-left-right adm__stat-icon"></i>
             </div>
-            <span className="adm__stat-num" style={{ color: pendingMoves.length > 0 ? "#f59e0b" : "inherit" }}>
+            <span className="adm__stat-num" style={{ color: pendingMoves.length > 0 ? "var(--c-warn-700)" : "inherit" }}>
               {pendingMoves.length}
             </span>
             <span className="adm__stat-sub">Sin guardar</span>
@@ -333,9 +333,9 @@ export default function AdminDashboard() {
           <div className="adm__stat adm__stat--red">
             <div className="adm__stat-header">
               <span className="adm__stat-lbl">CANCELACIONES</span>
-              <i className="bi bi-x-circle adm__stat-icon" style={{ color: '#ef4444' }}></i>
+              <i className="bi bi-x-circle adm__stat-icon" style={{ color: 'var(--c-primary-500)' }}></i>
             </div>
-            <span className="adm__stat-num" style={{ color: "#ef4444" }}>
+            <span className="adm__stat-num" style={{ color: "var(--c-primary-500)" }}>
               {items.filter(v => v.estado_vuelo === 'CANCELADO').length}
             </span>
             <span className="adm__stat-sub">Esta semana</span>
@@ -377,13 +377,13 @@ export default function AdminDashboard() {
                       className="adm__btn adm__btn--undo"
                       onClick={deshacerCambios}
                     >
-                      ✕ Deshacer
+                      <i className="bi bi-x-lg"></i> Deshacer
                     </button>
                     <button
                       className="adm__btn adm__btn--save"
                       onClick={guardarCambios}
                     >
-                      ✓ Guardar ({pendingMoves.length})
+                      <i className="bi bi-check-lg"></i> Guardar ({pendingMoves.length})
                     </button>
                   </>
                 )}

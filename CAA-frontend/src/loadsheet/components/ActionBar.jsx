@@ -12,7 +12,7 @@ export default function ActionBar({ onBack, onNext, nextLabel = 'Continuar', not
           <button
             onClick={onNext}
             disabled={nextDisabled}
-            className="px-4 py-2 rounded-md text-sm font-semibold bg-[#1a3a5c] text-white hover:bg-[#122b46] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="px-4 py-2 rounded-md text-sm font-semibold bg-[var(--c-brand-700)] text-white hover:bg-[var(--c-brand-900)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {nextLabel} →
           </button>

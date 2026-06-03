@@ -64,8 +64,8 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
 
           {/* Aviso Multa */}
           {tieneMulta && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #f87171', padding: '12px', borderRadius: '6px', marginBottom: '16px', color: '#b91c1c', fontSize: '0.9rem' }}>
-              ⚠ Has superado 4 cancelaciones este mes. Esta solicitud tiene un costo de $35. ¿Aceptás el cargo?
+            <div style={{ backgroundColor: 'var(--c-danger-50)', border: '1px solid var(--c-danger-100)', padding: '12px', borderRadius: 'var(--radius-sm)', marginBottom: '16px', color: 'var(--c-danger-700)', fontSize: '0.9rem' }}>
+              <i className="bi bi-exclamation-triangle" /> Has superado 4 cancelaciones este mes. Esta solicitud tiene un costo de $35. ¿Aceptás el cargo?
               <label style={{ display: 'flex', alignItems: 'center', marginTop: '10px', gap: '8px', cursor: 'pointer', fontWeight: 600 }}>
                 <input
                   type="checkbox"

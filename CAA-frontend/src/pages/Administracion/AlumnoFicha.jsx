@@ -19,7 +19,7 @@ const DOC_ESTADOS = ["PENDIENTE", "ENTREGADO", "VENCIDO", "RECHAZADO"];
 
 function diasBadge(dias) {
   if (dias == null) return null;
-  const color = dias < 0 ? "var(--c-danger-700)" : dias <= 30 ? "var(--c-warn-700, #b45309)" : "var(--c-accent-700)";
+  const color = dias < 0 ? "var(--c-danger-700)" : dias <= 30 ? "var(--c-warn-700)" : "var(--c-accent-700)";
   const txt = dias < 0 ? `Vencido hace ${Math.abs(dias)}d` : `${dias}d`;
   return <span style={{ fontSize: "0.72rem", fontWeight: 700, color }}>{txt}</span>;
 }

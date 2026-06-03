@@ -12,19 +12,19 @@
   justify-content: center;
   gap: 14px;
   padding: 56px 24px;
-  color: #94a3b8;
-  font-size: 0.9rem;
+  color: var(--c-ink-3);
+  font-size: var(--text-base);
 }
 
 .mhl__state--empty svg {
-  color: #cbd5e1;
+  color: var(--c-ink-4);
 }
 
 .mhl__spinner {
   width: 22px;
   height: 22px;
-  border: 2px solid #e2e8f0;
-  border-top-color: #00C9A7;
+  border: 2px solid var(--c-line-1);
+  border-top-color: var(--c-success-500);
   border-radius: 50%;
   animation: mhl-spin 0.7s linear infinite;
   display: inline-block;
@@ -43,7 +43,7 @@
 
 /* Bloque de día */
 .mhl__day {
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--c-line-1);
 }
 
 .mhl__day:last-child {
@@ -58,28 +58,30 @@
 }
 
 .mhl__day-name {
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #64748b;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--c-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--tracking-wide);
 }
 
 .mhl__day-date {
-  font-size: 0.78rem;
-  color: #94a3b8;
+  font-size: var(--text-sm);
+  color: var(--c-ink-4);
   font-weight: 500;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Vuelo card */
 .mhl__vuelo {
   margin: 0 16px 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
   padding: 14px 16px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color var(--dur-med), box-shadow var(--dur-med);
 }
 
 .mhl__vuelo:last-child {
@@ -87,8 +89,8 @@
 }
 
 .mhl__vuelo:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-color: var(--c-line-3);
+  box-shadow: var(--shadow-md);
 }
 
 .mhl__vuelo--cancelado {
@@ -110,54 +112,56 @@
 }
 
 .mhl__vuelo-hora {
-  font-family: 'Outfit', sans-serif;
-  font-size: 1rem;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-md);
   font-weight: 700;
-  color: #1e293b;
-  letter-spacing: 0.01em;
+  color: var(--c-ink-1);
+  letter-spacing: var(--tracking-base);
 }
 
 .mhl__vuelo-sep {
-  color: #cbd5e1;
+  color: var(--c-ink-4);
 }
 
 .mhl__vuelo-aeronave {
-  font-size: 0.88rem;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: #475569;
-  background: #e2e8f0;
+  color: var(--c-ink-2);
+  background: var(--c-surface-2);
   padding: 2px 8px;
-  border-radius: 5px;
-  font-family: 'Outfit', monospace;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .mhl__vuelo-sim {
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   font-weight: 700;
-  color: #7c3aed;
-  background: #ede9fe;
+  color: var(--c-info-700);
+  background: var(--c-info-50);
   padding: 2px 6px;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
+  border-radius: var(--radius-xs);
+  letter-spacing: var(--tracking-wide);
 }
 
 /* Badges de estado */
 .mhl__badge {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: 600;
   padding: 3px 9px;
-  border-radius: 20px;
-  letter-spacing: 0.05em;
+  border-radius: var(--radius-pill);
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-.mhl__badge--publicado  { background: #d1fae5; color: #065f46; }
-.mhl__badge--borrador   { background: #fef3c7; color: #92400e; }
-.mhl__badge--cancelado  { background: #fee2e2; color: #991b1b; }
-.mhl__badge--completado { background: #e0f2fe; color: #0c4a6e; }
-.mhl__badge--en-vuelo   { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
-.mhl__badge--ajustado   { background: #e0e7ff; color: #4338ca; }
+.mhl__badge--publicado  { background: var(--c-success-50); color: var(--c-success-700); }
+.mhl__badge--borrador   { background: var(--c-warn-50);    color: var(--c-warn-700); }
+.mhl__badge--cancelado  { background: var(--c-danger-50);  color: var(--c-danger-700); }
+.mhl__badge--completado { background: var(--c-info-50);    color: var(--c-info-700); }
+.mhl__badge--en-vuelo   { background: var(--c-success-50); color: var(--c-success-700); border: 1px solid var(--c-success-300); }
+.mhl__badge--ajustado   { background: var(--c-brand-50);   color: var(--c-brand-700); }
 
 /* Botones de acción */
 .mhl__vuelo-actions {
@@ -166,84 +170,84 @@
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--c-line-1);
 }
 
 .mhl__btn {
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
   padding: 6px 14px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-  letter-spacing: 0.02em;
+  transition: background var(--dur-fast), transform var(--dur-fast);
+  letter-spacing: var(--tracking-base);
 }
 
 .mhl__btn:active { transform: scale(0.97); }
 
 .mhl__btn--plan {
-  background: #0f172a;
-  color: #ffffff;
+  background: var(--c-brand-700);
+  color: var(--c-brand-50);
 }
-.mhl__btn--plan:hover { background: #1e293b; }
+.mhl__btn--plan:hover { background: var(--c-brand-900); }
 
 .mhl__btn--wb {
-  background: #1d4ed8;
-  color: #ffffff;
+  background: var(--c-brand-700);
+  color: var(--c-brand-50);
 }
-.mhl__btn--wb:hover { background: #2563eb; }
+.mhl__btn--wb:hover { background: var(--c-brand-900); }
 
 .mhl__btn--ls {
-  background: #0369a1;
-  color: #ffffff;
+  background: var(--c-info-700);
+  color: var(--c-surface-0);
 }
-.mhl__btn--ls:hover { background: #0284c7; }
+.mhl__btn--ls:hover { background: var(--c-info-500); }
 
 .mhl__btn--cancel {
-  background: #fff7ed;
-  color: #c2410c;
-  border: 1px solid #fed7aa;
+  background: var(--c-warn-50);
+  color: var(--c-warn-700);
+  border: 1px solid var(--c-warn-100);
 }
-.mhl__btn--cancel:hover { background: #ffedd5; }
+.mhl__btn--cancel:hover { background: var(--c-warn-100); }
 
 .mhl__btn--withdraw {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #dbeafe;
+  background: var(--c-info-50);
+  color: var(--c-info-700);
+  border: 1px solid var(--c-info-100);
 }
-.mhl__btn--withdraw:hover { background: #dbeafe; }
+.mhl__btn--withdraw:hover { background: var(--c-info-100); }
 
 .mhl__btn--emergency {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
+  border: 1px solid var(--c-danger-100);
 }
-.mhl__btn--emergency:hover { background: #fee2e2; }
+.mhl__btn--emergency:hover { background: var(--c-danger-100); }
 
 .mhl__btn--reporte {
-  background: #059669;
-  color: #ffffff;
+  background: var(--c-success-500);
+  color: var(--c-surface-0);
 }
-.mhl__btn--reporte:hover { background: #047857; }
+.mhl__btn--reporte:hover { background: var(--c-success-700); }
 
 .mhl__btn-locked {
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--c-ink-4);
   padding: 6px 14px;
-  background: #f1f5f9;
-  border-radius: 7px;
-  border: 1px dashed #cbd5e1;
+  background: var(--c-surface-2);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--c-line-3);
   cursor: not-allowed;
 }
 
 /* Nota BORRADOR */
 .mhl__vuelo-draft-note {
-  font-size: 0.78rem;
-  color: #92400e;
+  font-size: var(--text-sm);
+  color: var(--c-warn-700);
   margin: 10px 0 0;
   padding-top: 10px;
-  border-top: 1px dashed #fde68a;
+  border-top: 1px dashed var(--c-warn-100);
 }

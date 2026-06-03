@@ -146,7 +146,7 @@ export default function Step5Summary() {
         message={wb.allOk ? 'Peso y balance LISTO — listo para envio' : wb.totalW > 0 ? 'Peso y balance REQUIERE REVISION' : undefined}
       />
 
-      <h2 className="text-sm font-bold text-[#1a3a5c] uppercase tracking-wider mb-3">Resumen del Load Sheet</h2>
+      <h2 className="text-sm font-bold text-[var(--c-brand-700)] uppercase tracking-wider mb-3">Resumen del Load Sheet</h2>
 
       <div className="overflow-x-auto mb-6">
       <table className="w-full text-sm border border-gray-300 rounded overflow-hidden">
@@ -165,7 +165,7 @@ export default function Step5Summary() {
       <div className="flex flex-wrap gap-3 mb-6">
         <button
           onClick={() => setShowPrint(!showPrint)}
-          className="px-4 py-2 rounded-md text-sm font-semibold border border-[#1a3a5c] text-[#1a3a5c] hover:bg-[#e8f0f8] cursor-pointer"
+          className="px-4 py-2 rounded-md text-sm font-semibold border border-[var(--c-brand-700)] text-[var(--c-brand-700)] hover:bg-[var(--c-brand-50)] cursor-pointer"
         >
           {showPrint ? 'Ocultar vista previa' : 'Vista previa e impresion'}
         </button>
@@ -182,7 +182,7 @@ export default function Step5Summary() {
         <button
           onClick={handleDownloadPDF}
           disabled={pdfLoading}
-          className="px-4 py-2 rounded-md text-sm font-semibold bg-[#1a3a5c] text-white hover:bg-[#122b46] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="px-4 py-2 rounded-md text-sm font-semibold bg-[var(--c-brand-700)] text-white hover:bg-[var(--c-brand-900)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {pdfLoading ? 'Generando PDF...' : '⬇ Descargar PDF'}
         </button>
@@ -192,7 +192,7 @@ export default function Step5Summary() {
             <button
               onClick={handleSubmit}
               disabled={state.submitStatus === 'submitting'}
-              className="px-4 py-2 rounded-md text-sm font-semibold border border-[#15803d] text-[#15803d] hover:bg-[#eafaf0] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="px-4 py-2 rounded-md text-sm font-semibold border border-[var(--c-success-700)] text-[var(--c-success-700)] hover:bg-[var(--c-success-50)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {state.submitStatus === 'submitting' ? 'Guardando...' : '💾 Guardar borrador'}
             </button>
@@ -200,7 +200,7 @@ export default function Step5Summary() {
             <button
               onClick={handleSendEmail}
               disabled={emailLoading}
-              className="px-6 py-2 rounded-md text-sm font-semibold bg-[#15803d] text-white hover:bg-[#166534] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="px-6 py-2 rounded-md text-sm font-semibold bg-[var(--c-success-700)] text-white hover:bg-[var(--c-success-500)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {emailLoading ? 'Enviando...' : '✉ Guardar y enviar'}
             </button>

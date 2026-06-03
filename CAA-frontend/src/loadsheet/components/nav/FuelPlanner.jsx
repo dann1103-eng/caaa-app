@@ -42,7 +42,7 @@ export default function FuelPlanner() {
         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Configuración de vuelo</p>
         <table className="w-full text-sm border-collapse border border-gray-300">
           <thead>
-            <tr className="bg-[#1a3a5c] text-white text-[10px]">
+            <tr className="bg-[var(--c-brand-700)] text-white text-[10px]">
               <th className={thClass}>PARÁMETRO</th>
               <th className="text-right px-2 py-1.5 font-semibold text-[10px] w-28">VALOR</th>
             </tr>
@@ -99,7 +99,7 @@ export default function FuelPlanner() {
         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Combustible requerido</p>
         <table className="w-full text-sm border-collapse border border-gray-300">
           <thead>
-            <tr className="bg-[#1a3a5c] text-white text-[10px]">
+            <tr className="bg-[var(--c-brand-700)] text-white text-[10px]">
               <th className={thClass + ' w-auto'}>COMBUSTIBLE</th>
               <th className="text-right px-2 py-1.5 font-semibold text-[10px] w-16">US gal</th>
               <th className="text-right px-2 py-1.5 font-semibold text-[10px] w-14">KG</th>
@@ -210,13 +210,13 @@ export default function FuelPlanner() {
             </tr>
 
             {/* MIN REQUIRED — input manual del alumno */}
-            <tr className="border-b border-gray-200 bg-[#e8f0f8]">
-              <td className="px-2 py-1.5 text-xs font-bold text-[#1a3a5c]">MIN REQUIRED</td>
-              <td className="px-2 py-1.5 text-xs text-right font-mono font-bold text-[#1a3a5c]">{fmtGal(fuel.minReqGal)}</td>
-              <td className="px-2 py-1.5 text-xs text-right font-mono text-[#1a3a5c]">{fmtKg(fuel.minReqKg)}</td>
+            <tr className="border-b border-gray-200 bg-[var(--c-brand-50)]">
+              <td className="px-2 py-1.5 text-xs font-bold text-[var(--c-brand-700)]">MIN REQUIRED</td>
+              <td className="px-2 py-1.5 text-xs text-right font-mono font-bold text-[var(--c-brand-700)]">{fmtGal(fuel.minReqGal)}</td>
+              <td className="px-2 py-1.5 text-xs text-right font-mono text-[var(--c-brand-700)]">{fmtKg(fuel.minReqKg)}</td>
               <td className="p-0">
                 <input
-                  className={inputClass + ' font-bold text-[#1a3a5c]'}
+                  className={inputClass + ' font-bold text-[var(--c-brand-700)]'}
                   type="number"
                   min="0"
                   value={fd.minReqMin}
@@ -235,11 +235,11 @@ export default function FuelPlanner() {
             </tr>
 
             {/* TFOB — auto desde W&B, muestra gal + min */}
-            <tr className="bg-[#e8f0f8]">
-              <td className="px-2 py-2 text-xs font-bold text-[#1a3a5c]">TFOB</td>
-              <td className="px-2 py-2 text-xs text-right font-mono font-bold text-[#1a3a5c]">{fmtGal(fuel.tfobGal)}</td>
-              <td className="px-2 py-2 text-xs text-right font-mono text-[#1a3a5c]">{fmtKg(fuel.tfobKg)}</td>
-              <td className="px-2 py-2 text-xs text-right font-mono font-bold text-[#1a3a5c]">{fmtMin(fuel.tfobMin)}</td>
+            <tr className="bg-[var(--c-brand-50)]">
+              <td className="px-2 py-2 text-xs font-bold text-[var(--c-brand-700)]">TFOB</td>
+              <td className="px-2 py-2 text-xs text-right font-mono font-bold text-[var(--c-brand-700)]">{fmtGal(fuel.tfobGal)}</td>
+              <td className="px-2 py-2 text-xs text-right font-mono text-[var(--c-brand-700)]">{fmtKg(fuel.tfobKg)}</td>
+              <td className="px-2 py-2 text-xs text-right font-mono font-bold text-[var(--c-brand-700)]">{fmtMin(fuel.tfobMin)}</td>
             </tr>
           </tbody>
         </table>

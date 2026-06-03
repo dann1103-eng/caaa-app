@@ -156,7 +156,7 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
 
       {isFinalizando && canOperate && vuelo.es_inasistencia && (
         <div className="ins__inasistencia-banner">
-          ⚠ Inasistencia detectada: Tiempo de vuelo fijado en 0 min
+          <i className="bi bi-exclamation-triangle"></i> Inasistencia detectada: Tiempo de vuelo fijado en 0 min
         </div>
       )}
 
@@ -271,9 +271,9 @@ function AlumnoFila({ alumno, semana, onGuardado }) {
       </td>
       <td className="ins__td ins__td--center">
         <div className="ins__limite-display">
-          <span title="Límite Avión">✈ {alumno.limite_vuelos_avion ?? 3}</span>
+          <span title="Límite Avión"><i className="bi bi-airplane"></i> {alumno.limite_vuelos_avion ?? 3}</span>
           <span className="ins__limite-sep">·</span>
-          <span title="Límite Simulador">💻 {alumno.limite_vuelos_simulador ?? 3}</span>
+          <span title="Límite Simulador"><i className="bi bi-pc-display"></i> {alumno.limite_vuelos_simulador ?? 3}</span>
         </div>
       </td>
       <td className="ins__td">
@@ -565,7 +565,7 @@ export default function InstructorDashboard() {
 
         <div className="ins__section">
           <h3 className="ins__section-title">
-            <i className="bi bi-file-earmark-text" style={{ color: 'var(--ins-accent)' }}></i>
+            <i className="bi bi-file-earmark-text" style={{ color: 'var(--c-brand-700)' }}></i>
             Reportes enviados al alumno
             {reportesPendientes.length > 0 && (
               <span className="ins__badge-count">{reportesPendientes.length}</span>
@@ -607,7 +607,7 @@ export default function InstructorDashboard() {
 
         <div className="ins__section ins__section--alumnos">
           <h3 className="ins__section-title">
-            <i className="bi bi-people" style={{ color: 'var(--ins-accent)' }}></i>
+            <i className="bi bi-people" style={{ color: 'var(--c-brand-700)' }}></i>
             Mis alumnos asignados
           </h3>
           {semanaProxima && (

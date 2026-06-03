@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAAA · Rediseño visual — Galería de capturas</title>
+<style>
+  :root{
+    --navy:oklch(34% 0.095 262); --navy-deep:oklch(24% 0.065 262);
+    --red:oklch(54% 0.205 25); --ink1:oklch(22% 0.02 262); --ink3:oklch(54% 0.012 262);
+    --s0:oklch(99.2% 0.003 262); --s1:oklch(98.4% 0.004 262); --s2:oklch(96.5% 0.007 262);
+    --line:oklch(92% 0.008 262);
+  }
+  *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,sans-serif;background:var(--s0);color:var(--ink1)}
+  header{background:var(--navy-deep);color:#fff;padding:28px 40px;position:sticky;top:0;z-index:10;border-bottom:1px solid var(--navy)}
+  header h1{margin:0;font-size:20px;letter-spacing:.04em;font-weight:800}
+  header p{margin:6px 0 0;color:oklch(82% 0.02 262);font-size:13px}
+  nav{display:flex;flex-wrap:wrap;gap:6px;padding:14px 40px;background:var(--s1);border-bottom:1px solid var(--line);position:sticky;top:81px;z-index:9}
+  nav a{font-size:12px;font-weight:600;color:var(--ink3);text-decoration:none;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--s0)}
+  nav a:hover{color:var(--red);border-color:var(--red)}
+  main{padding:24px 40px 80px;max-width:1500px;margin:0 auto}
+  section{margin:40px 0}
+  h2{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;border-bottom:1px solid var(--line);padding-bottom:10px}
+  h2 .dot{width:8px;height:8px;border-radius:999px;background:var(--red)}
+  h2 .count{margin-left:auto;font-size:12px;color:var(--ink3);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;margin-top:18px}
+  .shot{margin:0;background:var(--s1);border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:box-shadow .15s}
+  .shot:hover{box-shadow:0 8px 24px oklch(22% .02 262 / .1)}
+  .shot img{width:100%;display:block;border-bottom:1px solid var(--line);background:var(--s0)}
+  figcaption{padding:10px 14px;font-size:13px;font-weight:600;color:var(--ink1)}
+</style>
+</head>
+<body>
+<header>
+  <h1>CAAA · Rediseño visual</h1>
+  <p>Carril aviónica de precisión · white-label · navy primario + rojo acento · 34 capturas con datos reales</p>
+</header>
+<nav><a href="#00-publico">Público</a><a href="#admin-sistema">Admin (Sistema)</a><a href="#administracion">Administración / Contabilidad</a><a href="#alumno">Alumno</a><a href="#instructor">Instructor</a><a href="#programacion">Programación</a><a href="#turno">Turno (Operaciones)</a></nav>
+<main>
+    <section id="00-publico">
+      <h2><span class="dot"></span>Público <span class="count">1</span></h2>
+      <div class="grid">
+      <figure class="shot">
+        <a href="./00-publico/login.png" target="_blank"><img loading="lazy" src="./00-publico/login.png" alt="Login"></a>
+        <figcaption>Login</figcaption>
+      </figure></div>
+    </section>
+    <section id="admin-sistema">
+      <h2><span class="dot"></span>Admin (Sistema) <span class="count">7</span></h2>
+      <div class="grid">
+      <figure class="shot">
+        <a href="./admin-sistema/alumnos.png" target="_blank"><img loading="lazy" src="./admin-sistema/alumnos.png" alt="Alumnos"></a>
+        <figcaption>Alumnos</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./admin-sistema/auditoria.png" target="_blank"><img loading="lazy" src="./admin-sistema/auditoria.png" alt="Auditoria"></a>
+        <figcaption>Auditoria</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./admin-sistema/cancelaciones.png" target="_blank"><img loading="lazy" src="./admin-sistema/cancelaciones.png" alt="Cancelaciones"></a>
+        <figcaption>Cancelaciones</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./admin-sistema/dashboard-calendario.png" target="_blank"><img loading="lazy" src="./admin-sistema/dashboard-calendario.png" alt="Dashboard Calendario"></a>
+        <figcaption>Dashboard Calendario</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./admin-sistema/mantenimiento.png" target="_blank"><img loading="lazy" src="./admin-sistema/mantenimiento.png" alt="Mantenimiento"></a>
+        <figcaption>Mantenimiento</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./admin-sistema/modal-iniciar-mantenimiento.png" target="_blank"><img loading="lazy" src="./admin-sistema/modal-iniciar-mantenimiento.png" alt="Modal Iniciar Mantenimiento"></a>
+        <figcaption>Modal Iniciar Mantenimiento</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./admin-sistema/perfiles.png" target="_blank"><img loading="lazy" src="./admin-sistema/perfiles.png" alt="Perfiles"></a>
+        <figcaption>Perfiles</figcaption>
+      </figure></div>
+    </section>
+    <section id="administracion">
+      <h2><span class="dot"></span>Administración / Contabilidad <span class="count">16</span></h2>
+      <div class="grid">
+      <figure class="shot">
+        <a href="./administracion/alumno-ficha.png" target="_blank"><img loading="lazy" src="./administracion/alumno-ficha.png" alt="Alumno Ficha"></a>
+        <figcaption>Alumno Ficha</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/aula-virtual.png" target="_blank"><img loading="lazy" src="./administracion/aula-virtual.png" alt="Aula Virtual"></a>
+        <figcaption>Aula Virtual</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/contabilidad-egresos.png" target="_blank"><img loading="lazy" src="./administracion/contabilidad-egresos.png" alt="Contabilidad Egresos"></a>
+        <figcaption>Contabilidad Egresos</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/contabilidad-ingresos.png" target="_blank"><img loading="lazy" src="./administracion/contabilidad-ingresos.png" alt="Contabilidad Ingresos"></a>
+        <figcaption>Contabilidad Ingresos</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/contabilidad-nomina.png" target="_blank"><img loading="lazy" src="./administracion/contabilidad-nomina.png" alt="Contabilidad Nomina"></a>
+        <figcaption>Contabilidad Nomina</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/contabilidad-tarifas.png" target="_blank"><img loading="lazy" src="./administracion/contabilidad-tarifas.png" alt="Contabilidad Tarifas"></a>
+        <figcaption>Contabilidad Tarifas</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/cuenta-detalle.png" target="_blank"><img loading="lazy" src="./administracion/cuenta-detalle.png" alt="Cuenta Detalle"></a>
+        <figcaption>Cuenta Detalle</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/cuentas.png" target="_blank"><img loading="lazy" src="./administracion/cuentas.png" alt="Cuentas"></a>
+        <figcaption>Cuentas</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/cursos.png" target="_blank"><img loading="lazy" src="./administracion/cursos.png" alt="Cursos"></a>
+        <figcaption>Cursos</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/dashboard.png" target="_blank"><img loading="lazy" src="./administracion/dashboard.png" alt="Dashboard"></a>
+        <figcaption>Dashboard</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/documentacion.png" target="_blank"><img loading="lazy" src="./administracion/documentacion.png" alt="Documentacion"></a>
+        <figcaption>Documentacion</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/medicos.png" target="_blank"><img loading="lazy" src="./administracion/medicos.png" alt="Medicos"></a>
+        <figcaption>Medicos</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/modal-nuevo-alumno.png" target="_blank"><img loading="lazy" src="./administracion/modal-nuevo-alumno.png" alt="Modal Nuevo Alumno"></a>
+        <figcaption>Modal Nuevo Alumno</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/modal-registrar-abono.png" target="_blank"><img loading="lazy" src="./administracion/modal-registrar-abono.png" alt="Modal Registrar Abono"></a>
+        <figcaption>Modal Registrar Abono</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/reportes.png" target="_blank"><img loading="lazy" src="./administracion/reportes.png" alt="Reportes"></a>
+        <figcaption>Reportes</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./administracion/usuarios.png" target="_blank"><img loading="lazy" src="./administracion/usuarios.png" alt="Usuarios"></a>
+        <figcaption>Usuarios</figcaption>
+      </figure></div>
+    </section>
+    <section id="alumno">
+      <h2><span class="dot"></span>Alumno <span class="count">5</span></h2>
+      <div class="grid">
+      <figure class="shot">
+        <a href="./alumno/agendar-vuelos.png" target="_blank"><img loading="lazy" src="./alumno/agendar-vuelos.png" alt="Agendar Vuelos"></a>
+        <figcaption>Agendar Vuelos</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./alumno/aula-virtual.png" target="_blank"><img loading="lazy" src="./alumno/aula-virtual.png" alt="Aula Virtual"></a>
+        <figcaption>Aula Virtual</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./alumno/dashboard.png" target="_blank"><img loading="lazy" src="./alumno/dashboard.png" alt="Dashboard"></a>
+        <figcaption>Dashboard</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./alumno/loadsheet-wizard.png" target="_blank"><img loading="lazy" src="./alumno/loadsheet-wizard.png" alt="Loadsheet Wizard"></a>
+        <figcaption>Loadsheet Wizard</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./alumno/perfil.png" target="_blank"><img loading="lazy" src="./alumno/perfil.png" alt="Perfil"></a>
+        <figcaption>Perfil</figcaption>
+      </figure></div>
+    </section>
+    <section id="instructor">
+      <h2><span class="dot"></span>Instructor <span class="count">2</span></h2>
+      <div class="grid">
+      <figure class="shot">
+        <a href="./instructor/aula-virtual.png" target="_blank"><img loading="lazy" src="./instructor/aula-virtual.png" alt="Aula Virtual"></a>
+        <figcaption>Aula Virtual</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./instructor/dashboard.png" target="_blank"><img loading="lazy" src="./instructor/dashboard.png" alt="Dashboard"></a>
+        <figcaption>Dashboard</figcaption>
+      </figure></div>
+    </section>
+    <section id="programacion">
+      <h2><span class="dot"></span>Programación <span class="count">2</span></h2>
+      <div class="grid">
+      <figure class="shot">
+        <a href="./programacion/agendar-vuelo.png" target="_blank"><img loading="lazy" src="./programacion/agendar-vuelo.png" alt="Agendar Vuelo"></a>
+        <figcaption>Agendar Vuelo</figcaption>
+      </figure>
+      <figure class="shot">
+        <a href="./programacion/dashboard.png" target="_blank"><img loading="lazy" src="./programacion/dashboard.png" alt="Dashboard"></a>
+        <figcaption>Dashboard</figcaption>
+      </figure></div>
+    </section>
+    <section id="turno">
+      <h2><span class="dot"></span>Turno (Operaciones) <span class="count">1</span></h2>
+      <div class="grid">
+      <figure class="shot">
+        <a href="./turno/dashboard-operativo.png" target="_blank"><img loading="lazy" src="./turno/dashboard-operativo.png" alt="Dashboard Operativo"></a>
+        <figcaption>Dashboard Operativo</figcaption>
+      </figure></div>
+    </section></main>
+</body>
+</html>

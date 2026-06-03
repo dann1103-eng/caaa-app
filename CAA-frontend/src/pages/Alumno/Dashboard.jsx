@@ -163,7 +163,7 @@ export default function AlumnoDashboard() {
             disabled={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0}
             title={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "No tenés vuelos habilitados para esta semana" : ""}
           >
-            <span>＋</span> {info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "Vuelos deshabilitados" : "Agendar clase"}
+            <i className="bi bi-plus-lg"></i> {info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "Vuelos deshabilitados" : "Agendar clase"}
           </button>
         </div>
 
@@ -244,24 +244,24 @@ export default function AlumnoDashboard() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {solicitudes.map((s) => (
-                      <div key={s.id_solicitud_cancelacion} style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <div key={s.id_solicitud_cancelacion} style={{ background: 'var(--c-surface-1)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--c-line-1)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                           <span style={{ fontWeight: 600 }}>Aeronave: {s.aeronave_codigo}</span>
                           <span className={`mhl__badge mhl__badge--${s.estado ? String(s.estado).toLowerCase() : 'pendiente'}`}>
                             {s.estado}
                           </span>
                         </div>
-                        <div style={{ fontSize: '0.9rem', color: '#4b5563', marginBottom: '4px' }}>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--c-ink-2)', marginBottom: '4px' }}>
                           Fecha Vuelo: {new Date(s.fecha_hora_vuelo).toLocaleString('es-SV', {timeZone: 'America/El_Salvador'})}
                         </div>
-                        <div style={{ fontSize: '0.9rem', color: '#4b5563', marginBottom: '4px' }}>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--c-ink-2)', marginBottom: '4px' }}>
                           Motivo: {s.motivo}
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--c-ink-3)' }}>
                           Solicitado el: {new Date(s.creado_en).toLocaleString('es-SV', {timeZone: 'America/El_Salvador'})}
                         </div>
                         {s.tiene_multa && (
-                          <div style={{ marginTop: '8px', color: '#dc2626', fontWeight: 600, fontSize: '0.85rem' }}>
+                          <div style={{ marginTop: '8px', color: 'var(--c-danger-700)', fontWeight: 600, fontSize: 'var(--text-xs)' }}>
                             Con multa de ${s.monto_multa}
                           </div>
                         )}

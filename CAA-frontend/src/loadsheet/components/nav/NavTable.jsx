@@ -58,7 +58,7 @@ export default function NavTable() {
     <div className="overflow-x-auto mb-4">
       <table className="text-[11px] border-collapse border border-gray-300" style={{ minWidth: '1050px' }}>
         <thead>
-          <tr className="bg-[#1a3a5c] text-white">
+          <tr className="bg-[var(--c-brand-700)] text-white">
             {PLAN_COLS.map(c => (
               <th key={c.id} className="px-1 py-1 font-semibold border-r border-blue-400" style={{ width: c.w, minWidth: c.w }}>{c.label}</th>
             ))}
@@ -69,7 +69,7 @@ export default function NavTable() {
             <th colSpan={3} className="px-1 py-1 font-semibold border-r border-blue-400">ATA</th>
             <th colSpan={2} className="px-1 py-1 font-semibold">FUEL</th>
           </tr>
-          <tr className="bg-[#1a3a5c] text-white text-[9px]">
+          <tr className="bg-[var(--c-brand-700)] text-white text-[9px]">
             {PLAN_COLS.map(c => <th key={c.id} className="border-r border-blue-400"></th>)}
             <th className="border-r border-blue-400" style={{ borderLeftWidth: '3px', borderLeftColor: 'white' }}></th>
             <th className="px-1 border-r border-blue-400">NM</th>
@@ -96,7 +96,7 @@ export default function NavTable() {
                 </td>
               ))}
               {/* Separator + Waypoint */}
-              <td className="border-r border-gray-200 p-0" style={{ borderLeftWidth: '3px', borderLeftColor: '#1a3a5c' }}>
+              <td className="border-r border-gray-200 p-0" style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--c-brand-700)' }}>
                 <input className={`${inputClass} text-left px-2`} value={row.waypoint || ''} onChange={e => dispatch({ type: 'SET_NAV_ROW', index: i, col: 'waypoint', value: e.target.value })} />
               </td>
               <td className="border-r border-gray-200 p-0" style={{ width: 38 }}>
@@ -144,14 +144,14 @@ export default function NavTable() {
             </tr>
           ))}
           {/* Total row */}
-          <tr className="bg-[#e8f0f8] font-bold border-t-2 border-[#1a3a5c]">
+          <tr className="bg-[var(--c-brand-50)] font-bold border-t-2 border-[var(--c-brand-700)]">
             {PLAN_COLS.map(c => <td key={c.id} className="border-r border-gray-200"></td>)}
-            <td className="px-2 text-[11px] text-[#1a3a5c]" style={{ borderLeftWidth: '3px', borderLeftColor: '#1a3a5c' }}>TOTAL</td>
-            <td className="text-center text-[11px] font-mono text-[#1a3a5c]">{totalNM || ''}</td>
-            <td className="text-center text-[11px] font-mono text-[#1a3a5c]">{acum || ''}</td>
+            <td className="px-2 text-[11px] text-[var(--c-brand-700)]" style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--c-brand-700)' }}>TOTAL</td>
+            <td className="text-center text-[11px] font-mono text-[var(--c-brand-700)]">{totalNM || ''}</td>
+            <td className="text-center text-[11px] font-mono text-[var(--c-brand-700)]">{acum || ''}</td>
             <td colSpan={3}></td>
             <td colSpan={6}></td>
-            <td className="text-center text-[11px] font-mono text-[#1a3a5c]">
+            <td className="text-center text-[11px] font-mono text-[var(--c-brand-700)]">
               {parseFloat(rows.reduce((s, r) => s + (parseFloat(r['fuel-req']) || 0), 0).toFixed(2)) || ''}
             </td>
             <td></td>

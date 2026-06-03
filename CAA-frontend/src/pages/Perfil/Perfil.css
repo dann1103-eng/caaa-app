@@ -1,43 +1,30 @@
-:root {
-  --pf-teal: #10b981;
-  --pf-gold: #f59e0b;
-  --pf-blue: #2563eb;
-  --pf-red: #ef4444;
-  --pf-text: #1e293b;
-  --pf-text-sub: #64748b;
-  --pf-border: #e2e8f0;
-  --pf-border2: #cbd5e1;
-  --pf-card: #ffffff;
-  --pf-deep: #f8fafc;
-}
-
 .perfil-container {
   min-height: 100vh;
-  background: var(--pf-deep);
+  background: var(--c-surface-1);
   display: flex;
   justify-content: center;
   align-items: flex-start;
   padding: 100px 20px 60px;
-  font-family: 'Inter', 'Outfit', sans-serif;
-  color: var(--pf-text);
+  font-family: var(--font-sans);
+  color: var(--c-ink-1);
 }
 
 .perfil-loading {
   text-align: center;
   margin-top: 60px;
-  color: var(--pf-text-sub);
-  font-family: 'Inter', sans-serif;
+  color: var(--c-ink-3);
+  font-family: var(--font-sans);
   font-size: 0.9rem;
 }
 
 .perfil-card {
-  background: var(--pf-card);
-  border: 1px solid var(--pf-border);
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-1);
   border-radius: 12px;
   width: 100%;
   max-width: 820px;
   padding: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-md);
 }
 
 .perfil-card.wide {
@@ -51,21 +38,21 @@
   gap: 16px;
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 1px solid var(--pf-border);
+  border-bottom: 1px solid var(--c-line-1);
   flex-wrap: wrap;
 }
 
 .perfil-header h2 {
-  font-family: 'Exo 2', sans-serif;
+  font-family: var(--font-sans);
   font-size: clamp(1.6rem, 3vw, 2.2rem);
   font-weight: 800;
-  color: var(--pf-text);
+  color: var(--c-ink-1);
   margin: 0 0 6px 0;
 }
 
 .perfil-sub {
   margin: 0;
-  color: var(--pf-text-sub);
+  color: var(--c-ink-3);
   font-size: 0.88rem;
 }
 
@@ -73,9 +60,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  color: var(--pf-gold);
+  background: var(--c-warn-50);
+  border: 1px solid var(--c-warn-100);
+  color: var(--c-warn-700);
   padding: 7px 14px;
   border-radius: 999px;
   font-size: 0.78rem;
@@ -96,17 +83,17 @@
 }
 
 .perfil-section {
-  background: var(--pf-card);
-  border: 1px solid var(--pf-border);
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
   border-radius: 12px;
   padding: 24px;
   transition: all 0.2s;
 }
 
 .perfil-section:hover {
-  border-color: var(--pf-border2);
+  border-color: var(--c-line-2);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-lg);
 }
 
 .perfil-section.full {
@@ -114,10 +101,10 @@
 }
 
 .perfil-section h3 {
-  font-family: 'Exo 2', sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--pf-teal);
+  color: var(--c-ink-3);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin: 0 0 20px 0;
@@ -138,9 +125,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(239, 68, 68, 0.05);
-  border: 1px solid rgba(239, 68, 68, 0.1);
-  color: var(--pf-red);
+  background: var(--c-danger-50);
+  border: 1px solid var(--c-danger-100);
+  color: var(--c-danger-700);
   padding: 12px 16px;
   border-radius: 9px;
   font-size: 0.83rem;
@@ -150,11 +137,11 @@
 
 .perfil-label {
   display: block;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--pf-text-sub);
+  color: var(--c-ink-3);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-wide);
   margin-bottom: 4px;
 }
 
@@ -162,30 +149,30 @@
   width: 100%;
   padding: 11px 14px;
   border-radius: 8px;
-  border: 1px solid var(--pf-border);
-  background: #fff;
-  color: var(--pf-text);
+  border: 1px solid var(--c-line-2);
+  background: var(--c-surface-0);
+  color: var(--c-ink-1);
   font-size: 0.9rem;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   outline: none;
   transition: all 0.2s;
 }
 
 .perfil-input::placeholder {
-  color: #cbd5e1;
+  color: var(--c-ink-4);
 }
 
 .perfil-input:focus {
-  border-color: var(--pf-teal);
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+  border-color: var(--c-primary-500);
+  box-shadow: var(--shadow-focus);
 }
 
 .perfil-input:disabled,
 .perfil-input[readonly] {
-  background: #f1f5f9;
+  background: var(--c-surface-2);
   cursor: not-allowed;
-  border-color: var(--pf-border);
-  color: var(--pf-text-sub);
+  border-color: var(--c-line-1);
+  color: var(--c-ink-3);
 }
 
 .password-input-wrapper {
@@ -204,7 +191,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--pf-text-sub);
+  color: var(--c-ink-3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -214,8 +201,8 @@
 }
 
 .password-toggle-btn:hover {
-  color: var(--pf-teal);
-  background: rgba(16, 185, 129, 0.05);
+  color: var(--c-brand-700);
+  background: var(--c-surface-2);
 }
 
 .password-rules {
@@ -229,7 +216,7 @@
 
 .password-rules li {
   font-size: 0.8rem;
-  color: var(--pf-red);
+  color: var(--c-danger-700);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -241,7 +228,7 @@
 }
 
 .password-rules li.ok {
-  color: var(--pf-teal);
+  color: var(--c-success-700);
   font-weight: 600;
 }
 
@@ -258,15 +245,15 @@
 }
 
 .perfil-container .btn-primary {
-  background: var(--pf-teal);
-  color: #fff;
+  background: var(--c-brand-700);
+  color: var(--c-surface-0);
   border: none;
   padding: 10px 22px;
   border-radius: 8px;
   font-weight: 700;
   font-size: 0.88rem;
   cursor: pointer;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: 0.02em;
   transition: all 0.2s;
   display: inline-flex;
@@ -275,8 +262,8 @@
 }
 
 .perfil-container .btn-primary:hover:not(:disabled) {
-  background: #0d9488;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  background: var(--c-brand-900);
+  box-shadow: var(--shadow-md);
 }
 
 .perfil-container .btn-primary:disabled {
@@ -285,31 +272,31 @@
 }
 
 .perfil-container .btn-secondary {
-  background: #fff;
-  border: 1px solid var(--pf-border);
-  color: var(--pf-text-sub);
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-2);
+  color: var(--c-ink-2);
   padding: 10px 20px;
   border-radius: 8px;
   font-weight: 600;
   font-size: 0.88rem;
   cursor: pointer;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-sans);
   transition: all 0.2s;
 }
 
 .perfil-container .btn-secondary:hover {
-  border-color: var(--pf-border2);
-  color: var(--pf-text);
+  border-color: var(--c-line-3);
+  color: var(--c-ink-1);
 }
 
 .msg {
   font-size: 0.82rem;
-  color: var(--pf-teal);
+  color: var(--c-success-700);
   font-weight: 600;
 }
 
 .msg.error {
-  color: var(--pf-red);
+  color: var(--c-danger-700);
 }
 
 .msg:not(:empty) {
@@ -350,14 +337,14 @@
 
 /* ── Datos de vuelo (alumno) ───────────────────────────────────────────── */
 .perfil-input--alerta {
-  border-color: #f59e0b;
-  background: #fffbeb;
+  border-color: var(--c-warn-500);
+  background: var(--c-warn-50);
 }
 
 .perfil-cert-warning {
-  background: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background: var(--c-warn-50);
+  border: 1px solid var(--c-warn-100);
+  color: var(--c-warn-700);
   border-radius: 8px;
   padding: 0.6rem 1rem;
   font-size: 0.83rem;
@@ -366,9 +353,9 @@
 }
 
 .perfil-cert-warning--vencido {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #991b1b;
+  background: var(--c-danger-50);
+  border-color: var(--c-danger-100);
+  color: var(--c-danger-700);
 }
 
 .perfil-soleado-badge {
@@ -378,18 +365,18 @@
   border-radius: 99px;
   font-size: 0.82rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-wide);
   width: fit-content;
 }
 
 .perfil-soleado-badge--on {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #86efac;
+  background: var(--c-success-50);
+  color: var(--c-success-700);
+  border: 1px solid var(--c-success-100);
 }
 
 .perfil-soleado-badge--off {
-  background: #f3f4f6;
-  color: #6b7280;
-  border: 1px solid #d1d5db;
+  background: var(--c-surface-2);
+  color: var(--c-ink-3);
+  border: 1px solid var(--c-line-2);
 }

@@ -50,7 +50,7 @@ export default function WBTable() {
     <div className="overflow-x-auto mb-4">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="bg-[#1a3a5c] text-white text-xs">
+          <tr className="bg-[var(--c-brand-700)] text-white text-xs">
             <th className="text-left px-2 py-2 font-semibold">Estacion</th>
             <th className="text-right px-2 py-2 font-semibold w-20">Peso (lb)</th>
             <th className="text-right px-2 py-2 font-semibold w-20">Brazo (in)</th>
@@ -102,7 +102,7 @@ export default function WBTable() {
                       className={`w-20 px-1.5 py-1 border rounded text-xs text-right font-mono focus:outline-none focus:ring-1 ${
                         isOver ? 'border-red-500 bg-red-50 focus:ring-red-500' :
                         isWarn ? 'border-amber-500 bg-amber-50 focus:ring-amber-500' :
-                        'border-gray-300 focus:border-[#1a3a5c] focus:ring-[#1a3a5c]'
+                        'border-gray-300 focus:border-[var(--c-brand-700)] focus:ring-[var(--c-brand-700)]'
                       }`}
                     />
                     {s.is_fuel && rawVal && <span className="text-[10px] text-gray-400 ml-1">= {weight.toFixed(1)} lb</span>}
@@ -138,23 +138,23 @@ export default function WBTable() {
           })}
 
           {/* TOTAL DESPEGUE */}
-          <tr className="bg-[#e8f0f8] font-bold border-t-2 border-[#1a3a5c]">
-            <td className="px-2 py-2 text-xs text-[#1a3a5c]">TOTAL DESPEGUE</td>
-            <td className="px-2 py-2 text-right text-xs font-mono text-[#1a3a5c]">{totalW.toLocaleString()}</td>
-            <td className="px-2 py-2 text-right text-xs font-mono text-[#1a3a5c]">{cg.toFixed(2)}</td>
-            <td className="px-2 py-2 text-right text-xs font-mono text-[#1a3a5c]">{fmtMoment(totalM, ac)}</td>
+          <tr className="bg-[var(--c-brand-50)] font-bold border-t-2 border-[var(--c-brand-700)]">
+            <td className="px-2 py-2 text-xs text-[var(--c-brand-700)]">TOTAL DESPEGUE</td>
+            <td className="px-2 py-2 text-right text-xs font-mono text-[var(--c-brand-700)]">{totalW.toLocaleString()}</td>
+            <td className="px-2 py-2 text-right text-xs font-mono text-[var(--c-brand-700)]">{cg.toFixed(2)}</td>
+            <td className="px-2 py-2 text-right text-xs font-mono text-[var(--c-brand-700)]">{fmtMoment(totalM, ac)}</td>
           </tr>
 
           {/* TOTAL ATERRIZAJE */}
-          <tr className="bg-[#d4e8f8] font-bold border-t border-[#1a3a5c]">
-            <td className="px-2 py-2 text-xs text-[#1a3a5c]">TOTAL ATERRIZAJE</td>
-            <td className="px-2 py-2 text-right text-xs font-mono text-[#1a3a5c]">
+          <tr className="bg-[var(--c-brand-100)] font-bold border-t border-[var(--c-brand-700)]">
+            <td className="px-2 py-2 text-xs text-[var(--c-brand-700)]">TOTAL ATERRIZAJE</td>
+            <td className="px-2 py-2 text-right text-xs font-mono text-[var(--c-brand-700)]">
               {wb.ldgW ? Math.round(wb.ldgW).toLocaleString() : ''}
             </td>
-            <td className="px-2 py-2 text-right text-xs font-mono text-[#1a3a5c]">
+            <td className="px-2 py-2 text-right text-xs font-mono text-[var(--c-brand-700)]">
               {wb.ldgCG ? wb.ldgCG.toFixed(2) : ''}
             </td>
-            <td className="px-2 py-2 text-right text-xs font-mono text-[#1a3a5c]">
+            <td className="px-2 py-2 text-right text-xs font-mono text-[var(--c-brand-700)]">
               {wb.ldgM ? fmtMoment(wb.ldgM, ac) : ''}
             </td>
           </tr>

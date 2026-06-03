@@ -47,7 +47,7 @@ export default function MetarWidget() {
   if (error || !data) {
     return (
       <div className="mw mw--error">
-        <span className="mw__error-icon">⚠</span>
+        <i className="bi bi-exclamation-triangle mw__error-icon" />
         METAR no disponible
         <button className="mw__retry" onClick={cargar}>Reintentar</button>
       </div>

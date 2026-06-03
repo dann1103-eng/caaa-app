@@ -231,7 +231,7 @@ export default function Perfil() {
     : null;
   const seguroVencido = diasSeguro !== null && diasSeguro < 0;
   const seguroProximo = diasSeguro !== null && diasSeguro >= 0 && diasSeguro <= 30;
-  const seguroColor = seguroVencido ? '#ef4444' : seguroProximo ? '#eab308' : '#22c55e';
+  const seguroColor = seguroVencido ? 'var(--c-danger-700)' : seguroProximo ? 'var(--c-warn-700)' : 'var(--c-success-700)';
 
   // Botones activos solo si hay cambios y son válidos
   const infoChanged = username !== originalData?.username && username.trim().length > 0;

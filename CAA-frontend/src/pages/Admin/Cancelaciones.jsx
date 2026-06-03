@@ -54,23 +54,23 @@ export default function CancelacionesAdmin() {
   return (
     <div className="adm-cancel">
       <div className="adm-cancel__card" style={{ marginBottom: '24px' }}>
-        <div className="adm-cancel__card-header" style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '12px', background: 'white', borderRadius: '8px 8px 0 0' }}>
-          <i className="bi bi-x-circle" style={{ color: '#ef4444', fontSize: '1.2rem' }}></i>
+        <div className="adm-cancel__card-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-line-1)', display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--c-surface-1)', borderRadius: '8px 8px 0 0' }}>
+          <i className="bi bi-x-circle" style={{ color: 'var(--c-primary-500)', fontSize: '1.2rem' }}></i>
           <div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#1B365D' }}>Solicitudes de Cancelación</h3>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>Gestioná las solicitudes pendientes de los alumnos.</p>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--c-ink-1)' }}>Solicitudes de Cancelación</h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--c-ink-3)' }}>Gestioná las solicitudes pendientes de los alumnos.</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid #e2e8f0', padding: '0 20px', background: 'white', borderRadius: '0 0 8px 8px' }}>
+        <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--c-line-1)', padding: '0 20px', background: 'var(--c-surface-1)', borderRadius: '0 0 8px 8px' }}>
           <button
-            style={{ padding: '1rem', background: 'transparent', border: 'none', borderBottom: tab === 'PENDIENTE' ? '2px solid #1B365D' : '2px solid transparent', color: tab === 'PENDIENTE' ? '#1B365D' : '#64748b', fontWeight: tab === 'PENDIENTE' ? '700' : '500', cursor: 'pointer', transition: 'all 0.2s' }}
+            style={{ padding: '1rem', background: 'transparent', border: 'none', borderBottom: tab === 'PENDIENTE' ? '2px solid var(--c-primary-500)' : '2px solid transparent', color: tab === 'PENDIENTE' ? 'var(--c-ink-1)' : 'var(--c-ink-3)', fontWeight: tab === 'PENDIENTE' ? '700' : '500', cursor: 'pointer', transition: 'all 0.2s' }}
             onClick={() => setTab('PENDIENTE')}
           >
             Pendientes
           </button>
           <button
-            style={{ padding: '1rem', background: 'transparent', border: 'none', borderBottom: tab === 'HISTORIAL' ? '2px solid #1B365D' : '2px solid transparent', color: tab === 'HISTORIAL' ? '#1B365D' : '#64748b', fontWeight: tab === 'HISTORIAL' ? '700' : '500', cursor: 'pointer', transition: 'all 0.2s' }}
+            style={{ padding: '1rem', background: 'transparent', border: 'none', borderBottom: tab === 'HISTORIAL' ? '2px solid var(--c-primary-500)' : '2px solid transparent', color: tab === 'HISTORIAL' ? 'var(--c-ink-1)' : 'var(--c-ink-3)', fontWeight: tab === 'HISTORIAL' ? '700' : '500', cursor: 'pointer', transition: 'all 0.2s' }}
             onClick={() => setTab('HISTORIAL')}
           >
             Historial
@@ -80,9 +80,9 @@ export default function CancelacionesAdmin() {
 
       <div className="adm-cancel__content">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>Cargando solicitudes...</div>
+          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--c-ink-3)' }}>Cargando solicitudes...</div>
         ) : solicitudes.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--c-ink-3)', backgroundColor: 'var(--c-surface-1)', borderRadius: '10px', border: '1px solid var(--c-line-1)' }}>
             No hay solicitudes {tab === 'PENDIENTE' ? 'pendientes' : 'en el historial'}.
           </div>
         ) : (
@@ -92,13 +92,13 @@ export default function CancelacionesAdmin() {
                 <div className="adm-cancel__card-header">
                   <div className="adm-cancel__card-title">
                     <span style={{ fontWeight: 600 }}>{s.alumno_nombre} {s.alumno_apellido}</span>
-                    <span style={{ color: '#6b7280', fontSize: '0.9rem', marginLeft: '8px' }}>
+                    <span style={{ color: 'var(--c-ink-3)', fontSize: '0.9rem', marginLeft: '8px', fontFamily: 'var(--font-mono)' }}>
                       ({s.aeronave_codigo})
                     </span>
                   </div>
                   <span className="adm-cancel__badge" style={{
-                    backgroundColor: s.estado === 'PENDIENTE' ? '#fef3c7' : s.estado === 'ACEPTADA' ? '#dcfce7' : s.estado === 'EXPIRADA' ? '#f3f4f6' : '#fee2e2',
-                    color: s.estado === 'PENDIENTE' ? '#b45309' : s.estado === 'ACEPTADA' ? '#166534' : s.estado === 'EXPIRADA' ? '#4b5563' : '#991b1b'
+                    backgroundColor: s.estado === 'PENDIENTE' ? 'var(--c-warn-50)' : s.estado === 'ACEPTADA' ? 'var(--c-success-50)' : s.estado === 'EXPIRADA' ? 'var(--c-surface-2)' : 'var(--c-danger-50)',
+                    color: s.estado === 'PENDIENTE' ? 'var(--c-warn-700)' : s.estado === 'ACEPTADA' ? 'var(--c-success-700)' : s.estado === 'EXPIRADA' ? 'var(--c-ink-2)' : 'var(--c-danger-700)'
                   }}>{s.estado}</span>
                 </div>
                 <div className="adm-cancel__card-body">
@@ -107,8 +107,8 @@ export default function CancelacionesAdmin() {
                   <p><strong>Solicitado el:</strong> {new Date(s.fecha_solicitud).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}</p>
                   <p><strong>Cancelaciones en el mes:</strong> {s.cancelaciones_aceptadas_mes}</p>
                   {s.con_multa && (
-                    <div style={{ marginTop: '12px', color: '#b91c1c', backgroundColor: '#fef2f2', padding: '8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600 }}>
-                      ⚠ Costo de ${s.monto_multa} aceptada por el alumno
+                    <div style={{ marginTop: '12px', color: 'var(--c-danger-700)', backgroundColor: 'var(--c-danger-50)', padding: '8px', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontWeight: 600 }}>
+                      <i className="bi bi-exclamation-triangle-fill"></i> Costo de ${s.monto_multa} aceptada por el alumno
                     </div>
                   )}
                 </div>

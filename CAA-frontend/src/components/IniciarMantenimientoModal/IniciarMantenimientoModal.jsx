@@ -219,7 +219,7 @@ export default function IniciarMantenimientoModal({ aeronave, onClose, onSuccess
               preview.length > 0 ? (
                 <>
                   <div className="mnt-modal__alert">
-                    ⚠️ Se cancelarán {preview.length} vuelo(s) automáticamente. Los alumnos serán notificados.
+                    <i className="bi bi-exclamation-triangle" /> Se cancelarán {preview.length} vuelo(s) automáticamente. Los alumnos serán notificados.
                   </div>
                   <ul className="mnt-modal__flight-list">
                     {preview.slice(0, 5).map(v => (
@@ -231,7 +231,7 @@ export default function IniciarMantenimientoModal({ aeronave, onClose, onSuccess
                   </ul>
                 </>
               ) : (
-                <p className="mnt-modal__success">✓ No hay vuelos afectados en este periodo.</p>
+                <p className="mnt-modal__success"><i className="bi bi-check-lg" /> No hay vuelos afectados en este periodo.</p>
               )
             ) : (
               <p className="mnt-modal__helptext">Completa los datos para ver los vuelos afectados.</p>
