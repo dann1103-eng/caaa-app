@@ -134,13 +134,22 @@ export default function PaginaProgramacion() {
     }
   }, []);
 
-  useEffect(() => { cargarDatos(); }, [cargarDatos]);
+  useEffect(() => {
+    cargarDatos();
+    // Refresco periódico: red de seguridad para el tablero de pared. Aunque el
+    // socket en tiempo real falle (p.ej. websocket tras el proxy), la proyección
+    // refleja los cambios (vuelos agendados / estados) en a lo sumo 20s.
+    const t = setInterval(cargarDatos, 20000);
+    return () => clearInterval(t);
+  }, [cargarDatos]);
 
   /* ── socket ── */
   useEffect(() => {
     const socket = socketIO(SOCKET_URL, {
-      transports: ["websocket", "polling"],
+      // polling primero (más confiable tras proxies como Railway), luego sube a websocket
+      transports: ["polling", "websocket"],
       reconnectionDelay: 1000,
+      reconnectionAttempts: Infinity,
     });
 
     socket.on("vuelo_estado_changed", (data) => {
