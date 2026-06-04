@@ -28,9 +28,9 @@ export default function Header() {
       <div className="header__container">
 
         <div className="header__logo">
-          <div className="header__logo-box">
-            <span className="header__logo-icon">A</span>
-          </div>
+          <span className="header__logo-box">
+            <i className="bi bi-airplane-fill" />
+          </span>
           CAAA
         </div>
 
@@ -49,32 +49,32 @@ export default function Header() {
                 <NotificationBell />
 
                 <Link to={getDashboardLink()} className="header__action-link">
-                  <span className="header__action-icon">📊</span>
-                  Dashboard
+                  <i className="bi bi-speedometer2 header__action-icon" />
+                  <span>Dashboard</span>
                 </Link>
 
                 {["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) && (
                   <a href="/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link">
-                    <span className="header__action-icon">📅</span>
-                    Programación
+                    <i className="bi bi-easel header__action-icon" />
+                    <span>Programación</span>
                   </a>
                 )}
 
                 {user.rol === "INSTRUCTOR" && (
                   <Link to="/instructor/aula-virtual" className="header__action-link">
-                    <span className="header__action-icon">🎓</span>
-                    Aula Virtual
+                    <i className="bi bi-mortarboard header__action-icon" />
+                    <span>Aula Virtual</span>
                   </Link>
                 )}
 
                 <Link to="/perfil" className="header__action-link">
-                  <span className="header__action-icon">👤</span>
-                  Perfil
+                  <i className="bi bi-person header__action-icon" />
+                  <span>Perfil</span>
                 </Link>
 
                 <button onClick={handleLogout} className="header__btn-logout-new">
-                  <span className="header__action-icon">🚪</span>
-                  Salir
+                  <i className="bi bi-box-arrow-right header__action-icon" />
+                  <span>Salir</span>
                 </button>
               </div>
             </div>

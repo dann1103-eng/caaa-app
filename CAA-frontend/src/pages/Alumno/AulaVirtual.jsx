@@ -31,18 +31,18 @@ const MOCK = {
 };
 
 const ESTADO_INFO = {
-  NO_INICIADA: { color: "#9ca3af", bg: "#f3f4f6", icon: "bi-circle",         label: "No iniciada" },
-  EN_PROGRESO: { color: "#1d4ed8", bg: "#dbeafe", icon: "bi-arrow-clockwise", label: "En progreso" },
-  COMPLETADA:  { color: "#065f46", bg: "#d1fae5", icon: "bi-check-circle-fill", label: "Completada" },
-  REPROBADA:   { color: "#7f1d1d", bg: "#fee2e2", icon: "bi-x-circle-fill",  label: "Reprobada" }
+  NO_INICIADA: { color: "var(--c-ink-3)",      bg: "var(--c-surface-3)", icon: "bi-circle",            label: "No iniciada" },
+  EN_PROGRESO: { color: "var(--c-info-700)",   bg: "var(--c-info-50)",   icon: "bi-arrow-clockwise",   label: "En progreso" },
+  COMPLETADA:  { color: "var(--c-success-700)", bg: "var(--c-success-50)", icon: "bi-check-circle-fill", label: "Completada" },
+  REPROBADA:   { color: "var(--c-danger-700)", bg: "var(--c-danger-50)", icon: "bi-x-circle-fill",     label: "Reprobada" }
 };
 
 const TIPO_INFO = {
-  EXAMEN:    { icon: "bi-clipboard-check", color: "#1B365D" },
-  QUIZ:      { icon: "bi-lightning",       color: "#0f5132" },
-  TAREA:     { icon: "bi-pencil-square",   color: "#7c2d12" },
-  PRACTICA:  { icon: "bi-airplane",        color: "#157347" },
-  FINAL:     { icon: "bi-trophy",          color: "#b8860b" }
+  EXAMEN:    { icon: "bi-clipboard-check", color: "var(--c-brand-700)" },
+  QUIZ:      { icon: "bi-lightning",       color: "var(--c-success-700)" },
+  TAREA:     { icon: "bi-pencil-square",   color: "var(--c-warn-700)" },
+  PRACTICA:  { icon: "bi-airplane",        color: "var(--c-success-700)" },
+  FINAL:     { icon: "bi-trophy",          color: "var(--c-warn-700)" }
 };
 
 const fmtFecha = (f) => f ? new Date(f).toLocaleDateString("es-SV", { day:"2-digit", month:"short", year:"numeric" }) : "—";
@@ -65,7 +65,7 @@ export default function AulaVirtual() {
     })();
   }, []);
 
-  if (!data) return <div><Header /><div style={{padding: 40}}>Cargando aula virtual...</div></div>;
+  if (!data) return <div><Header /><div style={{padding: 40, color: 'var(--c-ink-2)'}}>Cargando aula virtual...</div></div>;
 
   const cursoActivo = data.cursos?.[0];
   const unidades = data.unidades || [];
@@ -106,7 +106,7 @@ export default function AulaVirtual() {
           </button>
           <div>
             <h1>
-              <i className="bi bi-mortarboard-fill" style={{ marginRight: 10, color: "#1B365D" }}></i>
+              <i className="bi bi-mortarboard-fill" style={{ marginRight: 10, color: "var(--c-brand-700)" }}></i>
               Aula Virtual
             </h1>
             <p className="av-subtitle">
@@ -129,12 +129,12 @@ export default function AulaVirtual() {
             </div>
             <div className="av-progress-circle">
               <svg width="120" height="120" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" strokeWidth="10"/>
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#1B365D" strokeWidth="10"
+                <circle cx="60" cy="60" r="50" fill="none" stroke="oklch(100% 0 0 / 0.18)" strokeWidth="10"/>
+                <circle cx="60" cy="60" r="50" fill="none" stroke="var(--c-primary-500)" strokeWidth="10"
                   strokeDasharray={`${(pct/100) * 2 * Math.PI * 50} ${2 * Math.PI * 50}`}
                   strokeDashoffset={`${0.25 * 2 * Math.PI * 50}`}
                   transform="rotate(-90 60 60)" strokeLinecap="round"/>
-                <text x="60" y="65" textAnchor="middle" fontSize="26" fontWeight="800" fill="#1B365D">{pct}%</text>
+                <text x="60" y="65" textAnchor="middle" fontSize="26" fontWeight="800" fill="oklch(99% 0.010 245)">{pct}%</text>
               </svg>
               <div className="av-progress-label">{completadas} / {totalUnidades} unidades</div>
             </div>
@@ -143,11 +143,11 @@ export default function AulaVirtual() {
 
         {/* Listo para comité con la AAC */}
         {cursoActivo?.listo_para_comite && (
-          <div style={{ background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 12, padding: "16px 20px", margin: "16px 0", display: "flex", alignItems: "center", gap: 12 }}>
-            <i className="bi bi-trophy-fill" style={{ fontSize: 24, color: "#157347" }}></i>
+          <div style={{ background: "var(--c-success-50)", border: "1px solid var(--c-success-100)", borderRadius: "var(--radius-md)", padding: "16px 20px", margin: "16px 0", display: "flex", alignItems: "center", gap: 12 }}>
+            <i className="bi bi-trophy-fill" style={{ fontSize: 24, color: "var(--c-success-700)" }}></i>
             <div>
-              <strong style={{ color: "#065f46" }}>¡Aprobaste tu examen final interno!</strong>
-              <div style={{ fontSize: "0.9rem", color: "#047857" }}>
+              <strong style={{ color: "var(--c-success-700)" }}>¡Aprobaste tu examen final interno!</strong>
+              <div style={{ fontSize: "var(--text-sm)", color: "var(--c-success-700)" }}>
                 Ya estás listo para solicitar tu comité (chequeo) con la Autoridad de Aviación Civil (AAC). Coordiná con la escuela.
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function AulaVirtual() {
                           ? Math.min(100, (Number(u.horas_acumuladas || 0) / Number(u.horas_estimadas)) * 100)
                           : (u.estado === 'COMPLETADA' ? 100 : 0);
               return (
-                <div key={u.id_unidad} className="av-unidad-card" style={{ borderLeft: `5px solid ${info.color}` }}>
+                <div key={u.id_unidad} className="av-unidad-card">
                   <div className="av-unidad-header">
                     <div className="av-unidad-numero">UNIDAD {u.numero}</div>
                     <span className="av-unidad-tag" style={{ background: info.bg, color: info.color }}>
@@ -220,11 +220,11 @@ export default function AulaVirtual() {
                     </div>
                   )}
                   {materiales.filter(m => Number(m.id_unidad) === Number(u.id_unidad)).length > 0 && (
-                    <div style={{ marginTop: 10, borderTop: "1px solid #eee", paddingTop: 8 }}>
-                      <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", marginBottom: 4 }}>MATERIAL</div>
+                    <div style={{ marginTop: 10, borderTop: "1px solid var(--c-line-1)", paddingTop: 8 }}>
+                      <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--c-ink-3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "var(--tracking-wide)" }}>Material</div>
                       {materiales.filter(m => Number(m.id_unidad) === Number(u.id_unidad)).map(m => (
                         <button key={m.id} onClick={() => abrirMaterial(m.id)}
-                          style={{ display: "block", background: "none", border: "none", color: "#1B365D", cursor: "pointer", padding: "2px 0", fontSize: "0.85rem", textAlign: "left" }}>
+                          style={{ display: "block", background: "none", border: "none", color: "var(--c-brand-700)", cursor: "pointer", padding: "2px 0", fontSize: "var(--text-sm)", textAlign: "left" }}>
                           <i className="bi bi-file-earmark-arrow-down me-1"></i>{m.nombre}
                         </button>
                       ))}
@@ -235,7 +235,7 @@ export default function AulaVirtual() {
             })}
             {unidades.length === 0 && (
               <div className="av-empty">
-                <i className="bi bi-info-circle" style={{ fontSize: "3rem", color: "#9ca3af" }}></i>
+                <i className="bi bi-info-circle" style={{ fontSize: "3rem", color: "var(--c-ink-4)" }}></i>
                 <p>Aún no estás inscrito en ningún curso con unidades teóricas.</p>
               </div>
             )}
@@ -247,7 +247,7 @@ export default function AulaVirtual() {
             {pendientes.length > 0 && (
               <div className="av-section">
                 <h2 className="av-section-title">
-                  <i className="bi bi-clock-history" style={{ color: "#b8860b" }}></i>Pendientes
+                  <i className="bi bi-clock-history" style={{ color: "var(--c-warn-700)" }}></i>Pendientes
                 </h2>
                 <div className="av-evals">
                   {pendientes.map(e => {
@@ -260,7 +260,7 @@ export default function AulaVirtual() {
                         <div className="av-eval-content">
                           <div className="av-eval-tipo">
                             {e.tipo} · {e.curso_codigo} {e.unidad_numero ? `· Unidad ${e.unidad_numero}` : ''}
-                            {e.origen === 'AAC' && <span style={{ marginLeft: 6, fontSize: "0.7rem", fontWeight: 700, color: "#b45309", background: "#fef3c7", padding: "1px 6px", borderRadius: 999 }}>AAC</span>}
+                            {e.origen === 'AAC' && <span style={{ marginLeft: 6, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--c-warn-700)", background: "var(--c-warn-50)", padding: "1px 6px", borderRadius: "var(--radius-pill)" }}>AAC</span>}
                           </div>
                           <h4>{e.nombre}</h4>
                           <div className="av-eval-meta">
@@ -280,7 +280,7 @@ export default function AulaVirtual() {
             {calificadas.length > 0 && (
               <div className="av-section">
                 <h2 className="av-section-title">
-                  <i className="bi bi-trophy-fill" style={{ color: "#157347" }}></i>Notas obtenidas
+                  <i className="bi bi-trophy-fill" style={{ color: "var(--c-success-700)" }}></i>Notas obtenidas
                 </h2>
                 <div className="av-evals">
                   {calificadas.map(e => {
@@ -294,7 +294,7 @@ export default function AulaVirtual() {
                         <div className="av-eval-content">
                           <div className="av-eval-tipo">
                             {e.tipo} · {e.curso_codigo} {e.unidad_numero ? `· Unidad ${e.unidad_numero}` : ''}
-                            {e.origen === 'AAC' && <span style={{ marginLeft: 6, fontSize: "0.7rem", fontWeight: 700, color: "#b45309", background: "#fef3c7", padding: "1px 6px", borderRadius: 999 }}>AAC</span>}
+                            {e.origen === 'AAC' && <span style={{ marginLeft: 6, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--c-warn-700)", background: "var(--c-warn-50)", padding: "1px 6px", borderRadius: "var(--radius-pill)" }}>AAC</span>}
                           </div>
                           <h4>{e.nombre}</h4>
                           <div className="av-eval-meta">
@@ -316,7 +316,7 @@ export default function AulaVirtual() {
 
             {evaluaciones.length === 0 && (
               <div className="av-empty">
-                <i className="bi bi-clipboard" style={{ fontSize: "3rem", color: "#9ca3af" }}></i>
+                <i className="bi bi-clipboard" style={{ fontSize: "3rem", color: "var(--c-ink-4)" }}></i>
                 <p>Aún no tienes evaluaciones asignadas.</p>
               </div>
             )}

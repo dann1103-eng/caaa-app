@@ -7,29 +7,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e8e8e8;
+  background: var(--c-surface-2);
   padding: 20px;
 }
 .ls-box {
-  background: #fff;
-  border: 1px solid #d1d5db;
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-2);
   border-radius: 10px;
   padding: 28px 32px;
   max-width: 560px;
   text-align: center;
-  color: #1a3a5c;
+  color: var(--c-brand-700);
   font-size: 15px;
 }
 .ls-back-btn {
-  background: #1a3a5c;
-  color: #fff;
+  background: var(--c-brand-700);
+  color: var(--c-surface-0);
   border: none;
   border-radius: 6px;
   padding: 8px 18px;
   font-weight: 600;
   cursor: pointer;
 }
-.ls-back-btn:hover { background: #122b46; }
+.ls-back-btn:hover { background: var(--c-brand-900); }
 
 /* Reset del fieldset usado para el modo solo-lectura (no debe agregar borde/espacio) */
 .ls-fieldset {

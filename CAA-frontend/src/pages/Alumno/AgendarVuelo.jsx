@@ -297,7 +297,7 @@ export default function AgendarVuelo() {
 
         {agendaBloqueada && (
           <div className="ag__alert ag__alert--locked">
-            <span className="ag__alert-icon">🔒</span>
+            <span className="ag__alert-icon"><i className="bi bi-lock-fill"></i></span>
             <div>
               <strong>Agenda cerrada:</strong> La agenda para tu nivel <strong>{licencia?.nombre}</strong> abre el <strong>{diasNombres[licencia.dia_apertura_agenda]}</strong>. 
               <br />
@@ -308,7 +308,7 @@ export default function AgendarVuelo() {
 
         {estadoSolicitud === "RECHAZADA" && (
           <div className="ag__alert ag__alert--rejected">
-            <span className="ag__alert-icon">❌</span>
+            <span className="ag__alert-icon"><i className="bi bi-x-circle-fill"></i></span>
             <div>
               <strong>Solicitud Rechazada:</strong> Tu solicitud anterior fue rechazada por Operaciones. 
               Podés realizar ajustes y volver a <strong>Guardar</strong> para que sea revisada nuevamente.
@@ -318,7 +318,7 @@ export default function AgendarVuelo() {
 
         {bloqueadoPorEstado && estadoSolicitud !== "RECHAZADA" && (
           <div className="ag__alert">
-            <span className="ag__alert-icon">⚠</span>
+            <span className="ag__alert-icon"><i className="bi bi-exclamation-triangle-fill"></i></span>
             Tu solicitud está en <strong>{estadoSolicitud}</strong> y ya no puede
             modificarse.
           </div>
@@ -326,14 +326,14 @@ export default function AgendarVuelo() {
 
         {tieneConflictoAvionDia && (
           <div className="ag__alert ag__alert--warn">
-            <span className="ag__alert-icon">⚠</span>
+            <span className="ag__alert-icon"><i className="bi bi-exclamation-triangle-fill"></i></span>
             <strong>Conflicto:</strong> Tenés más de 1 avión seleccionado en el mismo día. Desmarcá el exceso para poder guardar.
           </div>
         )}
 
         {!limiteAvionExcedido && !limiteSimuladorExcedido && !tieneConflictoAvionDia && !bloqueadoPorEstado && selecciones.length > 0 && (
           <div className="ag__alert ag__alert--ready">
-            <span className="ag__alert-icon">→</span>
+            <span className="ag__alert-icon"><i className="bi bi-check2-circle"></i></span>
             {selecciones.length} vuelo{selecciones.length !== 1 ? 's' : ''} seleccionado{selecciones.length !== 1 ? 's' : ''}. Presioná <strong>Guardar</strong> para confirmar tu solicitud.
           </div>
         )}
@@ -348,7 +348,7 @@ export default function AgendarVuelo() {
           <div className="ag__aeronaves-grid">
             {aeronaves.map((a) => (
               <div key={a.id_aeronave} className="ag__aeronave-card">
-                <span className="ag__aeronave-icon">{a.tipo === 'SIMULADOR' ? '💻' : '✈'}</span>
+                <span className="ag__aeronave-icon"><i className={`bi ${a.tipo === 'SIMULADOR' ? 'bi-pc-display' : 'bi-airplane-fill'}`}></i></span>
                 <div>
                   <strong>{a.codigo}</strong>
                   <span>{a.modelo}</span>
@@ -364,17 +364,17 @@ export default function AgendarVuelo() {
               <h3 className="ag__section-title">Seleccioná tus vuelos</h3>
               <p className="ag__section-hint">Máx. 1 avión por día · lunes a sábado</p>
             </div>
-            <div className="ag__mode-toggle" style={{ display: 'flex', gap: '10px', background: '#f1f5f9', padding: '6px', borderRadius: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'LOCAL' ? '#fff' : 'transparent', borderRadius: '6px', boxShadow: modoReserva === 'LOCAL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', fontWeight: modoReserva === 'LOCAL' ? '600' : '400', color: modoReserva === 'LOCAL' ? '#1e293b' : '#64748b' }}>
+            <div className="ag__mode-toggle" style={{ display: 'flex', gap: '10px', background: 'var(--c-surface-2)', padding: '6px', borderRadius: 'var(--radius-sm)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'LOCAL' ? 'var(--c-surface-0)' : 'transparent', borderRadius: 'var(--radius-xs)', border: modoReserva === 'LOCAL' ? '1px solid var(--c-line-1)' : '1px solid transparent', fontWeight: modoReserva === 'LOCAL' ? '600' : '400', color: modoReserva === 'LOCAL' ? 'var(--c-ink-1)' : 'var(--c-ink-3)' }}>
                 <input type="radio" name="modo_reserva" checked={modoReserva === 'LOCAL'} onChange={() => setModoReserva('LOCAL')} style={{ margin: 0 }} />
                 Vuelo Normal
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'RUTA' ? '#fff' : 'transparent', borderRadius: '6px', boxShadow: modoReserva === 'RUTA' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', fontWeight: modoReserva === 'RUTA' ? '600' : '400', color: modoReserva === 'RUTA' ? '#1e293b' : '#64748b' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'RUTA' ? 'var(--c-surface-0)' : 'transparent', borderRadius: 'var(--radius-xs)', border: modoReserva === 'RUTA' ? '1px solid var(--c-line-1)' : '1px solid transparent', fontWeight: modoReserva === 'RUTA' ? '600' : '400', color: modoReserva === 'RUTA' ? 'var(--c-ink-1)' : 'var(--c-ink-3)' }}>
                 <input type="radio" name="modo_reserva" checked={modoReserva === 'RUTA'} onChange={() => setModoReserva('RUTA')} style={{ margin: 0 }} />
                 Ruta
               </label>
               {extraHabilitado && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'EXTRA' ? '#fff' : 'transparent', borderRadius: '6px', boxShadow: modoReserva === 'EXTRA' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', fontWeight: modoReserva === 'EXTRA' ? '600' : '400', color: modoReserva === 'EXTRA' ? '#7c3aed' : '#64748b' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'EXTRA' ? 'var(--c-surface-0)' : 'transparent', borderRadius: 'var(--radius-xs)', border: modoReserva === 'EXTRA' ? '1px solid var(--c-line-1)' : '1px solid transparent', fontWeight: modoReserva === 'EXTRA' ? '600' : '400', color: modoReserva === 'EXTRA' ? 'var(--c-info-700)' : 'var(--c-ink-3)' }}>
                   <input type="radio" name="modo_reserva" checked={modoReserva === 'EXTRA'} onChange={() => setModoReserva('EXTRA')} style={{ margin: 0 }} />
                   Extracurricular
                 </label>
@@ -399,12 +399,12 @@ export default function AgendarVuelo() {
               limiteSimulador={limiteSimulador}
             />
           ) : modoReserva === 'RUTA' ? (
-            <div className="ag__ruta-form" style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Agendar Ruta</h4>
+            <div className="ag__ruta-form" style={{ background: 'var(--c-surface-1)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--c-line-1)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <h4 style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--c-ink-1)' }}>Agendar Ruta</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Aeronave</label>
-                  <select value={rutaAeronave} onChange={e => setRutaAeronave(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Aeronave</label>
+                  <select value={rutaAeronave} onChange={e => setRutaAeronave(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
                     {aeronaves.filter(a => a.tipo !== 'SIMULADOR').map(a => (
                       <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} - {a.modelo}</option>
@@ -412,42 +412,42 @@ export default function AgendarVuelo() {
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Día</label>
-                  <select value={rutaDia} onChange={e => setRutaDia(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Día</label>
+                  <select value={rutaDia} onChange={e => setRutaDia(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     {DIAS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Hora de Salida (Bloque)</label>
-                  <select value={rutaBloqueInicio} onChange={e => setRutaBloqueInicio(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Hora de Salida (Bloque)</label>
+                  <select value={rutaBloqueInicio} onChange={e => setRutaBloqueInicio(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
                     {bloques.map(b => <option key={b.id_bloque} value={b.id_bloque}>{b.hora_inicio.slice(0, 5)}</option>)}
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Hora de Llegada (Bloque)</label>
-                  <select value={rutaBloqueFin} onChange={e => setRutaBloqueFin(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Hora de Llegada (Bloque)</label>
+                  <select value={rutaBloqueFin} onChange={e => setRutaBloqueFin(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
                     {bloques.map(b => <option key={b.id_bloque} value={b.id_bloque}>{b.hora_fin.slice(0, 5)}</option>)}
                   </select>
                 </div>
               </div>
               <div style={{ alignSelf: 'flex-end' }}>
-                <button onClick={handleAgregarRuta} disabled={calendarBloqueado} style={{ background: '#2563eb', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 600, cursor: calendarBloqueado ? 'not-allowed' : 'pointer' }}>Agregar a Selección</button>
+                <button onClick={handleAgregarRuta} disabled={calendarBloqueado} style={{ background: 'var(--c-brand-700)', color: 'oklch(99% 0 0)', border: 'none', padding: '10px 20px', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: calendarBloqueado ? 'not-allowed' : 'pointer' }}>Agregar a Selección</button>
               </div>
             </div>
           ) : (
-            <div className="ag__ruta-form" style={{ background: '#fff', padding: '24px', borderRadius: '12px', border: '1px solid #ddd6fe', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="ag__ruta-form" style={{ background: 'var(--c-surface-1)', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--c-info-100)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
-                <h4 style={{ margin: 0, fontSize: '1.1rem', color: '#6d28d9' }}>Vuelo extracurricular</h4>
-                <p style={{ margin: '6px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                <h4 style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--c-info-700)' }}>Vuelo extracurricular</h4>
+                <p style={{ margin: '6px 0 0', fontSize: 'var(--text-sm)', color: 'var(--c-ink-3)' }}>
                   Práctica extra (ya completaste las horas de tu licencia). Se cobra a tarifa, no cuenta a tu límite semanal y puede usar cualquier aeronave. Tiene prioridad de agenda menor.
                 </p>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Aeronave</label>
-                  <select value={extraAero} onChange={e => setExtraAero(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Aeronave</label>
+                  <select value={extraAero} onChange={e => setExtraAero(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
                     {extraAeronaves.map(a => (
                       <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} - {a.modelo}</option>
@@ -455,28 +455,28 @@ export default function AgendarVuelo() {
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Día</label>
-                  <select value={extraDia} onChange={e => setExtraDia(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Día</label>
+                  <select value={extraDia} onChange={e => setExtraDia(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     {DIAS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Hora (Bloque)</label>
-                  <select value={extraBloque} onChange={e => setExtraBloque(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Hora (Bloque)</label>
+                  <select value={extraBloque} onChange={e => setExtraBloque(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
                     {bloques.map(b => <option key={b.id_bloque} value={b.id_bloque}>{b.hora_inicio.slice(0, 5)}</option>)}
                   </select>
                 </div>
               </div>
               <div style={{ alignSelf: 'flex-end' }}>
-                <button onClick={handleAgregarExtra} disabled={calendarBloqueado} style={{ background: '#7c3aed', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 600, cursor: calendarBloqueado ? 'not-allowed' : 'pointer' }}>Agregar a Selección</button>
+                <button onClick={handleAgregarExtra} disabled={calendarBloqueado} style={{ background: 'var(--c-brand-700)', color: 'oklch(99% 0 0)', border: 'none', padding: '10px 20px', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: calendarBloqueado ? 'not-allowed' : 'pointer' }}>Agregar a Selección</button>
               </div>
             </div>
           )}
 
           {selecciones.length > 0 && (
             <div style={{ marginTop: '24px' }}>
-              <h4 style={{ fontSize: '1rem', color: '#1e293b', marginBottom: '12px' }}>Vuelos Seleccionados (Recordá presionar "Guardar" arriba para confirmar)</h4>
+              <h4 style={{ fontSize: 'var(--text-md)', color: 'var(--c-ink-1)', marginBottom: '12px' }}>Vuelos Seleccionados (Recordá presionar "Guardar" arriba para confirmar)</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {selecciones.map((s, i) => {
                   const aero = findAero(s.id_aeronave);
@@ -485,15 +485,15 @@ export default function AgendarVuelo() {
                     ? `Salida: Bloque ${s.id_bloque} | Llegada: Bloque ${s.id_bloque_fin}`
                     : `Bloque: ${s.id_bloque}`;
                   return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: s.es_extracurricular ? '#faf5ff' : '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: s.es_extracurricular ? '1px solid #ddd6fe' : '1px solid #e2e8f0' }}>
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: s.es_extracurricular ? 'var(--c-info-50)' : 'var(--c-surface-1)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: s.es_extracurricular ? '1px solid var(--c-info-100)' : '1px solid var(--c-line-1)' }}>
                       <div>
-                        <strong style={{ color: '#0f172a' }}>{aero?.codigo}</strong> <span style={{ color: '#64748b', fontSize: '0.9rem' }}>({s.tipo_vuelo || 'LOCAL'})</span> - {dia}
+                        <strong style={{ color: 'var(--c-ink-1)', fontFamily: 'var(--font-mono)' }}>{aero?.codigo}</strong> <span style={{ color: 'var(--c-ink-3)', fontSize: 'var(--text-sm)' }}>({s.tipo_vuelo || 'LOCAL'})</span> - {dia}
                         {s.es_extracurricular && (
-                          <span style={{ marginLeft: 8, fontSize: '0.72rem', fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '2px 8px', borderRadius: '999px' }}>EXTRACURRICULAR</span>
+                          <span style={{ marginLeft: 8, fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-100)', padding: '2px 8px', borderRadius: 'var(--radius-pill)' }}>EXTRACURRICULAR</span>
                         )}
-                        <div style={{ fontSize: '0.85rem', color: '#475569', marginTop: '4px' }}>{bloqueStr}</div>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--c-ink-2)', marginTop: '4px' }}>{bloqueStr}</div>
                       </div>
-                      <button onClick={() => removeSeleccion(i)} disabled={calendarBloqueado} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                      <button onClick={() => removeSeleccion(i)} disabled={calendarBloqueado} style={{ background: 'transparent', border: 'none', color: 'var(--c-danger-700)', cursor: 'pointer', padding: '4px' }}>
                         <i className="bi bi-trash"></i>
                       </button>
                     </div>

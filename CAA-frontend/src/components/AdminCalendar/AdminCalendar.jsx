@@ -397,9 +397,9 @@ export default function AdminCalendar({
 
 
 
-      <div className="admin-calendar-wrapper" style={{ 
-        overflowX: 'auto', 
-        background: 'white',
+      <div className="admin-calendar-wrapper" style={{
+        overflowX: 'auto',
+        background: 'var(--c-surface-0)',
         position: 'relative',
         display: 'block',
         width: '100%',
@@ -416,7 +416,7 @@ export default function AdminCalendar({
           <div style={{ 
             gridColumn: 1, gridRow: '1 / span 2', 
             position: 'sticky', left: 0, zIndex: 30, 
-            background: '#f8fafc', 
+            background: 'var(--c-surface-2)', 
             borderRight: '1px solid var(--neutral-border)',
             borderBottom: '1px solid var(--neutral-border)' 
           }}></div>
@@ -430,14 +430,14 @@ export default function AdminCalendar({
                 <div style={{ 
                   gridColumn: `${dc.startCol} / span ${dc.colsCount}`,
                   gridRow: 1,
-                  padding: '8px', textAlign: 'center', background: '#f8fafc',
+                  padding: '8px', textAlign: 'center', background: 'var(--c-surface-2)',
                   borderRight: '1px solid var(--neutral-border)', 
                   borderBottom: '1px solid var(--neutral-border)'
                 }}>
                   <div style={{ 
-                    color: isToday ? 'var(--primary)' : '#64748b', 
+                    color: isToday ? 'var(--c-primary-700)' : 'var(--c-ink-3)',
                     fontWeight: isToday ? 800 : 700,
-                    borderBottom: isToday ? '2px solid var(--primary)' : 'none',
+                    borderBottom: isToday ? '2px solid var(--c-primary-500)' : 'none',
                     display: 'inline-block', paddingBottom: '2px'
                   }}>
                     {dc.label} {dc.date.getDate()}
@@ -449,10 +449,10 @@ export default function AdminCalendar({
                   gridColumn: dc.startCol,
                   gridRow: 2,
                   position: 'sticky', top: 0, zIndex: 15,
-                  padding: '6px', textAlign: 'center', background: '#f1f5f9',
+                  padding: '6px', textAlign: 'center', background: 'var(--c-surface-2)',
                   borderRight: '1px solid var(--neutral-border)',
                   borderBottom: '1px solid var(--neutral-border)',
-                  fontSize: '0.8rem', fontWeight: 600, color: '#475569'
+                  fontSize: '0.8rem', fontWeight: 600, color: 'var(--c-ink-2)'
                 }}>
                   Locales
                 </div>
@@ -461,10 +461,10 @@ export default function AdminCalendar({
                     gridColumn: `${dc.startCol + 1} / span ${dc.numRutas}`,
                     gridRow: 2,
                     position: 'sticky', top: 0, zIndex: 15,
-                    padding: '6px', textAlign: 'center', background: '#e2e8f0', // Slight diff color for Rutas header
+                    padding: '6px', textAlign: 'center', background: 'var(--c-surface-3)', // Slight diff color for Rutas header
                     borderRight: '1px solid var(--neutral-border)',
                     borderBottom: '1px solid var(--neutral-border)',
-                    fontSize: '0.8rem', fontWeight: 600, color: '#475569'
+                    fontSize: '0.8rem', fontWeight: 600, color: 'var(--c-ink-2)'
                   }}>
                     Rutas
                   </div>
@@ -479,11 +479,11 @@ export default function AdminCalendar({
               gridColumn: 1,
               gridRow: 3 + rowIdx,
               position: 'sticky', left: 0, zIndex: 20,
-              background: 'white',
+              background: 'var(--c-surface-0)',
               display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
               borderRight: '1px solid var(--neutral-border)',
-              borderBottom: '1px solid var(--neutral-border)', 
-              padding: '12px 4px', fontSize: '0.85rem', color: '#64748b'
+              borderBottom: '1px solid var(--neutral-border)',
+              padding: '12px 4px', fontSize: '0.85rem', color: 'var(--c-ink-3)', fontFamily: 'var(--font-mono)'
             }}>
               {formatHora(b.hora_inicio)}
             </div>
@@ -566,7 +566,7 @@ export default function AdminCalendar({
                         <div style={{ padding: '2px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div className="flight-alumno" style={{ fontWeight: 600 }}>
                             {conflictText && <span className="conflict-icon">⚠</span>}
-                            {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
+                            {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                             {item.alumno_nombre.split(" ")[0]}
                           </div>
                           <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>
@@ -646,7 +646,7 @@ export default function AdminCalendar({
                         <div className="flight-alumno" style={{ fontWeight: 600 }}>
                           {conflictText && <span className="conflict-icon">⚠</span>}
                           <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>Ruta</span>
-                          {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: '#7c3aed', background: '#ede9fe', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
+                          {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                           {item.alumno_nombre.split(" ")[0]}
                         </div>
                         <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>

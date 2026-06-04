@@ -371,7 +371,7 @@ export default function TurnoDashboard() {
             <p className="trn__eyebrow">Panel de turno</p>
             <h2 className="trn__title">Dashboard operativo</h2>
             <p className="trn__subtitle">
-              <i className="bi bi-calendar3" style={{ marginRight: '8px', color: 'var(--trn-accent)' }}></i>
+              <i className="bi bi-calendar3" style={{ marginRight: '8px', color: 'var(--c-ink-3)' }}></i>
               Vuelos del día · {new Date().toLocaleDateString("es-AR", {
                 weekday: "long", day: "numeric", month: "long",
               })}
@@ -395,7 +395,7 @@ export default function TurnoDashboard() {
         <div className="trn__ticker-form">
           <div className="trn__ticker-form-head">
             <span className="trn__ticker-form-title">
-              <i className="bi bi-megaphone" style={{ color: 'var(--trn-accent)' }}></i>
+              <i className="bi bi-megaphone" style={{ color: 'var(--c-primary-500)' }}></i>
               Avisos del ticker
             </span>
             {tickerMensajes.length > 0 && (

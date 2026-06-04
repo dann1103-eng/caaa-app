@@ -1,6 +1,7 @@
 /* ============================================================================
    CAAA — Design tokens
    Fuente única de verdad. Importar antes de cualquier CSS del proyecto.
+   Carril: aviónica de precisión. Sistema white-label (un acento por academia).
    Si necesitas un color o un tamaño, viene de aquí. No invente literales.
    ========================================================================= */
 
@@ -8,46 +9,72 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
 
 :root {
-  /* ───── Color: neutros tintados (hue 250 — azul institucional) ─────── */
-  --c-ink-1:    oklch(20% 0.020 250);
-  --c-ink-2:    oklch(38% 0.015 250);
-  --c-ink-3:    oklch(55% 0.010 250);
-  --c-ink-4:    oklch(72% 0.008 250);
+  /* ════════════════════════════════════════════════════════════════════
+     WHITE-LABEL — CAMBIAR SOLO ESTO POR ACADEMIA
+     El acento (botón primario, nav activo, "en vivo") sale de un hue+croma.
+     El logo se cambia en el componente <Brand/>. Nada más.
+     ════════════════════════════════════════════════════════════════════ */
+  --academy-accent-h: 25;        /* CAAA: rojo del logo (#C9242E) */
+  --academy-accent-c: 0.205;
 
-  --c-line-1:   oklch(92% 0.008 250);
-  --c-line-2:   oklch(88% 0.010 250);
-  --c-line-3:   oklch(80% 0.012 250);
+  /* ───── Neutros tintados a navy (hue 262) ──────────────────────────── */
+  --c-ink-1:    oklch(22% 0.020 262);
+  --c-ink-2:    oklch(38% 0.016 262);
+  --c-ink-3:    oklch(54% 0.012 262);
+  --c-ink-4:    oklch(70% 0.009 262);
 
-  --c-surface-0: oklch(99.2% 0.004 250);
-  --c-surface-1: oklch(98.5% 0.005 250);
-  --c-surface-2: oklch(96.5% 0.008 250);
-  --c-surface-3: oklch(94% 0.010 250);
+  --c-line-1:   oklch(92% 0.008 262);
+  --c-line-2:   oklch(88% 0.010 262);
+  --c-line-3:   oklch(80% 0.012 262);
 
-  /* ───── Marca CAAA: azul-cielo profundo ────────────────────────────── */
-  --c-brand-50:  oklch(96% 0.030 245);
-  --c-brand-100: oklch(90% 0.060 245);
-  --c-brand-200: oklch(82% 0.090 245);
-  --c-brand-300: oklch(70% 0.115 245);
-  --c-brand-500: oklch(48% 0.155 245);
-  --c-brand-700: oklch(35% 0.140 245);
-  --c-brand-900: oklch(22% 0.080 245);
+  --c-surface-0: oklch(99.2% 0.003 262);
+  --c-surface-1: oklch(98.4% 0.004 262);
+  --c-surface-2: oklch(96.5% 0.007 262);
+  --c-surface-3: oklch(94% 0.009 262);
 
-  /* ───── Acento verde aeronáutico (luz de pista / OK) ───────────────── */
-  --c-accent-50:  oklch(95% 0.035 155);
-  --c-accent-100: oklch(88% 0.080 155);
-  --c-accent-300: oklch(70% 0.130 155);
-  --c-accent-500: oklch(55% 0.170 155);
-  --c-accent-700: oklch(40% 0.140 155);
+  /* ───── Marca CAAA: NAVY (estructura, color "casa") ─────────────────── */
+  --c-brand-50:  oklch(96% 0.020 262);
+  --c-brand-100: oklch(90% 0.040 262);
+  --c-brand-200: oklch(82% 0.060 262);
+  --c-brand-300: oklch(68% 0.080 262);
+  --c-brand-500: oklch(45% 0.110 262);
+  --c-brand-700: oklch(34% 0.095 262);   /* navy del logo */
+  --c-brand-900: oklch(24% 0.065 262);   /* header/sidebar profundo */
+
+  /* ───── PRIMARY: el ACENTO de la academia (CAAA = rojo) ───────────────
+     OJO: acento ESCASO (nav/tab activa, "en vivo", alertas, destructivo).
+     NO es el botón por defecto: la acción primaria usa --c-brand-* (navy). */
+  --c-primary-50:  oklch(96% 0.020 var(--academy-accent-h));
+  --c-primary-100: oklch(90% 0.055 var(--academy-accent-h));
+  --c-primary-200: oklch(82% 0.090 var(--academy-accent-h));
+  --c-primary-300: oklch(72% 0.140 var(--academy-accent-h));
+  --c-primary-500: oklch(54% var(--academy-accent-c) var(--academy-accent-h));
+  --c-primary-600: oklch(48% 0.200 var(--academy-accent-h));
+  --c-primary-700: oklch(42% 0.180 var(--academy-accent-h));
+
+  /* ───── SUCCESS: verde "luz de pista" (OK / pagado / saldo a favor) ──── */
+  --c-success-50:  oklch(95% 0.035 155);
+  --c-success-100: oklch(88% 0.080 155);
+  --c-success-300: oklch(70% 0.130 155);
+  --c-success-500: oklch(55% 0.150 155);
+  --c-success-700: oklch(40% 0.130 155);
+
+  /* alias legacy: --c-accent-* siguió usándose como verde en ~15 archivos */
+  --c-accent-50:  var(--c-success-50);
+  --c-accent-100: var(--c-success-100);
+  --c-accent-300: var(--c-success-300);
+  --c-accent-500: var(--c-success-500);
+  --c-accent-700: var(--c-success-700);
 
   /* ───── Semánticos ─────────────────────────────────────────────────── */
   --c-danger-50:  oklch(95% 0.030 25);
-  --c-danger-100: oklch(88% 0.075 25);
-  --c-danger-500: oklch(55% 0.190 25);
-  --c-danger-700: oklch(40% 0.170 25);
+  --c-danger-100: oklch(88% 0.070 25);
+  --c-danger-500: oklch(52% 0.200 25);
+  --c-danger-700: oklch(40% 0.175 25);
 
   --c-warn-50:    oklch(96% 0.040 75);
   --c-warn-100:   oklch(90% 0.080 75);
-  --c-warn-500:   oklch(70% 0.150 75);
+  --c-warn-500:   oklch(72% 0.150 75);
   --c-warn-700:   oklch(50% 0.140 65);
 
   --c-info-50:    oklch(96% 0.030 230);
@@ -100,12 +127,12 @@
   --radius-pill: 999px;
 
   /* ───── Elevation (sutil, sin sombras pesadas) ────────────────────── */
-  --shadow-sm: 0 1px 0 oklch(20% 0.020 250 / 0.04);
-  --shadow-md: 0 1px 2px oklch(20% 0.020 250 / 0.06),
+  --shadow-sm: 0 1px 0 oklch(22% 0.020 262 / 0.04);
+  --shadow-md: 0 1px 2px oklch(22% 0.020 262 / 0.06),
                0 0 0 1px var(--c-line-1);
-  --shadow-lg: 0 8px 24px oklch(20% 0.020 250 / 0.08),
+  --shadow-lg: 0 8px 24px oklch(22% 0.020 262 / 0.08),
                0 0 0 1px var(--c-line-2);
-  --shadow-focus: 0 0 0 3px oklch(48% 0.155 245 / 0.18);
+  --shadow-focus: 0 0 0 3px oklch(54% 0.205 25 / 0.22);
 
   /* ───── Motion ────────────────────────────────────────────────────── */
   --ease-out:      cubic-bezier(0.22, 1, 0.36, 1);   /* quart */
@@ -119,6 +146,22 @@
   --sidebar-w: 244px;
   --content-max: 1280px;
   --content-max-alumno: 1080px;
+}
+
+/* ─── Tema oscuro (solo sala de operaciones / proyección) ──────────────
+   NO se rediseña esa pantalla ahora; estos tokens existen para coherencia. */
+[data-theme="dark"] {
+  --c-surface-0: oklch(20% 0.020 262);
+  --c-surface-1: oklch(24% 0.022 262);
+  --c-surface-2: oklch(28% 0.024 262);
+  --c-surface-3: oklch(33% 0.026 262);
+  --c-ink-1: oklch(96% 0.006 262);
+  --c-ink-2: oklch(82% 0.010 262);
+  --c-ink-3: oklch(66% 0.012 262);
+  --c-ink-4: oklch(52% 0.012 262);
+  --c-line-1: oklch(34% 0.018 262);
+  --c-line-2: oklch(40% 0.020 262);
+  --c-line-3: oklch(48% 0.022 262);
 }
 
 /* ─── Reset + base global ──────────────────────────────────────────── */
@@ -164,7 +207,7 @@ a:hover { color: var(--c-brand-500); }
 *::-webkit-scrollbar-thumb     { background: var(--c-line-2); border-radius: 999px; border: 2px solid var(--c-surface-0); }
 *::-webkit-scrollbar-thumb:hover { background: var(--c-line-3); }
 
-/* ─── Focus consistente ────────────────────────────────────────────── */
+/* ─── Focus consistente (anillo en acento) ─────────────────────────── */
 :focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);

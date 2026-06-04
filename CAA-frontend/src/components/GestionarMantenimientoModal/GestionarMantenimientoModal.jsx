@@ -227,7 +227,7 @@ export default function GestionarMantenimientoModal({ maintenance, onClose, onSu
               preview.length > 0 ? (
                 <>
                   <div className="mnt-gest-modal__alert">
-                    ⚠️ Se cancelarán {preview.length} vuelo(s) adicionales.
+                    <i className="bi bi-exclamation-triangle" /> Se cancelarán {preview.length} vuelo(s) adicionales.
                   </div>
                   <ul className="mnt-gest-modal__flight-list">
                     {preview.slice(0, 3).map(v => (
@@ -239,7 +239,7 @@ export default function GestionarMantenimientoModal({ maintenance, onClose, onSu
                   </ul>
                 </>
               ) : (
-                <p className="mnt-gest-modal__success">✓ No hay vuelos adicionales afectados.</p>
+                <p className="mnt-gest-modal__success"><i className="bi bi-check-lg" /> No hay vuelos adicionales afectados.</p>
               )
             ) : (
               <p className="mnt-gest-modal__helptext">Seleccioná bloques nuevos para ver el impacto.</p>

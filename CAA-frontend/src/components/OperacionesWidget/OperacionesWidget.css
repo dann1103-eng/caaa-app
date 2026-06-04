@@ -2,33 +2,33 @@
   display: flex;
   align-items: center;
   padding: 12px 20px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   gap: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-  font-family: inherit;
-  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-sans);
+  transition: background-color var(--dur-slow), border-color var(--dur-slow), color var(--dur-slow);
   min-width: 280px;
   border: 1px solid transparent;
 }
 
 .op-widget--loading {
-  background-color: #1e293b;
-  color: #94a3b8;
+  background-color: var(--c-surface-2);
+  color: var(--c-ink-3);
   justify-content: center;
   font-weight: 500;
-  border-color: #334155;
+  border-color: var(--c-line-2);
 }
 
 .op-widget--activo {
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
-  color: #a7f3d0;
-  border-color: #059669;
+  background: var(--c-success-50);
+  color: var(--c-success-700);
+  border-color: var(--c-success-300);
 }
 
 .op-widget--inactivo {
-  background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
-  color: #fecaca;
-  border-color: #ef4444;
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
+  border-color: var(--c-primary-500);
   animation: pulse-red 2s infinite;
 }
 
@@ -36,17 +36,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--c-surface-0);
   border-radius: 50%;
   padding: 8px;
 }
 
 .op-widget--activo .op-widget__icon {
-  color: #34d399;
+  color: var(--c-success-500);
 }
 
 .op-widget--inactivo .op-widget__icon {
-  color: #fca5a5;
+  color: var(--c-primary-500);
 }
 
 .op-widget__text {
@@ -56,23 +56,23 @@
 
 .op-widget__title {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
-  color: #ffffff;
+  color: inherit;
 }
 
 .op-widget__reason {
   margin: 4px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   text-transform: uppercase;
   opacity: 0.9;
 }
 
 @keyframes pulse-red {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0%   { box-shadow: 0 0 0 0 oklch(54% 0.205 25 / 0.5); }
+  70%  { box-shadow: 0 0 0 10px oklch(54% 0.205 25 / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(54% 0.205 25 / 0); }
 }

@@ -1,16 +1,18 @@
+/* Sidebar Admin (sistema). Tokens. Item activo: superficie + indicador rojo
+   inset (acento), no side-stripe de borde. */
+
 .adm-sidebar {
-  width: var(--sidebar-w, 240px);
-  height: calc(100vh - 60px);
+  width: var(--sidebar-w);
+  height: calc(100vh - var(--nav-h));
   position: fixed;
-  top: 60px;
+  top: var(--nav-h);
   left: 0;
-  background-color: #fff;
-  border-right: 1px solid #e2e8f0;
+  background-color: var(--c-surface-1);
+  border-right: 1px solid var(--c-line-1);
   display: flex;
   flex-direction: column;
   z-index: 100;
-  box-shadow: 2px 0 8px rgba(0,0,0,0.02);
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: left var(--dur-med) var(--ease-out);
 }
 
 @media (max-width: 768px) {
@@ -20,86 +22,87 @@
     height: 100vh;
     top: 0;
     z-index: 1000;
-    box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-lg);
   }
-
-  .sidebar-open .adm-sidebar {
-    left: 0;
-  }
+  .sidebar-open .adm-sidebar { left: 0; }
 }
 
-
 .adm-sidebar__menu-title {
-  padding: 24px 20px 8px 20px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #94a3b8;
-  letter-spacing: 1px;
+  padding: var(--sp-6) var(--sp-5) var(--sp-2) var(--sp-5);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--c-ink-4);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 
 /* ── Nav ── */
 .adm-sidebar__nav {
   flex: 1;
-  padding: 12px 16px;
+  padding: var(--sp-3) var(--sp-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  overflow-y: auto;
 }
 
 .adm-sidebar__link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: var(--sp-3);
+  padding: 9px var(--sp-4);
   text-decoration: none;
-  color: #475569;
-  font-size: 0.925rem;
+  color: var(--c-ink-2);
+  font-size: var(--text-base);
   font-weight: 500;
-  border-radius: 4px;
-  transition: all 0.2s;
-  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
-.adm-sidebar__link:hover {
-  background-color: #f1f5f9;
-  color: #1B365D;
-}
+.adm-sidebar__link:hover { background-color: var(--c-surface-2); color: var(--c-ink-1); }
 
 .adm-sidebar__link--active {
-  background-color: #f0f4f8;
-  color: #1B365D;
-  border-left-color: #1B365D;
+  background-color: var(--c-surface-3);
+  color: var(--c-ink-1);
   font-weight: 600;
 }
-
-.adm-sidebar__icon {
-  font-size: 1.1rem;
+/* indicador rojo inset (acento) */
+.adm-sidebar__link--active::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--c-primary-500);
 }
+
+.adm-sidebar__icon { font-size: 18px; color: currentColor; opacity: 0.85; }
 
 /* ── Bottom ── */
 .adm-sidebar__bottom {
-  padding: 20px 16px;
+  padding: var(--sp-4) var(--sp-3);
   margin-top: auto;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--c-line-1);
 }
 
 .adm-sidebar__logout {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
+  gap: var(--sp-3);
+  padding: 9px var(--sp-4);
   background: none;
   border: none;
-  border-radius: 4px;
-  color: #ef4444; /* Red color */
-  font-size: 0.925rem;
-  font-weight: 600;
+  border-radius: var(--radius-sm);
+  color: var(--c-danger-700);
+  font-size: var(--text-base);
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--dur-fast) var(--ease-out);
   text-align: left;
 }
-
-.adm-sidebar__logout:hover {
-  background-color: #fee2e2;
-}
+.adm-sidebar__logout:hover { background-color: var(--c-danger-50); }

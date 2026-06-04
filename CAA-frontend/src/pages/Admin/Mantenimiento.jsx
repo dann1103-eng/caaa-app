@@ -194,17 +194,16 @@ export default function MantenimientoAdmin() {
 
       <div className="mnt">
         <div className="mnt__card" style={{ marginBottom: '24px' }}>
-          <div className="mnt__card-header" style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', background: 'white', borderRadius: '8px 8px 0 0', flexWrap: 'wrap' }}>
+          <div className="mnt__card-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-line-1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', background: 'var(--c-surface-1)', borderRadius: '8px 8px 0 0', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <i className="bi bi-tools" style={{ color: '#1B365D', fontSize: '1.2rem' }}></i>
+              <i className="bi bi-tools" style={{ color: 'var(--c-brand-700)', fontSize: '1.2rem' }}></i>
               <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0, color: '#1B365D' }}>Mantenimiento de aeronaves</h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>Ciclos de revisión y registro de horas</p>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--c-brand-900)' }}>Mantenimiento de aeronaves</h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--c-ink-3)' }}>Ciclos de revisión y registro de horas</p>
               </div>
             </div>
             <button
               className="mnt__btn mnt__btn--primary"
-              style={{ backgroundColor: '#1B365D', color: 'white', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, border: 'none' }}
               onClick={() => setShowModal(true)}
             >
               + Horas manuales
@@ -247,7 +246,7 @@ export default function MantenimientoAdmin() {
                            <td className="mnt__td" data-label="Estado">
                             {a.requiere_mantenimiento && (
                               <span className="mnt__status-badge mnt__status-badge--requiere">
-                                ⚠ Requiere mantenimiento
+                                <i className="bi bi-exclamation-triangle-fill" style={{ marginRight: '4px' }}></i> Requiere mantenimiento
                               </span>
                             )}
                             <span className={`mnt__status-badge ${enMant ? "mnt__status-badge--mantenimiento" : cerca ? "mnt__status-badge--proximo" : "mnt__status-badge--activo"}`}>

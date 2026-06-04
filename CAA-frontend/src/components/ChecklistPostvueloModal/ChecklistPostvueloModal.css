@@ -1,7 +1,7 @@
 .cpv-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: oklch(22% 0.02 262 / 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,20 +10,21 @@
 }
 
 .cpv-modal {
-  background: #fff;
-  border-radius: 10px;
+  background: var(--c-surface-0);
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 620px;
   max-height: 92vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--c-line-1);
 }
 
 /* ── Header ── */
 .cpv-header {
   padding: 1rem 1.5rem 0.85rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--c-line-1);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -32,28 +33,28 @@
 }
 
 .cpv-logo {
-  font-size: 1.1rem;
+  font-size: var(--text-md);
   font-weight: 800;
-  color: #1e3a5f;
-  letter-spacing: 0.05em;
+  color: var(--c-brand-700);
+  letter-spacing: var(--tracking-wide);
   margin-bottom: 2px;
 }
 
 .cpv-header-left h2 {
   margin: 0 0 2px;
-  font-size: 0.95rem;
+  font-size: var(--text-md);
   font-weight: 700;
-  color: #111;
+  color: var(--c-ink-1);
 }
 
 .cpv-subtitle {
-  font-size: 0.72rem;
-  color: #6b7280;
+  font-size: var(--text-xs);
+  color: var(--c-ink-3);
 }
 
 .cpv-meta {
-  font-size: 0.75rem;
-  color: #374151;
+  font-size: var(--text-xs);
+  color: var(--c-ink-2);
   margin-top: 2px;
   font-weight: 500;
 }
@@ -64,9 +65,13 @@
   font-size: 1.4rem;
   line-height: 1;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--c-ink-3);
   padding: 0;
   flex-shrink: 0;
+}
+
+.cpv-close:hover {
+  color: var(--c-ink-1);
 }
 
 /* ── Body ── */
@@ -78,10 +83,11 @@
 
 /* ── Progress ── */
 .cpv-progress {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: #1e3a5f;
+  color: var(--c-brand-700);
   margin-bottom: 0.6rem;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Checklist ── */
@@ -99,7 +105,7 @@
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   user-select: none;
   transition: background 0.1s;
@@ -107,32 +113,32 @@
 }
 
 .cpv-item:hover {
-  background: #f0f9ff;
+  background: var(--c-surface-1);
 }
 
 .cpv-item--checked {
-  background: #f0fdf4;
-  border-color: #86efac;
+  background: var(--c-success-50);
+  border-color: var(--c-success-100);
 }
 
 .cpv-checkbox {
   font-size: 1.1rem;
-  color: #6b7280;
+  color: var(--c-ink-3);
   flex-shrink: 0;
   line-height: 1;
 }
 
 .cpv-item--checked .cpv-checkbox {
-  color: #16a34a;
+  color: var(--c-success-500);
 }
 
 .cpv-item-label {
-  font-size: 0.845rem;
-  color: #374151;
+  font-size: var(--text-base);
+  color: var(--c-ink-2);
 }
 
 .cpv-item--checked .cpv-item-label {
-  color: #166534;
+  color: var(--c-success-700);
 }
 
 /* ── Secciones ── */
@@ -141,33 +147,34 @@
 }
 
 .cpv-section-title {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #6b7280;
-  background: #f3f4f6;
+  letter-spacing: var(--tracking-wide);
+  color: var(--c-ink-3);
+  background: var(--c-surface-2);
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   margin-bottom: 0.6rem;
 }
 
 /* ── Textarea ── */
 .cpv-textarea {
   width: 100%;
-  padding: 7px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.855rem;
+  padding: 10px 12px;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
   resize: vertical;
   box-sizing: border-box;
-  color: #111;
+  color: var(--c-ink-1);
+  background: var(--c-surface-0);
 }
 
 .cpv-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+  border-color: var(--c-primary-500);
+  box-shadow: var(--shadow-focus);
 }
 
 /* ── Firma ── */
@@ -186,15 +193,15 @@
 .cpv-btn-clear {
   align-self: flex-start;
   background: none;
-  border: 1px solid #e5e7eb;
-  border-radius: 5px;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-sm);
   padding: 3px 10px;
-  font-size: 0.75rem;
-  color: #6b7280;
+  font-size: var(--text-xs);
+  color: var(--c-ink-3);
   cursor: pointer;
 }
 
-.cpv-btn-clear:hover { background: #f3f4f6; }
+.cpv-btn-clear:hover { background: var(--c-surface-1); }
 
 .cpv-firma-info {
   display: flex;
@@ -203,28 +210,28 @@
 }
 
 .cpv-firma-label {
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #6b7280;
+  letter-spacing: var(--tracking-wide);
+  color: var(--c-ink-3);
 }
 
 .cpv-firma-name {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
-  color: #111;
+  color: var(--c-ink-1);
 }
 
 .cpv-firma-lic {
-  font-size: 0.85rem;
-  color: #374151;
+  font-size: var(--text-sm);
+  color: var(--c-ink-2);
 }
 
 /* ── Footer ── */
 .cpv-footer {
   padding: 0.9rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--c-line-1);
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -233,42 +240,43 @@
 }
 
 .cpv-hint {
-  font-size: 0.75rem;
-  color: #f59e0b;
+  font-size: var(--text-xs);
+  color: var(--c-warn-700);
   margin-right: auto;
 }
 
 .cpv-btn {
   padding: 7px 18px;
-  border-radius: 7px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  font-size: 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-line-2);
+  background: transparent;
+  color: var(--c-ink-2);
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
 }
 
-.cpv-btn:hover    { background: #f3f4f6; }
+.cpv-btn:hover    { background: var(--c-surface-1); }
 .cpv-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .cpv-btn--success {
-  background: #1e3a5f;
-  color: #fff;
-  border-color: #1e3a5f;
+  background: var(--c-success-500);
+  color: oklch(99% 0 0);
+  border-color: var(--c-success-500);
 }
 
-.cpv-btn--success:hover:not(:disabled) { background: #163059; }
+.cpv-btn--success:hover:not(:disabled) { background: var(--c-success-700); border-color: var(--c-success-700); }
 
 .cpv-btn--disabled-look {
   opacity: 0.55;
 }
 
 .cpv-error {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
   padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.82rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
   margin-bottom: 0.8rem;
 }

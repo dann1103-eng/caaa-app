@@ -289,7 +289,7 @@ export default function Tarifas() {
                       ))}
                     </select>
                     {aeroForm._modelo && !aeroForm.id_aeronave && (
-                      <p style={{ fontSize: "0.78rem", color: "var(--c-warn, #b45309)", marginTop: 6 }}>
+                      <p style={{ fontSize: "0.78rem", color: "var(--c-warn-700)", marginTop: 6 }}>
                         Tarifa antigua sin aeronave vinculada ({aeroForm._modelo}). Selecciona la aeronave correspondiente para habilitar el cargo automático.
                       </p>
                     )}
@@ -334,7 +334,7 @@ export default function Tarifas() {
                     <strong>{a.aeronave_codigo ? `${a.aeronave_codigo} — ${a.aeronave_modelo}` : a.modelo_aeronave}</strong>
                     {!a.id_aeronave && (
                       <span title="Tarifa sin aeronave vinculada — el cargo automático no la encontrará"
-                        style={{ marginLeft: 8, fontSize: "0.72rem", color: "var(--c-warn, #b45309)" }}>
+                        style={{ marginLeft: 8, fontSize: "0.72rem", color: "var(--c-warn-700)" }}>
                         <i className="bi bi-exclamation-triangle"></i> sin vincular
                       </span>
                     )}

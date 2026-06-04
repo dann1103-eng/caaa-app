@@ -1,8 +1,7 @@
 .ops-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(4px);
+  background: oklch(22% 0.02 262 / 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,13 +10,14 @@
 }
 
 .ops-modal {
-  background: #fff;
-  border-radius: 16px;
+  background: var(--c-surface-0);
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 480px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--c-line-1);
   animation: modalScale 0.2s ease-out;
 }
 
@@ -28,16 +28,16 @@
 
 .ops-modal__header {
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--c-line-1);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .ops-modal__header h3 {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #1e3a5f;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--c-ink-1);
   margin: 0;
 }
 
@@ -45,9 +45,13 @@
   background: none;
   border: none;
   font-size: 1.75rem;
-  color: #94a3b8;
+  color: var(--c-ink-3);
   cursor: pointer;
   line-height: 1;
+}
+
+.ops-modal__close:hover {
+  color: var(--c-ink-1);
 }
 
 .ops-modal__body {
@@ -64,18 +68,26 @@
 }
 
 .ops-modal__field label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
-  color: #64748b;
-  letter-spacing: 0.05em;
+  color: var(--c-ink-3);
+  letter-spacing: var(--tracking-wide);
 }
 
 .ops-modal__field select {
-  padding: 8px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  padding: 10px 12px;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  color: var(--c-ink-1);
+  background: var(--c-surface-0);
+}
+
+.ops-modal__field select:focus {
+  outline: none;
+  border-color: var(--c-primary-500);
+  box-shadow: var(--shadow-focus);
 }
 
 .ops-modal__grid {
@@ -86,12 +98,12 @@
 }
 
 .ops-modal__bloque {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-sm);
   padding: 8px;
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: #475569;
+  color: var(--c-ink-2);
   cursor: pointer;
   text-align: center;
   transition: all 0.2s;
@@ -103,33 +115,34 @@
 .ops-modal__bloque input { display: none; }
 
 .ops-modal__bloque:hover:not(.fixed) {
-  background: #f8fafc;
+  background: var(--c-surface-1);
 }
 
 .ops-modal__bloque.selected {
-  background: #fef2f2;
-  border-color: #ef4444;
-  color: #dc2626;
+  background: var(--c-danger-50);
+  border-color: var(--c-primary-500);
+  color: var(--c-danger-700);
 }
 
 .ops-modal__bloque.fixed {
-  background: #f1f5f9;
-  border-color: #e2e8f0;
-  color: #94a3b8;
+  background: var(--c-surface-2);
+  border-color: var(--c-line-1);
+  color: var(--c-ink-4);
   cursor: default;
 }
 
 .ops-modal__tag {
-  font-size: 0.6rem;
-  color: #ef4444;
+  font-size: var(--text-xs);
+  color: var(--c-primary-500);
   text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   font-weight: 700;
 }
 
 .ops-modal__vuelos-afectados {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -137,10 +150,11 @@
 }
 
 .ops-modal__vuelos-afectados label {
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
-  color: #64748b;
+  letter-spacing: var(--tracking-wide);
+  color: var(--c-ink-3);
   display: block;
   margin-bottom: 4px;
 }
@@ -158,36 +172,40 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: white;
+  background: var(--c-surface-0);
   padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid #f1f5f9;
-  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-line-1);
+  font-size: var(--text-sm);
 }
 
 .ops-modal__vuelo-item .v-aero {
   font-weight: 800;
-  color: #1e3a5f;
-  background: #f1f5f9;
+  color: var(--c-brand-700);
+  background: var(--c-surface-2);
   padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.7rem;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .ops-modal__vuelo-item .v-alum {
   flex: 1;
   font-weight: 600;
-  color: #334155;
+  color: var(--c-ink-2);
 }
 
 .ops-modal__vuelo-item .v-hora {
-  color: #64748b;
+  color: var(--c-ink-3);
   font-weight: 700;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .ops-modal__no-vuelos {
-  font-size: 0.8rem;
-  color: #94a3b8;
+  font-size: var(--text-sm);
+  color: var(--c-ink-4);
   font-style: italic;
   margin: 0;
   text-align: center;
@@ -195,15 +213,15 @@
 }
 
 .ops-modal__hint {
-  font-size: 0.75rem;
-  color: #64748b;
+  font-size: var(--text-xs);
+  color: var(--c-ink-3);
   margin: 0;
   line-height: 1.4;
 }
 
 .ops-modal__footer {
   padding: 1.25rem 1.5rem;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--c-line-1);
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -211,24 +229,33 @@
 
 .ops-modal__btn-cancel {
   padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-line-2);
+  background: transparent;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: #475569;
+  color: var(--c-ink-2);
   cursor: pointer;
+}
+
+.ops-modal__btn-cancel:hover {
+  background: var(--c-surface-1);
 }
 
 .ops-modal__btn-confirm {
   padding: 8px 20px;
-  border-radius: 8px;
-  border: none;
-  background: #1e3a5f;
-  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-danger-700);
+  background: transparent;
+  font-size: var(--text-sm);
   font-weight: 700;
-  color: #fff;
+  color: var(--c-danger-700);
   cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ops-modal__btn-confirm:hover:not(:disabled) {
+  background: var(--c-danger-50);
 }
 
 .ops-modal__btn-confirm:disabled {

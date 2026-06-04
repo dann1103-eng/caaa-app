@@ -1,21 +1,22 @@
 .ticker-bar {
   display: flex;
   align-items: center;
-  background: #1e3a5f;
-  color: #fff;
+  background: var(--c-brand-900);
+  color: var(--c-brand-50);
   overflow: hidden;
   height: 36px;
   width: 100%;
   flex-shrink: 0;
+  font-family: var(--font-sans);
 }
 
 .ticker-bar__label {
   flex-shrink: 0;
-  background: #f59e0b;
-  color: #1e293b;
-  font-size: 0.65rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  background: var(--c-primary-500);
+  color: var(--c-brand-50);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wider);
   text-transform: uppercase;
   padding: 0 0.75rem;
   height: 100%;
@@ -36,9 +37,9 @@
 .ticker-bar__text {
   display: inline-block;
   white-space: nowrap;
-  font-size: 0.85rem;
+  font-size: var(--text-base);
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-base);
   animation: ticker-scroll linear forwards;
   padding-left: 100%;
   /* duration set inline via style prop */
@@ -46,12 +47,14 @@
 
 .ticker-bar__counter {
   flex-shrink: 0;
-  font-size: 0.65rem;
+  font-size: var(--text-xs);
   font-weight: 700;
-  color: rgba(255,255,255,0.55);
+  color: var(--c-brand-200);
   padding: 0 0.75rem;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--tracking-wide);
   white-space: nowrap;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes ticker-scroll {

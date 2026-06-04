@@ -168,7 +168,7 @@ export default function ChecklistPostvueloModal({ id_vuelo, vueloInfo, tiempoVue
                       onClick={() => toggle(key)}
                     >
                       <span className="cpv-checkbox">
-                        {checks[key] ? "☑" : "☐"}
+                        <i className={checks[key] ? "bi bi-check-square-fill" : "bi bi-square"} />
                       </span>
                       <span className="cpv-item-label">{label}</span>
                     </li>

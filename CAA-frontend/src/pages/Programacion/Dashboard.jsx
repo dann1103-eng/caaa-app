@@ -60,14 +60,14 @@ function ReasignarAeronaveModal({ vuelo, onClose, onReasignado }) {
         </div>
 
         <div className="pop-body">
-          <p style={{ color: "#64748b", fontSize: "0.85rem", margin: '0 0 16px 0' }}>
+          <p style={{ color: "var(--c-ink-3)", fontSize: "var(--text-sm)", margin: '0 0 16px 0' }}>
             {DIAS[vuelo.dia_semana]} · bloque {vuelo.id_bloque}
           </p>
 
           {loading ? (
             <div className="prog__loading">Cargando aeronaves…</div>
           ) : disponibles.length === 0 ? (
-            <p style={{ color: "#ef4444", fontSize: "0.85rem" }}>No hay aeronaves disponibles para este bloque.</p>
+            <p style={{ color: "var(--c-danger-700)", fontSize: "var(--text-sm)" }}>No hay aeronaves disponibles para este bloque.</p>
           ) : (
             <div className="pop-field">
               <label>Aeronave disponible</label>
@@ -84,7 +84,7 @@ function ReasignarAeronaveModal({ vuelo, onClose, onReasignado }) {
             </div>
           )}
 
-          {error && <p style={{ color: "#ef4444", fontSize: "0.85rem", marginTop: 8 }}>{error}</p>}
+          {error && <p style={{ color: "var(--c-danger-700)", fontSize: "var(--text-sm)", marginTop: 8 }}>{error}</p>}
 
           <div className="pop-actions">
             <button className="btn-save" onClick={handleGuardar} disabled={saving || !selected || disponibles.length === 0}>
@@ -376,9 +376,9 @@ export default function ProgramacionDashboard() {
                 </button>
               </div>
 
-              <button 
-                  className="prog__btn" 
-                  style={{ background: '#1e293b', color: '#fff' }}
+              <button
+                  className="prog__btn"
+                  style={{ background: 'var(--c-brand-700)', color: 'oklch(99% 0 0)', borderColor: 'transparent' }}
                   onClick={() => navigate("/programacion/agendar")}
                 >
                   <i className="bi bi-calendar-plus me-2"></i> Agendar Vuelo
@@ -408,7 +408,7 @@ export default function ProgramacionDashboard() {
           <div className="prog__calendar-container">
             {loading ? (
               <div className="prog__loading" style={{ padding: '100px 0', textAlign: 'center', width: '100%' }}>
-                <div className="pop-spinner" style={{ width: 40, height: 40, borderTopColor: '#1B365D', borderLeftColor: '#1B365D' }}></div>
+                <div className="pop-spinner" style={{ width: 40, height: 40, borderTopColor: 'var(--c-brand-700)', borderLeftColor: 'var(--c-brand-700)' }}></div>
                 <p style={{ marginTop: 16 }}>Sincronizando calendario operativo...</p>
               </div>
             ) : (
@@ -442,7 +442,7 @@ export default function ProgramacionDashboard() {
 
       <style>{`
         [draggable] { -webkit-user-drag: element; user-select: none; }
-        .sonner-toast { font-family: 'Outfit', sans-serif !important; border-radius: 12px !important; }
+        .sonner-toast { font-family: var(--font-sans) !important; border-radius: var(--radius-md) !important; }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
     </>

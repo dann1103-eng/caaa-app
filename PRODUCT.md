@@ -17,9 +17,11 @@ Cuatro perfiles activos, todos profesionales o estudiantes adultos:
 
 Sistema de gestión integral para Centro de Adiestramiento Aéreo Académico (CAAA, El Salvador). Cubre operación (agendamiento de vuelos, ciclo de estado, mantenimiento, METAR, reportes con firma digital), administración financiera (cuenta corriente prepagada por alumno, facturación, nómina dual, egresos, KPIs) y aula virtual (unidades teóricas por licencia, evaluaciones, progreso académico). Exito = la escuela opera con menos papel azul, menos planillas Excel, y los datos de cada vuelo, depósito, factura, nota y certificado están en un solo sistema confiable.
 
+**Producto multi-academia (white-label).** CAAA es la primera academia; el sistema se venderá a otras. La identidad se construye temeable: cada academia cambia su **logo** y su **color de acento** (una sola variable) y conserva toda la estructura. El acento de CAAA es el **rojo** de su logo. Si un diseño no sobrevive ese cambio sin verse roto, está mal hecho.
+
 ## Brand Personality
 
-**Aeronáutico, Preciso, Institucional.** Tono profesional sin acartonamiento, español neutro de El Salvador. La autoridad viene de la exactitud de los datos y la disciplina visual, no de adornos. CAAA tiene 60+ años formando pilotos profesionales: la app debe sentirse heredera de esa tradición sin ser nostálgica.
+**Aviónica, Precisa, Institucional.** Carril visual: **grado instrumental** (aviónica de precisión, tipo ForeFlight / Garmin / Jeppesen, cruzado con la pulcritud de un admin fintech). La interfaz se lee como un panel de cabina bien calibrado: ordenada, legible de un vistazo, números tabulares en primer plano, un solo acento que marca lo activo. Tono profesional sin acartonamiento, español neutro de El Salvador. La autoridad viene de la exactitud de los datos y la disciplina visual, no de adornos. CAAA tiene 60+ años formando pilotos profesionales: la app debe sentirse heredera de esa tradición sin ser nostálgica.
 
 Voz: directa, instruccional, breve. Ejemplos: "Saldo insuficiente: te faltan $42.50 para agendar este vuelo." No: "¡Oops! Parece que no tienes suficiente saldo."
 

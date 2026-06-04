@@ -41,14 +41,15 @@ export default function ToastMantenimiento() {
           className={`toast-mnt__item ${t.tipo === "alerta" ? "toast-mnt__item--rojo" : "toast-mnt__item--amarillo"}`}
         >
           <span className="toast-mnt__icono">
-            {t.tipo === "alerta" ? "✈" : "⚠"}
+            <i className={`bi ${t.tipo === "alerta" ? "bi-airplane-fill" : "bi-exclamation-triangle-fill"}`} />
           </span>
           <span className="toast-mnt__msg">{t.payload.mensaje}</span>
           <button
             className="toast-mnt__close"
             onClick={() => removeToast(t.id)}
+            aria-label="Cerrar"
           >
-            ×
+            <i className="bi bi-x-lg" />
           </button>
         </div>
       ))}

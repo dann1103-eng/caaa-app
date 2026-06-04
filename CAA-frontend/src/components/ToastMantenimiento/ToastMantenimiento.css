@@ -15,30 +15,30 @@
   align-items: flex-start;
   gap: 0.6rem;
   padding: 0.75rem 1rem;
-  border-radius: 8px;
-  border-left: 4px solid;
-  font-size: 0.875rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  font-size: var(--text-sm);
   font-weight: 500;
   line-height: 1.4;
   pointer-events: all;
   animation: toast-slide-in 0.25s ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-lg);
 }
 
 .toast-mnt__item--rojo {
-  background: #2d1212;
-  border-color: #e53e3e;
-  color: #fed7d7;
+  background: var(--c-danger-50);
+  border-color: var(--c-danger-500);
+  color: var(--c-danger-700);
 }
 
 .toast-mnt__item--amarillo {
-  background: #2d2412;
-  border-color: #d69e2e;
-  color: #fef3c7;
+  background: var(--c-warn-50);
+  border-color: var(--c-warn-500);
+  color: var(--c-warn-700);
 }
 
 .toast-mnt__icono {
-  font-size: 1rem;
+  font-size: var(--text-md);
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -51,13 +51,13 @@
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: var(--text-sm);
   line-height: 1;
   opacity: 0.6;
   padding: 0;
   flex-shrink: 0;
   color: inherit;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-fast);
 }
 
 .toast-mnt__close:hover {

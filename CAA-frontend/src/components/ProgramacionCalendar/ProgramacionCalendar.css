@@ -1,32 +1,32 @@
 .calendar-wrapper {
   overflow: auto;
   max-height: 640px;
-  background: #ffffff;
+  background: var(--c-surface-1);
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--c-line-3) transparent;
 }
 .calendar-wrapper::-webkit-scrollbar { width: 5px; height: 5px; }
 .calendar-wrapper::-webkit-scrollbar-track { background: transparent; }
-.calendar-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.calendar-wrapper::-webkit-scrollbar-thumb { background: var(--c-line-3); border-radius: 3px; }
 
 .calendar {
   border-collapse: collapse;
   min-width: 1100px;
   width: 100%;
   table-layout: fixed;
-  background: #ffffff;
-  font-family: 'Inter', sans-serif;
+  background: var(--c-surface-1);
+  font-family: var(--font-sans);
 }
 
 .calendar thead th {
-  background: #f8fafc;
-  color: #1e293b;
-  font-weight: 800;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  background: var(--c-surface-2);
+  color: var(--c-ink-1);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   padding: 16px 12px;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--c-line-1);
   position: sticky;
   top: 0;
   z-index: 5;
@@ -34,50 +34,51 @@
 }
 
 .calendar td {
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--c-line-1);
   padding: 8px;
   text-align: center;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   height: 52px;
   vertical-align: middle;
-  color: #1e293b;
+  color: var(--c-ink-1);
 }
 
 .hora-cell {
-  background: #ffffff;
-  font-family: 'Inter', sans-serif;
-  font-weight: 800;
-  font-size: 0.85rem;
-  color: #1e293b;
+  background: var(--c-surface-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--c-ink-1);
   text-align: center;
   vertical-align: middle;
   width: 100px;
-  border-right: 3px solid #0d9488 !important;
-  letter-spacing: -0.01em;
+  border-right: 3px solid var(--c-brand-500) !important;
+  letter-spacing: var(--tracking-tight);
 }
 
 .aeronave-cell {
-  background: #f8fafc;
-  font-family: 'Inter', sans-serif;
-  font-weight: 800;
-  font-size: 0.85rem;
-  color: #1e293b;
-  letter-spacing: -0.01em;
+  background: var(--c-surface-2);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--c-ink-1);
+  letter-spacing: var(--tracking-tight);
   width: 110px;
-  border-right: 1px solid #f1f5f9 !important;
+  border-right: 1px solid var(--c-line-1) !important;
   text-align: left !important;
   padding-left: 15px !important;
 }
 
 .slot-cell {
   min-width: 120px;
-  background: #080c15;
-  transition: background 0.15s;
+  background: var(--c-surface-0);
+  transition: background-color var(--dur-fast);
 }
-.slot-cell:not(.disabled):hover { background: #0c1220; }
+.slot-cell:not(.disabled):hover { background: var(--c-surface-2); }
 
 .slot-cell.disabled {
-  background: #080c15;
+  background: var(--c-surface-0);
   cursor: not-allowed;
 }
 .slot-cell.disabled .slot-card {
@@ -88,48 +89,48 @@
 .slot-almuerzo {
   background: repeating-linear-gradient(
     45deg,
-    #f8fafc,
-    #f8fafc 10px,
-    #f1f5f9 10px,
-    #f1f5f9 20px
+    var(--c-surface-1),
+    var(--c-surface-1) 10px,
+    var(--c-surface-2) 10px,
+    var(--c-surface-2) 20px
   );
-  color: #94a3b8;
+  color: var(--c-ink-4);
   cursor: not-allowed;
 }
 
 /* Empty cell */
 .slot-empty {
-  color: #1c2e47;
-  font-size: 0.8rem;
+  color: var(--c-ink-4);
+  font-size: var(--text-sm);
 }
 
 .slot-card {
-  background: rgba(0, 201, 167, 0.08);
-  border: 1px solid rgba(0, 201, 167, 0.22);
-  border-radius: 8px;
+  background: var(--c-brand-50);
+  border: 1px solid var(--c-brand-100);
+  border-radius: var(--radius-sm);
   padding: 6px 8px;
   text-align: left;
   cursor: grab;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition: box-shadow var(--dur-fast), border-color var(--dur-fast);
 }
 .slot-card:active { cursor: grabbing; }
 .slot-card:hover {
-  border-color: rgba(0, 201, 167, 0.45);
-  box-shadow: 0 0 10px rgba(0, 201, 167, 0.14);
+  border-color: var(--c-brand-300);
+  box-shadow: var(--shadow-md);
 }
 
 .slot-card .alumno {
-  font-weight: 800;
-  font-size: 0.85rem;
-  color: #1e293b;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--c-ink-1);
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .slot-card .instructor {
-  font-size: 0.75rem;
-  color: #64748b;
+  font-size: var(--text-xs);
+  color: var(--c-ink-3);
   display: block;
   white-space: nowrap;
   overflow: hidden;
@@ -138,25 +139,25 @@
 }
 
 .estado-BORRADOR {
-  border-left: 4px solid #94a3b8 !important;
-  background: #f8fafc !important;
+  border: 1px solid var(--c-line-3) !important;
+  background: var(--c-surface-2) !important;
 }
 .estado-EN_REVISION {
-  border-left: 4px solid #f59e0b !important;
-  background: #fffcf0 !important;
+  border: 1px solid var(--c-warn-500) !important;
+  background: var(--c-warn-50) !important;
 }
 .estado-PUBLICADO {
-  border-left: 4px solid #10b981 !important;
-  background: #f0fdfa !important;
+  border: 1px solid var(--c-success-500) !important;
+  background: var(--c-success-50) !important;
 }
 .estado-CANCELADO {
-  border-left: 4px solid #ef4444 !important;
-  background: #fef2f2 !important;
+  border: 1px solid var(--c-danger-500) !important;
+  background: var(--c-danger-50) !important;
   opacity: 0.8;
 }
 
 .dirty {
-  outline: 2px dashed #3B82F6;
+  outline: 2px dashed var(--c-info-500);
   outline-offset: 1px;
 }
 
@@ -164,41 +165,41 @@
   margin-top: 5px;
   width: 100%;
   padding: 3px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 76, 76, 0.35);
-  background: rgba(255, 76, 76, 0.08);
-  color: #FF4C4C;
-  font-weight: 700;
-  font-size: 0.62rem;
-  font-family: 'Outfit', sans-serif;
-  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-danger-100);
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background-color var(--dur-med), border-color var(--dur-med);
 }
 .btn-cancelar-vuelo:hover {
-  background: rgba(255, 76, 76, 0.22);
-  border-color: #FF4C4C;
+  background: var(--c-danger-100);
+  border-color: var(--c-danger-500);
 }
 
 .btn-reasignar-vuelo {
   margin-top: 5px;
   width: 100%;
   padding: 3px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(217, 158, 46, 0.35);
-  background: rgba(217, 158, 46, 0.08);
-  color: #d69e2e;
-  font-weight: 700;
-  font-size: 0.62rem;
-  font-family: 'Outfit', sans-serif;
-  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-warn-100);
+  background: var(--c-warn-50);
+  color: var(--c-warn-700);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: background-color var(--dur-med), border-color var(--dur-med);
 }
 
 .btn-reasignar-vuelo:hover {
-  background: rgba(217, 158, 46, 0.22);
-  border-color: #d69e2e;
+  background: var(--c-warn-100);
+  border-color: var(--c-warn-500);
 }

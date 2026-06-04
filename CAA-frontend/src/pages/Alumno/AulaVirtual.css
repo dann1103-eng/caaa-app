@@ -77,13 +77,6 @@
   position: relative;
   overflow: hidden;
 }
-.av-curso-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 80% 0%, oklch(35% 0.140 245 / 0.4), transparent 50%);
-  pointer-events: none;
-}
 
 .av-curso-codigo {
   font-family: var(--font-mono);

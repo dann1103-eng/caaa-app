@@ -1,9 +1,9 @@
 .sp-wrapper {
   position: relative;
   display: inline-block;
-  border: 2px dashed #94a3b8;
-  border-radius: 6px;
-  background: #f8fafc;
+  border: 2px dashed var(--c-line-3);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-1);
   cursor: crosshair;
   overflow: hidden;
 }
@@ -19,8 +19,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
-  font-size: 13px;
+  color: var(--c-ink-4);
+  font-size: var(--text-sm);
   pointer-events: none;
   user-select: none;
 }
@@ -29,13 +29,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #f8fafc;
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-1);
   overflow: hidden;
 }
 
 .sp-readonly.sp-empty {
-  color: #94a3b8;
-  font-size: 13px;
+  color: var(--c-ink-4);
+  font-size: var(--text-sm);
 }

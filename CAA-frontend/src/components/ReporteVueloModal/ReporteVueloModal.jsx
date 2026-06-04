@@ -291,7 +291,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                 onClick={() => setEsInasistencia((prev) => !prev)}
                 title={esInasistencia ? "Quitar marca de inasistencia" : "Registrar como inasistencia / No-Show"}
               >
-                {esInasistencia ? "✕ Quitar inasistencia" : "⚠ Registrar inasistencia"}
+                {esInasistencia ? <><i className="bi bi-x-lg" /> Quitar inasistencia</> : <><i className="bi bi-exclamation-triangle" /> Registrar inasistencia</>}
               </button>
             )}
             <button className="rv-close" onClick={onClose}>×</button>
@@ -325,7 +325,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
           {/* Banner de inasistencia */}
           {esInasistencia && (
             <div className="rv-inasistencia-banner">
-              <span className="rv-inasistencia-icon">⚠</span>
+              <span className="rv-inasistencia-icon"><i className="bi bi-exclamation-triangle-fill" /></span>
               <div>
                 <strong>INASISTENCIA / NO-SHOW</strong>
                 <p>El alumno no se presentó al vuelo. Los campos técnicos quedan en blanco. Se requieren firmas para completar el registro.</p>
