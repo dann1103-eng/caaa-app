@@ -13,7 +13,7 @@
 .ins {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 100px 40px 60px;
+  padding: 86px 40px 32px;
   animation: ins-fadeIn 0.5s var(--ease-out);
   min-height: 100vh;
   position: relative;
@@ -35,7 +35,7 @@
 
 /* ── Cabecera ────────────────────────────────────────────────────────────── */
 .ins__top {
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -67,7 +67,7 @@
 .ins__tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
   background: var(--c-surface-2);
   padding: 6px;
   border-radius: var(--radius-md);
@@ -99,9 +99,9 @@
 
 /* ── Sección ─────────────────────────────────────────────────────────────── */
 .ins__section {
-  margin-bottom: 1.75rem;
+  margin-bottom: 1.25rem;
   background: var(--c-surface-1);
-  padding: 24px;
+  padding: 18px;
   border-radius: var(--radius-md);
   border: 1px solid var(--c-line-1);
   box-shadow: var(--shadow-sm);
@@ -124,7 +124,7 @@
   font-size: var(--text-lg);
   font-weight: 700;
   color: var(--c-brand-900);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -143,21 +143,21 @@
 /* ── Cuadrícula Semanal ────────────────────────────────────────────────── */
 .ins__semana-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
 }
 
 .ins__day-group {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0.85rem;
 }
 
 .ins__day-header {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 9px;
   border-bottom: 1px solid var(--c-line-1);
 }
 
@@ -183,18 +183,18 @@
 .ins__day-cards {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.7rem;
 }
 
-/* ── Tarjetas de Vuelo ──────────────────────────────────────────────────── */
+/* ── Tarjetas de Vuelo (compactas: caben más en pantalla) ──────────────── */
 .ins__card {
   background: var(--c-surface-1);
   border: 1px solid var(--c-line-1);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 13px 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 9px;
   transition: transform var(--dur-med) var(--ease-out), box-shadow var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out);
   box-shadow: var(--shadow-sm);
 }
@@ -223,7 +223,7 @@
 }
 
 .ins__card-hora {
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 700;
   color: var(--c-brand-900);
   font-family: var(--font-mono);
@@ -349,8 +349,8 @@
 .ins__card-actions {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .ins__btn-group,
@@ -374,7 +374,7 @@
   background: var(--c-brand-700);
   color: oklch(99% 0 0);
   border: none;
-  padding: 12px;
+  padding: 9px;
   border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: var(--text-sm);
@@ -406,7 +406,7 @@
   background: transparent;
   color: var(--c-danger-700);
   border: 1px solid var(--c-danger-700);
-  padding: 12px;
+  padding: 9px;
   border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: var(--text-sm);
@@ -435,7 +435,7 @@
 /* Reporte / "marcar realizado" = positivo verde */
 .ins__btn-reporte {
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   background: var(--c-success-500);
   color: oklch(99% 0 0);
   border: none;
@@ -456,7 +456,7 @@
 
 .ins__btn-revisar-checklist {
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   background: transparent;
   color: var(--c-success-700);
   border: 1px solid var(--c-success-500);
