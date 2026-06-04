@@ -33,6 +33,17 @@
   --c-line-2: rgba(255, 255, 255, 0.13);
   --c-line-3: rgba(255, 255, 255, 0.20);
 
+  /* Semánticos en MODO OSCURO: fondo translúcido de color + texto brillante,
+     en vez de los tintes claros (-50) que se ven pastel/lavados sobre el tablero.
+     Afecta las píldoras de estado de flota, mantenimiento, METAR, etc. */
+  --c-info-50:    rgba(96, 165, 250, 0.16);  --c-info-100:    rgba(96, 165, 250, 0.32);  --c-info-700:    #93c5fd;
+  --c-success-50: rgba(52, 211, 153, 0.16);  --c-success-100: rgba(52, 211, 153, 0.32);  --c-success-700: #6ee7b7;
+  --c-warn-50:    rgba(251, 191, 36, 0.16);  --c-warn-100:    rgba(251, 191, 36, 0.34);   --c-warn-700:    #fcd34d;
+  --c-danger-50:  rgba(248, 113, 113, 0.16); --c-danger-100:  rgba(248, 113, 113, 0.34);  --c-danger-700:  #fca5a5;
+  --c-primary-50: rgba(248, 113, 113, 0.16); --c-primary-100: rgba(248, 113, 113, 0.34);  --c-primary-700: #fca5a5;
+  /* alias verde (success) */
+  --c-accent-50:  rgba(52, 211, 153, 0.16);  --c-accent-700:  #6ee7b7;
+
   background: var(--pp-bg);
   color: var(--pp-text-main);
   font-family: var(--font-sans);
