@@ -13,8 +13,8 @@
   --pp-text-bright: #ffffff;
   --pp-text-main: #cbd5e1;
   --pp-text-muted: #64748b;
-  
-  --pp-header-h: 80px;
+
+  --pp-header-h: 58px;
 }
 
 /* ── Reset & Base ───────────────────────────────────────────────────────── */
@@ -43,21 +43,26 @@
   flex-direction: column;
 }
 
-/* METAR ya vive en la topbar → quitar el widget redundante del sidebar y dar
-   espacio a flota + mantenimiento (lo que el usuario quiere ver sin scroll). */
-.pp .mw { display: none; }
+/* METAR: se CONSERVA el widget decodificado en el sidebar (compacto). El
+   "codificado" queda oculto porque su info ya aparece resumida en la topbar. */
+.pp .mw--raw { display: none; }
+.pp .mw { margin-bottom: 0; padding: 10px 12px; border-radius: 16px; }
+.pp .mw__header { margin-bottom: 0.4rem; }
+.pp .mw__grid { gap: 5px; margin-bottom: 5px; }
+.pp .mw__cell { padding: 5px 8px; gap: 0; }
+.pp .mw__cell-value { font-size: var(--text-sm); line-height: 1.2; }
+.pp .mw__nubes { padding: 5px 8px; gap: 3px; }
 
-/* Widgets de flota/mantenimiento: compactos para que TODO quepa en pantalla */
-.pp .pw__widget { padding: 12px 14px; gap: 9px; border-radius: 16px; }
-.pp .pw__cards { gap: 6px; }
-.pp .pw__card { padding: 7px 10px; gap: 2px; }
-.pp .pw__card-aeronave { font-size: var(--text-sm); }
-.pp .pw__card-sub { font-size: var(--text-xs); }
-.pp .pw__bar-wrap { margin-top: 7px; height: 4px; }
-.pp .pw__bar-pct { top: -15px; }
-.pp .pw__flota-resumen { gap: 6px; }
-/* "Próximos vuelos" es redundante con la tabla de horario de la izquierda;
-   se oculta para que Flota + Mantenimiento quepan en pantalla sin scroll. */
+/* Flota / Mantenimiento: compactos para caber junto al METAR sin scroll */
+.pp .pw__widget { padding: 9px 12px; gap: 5px; border-radius: 16px; }
+.pp .pw__cards { gap: 4px; }
+.pp .pw__card { padding: 3px 8px; gap: 0; }
+.pp .pw__card-aeronave { font-size: var(--text-sm); line-height: 1.15; }
+.pp .pw__card-sub { font-size: var(--text-xs); line-height: 1.15; }
+.pp .pw__bar-wrap { margin-top: 4px; height: 4px; }
+.pp .pw__bar-pct { top: -14px; }
+.pp .pw__flota-resumen { gap: 5px; }
+/* "Próximos vuelos" sigue oculto (redundante con la tabla de horario). */
 .pp .pp__sb-card { display: none; }
 
 .pp__container {
@@ -171,7 +176,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 6px;
   z-index: 5;
 }
 
@@ -226,9 +231,9 @@
   display: grid;
   grid-template-columns: 1fr 340px;
   gap: 24px;
-  min-height: 0; 
-  margin-top: 16px;
-  height: calc(100vh - var(--pp-header-h) - 100px); /* Adjust for header and topbar/ticker */
+  min-height: 0;
+  margin-top: 8px;
+  height: calc(100vh - var(--pp-header-h) - 86px); /* topbar + ticker + márgenes */
 }
 
 .pp__main-col {
@@ -501,7 +506,7 @@
 .pp__sidebar {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   overflow-y: auto;
   padding-right: 8px;
   height: 100%;
