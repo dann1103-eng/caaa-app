@@ -19,15 +19,46 @@
 
 /* ── Reset & Base ───────────────────────────────────────────────────────── */
 .pp {
+  /* Scope: los widgets COMPARTIDOS (MetarWidget, EstadoFlota, Mantenimiento)
+     heredan la paleta OSCURA de la proyección en vez de salir blancos. */
+  --c-surface-0: #0b0f19;
+  --c-surface-1: #161f30;
+  --c-surface-2: #1e293b;
+  --c-surface-3: #273449;
+  --c-ink-1: #f1f5f9;
+  --c-ink-2: #cbd5e1;
+  --c-ink-3: #94a3b8;
+  --c-ink-4: #64748b;
+  --c-line-1: rgba(255, 255, 255, 0.08);
+  --c-line-2: rgba(255, 255, 255, 0.13);
+  --c-line-3: rgba(255, 255, 255, 0.20);
+
   background: var(--pp-bg);
   color: var(--pp-text-main);
-  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  font-family: var(--font-sans);
   height: 100vh;
-  overflow: hidden; 
+  overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
 }
+
+/* METAR ya vive en la topbar → quitar el widget redundante del sidebar y dar
+   espacio a flota + mantenimiento (lo que el usuario quiere ver sin scroll). */
+.pp .mw { display: none; }
+
+/* Widgets de flota/mantenimiento: compactos para que TODO quepa en pantalla */
+.pp .pw__widget { padding: 12px 14px; gap: 9px; border-radius: 16px; }
+.pp .pw__cards { gap: 6px; }
+.pp .pw__card { padding: 7px 10px; gap: 2px; }
+.pp .pw__card-aeronave { font-size: var(--text-sm); }
+.pp .pw__card-sub { font-size: var(--text-xs); }
+.pp .pw__bar-wrap { margin-top: 7px; height: 4px; }
+.pp .pw__bar-pct { top: -15px; }
+.pp .pw__flota-resumen { gap: 6px; }
+/* "Próximos vuelos" es redundante con la tabla de horario de la izquierda;
+   se oculta para que Flota + Mantenimiento quepan en pantalla sin scroll. */
+.pp .pp__sb-card { display: none; }
 
 .pp__container {
   flex: 1;
@@ -470,7 +501,7 @@
 .pp__sidebar {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
   overflow-y: auto;
   padding-right: 8px;
   height: 100%;
@@ -484,8 +515,8 @@
 .pp__sb-card {
   background: var(--pp-card-bg);
   border: 1px solid var(--pp-card-border);
-  border-radius: 20px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 14px 16px;
 }
 
 .pp__sb-head {
