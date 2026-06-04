@@ -115,7 +115,13 @@ luego `node run-sql.js`. El usuario autorizó cambios aditivos de esquema durant
 La deriva también afecta **CHECK constraints** (no solo columnas): el código a veces
 usa valores que el constraint viejo no permite (error `violates check constraint`). Fix:
 ampliar el constraint con DROP + ADD (requiere autorización del usuario, no es aditivo).
-Ya corregido: `reporte_vuelo_estado_check` ahora incluye `PENDIENTE_ALUMNO`.
+Ya corregido: `reporte_vuelo_estado_check` ahora incluye `PENDIENTE_ALUMNO`; y
+`vuelo_estado_check` ahora incluye `EN_PROGRESO` (migración 009, sesión 2026-06-04):
+el código avanza `SALIDA_HANGAR → EN_PROGRESO` pero el constraint viejo solo permitía
+`EN_VUELO`, así que el instructor no podía avanzar etapas de vuelo (la barra de
+progreso quedaba clavada). **Nota de nombres:** el código usa `EN_PROGRESO`; el
+constraint conserva además `EN_VUELO` por compat. Si algún estado nuevo no avanza,
+revisar primero este constraint.
 
 **Es muy probable que aparezcan MÁS columnas/constraints faltantes** al probar módulos no
 ejercitados aún (administración/contabilidad, aula virtual, nómina, etc.). Mismo proceso.
@@ -320,3 +326,68 @@ Migraciones nuevas del módulo admin: `legacy/CAA-backend/migrations/006`, `007`
   Aún no implementado.
 - Seguir probando módulos no ejercitados → si aparece deriva de esquema, arreglar con el proceso de la sección 6.
 - `PLAN_IMPLEMENTACION.md` es el plan original (referencia histórica).
+
+---
+
+## 12. Sesión 2026-06-04 — Rediseño visual integral (DESPLEGADO) + fixes funcionales
+
+**TODO esto ya está en `master` y en producción** (Vercel auto-deploy del frontend;
+backend por `railway up` cuando aplica; la migración 009 ya corrió contra Supabase).
+
+### Rediseño visual "aviónica de precisión" (white-label) — desplegado
+- **Identidad nueva** en `CAA-frontend/src/styles/tokens.css` (fuente única, OKLCH):
+  navy CAAA + **rojo del logo como acento temeable** (`--academy-accent-h/c`, una variable
+  por academia) + verde éxito + semánticos. Retirados Exo 2 / Outfit → **Inter** (UI) +
+  **JetBrains Mono** (datos). `index.css` es shim: `--primary/--secondary` legacy → tokens.
+- **Reglas** (ver `DESIGN.md` y `PRODUCT.md` en la **raíz del repo**, contexto de la skill
+  `/impeccable`): **botón primario navy**, destructivo **rojo en contorno**, positivo **verde**;
+  rojo acento ≤10% (nav/tab activa marcada con indicador rojo, "en vivo", alertas). Sin
+  side-stripes, sin gradientes en headers, sin glassmorphism, sin emojis (→ Bootstrap Icons),
+  tablas con `tabular-nums`.
+- **Alcance:** TODO el front (Login, Alumno, Instructor, Programación, Turno, Admin,
+  Administración, modales, widgets, loadsheet) + la **Proyección** (que al principio se excluyó
+  y luego se rediseñó a pedido del usuario, ver abajo).
+- **Galería de capturas:** `design-mockups/final/index.html` (34 capturas por rol).
+
+### Acceso ADMIN = super-usuario (admin + administración) — desplegado
+- Backend: `administracionRoutes.js` → `WRITE_ROLES = ["ADMINISTRACION","ADMIN"]` (antes ADMIN
+  solo leía). `ProtectedAdministracion` ya permitía ADMIN. Requirió `railway up`.
+- Nav: `AdminSidebar` tiene ítem **"Administración"** → `/administracion/dashboard`;
+  `AdministracionSidebar` muestra **"Panel del sistema"** → `/admin` (solo si rol ADMIN).
+
+### Layout dashboards (menos scroll) — desplegado
+- **Alumno** (`pages/Alumno/Dashboard.css`): sidebar (METAR/operaciones) **sticky**, cards compactas.
+- **Instructor** (`pages/Instructor/Dashboard.*`): "Reportes" + "Mis alumnos" lado a lado (2 col);
+  tarjetas de vuelo **compactas** + columnas `minmax(280px) auto-fit` → los días caben en una fila.
+
+### Proyección / Operaciones (modo oscuro) — rediseñada y desplegada
+- Los widgets compartidos (MetarWidget, EstadoFlota, Mantenimiento) salían **blancos** sobre el
+  tablero: fix = **scope de paleta oscura en `.pp`** (sobreescribe `--c-surface/-ink/-line` y, para
+  que las píldoras no se vean pastel, también los **semánticos `-50/-100/-700`** a translúcido+brillante).
+- **Cabe sin scroll**: se compactaron flota/mantenimiento, se recuperó altura del header
+  (`--pp-header-h`), se ocultó "Próximos vuelos" (redundante con la tabla) y el METAR **codificado**
+  (ya está en la topbar). El METAR **decodificado** sí se conserva en el sidebar.
+- **Tiempo real arreglado** (`PaginaProgramacion.jsx`): la proyección es vista pasiva y dependía 100%
+  del socket, que tras el proxy de Railway no entregaba eventos confiables → ahora **refresco
+  periódico cada 20s** (red de seguridad: refleja agendados/estados en ≤20s aunque el socket falle) +
+  socket **`transports: ["polling","websocket"]`** (recomendado tras proxies) + `reconnectionAttempts: Infinity`.
+
+### Fix funcional: el instructor no podía avanzar etapas de vuelo (migración 009)
+- Causa: `vuelo_estado_check` no incluía `EN_PROGRESO` (ver sección 6). Migración 009 aplicada.
+- La **barra de progreso "buggeada"** era síntoma: el vuelo quedaba clavado en SALIDA_HANGAR.
+
+### Andamiaje DEV-only que vive en el repo (revisar/quitar si molesta, no afecta prod)
+- `CAA-frontend/capture.mjs`, `capture-all.mjs`, `gen-index.mjs` (Playwright; `playwright` ya **NO**
+  está en devDependencies — reinstalar si se quieren correr). `.claude/launch.json` (dev server).
+- **Pipeline de capturas con datos reales sin CORS:** proxy de Vite (`vite.config.js`) → Railway +
+  `public/config.js` con `API_URL: "http://localhost:5179"`. En `master` quedó **sin** proxy y con la
+  URL de prod (limpio); para volver a capturar, re-agregar el proxy + config localhost (ver memoria
+  `ui-capture-pipeline`). Login local vía API: `fetch('/api/auth/login')` con el proxy; en prod usar
+  la URL absoluta de Railway (CORS permite el origen de Vercel).
+
+**Pendiente / siguiente:**
+- Si el usuario quiere, aplicar el mismo **refresco periódico** al dashboard de **Turno** (también
+  vista pasiva). Confirmar si el socket en tiempo real ya entrega bien tras el cambio a polling-first.
+- Theming por academia: el sistema ya es white-label (cambiar `--academy-accent-h/c` + logo);
+  falta, si se vende a otra academia, exponer ese cambio (config por tenant).
+- Revisar si hay **más deriva de constraints** al ejercitar estados nuevos (mismo patrón que 009).
