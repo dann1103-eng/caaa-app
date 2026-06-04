@@ -29,9 +29,10 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 // Auth para todas las rutas
 router.use(authMiddleware);
 
-// Roles: ADMINISTRACION puede TODO. ADMIN tiene SOLO lectura (GET) en todo el módulo.
+// Roles: ADMINISTRACION y ADMIN tienen acceso COMPLETO (lectura y escritura) al
+// módulo. El ADMIN del sistema opera como super-usuario (admin + administración).
 const READ_ROLES = ["ADMINISTRACION", "ADMIN"];
-const WRITE_ROLES = ["ADMINISTRACION"];
+const WRITE_ROLES = ["ADMINISTRACION", "ADMIN"];
 
 // ── Ficha de alumno (consolidada) ─────────────────────────────────────
 router.get("/licencias",                    roleMiddleware(READ_ROLES),  adminUsuario.listLicencias);

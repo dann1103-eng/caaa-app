@@ -53,6 +53,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
     { label: "Perfiles", path: "/admin/perfiles", icon: "bi-person-badge" },
     { label: "Alumnos", path: "/admin/alumnos", icon: "bi-people" },
     { label: "Cancelaciones", path: "/admin/cancelaciones", icon: "bi-x-circle", badge: pendingCancelCount },
+    { label: "Administración", path: "/administracion/dashboard", icon: "bi-cash-coin" },
   ];
 
   return (
@@ -87,7 +88,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
                   <span>{item.label}</span>
                 </div>
                 {item.badge > 0 && (
-                  <span style={{ backgroundColor: '#ef4444', color: 'white', padding: '2px 8px', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700 }}>
+                  <span style={{ backgroundColor: 'var(--c-primary-500)', color: 'oklch(99% 0 0)', padding: '2px 8px', borderRadius: 'var(--radius-pill)', fontSize: 'var(--text-xs)', fontWeight: 700 }}>
                     {item.badge}
                   </span>
                 )}

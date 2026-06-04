@@ -99,12 +99,25 @@
 
 /* ── Sección ─────────────────────────────────────────────────────────────── */
 .ins__section {
-  margin-bottom: 3rem;
+  margin-bottom: 1.75rem;
   background: var(--c-surface-1);
   padding: 24px;
   border-radius: var(--radius-md);
   border: 1px solid var(--c-line-1);
   box-shadow: var(--shadow-sm);
+}
+
+/* Zona secundaria: Reportes + Mis alumnos lado a lado (menos scroll) */
+.ins__secondary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+}
+.ins__secondary .ins__section { margin-bottom: 0; }
+
+@media (max-width: 1200px) {
+  .ins__secondary { grid-template-columns: 1fr; gap: 1.5rem; }
 }
 
 .ins__section-title {

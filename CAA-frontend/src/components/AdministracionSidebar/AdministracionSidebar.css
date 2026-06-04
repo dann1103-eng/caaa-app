@@ -98,6 +98,27 @@
   border-top: 1px solid var(--c-line-1);
 }
 
+.adf-sidebar__crosslink {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-bottom: var(--sp-2);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--c-brand-50);
+  border: 1px solid var(--c-line-1);
+  color: var(--c-brand-700);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.adf-sidebar__crosslink:hover { background: var(--c-brand-100); }
+
 .adf-sidebar__logout {
   width: 100%;
   background: transparent;

@@ -5,6 +5,7 @@ import "./AdministracionSidebar.css";
 export default function AdministracionSidebar({ isOpen, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -44,6 +45,12 @@ export default function AdministracionSidebar({ isOpen, onClose }) {
         ))}
       </nav>
       <div className="adf-sidebar__bottom">
+        {user.rol === "ADMIN" && (
+          <Link to="/admin/dashboard" className="adf-sidebar__crosslink" onClick={onClose}>
+            <i className="bi bi-arrow-left-circle"></i>
+            Panel del sistema
+          </Link>
+        )}
         <button className="adf-sidebar__logout" onClick={handleLogout}>
           <i className="bi bi-box-arrow-left"></i>
           Cerrar sesión

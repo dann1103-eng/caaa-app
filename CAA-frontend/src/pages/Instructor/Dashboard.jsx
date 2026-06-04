@@ -563,6 +563,7 @@ export default function InstructorDashboard() {
           )}
         </div>
 
+        <div className="ins__secondary">
         <div className="ins__section">
           <h3 className="ins__section-title">
             <i className="bi bi-file-earmark-text" style={{ color: 'var(--c-brand-700)' }}></i>
@@ -664,6 +665,7 @@ export default function InstructorDashboard() {
               </table>
             </div>
           )}
+        </div>
         </div>
       </div>
     </>
