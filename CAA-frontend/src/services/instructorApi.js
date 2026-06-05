@@ -22,6 +22,14 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   return res.data;
 };
 
+export const actualizarLimitesAlumno = async (id_alumno, limite_vuelos_avion, limite_vuelos_simulador) => {
+  const res = await axios.patch(
+    `${API_URL}/instructor/alumnos/${id_alumno}/limites`,
+    { limite_vuelos_avion, limite_vuelos_simulador }
+  );
+  return res.data;
+};
+
 export const habilitarVueloExtra = async (id_alumno, id_semana, limite_vuelos_avion, limite_vuelos_simulador) => {
   const res = await axios.patch(
     `${API_URL}/instructor/alumnos/${id_alumno}/habilitar-vuelo-extra`,

@@ -12,6 +12,7 @@ router.get("/vuelos-semana",                                  authMiddleware, in
 router.get("/mis-alumnos",                                    authMiddleware, instructorAlumno.getMisAlumnos);
 router.post("/vuelos/:id_vuelo/avanzar",                      authMiddleware, instructorVuelo.avanzarEstadoVuelo);
 router.post("/vuelos/:id_vuelo/inasistencia",                 authMiddleware, instructorVuelo.registrarInasistencia);
+router.patch("/alumnos/:id_alumno/limites",                   authMiddleware, instructorAlumno.actualizarLimitesAlumno);
 router.patch("/alumnos/:id_alumno/habilitar-vuelo-extra",     authMiddleware, instructorAlumno.habilitarVueloExtra);
 
 router.get("/reportes-pendientes",                            authMiddleware, instructorReporte.getReportesPendientes);

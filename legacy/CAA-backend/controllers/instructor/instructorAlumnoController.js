@@ -38,6 +38,59 @@ exports.getMisAlumnos = async (req, res) => {
   }
 };
 
+// Edita el LÍMITE BASE de vuelos del alumno (alumno.limite_vuelos_avion/simulador).
+// A diferencia de habilitarVueloExtra (que ajusta una semana concreta), esto define
+// el valor por defecto permanente y está siempre disponible para el instructor del
+// alumno, exista o no una semana próxima publicada.
+exports.actualizarLimitesAlumno = async (req, res) => {
+  const { id_alumno } = req.params;
+  const limAvion = parseInt(req.body.limite_vuelos_avion, 10);
+  const limSim = parseInt(req.body.limite_vuelos_simulador, 10);
+
+  const client = await db.connect();
+  try {
+    if (isNaN(limAvion) || limAvion < 0 || limAvion > 6 || isNaN(limSim) || limSim < 0 || limSim > 6) {
+      return res.status(400).json({ message: "Los límites deben estar entre 0 y 6" });
+    }
+
+    const id_instructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!id_instructor) return res.status(403).json({ message: "No sos instructor activo" });
+
+    const perteneceRes = await client.query(
+      "SELECT limite_vuelos_avion, limite_vuelos_simulador FROM alumno WHERE id_alumno = $1 AND id_instructor = $2",
+      [id_alumno, id_instructor]
+    );
+    if (perteneceRes.rows.length === 0) {
+      return res.status(403).json({ message: "Ese alumno no te está asignado" });
+    }
+
+    await client.query("BEGIN");
+    await client.query(
+      "UPDATE alumno SET limite_vuelos_avion = $1, limite_vuelos_simulador = $2 WHERE id_alumno = $3",
+      [limAvion, limSim, id_alumno]
+    );
+
+    await logAuditoria(client, {
+      actor: req.user,
+      accion: "OTRO",
+      entidad: "alumno",
+      id_entidad: Number(id_alumno),
+      descripcion: `Instructor ajustó límite base de vuelos alumno #${id_alumno}: Avion ${limAvion}, Sim ${limSim}`,
+      before_data: perteneceRes.rows[0],
+      after_data: { limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim },
+    });
+
+    await client.query("COMMIT");
+    res.json({ message: "Límites actualizados", limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("actualizarLimitesAlumno instructor:", e);
+    res.status(500).json({ message: "Error al actualizar límites" });
+  } finally {
+    client.release();
+  }
+};
+
 exports.habilitarVueloExtra = async (req, res) => {
   const { id_alumno } = req.params;
   const { id_semana, limite_vuelos_avion, limite_vuelos_simulador } = req.body;

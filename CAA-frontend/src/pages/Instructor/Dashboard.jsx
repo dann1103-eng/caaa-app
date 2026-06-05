@@ -9,7 +9,7 @@ import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloMo
 import {
   getVuelosSemana,
   getMisAlumnos,
-  habilitarVueloExtra,
+  actualizarLimitesAlumno,
   avanzarEstadoVuelo,
   getReportesPendientes,
   registrarInasistencia,
@@ -222,17 +222,29 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
 }
 
 // ── Fila de alumno ─────────────────────────────────────────────────────────
-function AlumnoFila({ alumno, semana, onGuardado }) {
-  const [nuevoLimiteAvion, setNuevoLimiteAvion] = useState("");
-  const [nuevoLimiteSimulador, setNuevoLimiteSimulador] = useState("");
+function AlumnoFila({ alumno, onGuardado }) {
+  const baseAvion = String(alumno.limite_vuelos_avion ?? 3);
+  const baseSim = String(alumno.limite_vuelos_simulador ?? 3);
+  const [limAvionStr, setLimAvionStr] = useState(baseAvion);
+  const [limSimStr, setLimSimStr] = useState(baseSim);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const handleGuardar = async () => {
-    const limAvion = nuevoLimiteAvion.trim() === "" ? alumno.limite_vuelos_avion : Number(nuevoLimiteAvion);
-    const limSim = nuevoLimiteSimulador.trim() === "" ? alumno.limite_vuelos_simulador : Number(nuevoLimiteSimulador);
+  // Re-sincronizar si el alumno cambia (ej. tras guardar/recargar)
+  useEffect(() => {
+    setLimAvionStr(String(alumno.limite_vuelos_avion ?? 3));
+    setLimSimStr(String(alumno.limite_vuelos_simulador ?? 3));
+  }, [alumno.limite_vuelos_avion, alumno.limite_vuelos_simulador]);
 
-    if (isNaN(limAvion) || limAvion < 0 || limAvion > 6 || isNaN(limSim) || limSim < 0 || limSim > 6) {
+  const cambiado = limAvionStr !== baseAvion || limSimStr !== baseSim;
+
+  const handleGuardar = async () => {
+    const limAvion = Number(limAvionStr);
+    const limSim = Number(limSimStr);
+
+    if (limAvionStr.trim() === "" || limSimStr.trim() === "" ||
+        isNaN(limAvion) || limAvion < 0 || limAvion > 6 ||
+        isNaN(limSim) || limSim < 0 || limSim > 6) {
       setError("Valores entre 0 y 6");
       return;
     }
@@ -240,9 +252,7 @@ function AlumnoFila({ alumno, semana, onGuardado }) {
     setError("");
     setSaving(true);
     try {
-      await habilitarVueloExtra(alumno.id_alumno, semana.id_semana, limAvion, limSim);
-      setNuevoLimiteAvion("");
-      setNuevoLimiteSimulador("");
+      await actualizarLimitesAlumno(alumno.id_alumno, limAvion, limSim);
       onGuardado(alumno.id_alumno, limAvion, limSim);
       toast.success("Límites actualizados");
     } catch (e) {
@@ -277,43 +287,37 @@ function AlumnoFila({ alumno, semana, onGuardado }) {
         </div>
       </td>
       <td className="ins__td">
-        {semana ? (
-          <div className="ins__limite-dual-wrap">
-            <div className="ins__limite-field">
-              <label>Avión</label>
-              <input
-                className="ins__limite-input"
-                type="number"
-                min={0}
-                max={6}
-                value={nuevoLimiteAvion}
-                placeholder="0-6"
-                onChange={(e) => { setNuevoLimiteAvion(e.target.value); setError(""); }}
-              />
-            </div>
-            <div className="ins__limite-field">
-              <label>Sim.</label>
-              <input
-                className="ins__limite-input"
-                type="number"
-                min={0}
-                max={6}
-                value={nuevoLimiteSimulador}
-                placeholder="0-6"
-                onChange={(e) => { setNuevoLimiteSimulador(e.target.value); setError(""); }}
-              />
-            </div>
-            <button
-              className="ins__limite-btn"
-              disabled={saving || (!nuevoLimiteAvion.trim() && !nuevoLimiteSimulador.trim())}
-              onClick={handleGuardar}
-            >
-              {saving ? "…" : "Actualizar"}
-            </button>
+        <div className="ins__limite-dual-wrap">
+          <div className="ins__limite-field">
+            <label>Avión</label>
+            <input
+              className="ins__limite-input"
+              type="number"
+              min={0}
+              max={6}
+              value={limAvionStr}
+              onChange={(e) => { setLimAvionStr(e.target.value); setError(""); }}
+            />
           </div>
-        ) : (
-          <span className="ins__sin-semana">Sin semana próxima</span>
-        )}
+          <div className="ins__limite-field">
+            <label>Sim.</label>
+            <input
+              className="ins__limite-input"
+              type="number"
+              min={0}
+              max={6}
+              value={limSimStr}
+              onChange={(e) => { setLimSimStr(e.target.value); setError(""); }}
+            />
+          </div>
+          <button
+            className="ins__limite-btn"
+            disabled={saving || !cambiado}
+            onClick={handleGuardar}
+          >
+            {saving ? "…" : "Guardar"}
+          </button>
+        </div>
         {error && <div className="ins__fila-error">{error}</div>}
       </td>
     </tr>
@@ -611,16 +615,10 @@ export default function InstructorDashboard() {
             <i className="bi bi-people" style={{ color: 'var(--c-brand-700)' }}></i>
             Mis alumnos asignados
           </h3>
-          {semanaProxima && (
-            <p className="ins__semana-label">
-              <i className="bi bi-calendar-event"></i> Límites para semana próxima:{" "}
-              <strong>
-                {new Date(semanaProxima.fecha_inicio).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}
-                {" — "}
-                {new Date(semanaProxima.fecha_fin).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })}
-              </strong>
-            </p>
-          )}
+          <p className="ins__semana-label">
+            <i className="bi bi-info-circle"></i> Límite de vuelos por semana de cada alumno
+            (avión y simulador, 0–6). Es el valor base permanente; podés ajustarlo en cualquier momento.
+          </p>
 
           <div className="ins__filters-alumnos">
             <div className="ins__search-group">
@@ -657,7 +655,6 @@ export default function InstructorDashboard() {
                       <AlumnoFila
                         key={a.id_alumno}
                         alumno={a}
-                        semana={semanaProxima}
                         onGuardado={handleGuardado}
                       />
                     ))}
