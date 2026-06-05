@@ -61,6 +61,8 @@ router.get("/mi-cuenta", alumnoAccess, alumnoCuenta.miCuenta);
 router.get("/mi-cuenta/extracto", alumnoAccess, alumnoCuenta.miExtracto);
 router.get("/mi-avance-curso", alumnoAccess, alumnoCuenta.miAvanceCurso);
 router.get("/mis-documentos", alumnoAccess, alumnoCuenta.misDocumentos);
+router.get("/mis-documentos/:id/archivo-url", alumnoAccess, alumnoCuenta.miDocumentoArchivoUrl);
+router.get("/mi-historial", alumnoAccess, alumnoCuenta.miHistorial);
 
 // --- Aula virtual (resumen propio del alumno) ---
 const aulaCtl = require("../controllers/administracion/aulaVirtualController");

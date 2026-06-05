@@ -10,6 +10,8 @@ const alumnoWb = require("../controllers/alumno/alumnoWbController");
 router.get("/vuelos-hoy",                                     authMiddleware, instructorVuelo.getVuelosHoy);
 router.get("/vuelos-semana",                                  authMiddleware, instructorVuelo.getVuelosSemana);
 router.get("/mis-alumnos",                                    authMiddleware, instructorAlumno.getMisAlumnos);
+router.get("/mi-ficha",                                       authMiddleware, instructorAlumno.miFicha);
+router.get("/mi-historial",                                   authMiddleware, instructorAlumno.miHistorial);
 router.post("/vuelos/:id_vuelo/avanzar",                      authMiddleware, instructorVuelo.avanzarEstadoVuelo);
 router.post("/vuelos/:id_vuelo/inasistencia",                 authMiddleware, instructorVuelo.registrarInasistencia);
 router.patch("/alumnos/:id_alumno/limites",                   authMiddleware, instructorAlumno.actualizarLimitesAlumno);

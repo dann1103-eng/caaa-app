@@ -91,6 +91,104 @@ exports.actualizarLimitesAlumno = async (req, res) => {
   }
 };
 
+// Ficha propia del instructor (solo lectura): datos de empleado/nómina, licencia,
+// cursos asignados y alumnos asignados. Espeja lo que ve Administración.
+exports.miFicha = async (req, res) => {
+  try {
+    const id_usuario = req.user.id_usuario;
+    const datos = await db.query(`
+      SELECT u.username, u.nombre, u.apellido, u.correo,
+             ins.id_instructor, ins.activo AS instructor_activo, ins.licencia,
+             e.cargo, e.sueldo_base, e.es_servicios_profesionales,
+             e.dui, e.nit, e.isss_num, e.afp_num,
+             (SELECT COUNT(*) FROM alumno a WHERE a.id_instructor = ins.id_instructor) AS num_alumnos
+      FROM usuario u
+      LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
+      LEFT JOIN empleado e      ON e.id_usuario  = u.id_usuario
+      WHERE u.id_usuario = $1
+    `, [id_usuario]);
+    if (!datos.rows.length) return res.status(404).json({ ok: false, message: "Instructor no encontrado" });
+
+    const ficha = datos.rows[0];
+    let cursos = [], alumnos = [];
+    if (ficha.id_instructor) {
+      cursos = (await db.query(
+        `SELECT c.codigo, c.nombre
+         FROM instructor_curso ic JOIN curso c ON c.id = ic.id_curso
+         WHERE ic.id_instructor = $1 ORDER BY c.codigo`,
+        [ficha.id_instructor]
+      )).rows;
+      alumnos = (await db.query(
+        `SELECT u.nombre || ' ' || u.apellido AS nombre, l.nombre AS licencia
+         FROM alumno a
+         JOIN usuario u ON u.id_usuario = a.id_usuario
+         LEFT JOIN licencia l ON l.id_licencia = a.id_licencia
+         WHERE a.id_instructor = $1 AND a.activo = true
+         ORDER BY u.apellido, u.nombre`,
+        [ficha.id_instructor]
+      )).rows;
+    }
+    res.json({ ok: true, data: { ...ficha, cursos, alumnos } });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Historial propio del instructor (solo lectura): planillas, horas instruidas,
+// clases, exámenes y pago de teoría. Espeja usuariosController.historialInstructor.
+exports.miHistorial = async (req, res) => {
+  try {
+    const id_instructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!id_instructor) return res.status(403).json({ ok: false, message: "No sos instructor activo" });
+
+    const planillas = await db.query(`
+      SELECT p.id AS id_periodo, p.periodo_inicio, p.periodo_fin, p.tipo_planilla, p.estado, p.fecha_pago,
+             d.bruto, d.isr, d.isss, d.afp, d.retencion, d.total AS neto
+      FROM nomina_detalle d
+      JOIN nomina_periodo p ON p.id = d.id_periodo
+      WHERE d.id_instructor = $1
+      ORDER BY p.periodo_inicio DESC
+    `, [id_instructor]);
+
+    const horas = await db.query(`
+      SELECT COALESCE(SUM(rv.tacometro_llegada - rv.tacometro_salida), 0) AS horas_total,
+             COUNT(*) AS vuelos
+      FROM vuelo v
+      JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+      WHERE v.id_instructor = $1 AND v.estado = 'COMPLETADO'
+        AND COALESCE(rv.es_inasistencia, false) = false
+    `, [id_instructor]);
+
+    const clases = await db.query(`
+      SELECT s.id, s.fecha, s.tema, c.codigo AS curso_codigo, c.nombre AS curso_nombre
+      FROM sesion_clase s
+      LEFT JOIN curso c ON c.id = s.id_curso
+      WHERE s.id_instructor = $1
+      ORDER BY s.fecha DESC
+    `, [id_instructor]);
+
+    const examenes = await db.query(
+      `SELECT COUNT(*) AS total FROM evaluacion WHERE id_instructor = $1`, [id_instructor]
+    );
+
+    const teoria = await db.query(`
+      SELECT COALESCE(SUM(monto_usd) FILTER (WHERE estado = 'PAGADO'), 0)    AS pagado,
+             COALESCE(SUM(monto_usd) FILTER (WHERE estado = 'PENDIENTE'), 0) AS pendiente
+      FROM pago_teoria_pendiente WHERE id_instructor = $1
+    `, [id_instructor]);
+
+    res.json({ ok: true, data: {
+      planillas: planillas.rows,
+      horas: horas.rows[0],
+      clases: clases.rows,
+      examenes_total: Number(examenes.rows[0].total),
+      teoria: teoria.rows[0],
+    }});
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 exports.habilitarVueloExtra = async (req, res) => {
   const { id_alumno } = req.params;
   const { id_semana, limite_vuelos_avion, limite_vuelos_simulador } = req.body;

@@ -151,6 +151,16 @@ export const getMisDocumentos = async () => {
   return res.data;
 };
 
+export const getMiDocumentoArchivoUrl = async (id) => {
+  const res = await axios.get(`${API_URL}/alumno/mis-documentos/${id}/archivo-url`);
+  return res.data;
+};
+
+export const getMiHistorial = async () => {
+  const res = await axios.get(`${API_URL}/alumno/mi-historial`);
+  return res.data;
+};
+
 export const getMiAulaVirtual = async () => {
   const res = await axios.get(`${API_URL}/alumno/mi-aula-virtual`);
   return res.data;

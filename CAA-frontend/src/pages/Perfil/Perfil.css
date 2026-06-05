@@ -380,3 +380,119 @@
   color: var(--c-ink-3);
   border: 1px solid var(--c-line-2);
 }
+
+/* ── Pestañas del perfil ───────────────────────────────────────────── */
+.perfil-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--c-line-1);
+  margin-bottom: var(--sp-5);
+}
+.perfil-tab {
+  position: relative;
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--c-ink-3);
+  cursor: pointer;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.perfil-tab:hover { color: var(--c-ink-1); background: var(--c-surface-2); }
+.perfil-tab--active { color: var(--c-ink-1); font-weight: 600; }
+.perfil-tab--active::after {
+  content: "";
+  position: absolute;
+  left: 12px; right: 12px; bottom: -1px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--c-primary-500);
+}
+
+/* Etiqueta "solo lectura" junto a un título de sección */
+.perfil-ro-tag {
+  margin-left: 8px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--c-ink-4);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-line-2);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  vertical-align: middle;
+}
+
+/* ── Tablas de solo lectura ────────────────────────────────────────── */
+.perfil-ro-table-wrap { overflow-x: auto; }
+.perfil-ro-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.perfil-ro-table th, .perfil-ro-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-line-1);
+  white-space: nowrap;
+}
+.perfil-ro-table th {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--c-ink-4);
+  font-weight: 600;
+}
+.perfil-ro-table td.num, .perfil-ro-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.perfil-ro-table td.pos { color: var(--c-success-700); }
+.perfil-ro-table td.neg { color: var(--c-danger-700); }
+.perfil-ro-empty { color: var(--c-ink-4); font-style: italic; text-align: center; padding: 16px; }
+
+.perfil-link-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--c-brand-700, var(--c-primary-700));
+  font-weight: 600; font-size: var(--text-sm);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.perfil-link-btn:hover { text-decoration: underline; }
+
+/* ── Saldo ─────────────────────────────────────────────────────────── */
+.perfil-saldo {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: var(--sp-4);
+}
+.perfil-saldo-lbl { color: var(--c-ink-3); font-size: var(--text-sm); }
+.perfil-saldo-num {
+  font-size: var(--text-2xl); font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--c-success-700);
+}
+.perfil-saldo-num--neg { color: var(--c-danger-700); }
+
+/* ── Chips de estado ───────────────────────────────────────────────── */
+.perfil-chip {
+  display: inline-block; padding: 2px 10px; border-radius: var(--radius-pill);
+  font-size: var(--text-xs); font-weight: 600;
+}
+.perfil-chip--ok   { background: var(--c-success-50); color: var(--c-success-700); }
+.perfil-chip--warn { background: var(--c-warn-50); color: var(--c-warn-700); }
+.perfil-chip--bad  { background: var(--c-danger-50); color: var(--c-danger-700); }
+.perfil-chip--neutral { background: var(--c-surface-2); color: var(--c-ink-2); border: 1px solid var(--c-line-2); }
+.perfil-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.perfil-list { margin: 0; padding-left: 18px; line-height: 1.7; }
+.perfil-muted { color: var(--c-ink-4); }
+
+/* ── Stats del instructor ──────────────────────────────────────────── */
+.perfil-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;
+}
+.perfil-stat {
+  background: var(--c-surface-2); border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px;
+}
+.perfil-stat-num { font-size: var(--text-xl); font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c-ink-1); }
+.perfil-stat-lbl { font-size: var(--text-xs); color: var(--c-ink-4); }

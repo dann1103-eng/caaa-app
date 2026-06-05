@@ -17,6 +17,16 @@ export const getMisAlumnos = async () => {
   return res.data;
 };
 
+export const getMiFichaInstructor = async () => {
+  const res = await axios.get(`${API_URL}/instructor/mi-ficha`);
+  return res.data;
+};
+
+export const getMiHistorialInstructor = async () => {
+  const res = await axios.get(`${API_URL}/instructor/mi-historial`);
+  return res.data;
+};
+
 export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   const res = await axios.post(`${API_URL}/instructor/vuelos/${id_vuelo}/avanzar`, body);
   return res.data;
