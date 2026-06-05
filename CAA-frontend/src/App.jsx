@@ -25,12 +25,10 @@ import ProtectedInstructor from "./components/routes/ProtectedInstructor";
 import ForcePasswordChange from "./components/routes/ForcePasswordChange";
 import Perfil from "./pages/Perfil/Perfil";
 import AdminLayout from "./components/AdminLayout/AdminLayout";
-import PerfilesAdmin from "./pages/Admin/Perfiles";
-import AlumnosAdmin from "./pages/Admin/Alumnos";
 import CancelacionesAdmin from "./pages/Admin/Cancelaciones";
 
 // ── Módulo Administración / Contabilidad ──────────────────────────
-import AdministracionLayout from "./components/AdministracionLayout/AdministracionLayout";
+import AdministracionLayoutAuto from "./components/AdministracionLayout/AdministracionLayoutAuto";
 import ProtectedAdministracion from "./components/routes/ProtectedAdministracion";
 import AdmDashboard from "./pages/Administracion/Dashboard";
 import AdmCuentas from "./pages/Administracion/Cuentas";
@@ -174,6 +172,18 @@ function App() {
               </ProtectedAdmin>
             }
           />
+          {/* Agendar vuelos para ADMIN: el calendario de programación dentro del
+              shell unificado (sin su Header propio → conserva el sidebar). */}
+          <Route
+            path="/admin/agendar"
+            element={
+              <ProtectedAdmin>
+                <AdminLayout>
+                  <DashboardProgramacion embedded />
+                </AdminLayout>
+              </ProtectedAdmin>
+            }
+          />
           <Route
             path="/admin/auditoria"
             element={
@@ -194,26 +204,10 @@ function App() {
               </ProtectedAdmin>
             }
           />
-          <Route
-            path="/admin/perfiles"
-            element={
-              <ProtectedAdmin>
-                <AdminLayout>
-                  <PerfilesAdmin />
-                </AdminLayout>
-              </ProtectedAdmin>
-            }
-          />
-          <Route
-            path="/admin/alumnos"
-            element={
-              <ProtectedAdmin>
-                <AdminLayout>
-                  <AlumnosAdmin />
-                </AdminLayout>
-              </ProtectedAdmin>
-            }
-          />
+          {/* /admin/perfiles y /admin/alumnos eran stubs (soleado / límites).
+              Esas funciones ya están completas en la ficha de Administración. */}
+          <Route path="/admin/perfiles" element={<Navigate to="/administracion/usuarios" replace />} />
+          <Route path="/admin/alumnos"  element={<Navigate to="/administracion/alumnos" replace />} />
           <Route
             path="/admin/cancelaciones"
             element={
@@ -261,26 +255,26 @@ function App() {
 
           {/* ── Módulo Administración / Contabilidad ── */}
           <Route path="/administracion" element={<Navigate to="/administracion/dashboard" replace />} />
-          <Route path="/administracion/dashboard"     element={<ProtectedAdministracion><AdministracionLayout><AdmDashboard /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/alumnos"       element={<ProtectedAdministracion><AdministracionLayout><AdmCuentas /></AdministracionLayout></ProtectedAdministracion>} />
+          <Route path="/administracion/dashboard"     element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmDashboard /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/alumnos"       element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmCuentas /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/cuentas"       element={<Navigate to="/administracion/alumnos" replace />} />
-          <Route path="/administracion/cuentas/:id"   element={<ProtectedAdministracion><AdministracionLayout><AdmCuentaDetalle /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/alumnos/:id_alumno" element={<ProtectedAdministracion><AdministracionLayout><AdmAlumnoFicha /></AdministracionLayout></ProtectedAdministracion>} />
+          <Route path="/administracion/cuentas/:id"   element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmCuentaDetalle /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/alumnos/:id_alumno" element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAlumnoFicha /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           {/* Usuarios (alumnos + personal con login) */}
-          <Route path="/administracion/usuarios"      element={<ProtectedAdministracion><AdministracionLayout><AdmUsuarios /></AdministracionLayout></ProtectedAdministracion>} />
+          <Route path="/administracion/usuarios"      element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmUsuarios /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           {/* Contabilidad consolidada (Ingresos / Egresos / Nómina / Tarifas) */}
-          <Route path="/administracion/contabilidad"  element={<ProtectedAdministracion><AdministracionLayout><AdmContabilidad /></AdministracionLayout></ProtectedAdministracion>} />
+          <Route path="/administracion/contabilidad"  element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmContabilidad /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           {/* Rutas antiguas → redirigen a la sub-pestaña correspondiente */}
           <Route path="/administracion/recibos"       element={<Navigate to="/administracion/contabilidad?tab=ingresos&sub=recibos" replace />} />
           <Route path="/administracion/facturas"      element={<Navigate to="/administracion/contabilidad?tab=ingresos&sub=facturas" replace />} />
           <Route path="/administracion/tarifas"       element={<Navigate to="/administracion/contabilidad?tab=tarifas" replace />} />
           <Route path="/administracion/egresos"       element={<Navigate to="/administracion/contabilidad?tab=egresos" replace />} />
           <Route path="/administracion/nomina"        element={<Navigate to="/administracion/contabilidad?tab=nomina" replace />} />
-          <Route path="/administracion/cursos"        element={<ProtectedAdministracion><AdministracionLayout><AdmCursos /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/documentacion" element={<ProtectedAdministracion><AdministracionLayout><AdmDocumentacion /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/medicos"       element={<ProtectedAdministracion><AdministracionLayout><AdmMedicos /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/reportes"      element={<ProtectedAdministracion><AdministracionLayout><AdmReportes /></AdministracionLayout></ProtectedAdministracion>} />
-          <Route path="/administracion/aula-virtual"  element={<ProtectedAdministracion><AdministracionLayout><AdmAulaVirtual /></AdministracionLayout></ProtectedAdministracion>} />
+          <Route path="/administracion/cursos"        element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmCursos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/documentacion" element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmDocumentacion /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/medicos"       element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmMedicos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/reportes"      element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmReportes /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/aula-virtual"  element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAulaVirtual /></AdministracionLayoutAuto></ProtectedAdministracion>} />
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

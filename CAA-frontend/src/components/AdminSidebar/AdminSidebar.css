@@ -28,13 +28,27 @@
 }
 
 .adm-sidebar__menu-title {
-  padding: var(--sp-6) var(--sp-5) var(--sp-2) var(--sp-5);
+  padding: var(--sp-4) var(--sp-4) var(--sp-2) var(--sp-4);
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--c-ink-4);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
 }
+
+/* Cada sección agrupa su título + sus enlaces; separador sutil entre secciones */
+.adm-sidebar__section + .adm-sidebar__section {
+  margin-top: var(--sp-2);
+  border-top: 1px solid var(--c-line-1);
+}
+
+/* Item deshabilitado (placeholder Taller "Próximamente") */
+.adm-sidebar__link--disabled {
+  color: var(--c-ink-4);
+  cursor: default;
+  opacity: 0.6;
+}
+.adm-sidebar__link--disabled:hover { background: none; color: var(--c-ink-4); }
 
 /* ── Nav ── */
 .adm-sidebar__nav {

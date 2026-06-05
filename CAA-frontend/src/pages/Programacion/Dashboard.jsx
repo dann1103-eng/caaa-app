@@ -98,7 +98,7 @@ function ReasignarAeronaveModal({ vuelo, onClose, onReasignado }) {
   );
 }
 
-export default function ProgramacionDashboard() {
+export default function ProgramacionDashboard({ embedded = false }) {
   const navigate = useNavigate();
   const [week, setWeek] = useState("next");
 
@@ -322,7 +322,7 @@ export default function ProgramacionDashboard() {
 
   return (
     <>
-      <Header />
+      {!embedded && <Header />}
       <div className="prog">
         <div className="adm__header-modern">
           <div>
