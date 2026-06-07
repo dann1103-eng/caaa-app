@@ -63,9 +63,12 @@ export default function PrintSheet() {
     <div id="print-area" translate="no" className="notranslate print-sheet bg-white text-[10px] leading-tight text-gray-800 max-w-[1000px] mx-auto px-1">
       {/* 1. Header */}
       <div className="flex items-center justify-between border-b-2 border-[#1a3a5c] pb-0.5 mb-1">
-        <div>
-          <div className="text-sm font-bold text-[#1a3a5c]">CAAA, S.A. de C.V.</div>
-          <div className="text-[9px] text-gray-500">Centro de Adiestramiento Aereo Academico</div>
+        <div className="flex items-center gap-2">
+          <img src="/logo-caaa-mark.png" alt="CAAA" className="h-8 w-auto" />
+          <div>
+            <div className="text-sm font-bold text-[#1a3a5c]">CAAA, S.A. de C.V.</div>
+            <div className="text-[9px] text-gray-500">Centro de Adiestramiento Aereo Academico</div>
+          </div>
         </div>
         <div className="text-center">
           <div className="text-xs font-bold text-[#1a3a5c] uppercase tracking-wider">Load Sheet</div>

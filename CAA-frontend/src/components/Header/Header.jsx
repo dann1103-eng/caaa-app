@@ -28,9 +28,7 @@ export default function Header() {
       <div className="header__container">
 
         <div className="header__logo">
-          <span className="header__logo-box">
-            <i className="bi bi-airplane-fill" />
-          </span>
+          <img src="/logo-caaa-mark.png" alt="CAAA" className="header__logo-img" />
           CAAA
         </div>
 

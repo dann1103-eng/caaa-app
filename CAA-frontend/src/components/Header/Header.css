@@ -47,6 +47,12 @@
   font-size: 15px;
 }
 
+.header__logo-img {
+  height: 34px;
+  width: auto;
+  display: block;
+}
+
 .header__nav {
   display: flex;
   align-items: center;

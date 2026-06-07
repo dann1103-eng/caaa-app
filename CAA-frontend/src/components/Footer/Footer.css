@@ -28,6 +28,7 @@
   letter-spacing: 0.08em;
 }
 .footer__logo-icon { color: var(--c-brand-700); display: inline-flex; }
+.footer__logo-img { height: 26px; width: auto; display: block; }
 
 .footer__links { display: flex; gap: var(--sp-6); }
 .footer__link {

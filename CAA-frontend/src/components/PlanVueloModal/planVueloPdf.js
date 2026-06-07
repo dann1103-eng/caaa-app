@@ -1,3 +1,4 @@
+import { LOGO_CAAA_DATAURL } from "../../assets/logoCaaa";
 
 export async function generarPdfPlanVuelo(datos, vuelo) {
   const pdfMakeModule = await import("pdfmake/build/pdfmake");
@@ -46,6 +47,7 @@ export async function generarPdfPlanVuelo(datos, vuelo) {
     content: [
       {
         columns: [
+          { image: LOGO_CAAA_DATAURL, width: 40, margin: [0, 0, 8, 0] },
           {
             width: "*",
             stack: [

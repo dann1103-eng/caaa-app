@@ -7,7 +7,7 @@ export default function Footer() {
       <div className="footer__container">
 
         <div className="footer__logo">
-          <span className="footer__logo-icon"><i className="bi bi-airplane-fill" /></span>
+          <img src="/logo-caaa-mark.png" alt="CAAA" className="footer__logo-img" />
           CAAA
         </div>
 

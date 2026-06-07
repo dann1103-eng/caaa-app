@@ -1,3 +1,5 @@
+import { LOGO_CAAA_DATAURL } from "../../assets/logoCaaa";
+
 export async function generarPdfReporteVuelo({
   vueloInfo,
   datos,
@@ -82,6 +84,7 @@ export async function generarPdfReporteVuelo({
     pageMargins: [40, 40, 40, 40],
     content: [
       // ── Header CAAA ──
+      { image: LOGO_CAAA_DATAURL, width: 58, alignment: "center", margin: [0, 0, 0, 4] },
       {
         text: "CAAA, S.A. de C.V.",
         fontSize: 14,

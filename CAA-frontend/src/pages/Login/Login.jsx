@@ -45,8 +45,8 @@ export default function Login() {
       {/* ── Panel de marca (SLOT intercambiable: aquí irá luego imagen/animación) ── */}
       <aside className="login__brand">
         <div className="login__brand-top">
-          <span className="login__mark">
-            <i className="bi bi-airplane-fill" />
+          <span className="login__logo-chip">
+            <img src="/logo-caaa-mark.png" alt="CAAA" />
           </span>
           <span className="login__wordmark">CAAA</span>
         </div>
@@ -80,9 +80,7 @@ export default function Login() {
       <main className="login__panel">
         <div className="login__form-wrap">
           <div className="login__panel-brand">
-            <span className="login__mark login__mark--sm">
-              <i className="bi bi-airplane-fill" />
-            </span>
+            <img src="/logo-caaa-mark.png" alt="CAAA" className="login__panel-logo" />
             <span className="login__wordmark login__wordmark--sm">CAAA</span>
           </div>
 

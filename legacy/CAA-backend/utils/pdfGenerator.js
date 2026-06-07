@@ -1,24 +1,34 @@
 const PDFDocument = require("pdfkit");
+const path = require("path");
+const fs = require("fs");
 
 const CAAA_BLUE = "#1B365D";
 const CAAA_GREEN = "#157347";
 const CAAA_RED = "#C0392B";
 
+const LOGO_PATH = path.join(__dirname, "..", "assets", "logo-caaa-mark.png");
+
 /**
  * Encabezado común CAAA para todos los PDFs.
  */
 function drawHeader(doc, titulo, fecha) {
+  const hasLogo = fs.existsSync(LOGO_PATH);
+  if (hasLogo) {
+    try { doc.image(LOGO_PATH, 50, 44, { height: 46 }); } catch { /* sigue sin logo */ }
+  }
+  const tx = hasLogo ? 108 : 50;
+
   doc
     .fillColor(CAAA_BLUE)
     .fontSize(18)
     .font("Helvetica-Bold")
-    .text("CAAA", 50, 50)
+    .text("CAAA", tx, 50)
     .fontSize(9)
     .font("Helvetica")
     .fillColor("#444")
-    .text("Centro de Adiestramiento Aéreo Académico, S.A. de C.V.", 50, 72)
-    .text("Aeropuerto Internacional de Ilopango, San Salvador, El Salvador", 50, 84)
-    .text("Tels: (503) 2295-0029 · (503) 2295-7811 · informacion@caaa-sv.com", 50, 96);
+    .text("Centro de Adiestramiento Aéreo Académico, S.A. de C.V.", tx, 72)
+    .text("Aeropuerto Internacional de Ilopango, San Salvador, El Salvador", tx, 84)
+    .text("Tels: (503) 2295-0029 · (503) 2295-7811 · informacion@caaa-sv.com", tx, 96);
 
   doc
     .fontSize(16)

@@ -28,6 +28,7 @@ export default function LoadsheetWizard({ onExit, readOnly = false }) {
             >
               ← Volver
             </button>
+            <img src="/logo-caaa-mark.png" alt="CAAA" className="h-9 w-auto bg-white rounded-md p-1" />
             <div>
               <h1 className="text-lg font-semibold tracking-wide">Load Sheet — CAAA</h1>
               <p className="text-xs opacity-75 mt-0.5">Centro de Adiestramiento Aereo Academico</p>
