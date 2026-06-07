@@ -220,4 +220,138 @@ function generarReciboPDF({ recibo, alumno }) {
   return doc;
 }
 
-module.exports = { generarFacturaPDF, generarReciboPDF };
+// ──────────────────────────────────────────────────────────────────────
+//  PLANILLAS (nómina)
+// ──────────────────────────────────────────────────────────────────────
+const MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const money = (n) => `$${Number(n || 0).toFixed(2)}`;
+const periodoLabel = (p) => p.mes ? `${MESES[p.mes]} ${p.anio}` : `${p.periodo_inicio} a ${p.periodo_fin}`;
+
+function headerCompacto(doc, titulo, sub, ancho) {
+  if (fs.existsSync(LOGO_PATH)) { try { doc.image(LOGO_PATH, 40, 36, { height: 40 }); } catch { /* */ } }
+  doc.fillColor(CAAA_BLUE).fontSize(16).font("Helvetica-Bold").text("CAAA", 92, 40)
+     .fontSize(8).font("Helvetica").fillColor("#444")
+     .text("Centro de Adiestramiento Aéreo Académico, S.A. de C.V.", 92, 60);
+  doc.fontSize(15).fillColor(CAAA_BLUE).font("Helvetica-Bold").text(titulo, 0, 42, { align: "right", width: ancho + 40 });
+  doc.fontSize(10).fillColor("#666").font("Helvetica").text(sub, 0, 62, { align: "right", width: ancho + 40 });
+  doc.strokeColor(CAAA_BLUE).lineWidth(2).moveTo(40, 86).lineTo(ancho + 40, 86).stroke();
+  return 100;
+}
+
+/** PDF de la planilla completa (apaisado). */
+function generarPlanillaPDF({ periodo, detalles }) {
+  const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
+  const ancho = 752; // 792 - 40
+  const esPlanta = periodo.tipo_planilla === "PLANTA";
+  let y = headerCompacto(doc, esPlanta ? "PLANILLA — PLANTA" : "PLANILLA — SERVICIOS", periodoLabel(periodo), ancho - 40);
+
+  const cols = esPlanta
+    ? [["Empleado / Instructor", 210, "left"], ["Bruto", 80, "right"], ["ISR", 70, "right"],
+       ["ISSS", 70, "right"], ["AFP", 70, "right"], ["Bonos", 65, "right"], ["Desc.", 65, "right"], ["NETO", 82, "right"]]
+    : [["Instructor / Empleado", 260, "left"], ["Bruto", 100, "right"], ["Retención 10%", 110, "right"],
+       ["Bonos", 80, "right"], ["Desc.", 80, "right"], ["NETO", 122, "right"]];
+
+  const drawRow = (cells, opts = {}) => {
+    let x = 40;
+    doc.fontSize(opts.head ? 8 : 9).font(opts.bold || opts.head ? "Helvetica-Bold" : "Helvetica")
+       .fillColor(opts.head ? "#666" : "#222");
+    cols.forEach((c, i) => {
+      doc.text(String(cells[i] ?? ""), x + 4, y + 4, { width: c[1] - 8, align: c[2] });
+      x += c[1];
+    });
+    y += opts.head ? 20 : 18;
+  };
+
+  doc.rect(40, y, ancho, 20).fill("#eef2f7"); doc.fillColor("#666");
+  drawRow(cols.map(c => c[0]), { head: true });
+
+  let tBruto = 0, tNeto = 0, tDed = 0, tPat = 0;
+  for (const d of detalles) {
+    const ded = Number(d.isr) + Number(d.isss) + Number(d.afp) + Number(d.retencion);
+    tBruto += Number(d.bruto); tNeto += Number(d.total); tDed += ded; tPat += Number(d.costo_patronal || 0);
+    const nombre = d.instructor_username + (d.empleado_cargo ? ` (${d.empleado_cargo})` : "");
+    const cells = esPlanta
+      ? [nombre, money(d.bruto), money(d.isr), money(d.isss), money(d.afp), money(d.bonos), money(d.descuentos), money(d.total)]
+      : [nombre, money(d.bruto), money(d.retencion), money(d.bonos), money(d.descuentos), money(d.total)];
+    if (y > 520) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
+    drawRow(cells);
+    doc.strokeColor("#e5e7eb").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+  }
+  if (detalles.length === 0) { doc.fontSize(10).fillColor("#999").text("Sin detalles en esta planilla.", 40, y + 10); y += 30; }
+
+  // Totales
+  y += 8;
+  doc.strokeColor(CAAA_BLUE).lineWidth(1).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+  y += 6;
+  const totCells = esPlanta
+    ? ["TOTALES", money(tBruto), "", "", "", "", "", money(tNeto)]
+    : ["TOTALES", money(tBruto), money(tDed), "", "", money(tNeto)];
+  drawRow(totCells, { bold: true });
+
+  y += 14;
+  doc.fontSize(10).fillColor("#222").font("Helvetica")
+     .text(`Total bruto: ${money(tBruto)}     Deducciones: ${money(tDed)}     Total neto a pagar: ${money(tNeto)}`, 40, y);
+  if (esPlanta) doc.fillColor("#666").fontSize(9).text(`Costo patronal total (incl. aportes ISSS/AFP): ${money(tPat)}`, 40, y + 16);
+
+  doc.end();
+  return doc;
+}
+
+/** Recibo individual de pago (una persona). */
+function generarReciboNominaPDF({ periodo, detalle }) {
+  const doc = new PDFDocument({ size: "LETTER", margin: 50 });
+  const esPlanta = periodo.tipo_planilla === "PLANTA";
+  let y = drawHeader(doc, "RECIBO DE PAGO", periodoLabel(periodo));
+  const snap = detalle.user_snapshot || {};
+  const nombre = snap.nombre || detalle.instructor_username || "—";
+
+  doc.fontSize(11).font("Helvetica-Bold").fillColor("#222").text(nombre, 50, y);
+  doc.fontSize(9).font("Helvetica").fillColor("#555")
+     .text([snap.cargo, snap.dui ? `DUI: ${snap.dui}` : null, snap.isss ? `ISSS: ${snap.isss}` : null, snap.afp ? `AFP: ${snap.afp}` : null].filter(Boolean).join("   ·   "), 50, y + 16);
+  y += 44;
+
+  const line = (label, val, color) => {
+    doc.fontSize(10).font("Helvetica").fillColor("#333").text(label, 60, y);
+    doc.font("Helvetica-Bold").fillColor(color || "#222").text(val, 350, y, { align: "right", width: 145 });
+    y += 20;
+  };
+  doc.strokeColor("#e5e7eb").lineWidth(0.5).moveTo(50, y - 6).lineTo(545, y - 6).stroke();
+  line("Bruto", money(detalle.bruto));
+  if (esPlanta) {
+    line("ISR", `- ${money(detalle.isr)}`, CAAA_RED);
+    line("ISSS (empleado)", `- ${money(detalle.isss)}`, CAAA_RED);
+    line("AFP (empleado)", `- ${money(detalle.afp)}`, CAAA_RED);
+  } else {
+    line("Retención ISR (10%)", `- ${money(detalle.retencion)}`, CAAA_RED);
+  }
+  if (Number(detalle.bonos) > 0) line("Bonos", `+ ${money(detalle.bonos)}`, CAAA_GREEN);
+  if (Number(detalle.descuentos) > 0) line("Descuentos", `- ${money(detalle.descuentos)}`, CAAA_RED);
+
+  y += 6;
+  doc.rect(50, y, 495, 40).fillColor("#f0f9f3").fill();
+  doc.fillColor("#222").fontSize(11).font("Helvetica-Bold").text("NETO A PAGAR", 60, y + 13);
+  doc.fontSize(18).fillColor(CAAA_GREEN).text(money(detalle.total), 350, y + 9, { align: "right", width: 185 });
+  y += 64;
+
+  if (esPlanta) {
+    doc.fontSize(8).font("Helvetica").fillColor("#888")
+       .text(`Aportes patronales (informativo): ISSS ${money(detalle.isss_patrono)} · AFP ${money(detalle.afp_patrono)} · Costo total ${money(detalle.costo_patronal)}`, 50, y);
+    y += 24;
+  }
+
+  // Firma
+  y = Math.max(y, doc.page.height - 140);
+  doc.strokeColor("#999").lineWidth(0.7).moveTo(120, y).lineTo(420, y).stroke();
+  doc.fontSize(9).fillColor("#555").font("Helvetica").text("Firma de recibido", 0, y + 6, { align: "center" });
+  if (detalle.firmado_en) {
+    const f = new Date(detalle.firmado_en).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "numeric" });
+    doc.fillColor(CAAA_GREEN).fontSize(9).text(`Firmado digitalmente el ${f}`, 0, y + 20, { align: "center" });
+  }
+
+  drawFooter(doc);
+  doc.end();
+  return doc;
+}
+
+module.exports = { generarFacturaPDF, generarReciboPDF, generarPlanillaPDF, generarReciboNominaPDF };

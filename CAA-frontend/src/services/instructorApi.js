@@ -27,6 +27,16 @@ export const getMiHistorialInstructor = async () => {
   return res.data;
 };
 
+export const firmarMiReciboNomina = async (idDet) => {
+  const res = await axios.patch(`${API_URL}/instructor/recibo/${idDet}/firmar`);
+  return res.data;
+};
+
+export const abrirMiReciboNomina = async (idDet) => {
+  const res = await axios.get(`${API_URL}/instructor/recibo/${idDet}`, { responseType: "blob" });
+  window.open(URL.createObjectURL(res.data), "_blank", "noopener");
+};
+
 export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   const res = await axios.post(`${API_URL}/instructor/vuelos/${id_vuelo}/avanzar`, body);
   return res.data;

@@ -85,6 +85,17 @@ export const aprobarNomina     = async (id) => (await axios.patch(`${BASE}/nomin
 export const pagarNomina       = async (id) => (await axios.patch(`${BASE}/nomina/${id}/pagar`)).data;
 export const editarNominaDetalle = async (idDet, payload) =>
   (await axios.patch(`${BASE}/nomina/detalles/${idDet}`, payload)).data;
+export const anularNomina      = async (id, motivo) => (await axios.patch(`${BASE}/nomina/${id}/anular`, { motivo })).data;
+export const getConfigFiscal    = async () => (await axios.get(`${BASE}/nomina/config-fiscal`)).data;
+export const updateConfigFiscal = async (payload) => (await axios.put(`${BASE}/nomina/config-fiscal`, payload)).data;
+export const abrirPlanillaPDF = async (id) => {
+  const res = await axios.get(`${BASE}/nomina/periodos/${id}/pdf`, { responseType: "blob" });
+  window.open(URL.createObjectURL(res.data), "_blank", "noopener");
+};
+export const abrirReciboNominaPDF = async (idDet) => {
+  const res = await axios.get(`${BASE}/nomina/detalles/${idDet}/recibo`, { responseType: "blob" });
+  window.open(URL.createObjectURL(res.data), "_blank", "noopener");
+};
 
 // ── Empleados de planta (personal administrativo) ───────────────────
 export const getEmpleados       = async () => (await axios.get(`${BASE}/empleados`)).data;

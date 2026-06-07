@@ -4,7 +4,7 @@ import {
   getMiInfo, getMiCuenta, getMiExtracto, getMisDocumentos,
   getMiDocumentoArchivoUrl, getMiHistorial,
 } from "../../services/alumnoApi";
-import { getMiFichaInstructor, getMiHistorialInstructor } from "../../services/instructorApi";
+import { getMiFichaInstructor, getMiHistorialInstructor, firmarMiReciboNomina, abrirMiReciboNomina } from "../../services/instructorApi";
 import { toast } from "sonner";
 import Header from "../../components/Header/Header";
 import { useNavigate } from "react-router-dom";
@@ -100,6 +100,17 @@ export default function Perfil() {
       getMiHistorialInstructor().then((r) => setInsHist(r.data)).catch(() => {});
     }
   }, [perfil?.rol]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const firmarRecibo = async (idDet) => {
+    try {
+      await firmarMiReciboNomina(idDet);
+      toast.success("Recibo firmado");
+      const r = await getMiHistorialInstructor();
+      setInsHist(r.data);
+    } catch (e) {
+      toast.error(e.response?.data?.message || "No se pudo firmar");
+    }
+  };
 
   const verDocumento = async (id) => {
     try {
@@ -665,13 +676,13 @@ export default function Perfil() {
         <h3>Planillas / pagos</h3>
         <div className="perfil-ro-table-wrap">
           <table className="perfil-ro-table">
-            <thead><tr><th>Periodo</th><th>Tipo</th><th className="num">Bruto</th><th className="num">ISR</th><th className="num">ISSS</th><th className="num">AFP</th><th className="num">Retención</th><th className="num">Neto</th><th>Estado</th><th>Pagada</th></tr></thead>
+            <thead><tr><th>Periodo</th><th>Tipo</th><th className="num">Bruto</th><th className="num">ISR</th><th className="num">ISSS</th><th className="num">AFP</th><th className="num">Retención</th><th className="num">Neto</th><th>Estado</th><th>Recibo</th></tr></thead>
             <tbody>
               {!insHist?.planillas?.length ? (
                 <tr><td colSpan={10} className="perfil-ro-empty">Sin planillas.</td></tr>
               ) : insHist.planillas.map((p) => (
                 <tr key={p.id_periodo}>
-                  <td>{fmtDate(p.periodo_inicio)} – {fmtDate(p.periodo_fin)}</td>
+                  <td>{p.mes ? `${["","Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][p.mes]} ${p.anio}` : `${fmtDate(p.periodo_inicio)} – ${fmtDate(p.periodo_fin)}`}</td>
                   <td>{p.tipo_planilla}</td>
                   <td className="num">{fmtUSD(p.bruto)}</td>
                   <td className="num">{fmtUSD(p.isr)}</td>
@@ -680,7 +691,14 @@ export default function Perfil() {
                   <td className="num">{fmtUSD(p.retencion)}</td>
                   <td className="num"><strong>{fmtUSD(p.neto)}</strong></td>
                   <td>{estadoChip(p.estado)}</td>
-                  <td>{fmtDate(p.fecha_pago)}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button className="perfil-link-btn" onClick={() => abrirMiReciboNomina(p.id_detalle)}><i className="bi bi-receipt"></i> PDF</button>
+                    {(p.estado === "APROBADA" || p.estado === "PAGADA") && (
+                      p.firmado_en
+                        ? <span className="perfil-chip perfil-chip--ok" style={{ marginLeft: 8 }}>Firmado</span>
+                        : <button className="perfil-link-btn" style={{ marginLeft: 8 }} onClick={() => firmarRecibo(p.id_detalle)}><i className="bi bi-pen"></i> Firmar</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

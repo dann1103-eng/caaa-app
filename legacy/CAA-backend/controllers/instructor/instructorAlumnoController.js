@@ -1,6 +1,54 @@
 const db = require("../../config/db");
 const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor, getSemanaProxima } = require("../../utils/instructorHelpers");
+const { generarReciboNominaPDF } = require("../../utils/pdfGenerator");
+
+// Recibo de nómina propio (PDF) — solo del instructor autenticado.
+exports.descargarMiRecibo = async (req, res) => {
+  try {
+    const id_instructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!id_instructor) return res.status(403).json({ ok: false, message: "No sos instructor" });
+    const { idDet } = req.params;
+    const dq = await db.query(`
+      SELECT d.*, (u.nombre || ' ' || u.apellido) AS instructor_username
+      FROM nomina_detalle d
+      JOIN instructor i ON i.id_instructor = d.id_instructor
+      JOIN usuario u ON u.id_usuario = i.id_usuario
+      WHERE d.id = $1 AND d.id_instructor = $2
+    `, [idDet, id_instructor]);
+    if (!dq.rows.length) return res.status(404).json({ ok: false, message: "Recibo no encontrado" });
+    const per = await db.query(`SELECT * FROM nomina_periodo WHERE id = $1`, [dq.rows[0].id_periodo]);
+    const doc = generarReciboNominaPDF({ periodo: per.rows[0], detalle: dq.rows[0] });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="recibo-${idDet}.pdf"`);
+    doc.pipe(res);
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Firmar (acuse de recibido) el recibo propio.
+exports.firmarMiRecibo = async (req, res) => {
+  try {
+    const id_instructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!id_instructor) return res.status(403).json({ ok: false, message: "No sos instructor" });
+    const { idDet } = req.params;
+    const d = await db.query(`
+      SELECT d.id, d.firmado_en, p.estado
+      FROM nomina_detalle d JOIN nomina_periodo p ON p.id = d.id_periodo
+      WHERE d.id = $1 AND d.id_instructor = $2
+    `, [idDet, id_instructor]);
+    if (!d.rows.length) return res.status(404).json({ ok: false, message: "Recibo no encontrado" });
+    if (!["APROBADA", "PAGADA"].includes(d.rows[0].estado))
+      return res.status(400).json({ ok: false, message: "El recibo aún no está disponible para firmar" });
+    if (d.rows[0].firmado_en) return res.status(400).json({ ok: false, message: "Ya firmaste este recibo" });
+    const ip = String(req.headers["x-forwarded-for"] || req.ip || "").slice(0, 64);
+    await db.query(`UPDATE nomina_detalle SET firmado_en = NOW(), firmado_ip = $2 WHERE id = $1`, [idDet, ip]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
 
 exports.getMisAlumnos = async (req, res) => {
   try {
@@ -142,12 +190,14 @@ exports.miHistorial = async (req, res) => {
     if (!id_instructor) return res.status(403).json({ ok: false, message: "No sos instructor activo" });
 
     const planillas = await db.query(`
-      SELECT p.id AS id_periodo, p.periodo_inicio, p.periodo_fin, p.tipo_planilla, p.estado, p.fecha_pago,
+      SELECT p.id AS id_periodo, p.periodo_inicio, p.periodo_fin, p.anio, p.mes,
+             p.tipo_planilla, p.estado, p.fecha_pago,
+             d.id AS id_detalle, d.firmado_en,
              d.bruto, d.isr, d.isss, d.afp, d.retencion, d.total AS neto
       FROM nomina_detalle d
       JOIN nomina_periodo p ON p.id = d.id_periodo
-      WHERE d.id_instructor = $1
-      ORDER BY p.periodo_inicio DESC
+      WHERE d.id_instructor = $1 AND p.estado <> 'ANULADA'
+      ORDER BY p.anio DESC NULLS LAST, p.mes DESC NULLS LAST, p.periodo_inicio DESC
     `, [id_instructor]);
 
     const horas = await db.query(`

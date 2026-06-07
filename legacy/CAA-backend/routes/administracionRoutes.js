@@ -83,12 +83,17 @@ router.post("/egresos",                     roleMiddleware(WRITE_ROLES), egresos
 router.patch("/egresos/:id",                roleMiddleware(WRITE_ROLES), egresos.update);
 
 // ── Nómina ────────────────────────────────────────────────────────────
+router.get("/nomina/config-fiscal",         roleMiddleware(READ_ROLES),  nomina.getConfigFiscal);
+router.put("/nomina/config-fiscal",         roleMiddleware(WRITE_ROLES), nomina.updateConfigFiscal);
 router.get("/nomina/periodos",              roleMiddleware(READ_ROLES),  nomina.listPeriodos);
 router.get("/nomina/periodos/:id/detalles", roleMiddleware(READ_ROLES),  nomina.detallesPeriodo);
+router.get("/nomina/periodos/:id/pdf",      roleMiddleware(READ_ROLES),  nomina.descargarPlanillaPDF);
+router.get("/nomina/detalles/:idDet/recibo",roleMiddleware(READ_ROLES),  nomina.descargarReciboPDF);
 router.post("/nomina/calcular",             roleMiddleware(WRITE_ROLES), nomina.calcular);
 router.patch("/nomina/detalles/:idDet",     roleMiddleware(WRITE_ROLES), nomina.editarDetalle);
 router.patch("/nomina/:id/aprobar",         roleMiddleware(WRITE_ROLES), nomina.aprobar);
 router.patch("/nomina/:id/pagar",           roleMiddleware(WRITE_ROLES), nomina.pagar);
+router.patch("/nomina/:id/anular",          roleMiddleware(WRITE_ROLES), nomina.anular);
 
 // ── Empleados de planta (personal administrativo) ─────────────────────
 router.get("/empleados",                    roleMiddleware(READ_ROLES),  empleados.list);
