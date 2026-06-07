@@ -412,3 +412,79 @@
   .adf-topbar__role   { display: none; }
   .adf-layout__content { padding: var(--sp-4) var(--sp-3); }
 }
+
+/* ─── Acordeón (secciones colapsables, p.ej. edición de personal) ─────── */
+.adf-acc {
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
+  margin-top: var(--sp-3);
+  background: var(--c-surface-1);
+  overflow: hidden;
+}
+.adf-acc__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 12px var(--sp-4);
+  background: var(--c-surface-2);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.adf-acc__head:hover { background: var(--c-surface-3); }
+.adf-acc__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--c-ink-1);
+}
+.adf-acc__title i { color: var(--c-brand-500); }
+.adf-acc__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--c-brand-50);
+  color: var(--c-brand-700);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+.adf-acc__chev {
+  color: var(--c-ink-3);
+  transition: transform var(--dur-med) var(--ease-out);
+}
+.adf-acc__chev.open { transform: rotate(180deg); }
+.adf-acc__body {
+  padding: var(--sp-4);
+  border-top: 1px solid var(--c-line-1);
+}
+.adf-acc__search {
+  width: 100%;
+  margin-bottom: var(--sp-3);
+}
+
+/* Cabecera limpia para la tarjeta de edición */
+.adf-edit-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--c-surface-2);
+  border-bottom: 1px solid var(--c-line-1);
+}
+.adf-edit-head__title { display: inline-flex; align-items: center; gap: var(--sp-3); font-weight: 700; color: var(--c-ink-1); }
+.adf-edit-head__chip {
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--c-brand-50); color: var(--c-brand-700); font-size: 16px;
+}

@@ -26,6 +26,22 @@ const EMPTY_PERSONAL = {
   es_servicios_profesionales: false, dui: "", nit: "", isss_num: "", afp_num: ""
 };
 
+// Sección colapsable (acordeón) reutilizable.
+function AccSection({ icon, title, count, open, onToggle, children }) {
+  return (
+    <div className="adf-acc">
+      <button type="button" className="adf-acc__head" onClick={onToggle}>
+        <span className="adf-acc__title">
+          <i className={`bi ${icon}`}></i>{title}
+          {count != null && <span className="adf-acc__count">{count}</span>}
+        </span>
+        <i className={`bi bi-chevron-down adf-acc__chev ${open ? "open" : ""}`}></i>
+      </button>
+      {open && <div className="adf-acc__body">{children}</div>}
+    </div>
+  );
+}
+
 export default function Usuarios() {
   const [params, setParams] = useSearchParams();
   const [tab, setTab] = useState(params.get("tab") === "personal" ? "personal" : "alumnos");
@@ -46,6 +62,9 @@ export default function Usuarios() {
   const [pwNueva, setPwNueva] = useState("");
   const [instrCursos, setInstrCursos] = useState([]); // [{id, nombre, asignado}]
   const [instrHist, setInstrHist] = useState(null);   // historial del instructor
+  const [openSec, setOpenSec] = useState({});          // secciones colapsables abiertas
+  const [asignarQuery, setAsignarQuery] = useState(""); // búsqueda en "asignar otros"
+  const toggleSec = (k) => setOpenSec((s) => ({ ...s, [k]: !s[k] }));
 
   const changeTab = (key) => {
     setTab(key);
@@ -103,6 +122,8 @@ export default function Usuarios() {
     setEditP(p);
     setPwNueva("");
     setInstrCursos([]);
+    setOpenSec({});          // todas las secciones colapsadas al abrir
+    setAsignarQuery("");
     setEditPForm({
       nombre: p.nombre || "", apellido: p.apellido || "",
       correo: p.correo || "",
@@ -378,9 +399,19 @@ export default function Usuarios() {
           )}
 
           {editP && (
-            <div className="adf-card" style={{ background: "var(--c-warn-50)", borderColor: "oklch(85% 0.080 75)" }}>
-              <h3><i className="bi bi-pencil-square me-2" style={{ color: "var(--c-warn-700)" }}></i>Editar: {editP.nombre} {editP.apellido}</h3>
-              <form onSubmit={handleGuardarP}>
+            <div className="adf-card" style={{ padding: 0, overflow: "hidden" }}>
+              <div className="adf-edit-head">
+                <span className="adf-edit-head__title">
+                  <span className="adf-edit-head__chip"><i className="bi bi-pencil-square"></i></span>
+                  Editar: {editP.nombre} {editP.apellido}
+                </span>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" form="editPersonalForm" className="adf-btn"><i className="bi bi-check"></i>Guardar</button>
+                  <button type="button" className="adf-btn secondary" onClick={() => setEditP(null)}>Cerrar</button>
+                </div>
+              </div>
+              <div style={{ padding: "0 var(--sp-5) var(--sp-5)" }}>
+              <form id="editPersonalForm" onSubmit={handleGuardarP}>
                 <div className="adf-form-grid">
                   <div className="adf-form-field"><label>Nombre</label>
                     <input value={editPForm.nombre} onChange={(e) => setEditPForm({...editPForm, nombre: e.target.value})} /></div>
@@ -434,10 +465,6 @@ export default function Usuarios() {
                     Acceso activo
                   </label>
                 </div>
-                <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
-                  <button type="submit" className="adf-btn"><i className="bi bi-check"></i>Guardar</button>
-                  <button type="button" className="adf-btn secondary" onClick={() => setEditP(null)}>Cerrar</button>
-                </div>
                 {editPForm.rol === "INSTRUCTOR" && !editP.id_instructor && (
                   <p style={{ fontSize: "0.8rem", color: "var(--c-warn-700)", marginTop: 8 }}>
                     <i className="bi bi-info-circle me-1"></i>Al guardar con rol Instructor se creará su ficha; reabre la edición para asignarle alumnos y cursos.
@@ -454,73 +481,91 @@ export default function Usuarios() {
                 <button type="button" className="adf-btn secondary" onClick={handleResetPw}>Resetear contraseña</button>
               </div>
 
-              {/* Instructor: alumnos + cursos */}
-              {editP.id_instructor && (
+              {/* Instructor: alumnos + cursos (secciones colapsables) */}
+              {editP.id_instructor && (() => {
+                const asignados = alumnos.filter(a => a.id_instructor === editP.id_instructor);
+                const otros = alumnos.filter(a => a.id_instructor !== editP.id_instructor);
+                const q = asignarQuery.trim().toLowerCase();
+                const otrosFiltrados = q
+                  ? otros.filter(a => `${a.nombre} ${a.apellido} ${a.username || ""}`.toLowerCase().includes(q))
+                  : otros;
+                return (
                 <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
-                  <h4 style={{ margin: "0 0 8px" }}><i className="bi bi-people me-2"></i>Alumnos de este instructor</h4>
-                  <table className="adf-table">
-                    <thead><tr><th>Alumno</th><th>Reasignar a otro instructor</th></tr></thead>
-                    <tbody>
-                      {alumnos.filter(a => a.id_instructor === editP.id_instructor).map(a => (
-                        <tr key={a.id_alumno}>
-                          <td><strong>{a.nombre} {a.apellido}</strong></td>
-                          <td>
-                            <select defaultValue="" onChange={(e) => handleReasignar(a.id_alumno, e.target.value)}>
-                              <option value="">— Mover a... —</option>
-                              {instructores.filter(i => Number(i.id_instructor) !== Number(editP.id_instructor))
-                                .map(i => <option key={i.id_instructor} value={i.id_instructor}>{i.username}</option>)}
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
-                      {alumnos.filter(a => a.id_instructor === editP.id_instructor).length === 0 && (
-                        <tr><td colSpan={2} style={{ color: "var(--c-ink-4)", textAlign: "center", padding: 16 }}>Sin alumnos asignados.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                  <AccSection icon="bi-people" title="Alumnos de este instructor" count={asignados.length}
+                    open={!!openSec.alumnos} onToggle={() => toggleSec("alumnos")}>
+                    <table className="adf-table">
+                      <thead><tr><th>Alumno</th><th>Reasignar a otro instructor</th></tr></thead>
+                      <tbody>
+                        {asignados.map(a => (
+                          <tr key={a.id_alumno}>
+                            <td><strong>{a.nombre} {a.apellido}</strong></td>
+                            <td>
+                              <select defaultValue="" onChange={(e) => handleReasignar(a.id_alumno, e.target.value)}>
+                                <option value="">— Mover a... —</option>
+                                {instructores.filter(i => Number(i.id_instructor) !== Number(editP.id_instructor))
+                                  .map(i => <option key={i.id_instructor} value={i.id_instructor}>{i.username}</option>)}
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                        {asignados.length === 0 && (
+                          <tr><td colSpan={2} style={{ color: "var(--c-ink-4)", textAlign: "center", padding: 16 }}>Sin alumnos asignados.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </AccSection>
 
-                  <h4 style={{ margin: "16px 0 8px" }}><i className="bi bi-person-plus me-2"></i>Asignar otros alumnos</h4>
-                  <table className="adf-table">
-                    <thead><tr><th>Alumno</th><th>Instructor actual</th><th></th></tr></thead>
-                    <tbody>
-                      {alumnos.filter(a => a.id_instructor !== editP.id_instructor).map(a => (
-                        <tr key={a.id_alumno}>
-                          <td>{a.nombre} {a.apellido}</td>
-                          <td style={{ color: "var(--c-ink-3)" }}>{a.instructor_username || "—"}</td>
-                          <td style={{ textAlign: "right" }}>
-                            <button className="adf-btn small secondary" onClick={() => handleReasignar(a.id_alumno, editP.id_instructor)}>
-                              <i className="bi bi-arrow-left-right"></i>Asignar
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {alumnos.filter(a => a.id_instructor !== editP.id_instructor).length === 0 && (
-                        <tr><td colSpan={3} style={{ color: "var(--c-ink-4)", textAlign: "center", padding: 16 }}>No hay otros alumnos.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                  <AccSection icon="bi-person-plus" title="Asignar otros alumnos" count={otros.length}
+                    open={!!openSec.asignar} onToggle={() => toggleSec("asignar")}>
+                    <input className="adf-acc__search" placeholder="Buscar alumno por nombre o usuario..."
+                      value={asignarQuery} onChange={(e) => setAsignarQuery(e.target.value)} />
+                    <table className="adf-table">
+                      <thead><tr><th>Alumno</th><th>Instructor actual</th><th></th></tr></thead>
+                      <tbody>
+                        {otrosFiltrados.map(a => (
+                          <tr key={a.id_alumno}>
+                            <td>{a.nombre} {a.apellido}</td>
+                            <td style={{ color: "var(--c-ink-3)" }}>{a.instructor_username || "—"}</td>
+                            <td style={{ textAlign: "right" }}>
+                              <button className="adf-btn small secondary" onClick={() => handleReasignar(a.id_alumno, editP.id_instructor)}>
+                                <i className="bi bi-arrow-left-right"></i>Asignar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {otrosFiltrados.length === 0 && (
+                          <tr><td colSpan={3} style={{ color: "var(--c-ink-4)", textAlign: "center", padding: 16 }}>
+                            {otros.length === 0 ? "No hay otros alumnos." : "Ningún alumno coincide con la búsqueda."}
+                          </td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </AccSection>
 
-                  <h4 style={{ margin: "16px 0 8px" }}><i className="bi bi-mortarboard-fill me-2"></i>Cursos que imparte (Aula Virtual)</h4>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-                    {instrCursos.map(c => (
-                      <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
-                        <input type="checkbox" checked={!!c.asignado} onChange={() => toggleCurso(c.id)} />
-                        {c.codigo} · {c.nombre}
-                      </label>
-                    ))}
-                    {instrCursos.length === 0 && <span style={{ color: "var(--c-ink-4)" }}>No hay cursos activos.</span>}
-                  </div>
-                  <div style={{ marginTop: 10 }}>
-                    <button className="adf-btn small" onClick={handleGuardarCursos}><i className="bi bi-check"></i>Guardar cursos</button>
-                    <span style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginLeft: 10 }}>
-                      Sin marcar ninguno, el instructor ve todos los cursos (retrocompatibilidad).
-                    </span>
-                  </div>
+                  <AccSection icon="bi-mortarboard-fill" title="Cursos que imparte (Aula Virtual)"
+                    count={instrCursos.filter(c => c.asignado).length}
+                    open={!!openSec.cursos} onToggle={() => toggleSec("cursos")}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+                      {instrCursos.map(c => (
+                        <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                          <input type="checkbox" checked={!!c.asignado} onChange={() => toggleCurso(c.id)} />
+                          {c.codigo} · {c.nombre}
+                        </label>
+                      ))}
+                      {instrCursos.length === 0 && <span style={{ color: "var(--c-ink-4)" }}>No hay cursos activos.</span>}
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <button className="adf-btn small" onClick={handleGuardarCursos}><i className="bi bi-check"></i>Guardar cursos</button>
+                      <span style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginLeft: 10 }}>
+                        Sin marcar ninguno, el instructor ve todos los cursos (retrocompatibilidad).
+                      </span>
+                    </div>
+                  </AccSection>
 
                   {/* Historial del instructor */}
                   {instrHist && (
-                    <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
-                      <h4 style={{ margin: "0 0 10px" }}><i className="bi bi-clock-history me-2"></i>Historial</h4>
+                    <AccSection icon="bi-clock-history" title="Historial"
+                      open={!!openSec.historial} onToggle={() => toggleSec("historial")}>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 14 }}>
                         <div style={{ background: "white", padding: 10, borderRadius: 8 }}>
                           <div style={{ fontSize: "0.74rem", color: "var(--c-ink-3)" }}>Horas instruidas</div>
@@ -564,10 +609,11 @@ export default function Usuarios() {
                           )}
                         </tbody>
                       </table>
-                    </div>
+                    </AccSection>
                   )}
                 </div>
-              )}
+              ); })()}
+              </div>
             </div>
           )}
 
