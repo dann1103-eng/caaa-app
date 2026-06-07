@@ -488,3 +488,29 @@
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--c-brand-50); color: var(--c-brand-700); font-size: 16px;
 }
+
+/* ─── Modal overlay (editor que se abre sobre la posición actual) ─────── */
+.adf-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: oklch(20% 0.02 262 / 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6) var(--sp-4);
+}
+.adf-modal-card {
+  width: 100%;
+  max-width: 880px;
+  max-height: calc(100vh - 2 * var(--sp-6));
+  overflow-y: auto;
+  margin: 0;
+  box-shadow: var(--shadow-lg);
+}
+/* El encabezado de edición queda fijo arriba al hacer scroll dentro del modal */
+.adf-modal-card .adf-edit-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}

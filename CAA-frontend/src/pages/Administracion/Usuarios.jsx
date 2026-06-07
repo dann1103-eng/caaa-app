@@ -399,7 +399,8 @@ export default function Usuarios() {
           )}
 
           {editP && (
-            <div className="adf-card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="adf-modal-backdrop" onClick={() => setEditP(null)}>
+            <div className="adf-card adf-modal-card" style={{ padding: 0 }} onClick={(e) => e.stopPropagation()}>
               <div className="adf-edit-head">
                 <span className="adf-edit-head__title">
                   <span className="adf-edit-head__chip"><i className="bi bi-pencil-square"></i></span>
@@ -614,6 +615,7 @@ export default function Usuarios() {
                 </div>
               ); })()}
               </div>
+            </div>
             </div>
           )}
 
