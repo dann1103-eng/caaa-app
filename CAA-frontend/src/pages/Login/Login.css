@@ -19,8 +19,14 @@
   flex-direction: column;
   justify-content: space-between;
   padding: var(--sp-10) var(--sp-10);
+  /* Foto de marca anclada a la derecha (mantiene el avión visible al recortar en
+     vertical) + degradado navy encima para legibilidad del texto blanco. */
   background:
-    radial-gradient(120% 90% at 50% 38%, oklch(30% 0.075 262) 0%, var(--c-brand-900) 60%);
+    linear-gradient(180deg,
+      oklch(22% 0.06 262 / 0.62) 0%,
+      oklch(22% 0.06 262 / 0.18) 42%,
+      oklch(14% 0.05 262 / 0.85) 100%),
+    url("/login-bg.jpg") right center / cover no-repeat;
   color: oklch(96% 0.01 262);
   overflow: hidden;
 }
@@ -56,8 +62,10 @@
 }
 .login__wordmark--sm { font-size: 18px; color: var(--c-brand-700); }
 
-/* Horizonte artificial (sello técnico) */
+/* Horizonte artificial (sello técnico) — oculto cuando hay foto de marca para
+   no recargar la composición. Quitar este display:none para restaurarlo. */
 .login__horizon {
+  display: none;
   position: relative;
   width: min(62%, 280px);
   align-self: center;
