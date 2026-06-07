@@ -249,9 +249,13 @@ export default function Nomina() {
               <label>Notas</label>
               <input value={cfgForm.notas} onChange={e => setCfgForm({ ...cfgForm, notas: e.target.value })} />
             </div>
-            <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--c-line-1)", display: "flex", gap: 14, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+              <div className="adf-note" style={{ maxWidth: "42rem" }}>
+                <i className="bi bi-info-circle"></i>
+                <span>Tabla de retención mensual de El Salvador. ISR sobre base = bruto − ISSS − AFP.
+                  <strong> Guardar configuración</strong> crea una nueva versión vigente desde hoy (no afecta planillas ya aprobadas).</span>
+              </div>
               <button className="adf-btn" onClick={handleGuardarConfig}><i className="bi bi-check"></i>Guardar configuración</button>
-              <span style={{ fontSize: "0.78rem", color: "var(--c-ink-3)" }}>Crea una nueva versión vigente desde hoy (no afecta planillas ya aprobadas).</span>
             </div>
           </div>
         )}
@@ -319,21 +323,22 @@ export default function Nomina() {
                 <td>{p.instructores_count}</td>
                 <td className="amount" style={{ textAlign: "right" }}>{money(p.total_periodo)}</td>
                 <td className="amount" style={{ textAlign: "right", color: "var(--c-ink-3)" }}>{Number(p.costo_patronal_total) > 0 ? money(p.costo_patronal_total) : "—"}</td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <button className="adf-btn small secondary" onClick={() => loadDetalles(p)} title="Ver detalle"><i className="bi bi-eye"></i></button>
-                  <button className="adf-btn small secondary" style={{ marginLeft: 6 }} onClick={() => abrirPlanillaPDF(p.id)} title="Descargar PDF"><i className="bi bi-file-earmark-pdf"></i></button>
-                  {p.estado === "BORRADOR" && (
-                    <button className="adf-btn small" style={{ marginLeft: 6 }}
-                      onClick={async () => { await aprobarNomina(p.id); toast.success("Aprobada"); loadPeriodos(); }}>Aprobar</button>
-                  )}
-                  {p.estado === "APROBADA" && (
-                    <button className="adf-btn small" style={{ marginLeft: 6 }}
-                      onClick={async () => { await pagarNomina(p.id); toast.success("Pagada (egreso registrado)"); loadPeriodos(); }}>Marcar pagada</button>
-                  )}
-                  {!anulada && (
-                    <button className="adf-btn small secondary" style={{ marginLeft: 6, color: "var(--c-danger-700)" }}
-                      onClick={() => handleAnular(p)} title="Anular"><i className="bi bi-x-circle"></i></button>
-                  )}
+                <td style={{ textAlign: "right" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                    <button className="adf-icon-btn" onClick={() => loadDetalles(p)} title="Ver detalle"><i className="bi bi-eye"></i></button>
+                    <button className="adf-icon-btn" onClick={() => abrirPlanillaPDF(p.id)} title="Descargar PDF"><i className="bi bi-file-earmark-pdf"></i></button>
+                    {p.estado === "BORRADOR" && (
+                      <button className="adf-btn small" style={{ marginLeft: 4 }}
+                        onClick={async () => { await aprobarNomina(p.id); toast.success("Aprobada"); loadPeriodos(); }}>Aprobar</button>
+                    )}
+                    {p.estado === "APROBADA" && (
+                      <button className="adf-btn small" style={{ marginLeft: 4 }}
+                        onClick={async () => { await pagarNomina(p.id); toast.success("Pagada (egreso registrado)"); loadPeriodos(); }}>Marcar pagada</button>
+                    )}
+                    {!anulada && (
+                      <button className="adf-icon-btn danger" onClick={() => handleAnular(p)} title="Anular"><i className="bi bi-x-circle"></i></button>
+                    )}
+                  </div>
                 </td>
               </tr>
             );
@@ -374,11 +379,13 @@ export default function Nomina() {
             <tbody>
               {detalles.map(d => {
                 const acciones = (
-                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                    {activeEstado !== "PAGADA" && activeEstado !== "ANULADA" && (
-                      <button className="adf-btn small secondary" onClick={() => openEditar(d)} title="Editar"><i className="bi bi-pencil"></i></button>
-                    )}
-                    <button className="adf-btn small secondary" style={{ marginLeft: 6 }} onClick={() => abrirReciboNominaPDF(d.id)} title="Recibo PDF"><i className="bi bi-receipt"></i></button>
+                  <td style={{ textAlign: "right" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }}>
+                      {activeEstado !== "PAGADA" && activeEstado !== "ANULADA" && (
+                        <button className="adf-icon-btn" onClick={() => openEditar(d)} title="Editar"><i className="bi bi-pencil"></i></button>
+                      )}
+                      <button className="adf-icon-btn" onClick={() => abrirReciboNominaPDF(d.id)} title="Recibo PDF"><i className="bi bi-receipt"></i></button>
+                    </div>
                   </td>
                 );
                 const nombre = (
@@ -445,8 +452,8 @@ export default function Nomina() {
       )}
 
       {editing && (
-        <div className="adf-card" style={{ background: "var(--c-warn-50)", borderColor: "oklch(85% 0.080 75)" }}>
-          <h3><i className="bi bi-pencil-square me-2" style={{ color: "var(--c-warn-700)" }}></i>Editar pago de {editing.instructor_username}</h3>
+        <div className="adf-card">
+          <h3><i className="bi bi-pencil-square me-2" style={{ color: "var(--c-brand-700)" }}></i>Editar pago de {editing.instructor_username}</h3>
           <p style={{ color: "var(--c-ink-3)", fontSize: "0.85rem", marginTop: -10 }}>
             Planilla <strong>{PLANILLA_META[activeTipo].label}</strong>. El neto y las deducciones se recalculan al guardar.
           </p>

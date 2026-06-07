@@ -217,3 +217,16 @@ Bootstrap Icons (ya en uso). Inline 14-16px, sidebar/nav 18px, featured 24px má
 6. **Cliché aviación** (cielos, alas doradas, aviones decorativos). El carácter vive en mono, hairlines, semántica de cabina y el sello técnico sutil.
 7. **Exo 2 / Outfit** → Inter.
 8. **El acento (rojo) como relleno en algo que no sea acción primaria/activo/en-vivo.** Si se pasa del 10%, sobra.
+
+---
+
+## Estilo "Core Admin" (módulo Administración/Contabilidad)
+
+Para todas las pantallas nuevas del módulo admin (Contabilidad, Nómina, Usuarios,
+fichas…) seguir la referencia en **`design-mockups/admin-ui-reference/`**
+(`contabilidad-nomina.html` + `README.md`): tarjetas con sombra sutil y esquinas
+redondeadas, acordeones con chip de ícono + subtítulo azul y animación suave,
+tablas de cabecera tenue con badges tipo píldora, **botones de solo ícono**
+(`.adf-icon-btn`) para acciones en filas, notas informativas azules (`.adf-note`),
+y modales de edición limpios (sin fondos saturados) que abren centrados sobre la
+posición actual. Implementado en las clases `adf-*` de `AdministracionLayout.css`.

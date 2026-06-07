@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<!--
+  REFERENCIA DE DISEÑO — Estilo "Core Admin" para módulos de Administración/Contabilidad de CAAA.
+  Provisto por el usuario (2026-06). Mantener este look & feel en futuras interfaces del módulo admin.
+  Resumen de reglas en ./README.md.
+-->
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Core Admin - Contabilidad &amp; Nómina</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { primary: '#25478a', surface: '#faf8ff', 'surface-dim': '#dad9e0', 'surface-container': '#f4f3f9' },
+        fontFamily: { sans: ['Inter', 'sans-serif'] },
+        borderRadius: { 'custom': '4px' }
+      } }
+    }
+</script>
+<style>
+    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+    .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+    .accordion-open .accordion-content { max-height: 2000px; }
+    .accordion-rotate { transition: transform 0.3s ease; }
+    .accordion-open .accordion-rotate { transform: rotate(180deg); }
+</style>
+</head>
+<body class="text-slate-800">
+<!-- Tarjeta acordeón: header con chip de ícono + título + subtítulo azul + chevron que rota -->
+<section class="bg-white border border-slate-200 rounded-lg shadow-sm accordion-open max-w-5xl mx-auto my-8" id="config-section">
+  <button class="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors rounded-t-lg" onclick="document.getElementById('config-section').classList.toggle('accordion-open')">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded bg-slate-100 flex items-center justify-center">⚙</div>
+      <div class="text-left">
+        <h3 class="font-bold text-slate-700">Configuración fiscal</h3>
+        <p class="text-xs text-blue-600 font-medium">Desde 2024-01-01</p>
+      </div>
+    </div>
+    <svg class="w-5 h-5 text-slate-400 accordion-rotate" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+  </button>
+  <div class="accordion-content border-t border-slate-100">
+    <div class="p-6 space-y-8">
+      <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">ISSS Empleado (%)</label>
+          <input class="w-full border-slate-200 rounded-custom text-sm focus:ring-primary focus:border-primary" type="text" value="3"/>
+        </div>
+      </div>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-sm font-bold text-slate-700">Tramos ISR (La base gravable es bruto - ISSS - AFP)</h4>
+          <button class="text-primary text-xs font-bold hover:underline">+ Agregar tramo</button>
+        </div>
+        <div class="rounded-lg border border-slate-200 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-[10px] uppercase font-bold text-slate-400">
+              <tr><th class="px-4 py-3">Desde</th><th class="px-4 py-3">Hasta</th><th class="px-4 py-3">Tasa</th><th class="px-4 py-3 text-right">Acción</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="hover:bg-slate-50"><td class="px-4 py-2"><input class="w-24 border-slate-200 rounded text-xs" value="0"/></td><td class="px-4 py-2"><input class="w-24 border-slate-200 rounded text-xs" value="472"/></td><td class="px-4 py-2"><input class="w-20 border-slate-200 rounded text-xs" value="0"/></td><td class="px-4 py-2 text-right"><button class="p-1.5 text-slate-300 hover:text-red-500">🗑</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="pt-6 border-t border-slate-100 flex items-center justify-between gap-4">
+        <div class="flex items-start gap-3 bg-blue-50/50 p-3 rounded-lg border border-blue-100 max-w-2xl">
+          <span class="text-blue-500 mt-0.5">ℹ</span>
+          <p class="text-xs text-blue-800 leading-relaxed italic">Tabla de retención mensual El Salvador. <span class="font-bold">Guardar</span> crea una versión vigente desde hoy.</p>
+        </div>
+        <button class="px-6 py-2.5 bg-primary text-white font-bold text-sm rounded-custom shadow-md hover:bg-blue-800">✓ Guardar configuración</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tabla de periodos: thead suave, filas con divide-y + hover, badges píldora, acciones de ícono -->
+<section class="max-w-5xl mx-auto my-8 space-y-4">
+  <div class="flex items-center justify-between">
+    <h3 class="font-bold text-slate-700">Periodos de nómina</h3>
+    <button class="px-4 py-2 bg-primary text-white text-sm font-bold rounded-custom hover:bg-blue-800">⊕ Generar planilla</button>
+  </div>
+  <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-200">
+        <tr><th class="px-6 py-4">Periodo</th><th class="px-6 py-4">Planilla</th><th class="px-6 py-4">Estado</th><th class="px-6 py-4 text-right">Neto USD</th><th class="px-6 py-4 text-right">Acciones</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <tr class="hover:bg-slate-50 group">
+          <td class="px-6 py-4 font-semibold text-slate-700">Mayo 2026</td>
+          <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold uppercase">PLANTA</span></td>
+          <td class="px-6 py-4"><span class="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-100">APROBADA</span></td>
+          <td class="px-6 py-4 text-right font-mono font-medium text-slate-700">$0.00</td>
+          <td class="px-6 py-4 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button class="p-1.5 text-slate-400 hover:text-primary" title="Ver">👁</button>
+              <button class="p-1.5 text-slate-400 hover:text-primary" title="Descargar">⬇</button>
+              <button class="ml-2 px-3 py-1 bg-primary text-white text-[11px] font-bold rounded hover:bg-blue-800 uppercase">Marcar pagada</button>
+              <button class="p-1.5 text-slate-300 hover:text-red-500" title="Anular">⊘</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+</body></html>
