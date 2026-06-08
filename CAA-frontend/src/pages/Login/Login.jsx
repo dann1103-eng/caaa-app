@@ -32,6 +32,7 @@ export default function Login() {
       else if (user.rol === "TURNO") navigate("/turno");
       else if (user.rol === "INSTRUCTOR") navigate("/instructor");
       else if (user.rol === "ADMINISTRACION") navigate("/administracion/dashboard");
+      else if (user.rol === "TALLER") navigate("/taller/dashboard");
     } catch {
       toast.error("Credenciales incorrectas");
     }

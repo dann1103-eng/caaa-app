@@ -19,6 +19,7 @@ const turnoRoutes = require("./routes/turnoRoutes");
 const instructorRoutes = require("./routes/instructorRoutes");
 const metarRoutes = require("./routes/metarRoutes");
 const administracionRoutes = require("./routes/administracionRoutes");
+const tallerRoutes = require("./routes/tallerRoutes");
 const notificacionRoutes = require("./routes/notificacionRoutes");
 const { startMetarPoller } = require("./services/metarService");
 const globalErrorHandler = require("./middlewares/errorMiddleware");
@@ -83,6 +84,7 @@ app.use("/api/turno", turnoRoutes);
 app.use("/api/instructor", instructorRoutes);
 app.use("/api/metar", metarRoutes);
 app.use("/api/administracion", administracionRoutes);
+app.use("/api/taller", tallerRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 
 app.use(globalErrorHandler);

@@ -55,7 +55,6 @@ export default function AdminSidebar({ isOpen, onClose }) {
         },
         { label: "Agendar vuelos", path: "/admin/agendar", icon: "bi-calendar-plus" },
         { label: "Cancelaciones", path: "/admin/cancelaciones", icon: "bi-x-circle", badge: pendingCancelCount },
-        { label: "Mantenimiento", path: "/admin/mantenimiento", icon: "bi-tools" },
       ],
     },
     {
@@ -75,7 +74,10 @@ export default function AdminSidebar({ isOpen, onClose }) {
     {
       titulo: "Taller",
       items: [
-        { label: "Próximamente", icon: "bi-wrench-adjustable", disabled: true },
+        { label: "Dashboard", path: "/taller/dashboard", icon: "bi-speedometer2" },
+        { label: "Aeronavegabilidad", path: "/taller/aeronavegabilidad", icon: "bi-clipboard2-check" },
+        { label: "Mantenimiento", path: "/admin/mantenimiento", icon: "bi-tools" },
+        { label: "Inventario", path: "/taller/inventario", icon: "bi-box-seam" },
       ],
     },
   ];

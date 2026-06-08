@@ -42,6 +42,13 @@ import AdmMedicos from "./pages/Administracion/Medicos";
 import AdmReportes from "./pages/Administracion/Reportes";
 import AdmAulaVirtual from "./pages/Administracion/AulaVirtual";
 
+// ── Módulo Taller (mantenimiento / aeronavegabilidad) ─────────────
+import ProtectedTaller from "./components/routes/ProtectedTaller";
+import TallerLayoutAuto from "./components/TallerLayout/TallerLayoutAuto";
+import TallerDashboard from "./pages/Taller/TallerDashboard";
+import TallerAeronavegabilidad from "./pages/Taller/Aeronavegabilidad";
+import TallerInventario from "./pages/Taller/Inventario";
+
 const IDLE_MS = 30 * 60 * 1000;
 
 function App() {
@@ -275,6 +282,12 @@ function App() {
           <Route path="/administracion/medicos"       element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmMedicos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/reportes"      element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmReportes /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/aula-virtual"  element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAulaVirtual /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+
+          {/* ── Módulo Taller (mantenimiento / aeronavegabilidad) ── */}
+          <Route path="/taller" element={<Navigate to="/taller/dashboard" replace />} />
+          <Route path="/taller/dashboard"         element={<ProtectedTaller><TallerLayoutAuto><TallerDashboard /></TallerLayoutAuto></ProtectedTaller>} />
+          <Route path="/taller/aeronavegabilidad" element={<ProtectedTaller><TallerLayoutAuto><TallerAeronavegabilidad /></TallerLayoutAuto></ProtectedTaller>} />
+          <Route path="/taller/inventario"        element={<ProtectedTaller><TallerLayoutAuto><TallerInventario /></TallerLayoutAuto></ProtectedTaller>} />
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

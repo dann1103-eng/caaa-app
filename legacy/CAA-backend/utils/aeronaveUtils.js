@@ -138,6 +138,41 @@ async function actualizarHorasAeronave(client, id_vuelo, id_aeronave, horasAAgre
       }
     }
   }
+
+  // 5. Módulo Taller: avisar si alguna tarea programada (por horas) acaba de
+  //    cruzar a "próxima a vencer" (<=10h) o ya "vencida" con este vuelo.
+  //    Defensivo: si las tablas aún no existen (módulo no migrado), se ignora
+  //    sin afectar el cierre del vuelo.
+  try {
+    const tareasRes = await client.query(
+      `SELECT nombre, tipo, proxima_horas
+         FROM taller_tarea_programada
+        WHERE id_aeronave = $1 AND activo = true AND proxima_horas IS NOT NULL`,
+      [id_aeronave]
+    );
+    for (const t of tareasRes.rows) {
+      const prox = parseFloat(t.proxima_horas);
+      const restanteAntes = prox - horasAntes;
+      const restanteAhora = prox - nuevasHoras;
+      const cruzoVencido = restanteAntes > 0 && restanteAhora <= 0;
+      const cruzoProximo = restanteAntes > 10 && restanteAhora <= 10 && restanteAhora > 0;
+      if (io && (cruzoVencido || cruzoProximo)) {
+        io.emit("alerta_taller", {
+          aeronave_codigo: codigo,
+          tarea: t.nombre,
+          tipo: t.tipo,
+          horas_restantes: parseFloat(restanteAhora.toFixed(2)),
+          estado: cruzoVencido ? "VENCIDO" : "PROXIMO",
+          mensaje: cruzoVencido
+            ? `${codigo}: "${t.nombre}" está VENCIDA.`
+            : `${codigo}: "${t.nombre}" próxima a vencer (${restanteAhora.toFixed(1)}h).`,
+        });
+      }
+    }
+  } catch (e) {
+    // Módulo Taller no disponible / no migrado: no es crítico para el vuelo.
+    if (e.code !== "42P01") console.error("Taller alerta tareas:", e.message);
+  }
 }
 
 module.exports = {

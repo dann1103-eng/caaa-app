@@ -57,6 +57,9 @@ export default function Perfil() {
     if (rol === "ALUMNO") navigate("/alumno/dashboard");
     else if (rol === "PROGRAMACION") navigate("/programacion/dashboard");
     else if (rol === "INSTRUCTOR") navigate("/instructor");
+    else if (rol === "TURNO") navigate("/turno");
+    else if (rol === "ADMINISTRACION") navigate("/administracion/dashboard");
+    else if (rol === "TALLER") navigate("/taller/dashboard");
     else navigate("/admin/dashboard");
   };
 

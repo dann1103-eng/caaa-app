@@ -3,13 +3,15 @@
  * Debe usarse después de authMiddleware.
  *
  * Roles válidos:
- *   ADMIN, PROGRAMACION, TURNO, ALUMNO, INSTRUCTOR, ADMINISTRACION
+ *   ADMIN, PROGRAMACION, TURNO, ALUMNO, INSTRUCTOR, ADMINISTRACION, TALLER
  *
  * ADMINISTRACION gestiona el módulo Contabilidad/Finanzas.
+ * TALLER gestiona el módulo de mantenimiento/aeronavegabilidad.
  * ADMIN puede coexistir como rol de operaciones; en endpoints de lectura
- * financiera se pasan ambos: roleMiddleware(["ADMIN","ADMINISTRACION"]).
+ * financiera o de taller se pasan ambos: roleMiddleware(["ADMIN","ADMINISTRACION"])
+ * / roleMiddleware(["ADMIN","TALLER"]).
  */
-const VALID_ROLES = ['ADMIN','PROGRAMACION','TURNO','ALUMNO','INSTRUCTOR','ADMINISTRACION'];
+const VALID_ROLES = ['ADMIN','PROGRAMACION','TURNO','ALUMNO','INSTRUCTOR','ADMINISTRACION','TALLER'];
 
 module.exports = (roles) => {
   return (req, res, next) => {
