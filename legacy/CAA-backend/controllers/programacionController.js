@@ -593,6 +593,9 @@ exports.getMantenimientoResumen = async (req, res) => {
     const user = requireProgramacionOrAdmin(req, res);
     if (!user) return;
 
+    // Fuente única: la próxima revisión sale del cache sincronizado desde el
+    // módulo Taller (aeronave.horas_proxima_revision / horas_ultima_revision).
+    // Fallback al ciclo 50/100 viejo si la aeronave no tiene inspección cacheada.
     const r = await db.query(`
       SELECT
         a.id_aeronave,
@@ -600,27 +603,18 @@ exports.getMantenimientoResumen = async (req, res) => {
         a.tipo,
         a.estado,
         a.horas_acumuladas,
-        CASE
-          WHEN COALESCE(a.horas_acumuladas, 0) < 50  THEN '50HR'
-          ELSE '100HR'
-        END AS tipo_proxima_revision,
-        CASE
-          WHEN COALESCE(a.horas_acumuladas, 0) < 50  THEN 50
-          ELSE 100
-        END AS horas_proxima_revision,
-        CASE
-          WHEN COALESCE(a.horas_acumuladas, 0) < 50  THEN 50  - COALESCE(a.horas_acumuladas, 0)
-          ELSE                                              100 - COALESCE(a.horas_acumuladas, 0)
-        END AS horas_restantes
+        a.tipo_proxima_revision,
+        COALESCE(a.horas_proxima_revision,
+          CASE WHEN COALESCE(a.horas_acumuladas, 0) < 50 THEN 50 ELSE 100 END
+        ) AS horas_proxima_revision,
+        COALESCE(a.horas_ultima_revision, 0) AS horas_ultima_revision,
+        (COALESCE(a.horas_proxima_revision,
+          CASE WHEN COALESCE(a.horas_acumuladas, 0) < 50 THEN 50 ELSE 100 END
+        ) - COALESCE(a.horas_acumuladas, 0)) AS horas_restantes
       FROM aeronave a
       WHERE a.activa = true
         AND a.tipo != 'SIMULADOR'
-      ORDER BY (
-        CASE
-          WHEN COALESCE(a.horas_acumuladas, 0) < 50  THEN 50  - COALESCE(a.horas_acumuladas, 0)
-          ELSE                                              100 - COALESCE(a.horas_acumuladas, 0)
-        END
-      ) ASC
+      ORDER BY horas_restantes ASC
       LIMIT 3
     `);
 

@@ -42,6 +42,10 @@ export const getHistorialTarea = async (id) => {
   const res = await axios.get(`${API_URL}/taller/tareas/${id}/historial`);
   return res.data;
 };
+export const getHistorialAeronave = async (id) => {
+  const res = await axios.get(`${API_URL}/taller/aeronaves/${id}/historial`);
+  return res.data;
+};
 
 // ── Inventario de repuestos ────────────────────────────────────────────────
 export const getRepuestos = async (params = {}) => {

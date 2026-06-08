@@ -192,22 +192,29 @@ async function actualizarHorasAeronave(client, id_vuelo, id_aeronave, horasAAgre
  */
 async function syncProximaRevisionAeronave(client, id_aeronave) {
   try {
+    // Inspección por horas más próxima (menor proxima_horas) → su intervalo
+    // [ultima_horas, proxima_horas] alimenta el cache que lee /mantenimiento.
     const r = await client.query(
-      `SELECT MIN(proxima_horas) AS m
+      `SELECT proxima_horas, ultima_horas
          FROM taller_tarea_programada
         WHERE id_aeronave = $1 AND activo = true
-          AND tipo = 'INSPECCION' AND proxima_horas IS NOT NULL`,
+          AND tipo = 'INSPECCION' AND proxima_horas IS NOT NULL
+        ORDER BY proxima_horas ASC
+        LIMIT 1`,
       [id_aeronave]
     );
-    const m = r.rows[0] && r.rows[0].m;
-    if (m != null) {
+    if (r.rows.length) {
       await client.query(
-        `UPDATE aeronave SET horas_proxima_revision = $2 WHERE id_aeronave = $1`,
-        [id_aeronave, m]
+        `UPDATE aeronave
+            SET horas_proxima_revision = $2,
+                horas_ultima_revision  = $3
+          WHERE id_aeronave = $1`,
+        [id_aeronave, r.rows[0].proxima_horas, r.rows[0].ultima_horas]
       );
     }
   } catch (e) {
-    if (e.code !== "42P01") console.error("syncProximaRevisionAeronave:", e.message);
+    // 42P01 = tabla inexistente, 42703 = columna inexistente (módulo no migrado).
+    if (e.code !== "42P01" && e.code !== "42703") console.error("syncProximaRevisionAeronave:", e.message);
   }
 }
 

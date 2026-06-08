@@ -239,3 +239,19 @@ exports.historialTarea = catchAsync(async (req, res) => {
   `, [id]);
   res.json(r.rows);
 });
+
+// ── Historial de mantenimientos de una aeronave (últimos cumplimientos) ────
+exports.historialAeronave = catchAsync(async (req, res) => {
+  const { id } = req.params; // id_aeronave
+  const r = await db.query(`
+    SELECT c.id_cumplimiento, c.fecha, c.horas_aeronave, c.ciclos,
+           c.descripcion, c.realizado_por,
+           t.id_tarea, t.nombre AS tarea_nombre, t.tipo AS tarea_tipo, t.referencia
+    FROM taller_cumplimiento c
+    JOIN taller_tarea_programada t ON t.id_tarea = c.id_tarea
+    WHERE t.id_aeronave = $1
+    ORDER BY c.fecha DESC, c.id_cumplimiento DESC
+    LIMIT 100
+  `, [id]);
+  res.json(r.rows);
+});

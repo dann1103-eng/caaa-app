@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   getDashboardTaller, getComponentes, crearComponente,
-  getTareas, crearTarea, registrarCumplimiento,
+  getTareas, crearTarea, registrarCumplimiento, getHistorialAeronave,
 } from "../../services/tallerApi";
 
 const TIPO_COMP = [
@@ -32,6 +32,7 @@ export default function Aeronavegabilidad() {
   const [idAeronave, setIdAeronave] = useState(params.get("aeronave") || "");
   const [componentes, setComponentes] = useState([]);
   const [tareas, setTareas] = useState([]);
+  const [historial, setHistorial] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [modalComp, setModalComp] = useState(false);
@@ -57,9 +58,12 @@ export default function Aeronavegabilidad() {
     if (!id) return;
     setLoading(true);
     try {
-      const [comps, tks] = await Promise.all([getComponentes(id), getTareas({ id_aeronave: id })]);
+      const [comps, tks, hist] = await Promise.all([
+        getComponentes(id), getTareas({ id_aeronave: id }), getHistorialAeronave(id),
+      ]);
       setComponentes(comps);
       setTareas(tks);
+      setHistorial(hist);
     } catch (e) {
       toast.error(e.response?.data?.message || "Error al cargar datos");
     } finally {
@@ -139,6 +143,34 @@ export default function Aeronavegabilidad() {
                       <td className={`amount ${t.horas_restantes != null && t.horas_restantes <= 0 ? "neg" : ""}`}>{t.horas_restantes != null ? num(t.horas_restantes) : "—"}</td>
                       <td>{t.proxima_fecha ? new Date(t.proxima_fecha).toLocaleDateString("es-SV", { timeZone: "UTC" }) : "—"}</td>
                       <td><button className="adf-btn small secondary" onClick={() => setCumplir(t)}>Cumplir</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Historial de mantenimientos (últimos cumplimientos de la aeronave) */}
+          <div className="adf-card" style={{ marginTop: "var(--sp-5)" }}>
+            <h3 className="adf-section-title" style={{ fontSize: "1.05rem", margin: "0 0 10px" }}>
+              <i className="bi bi-clock-history me-2"></i>Últimos mantenimientos realizados
+            </h3>
+            {historial.length === 0 ? (
+              <p style={{ color: "var(--c-ink-3)", fontSize: "0.9rem" }}>Todavía no hay mantenimientos registrados para esta aeronave.</p>
+            ) : (
+              <table className="adf-table">
+                <thead>
+                  <tr><th>Fecha</th><th>Tarea</th><th>Tipo</th><th className="amount">Horas</th><th>Realizado por</th><th>Notas</th></tr>
+                </thead>
+                <tbody>
+                  {historial.map((h) => (
+                    <tr key={h.id_cumplimiento}>
+                      <td>{h.fecha ? new Date(h.fecha).toLocaleDateString("es-SV", { timeZone: "UTC" }) : "—"}</td>
+                      <td>{h.tarea_nombre}{h.referencia ? <span style={{ color: "var(--c-ink-4)" }}> · {h.referencia}</span> : ""}</td>
+                      <td><span className="adf-tag gray">{TIPO_TAREA.find(x => x.v === h.tarea_tipo)?.t || h.tarea_tipo}</span></td>
+                      <td className="amount">{h.horas_aeronave != null ? `${num(h.horas_aeronave)}h` : "—"}</td>
+                      <td>{h.realizado_por || "—"}</td>
+                      <td style={{ color: "var(--c-ink-3)" }}>{h.descripcion || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -313,13 +345,17 @@ function ModalCumplir({ tarea, onClose, onSaved }) {
     e.preventDefault();
     setSaving(true);
     try {
-      await registrarCumplimiento(tarea.id_tarea, {
+      const upd = await registrarCumplimiento(tarea.id_tarea, {
         fecha: f.fecha || null,
         horas_aeronave: f.horas_aeronave === "" ? null : Number(f.horas_aeronave),
         ciclos: f.ciclos === "" ? null : Number(f.ciclos),
         realizado_por: f.realizado_por, descripcion: f.descripcion,
       });
-      toast.success("Cumplimiento registrado — reloj reiniciado");
+      // Mostrar el nuevo vencimiento para que el efecto del cumplimiento sea claro.
+      const partes = [];
+      if (upd?.proxima_horas != null) partes.push(`${num(upd.proxima_horas)}h`);
+      if (upd?.proxima_fecha) partes.push(new Date(upd.proxima_fecha).toLocaleDateString("es-SV", { timeZone: "UTC" }));
+      toast.success(partes.length ? `Cumplido. Próximo vencimiento: ${partes.join(" · ")}` : "Cumplimiento registrado — reloj reiniciado");
       onSaved();
     } catch (err) {
       toast.error(err.response?.data?.message || "Error al registrar");

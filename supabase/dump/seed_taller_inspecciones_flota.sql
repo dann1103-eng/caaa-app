@@ -35,14 +35,17 @@ WHERE a.tipo = 'AVION' AND a.activa = true
       AND t.intervalo_horas = 100 AND t.activo = true
   );
 
--- Sincronizar el cache de próxima revisión con la inspección por horas más próxima.
+-- Sincronizar el cache (próxima y última revisión) con la inspección por horas
+-- más próxima, para que la barra de /mantenimiento mida el intervalo correcto.
 UPDATE aeronave a
-SET horas_proxima_revision = sub.m
+SET horas_proxima_revision = sub.proxima,
+    horas_ultima_revision  = sub.ultima
 FROM (
-  SELECT id_aeronave, MIN(proxima_horas) AS m
+  SELECT DISTINCT ON (id_aeronave)
+         id_aeronave, proxima_horas AS proxima, ultima_horas AS ultima
   FROM taller_tarea_programada
   WHERE activo = true AND tipo = 'INSPECCION' AND proxima_horas IS NOT NULL
-  GROUP BY id_aeronave
+  ORDER BY id_aeronave, proxima_horas ASC
 ) sub
 WHERE a.id_aeronave = sub.id_aeronave;
 

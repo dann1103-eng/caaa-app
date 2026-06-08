@@ -17,12 +17,16 @@ function formatFecha(iso) {
   });
 }
 
-function BarraHoras({ acumuladas, proxima }) {
+function BarraHoras({ acumuladas, proxima, ultima }) {
   const restantes = proxima - acumuladas;
-  const pct = proxima > 0
-    ? Math.min(100, Math.round((acumuladas / proxima) * 100))
+  // La barra mide el avance DENTRO del intervalo de inspección actual:
+  // desde la última revisión (ultima) hasta la próxima (proxima).
+  const base = Number.isFinite(ultima) ? ultima : 0;
+  const span = proxima - base;
+  const pct = span > 0
+    ? Math.min(100, Math.max(0, Math.round(((acumuladas - base) / span) * 100)))
     : 0;
-  
+
   // Colores: verde si >20 horas restantes, amarillo si 5-20, rojo si <5
   const cls =
     restantes < 5 ? "mnt__barra--rojo" :
@@ -269,6 +273,7 @@ export default function MantenimientoAdmin() {
                             <BarraHoras
                               acumuladas={parseFloat(a.horas_acumuladas)}
                               proxima={parseFloat(a.horas_proxima_revision)}
+                              ultima={a.horas_ultima_revision != null ? parseFloat(a.horas_ultima_revision) : undefined}
                             />
                           </td>
                           <td className="mnt__td">

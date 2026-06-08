@@ -38,9 +38,15 @@ export default function MantenimientoResumenWidget() {
         <div className="pw__cards">
           {items.map((a) => {
             const horas_restantes = parseFloat(a.horas_restantes ?? 0);
-            // Ciclos fijos de 50 horas (0→50, 50→100).
-            // pct = progreso dentro del ciclo actual de 50 hs.
-            const pct = Math.min(100, Math.max(0, Math.round((50 - horas_restantes) / 50 * 100)));
+            // pct = avance dentro del intervalo actual: desde la última revisión
+            // (horas_ultima_revision, del cache del Taller) hasta la próxima.
+            const acum = parseFloat(a.horas_acumuladas || 0);
+            const proxima = parseFloat(a.horas_proxima_revision || 0);
+            const ultima = parseFloat(a.horas_ultima_revision || 0);
+            const span = proxima - ultima;
+            const pct = span > 0
+              ? Math.min(100, Math.max(0, Math.round((acum - ultima) / span * 100)))
+              : 0;
 
             let barCls = "pw__bar--verde";
             if (horas_restantes <= 5)  barCls = "pw__bar--rojo";

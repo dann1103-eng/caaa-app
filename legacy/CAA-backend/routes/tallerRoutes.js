@@ -30,6 +30,7 @@ router.post("/tareas", roleMiddleware(WRITE), seguimiento.crearTarea);
 router.patch("/tareas/:id", roleMiddleware(WRITE), seguimiento.editarTarea);
 router.post("/tareas/:id/cumplimiento", roleMiddleware(WRITE), seguimiento.registrarCumplimiento);
 router.get("/tareas/:id/historial", roleMiddleware(READ), seguimiento.historialTarea);
+router.get("/aeronaves/:id/historial", roleMiddleware(READ), seguimiento.historialAeronave);
 
 // ── Inventario de repuestos ────────────────────────────────────────────────
 router.get("/repuestos", roleMiddleware(READ), inventario.listRepuestos);
