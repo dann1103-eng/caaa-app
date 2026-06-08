@@ -118,10 +118,11 @@ exports.registrarMovimiento = catchAsync(async (req, res) => {
     `, [id, tipo, cant, costo, fecha || null, id_aeronave || null, id_egreso, nota || null, req.user?.id_usuario || null]);
 
     // Si vino costo nuevo en una ENTRADA, actualiza el costo de referencia del catálogo.
+    // ($4 se castea a numeric: si llega NULL, Postgres no puede inferir su tipo.)
     const updRep = await client.query(`
       UPDATE taller_repuesto
       SET stock_actual = $2,
-          costo_unitario = CASE WHEN $3 = 'ENTRADA' AND $4 IS NOT NULL THEN $4 ELSE costo_unitario END
+          costo_unitario = CASE WHEN $3 = 'ENTRADA' AND $4::numeric IS NOT NULL THEN $4::numeric ELSE costo_unitario END
       WHERE id_repuesto = $1
       RETURNING *, (stock_actual <= stock_minimo) AS stock_bajo
     `, [id, nuevoStock, tipo, costo_unitario ?? null]);
