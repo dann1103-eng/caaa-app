@@ -28,7 +28,7 @@ export default function Header() {
       <div className="header__container">
 
         <div className="header__logo">
-          <img src="/logo-caaa-mark.png" alt="CAAA" className="header__logo-img" />
+          <img src="/iso-caaa-navy.png" alt="CAAA" className="header__logo-img" />
           CAAA
         </div>
 

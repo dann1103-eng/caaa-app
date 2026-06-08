@@ -17,7 +17,7 @@ export default function AdminLayout({ children }) {
           <button className="adm-topbar__menu-btn" onClick={toggleSidebar}>
             <i className={`bi ${sidebarOpen ? 'bi-x' : 'bi-list'}`}></i>
           </button>
-          <img src="/logo-caaa-mark.png" alt="CAAA" className="adm-topbar__logo-img" style={{ height: 28, width: "auto", display: "block" }} />
+          <img src="/iso-caaa-white.png" alt="CAAA" className="adm-topbar__logo-img" style={{ height: 28, width: "auto", display: "block" }} />
           <span className="adm-topbar__logo">CAAA</span>
           <span className="adm-topbar__divider">|</span>
           <span className="adm-topbar__title">Administración</span>
