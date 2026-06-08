@@ -1,5 +1,6 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
+const { syncProximaRevisionAeronave } = require("../../utils/aeronaveUtils");
 
 // Umbrales para marcar una tarea como PROXIMA (a punto de vencer).
 const UMBRAL_HORAS = 10;   // horas restantes
@@ -122,6 +123,8 @@ exports.crearTarea = catchAsync(async (req, res) => {
     baseFecha, baseHoras, ultima_ciclos ?? null,
     prox.proxima_fecha, prox.proxima_horas, prox.proxima_ciclos,
   ]);
+  // Mantener sincronizado el cache de próxima revisión de la aeronave (fuente única).
+  await syncProximaRevisionAeronave(db, id_aeronave);
   res.json(r.rows[0]);
 });
 
@@ -167,6 +170,7 @@ exports.editarTarea = catchAsync(async (req, res) => {
     merged.intervalo_horas, merged.intervalo_ciclos, merged.intervalo_dias,
     prox.proxima_fecha, prox.proxima_horas, prox.proxima_ciclos, activo,
   ]);
+  await syncProximaRevisionAeronave(db, t.id_aeronave);
   res.json(r.rows[0]);
 });
 
@@ -212,6 +216,10 @@ exports.registrarCumplimiento = catchAsync(async (req, res) => {
       prox.proxima_fecha, prox.proxima_horas, prox.proxima_ciclos,
       t.recurrente, // las no recurrentes quedan cumplidas pero siguen visibles; el front las marca
     ]);
+
+    // Fuente única: actualizar el cache de próxima revisión que lee /mantenimiento
+    // y los widgets de Proyección, dentro de la misma transacción.
+    await syncProximaRevisionAeronave(client, t.id_aeronave);
 
     await client.query("COMMIT");
     res.json(upd.rows[0]);

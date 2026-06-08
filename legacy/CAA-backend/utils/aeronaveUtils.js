@@ -173,8 +173,45 @@ async function actualizarHorasAeronave(client, id_vuelo, id_aeronave, horasAAgre
     // Módulo Taller no disponible / no migrado: no es crítico para el vuelo.
     if (e.code !== "42P01") console.error("Taller alerta tareas:", e.message);
   }
+
+  // 6. Sincronizar el cache aeronave.horas_proxima_revision con el Taller (fuente
+  //    única). Sobrescribe el valor del bloque CASE de arriba si la aeronave tiene
+  //    inspecciones programadas en el Taller, para que el tablero de /mantenimiento
+  //    y los widgets de Proyección reflejen el ciclo real de inspecciones.
+  await syncProximaRevisionAeronave(client, id_aeronave);
+}
+
+/**
+ * Recalcula el "cache" aeronave.horas_proxima_revision a partir de la inspección
+ * (tipo='INSPECCION') por horas más próxima del módulo Taller. Si la aeronave no
+ * tiene inspecciones programadas en el Taller, deja el valor como está (fallback
+ * al ciclo 50/100 viejo). Defensivo: si las tablas del Taller no existen, no falla.
+ *
+ * Hace del Taller la fuente única: cumplir una inspección (que mueve su
+ * proxima_horas) actualiza aquí el valor que TODAS las pantallas leen de `aeronave`.
+ */
+async function syncProximaRevisionAeronave(client, id_aeronave) {
+  try {
+    const r = await client.query(
+      `SELECT MIN(proxima_horas) AS m
+         FROM taller_tarea_programada
+        WHERE id_aeronave = $1 AND activo = true
+          AND tipo = 'INSPECCION' AND proxima_horas IS NOT NULL`,
+      [id_aeronave]
+    );
+    const m = r.rows[0] && r.rows[0].m;
+    if (m != null) {
+      await client.query(
+        `UPDATE aeronave SET horas_proxima_revision = $2 WHERE id_aeronave = $1`,
+        [id_aeronave, m]
+      );
+    }
+  } catch (e) {
+    if (e.code !== "42P01") console.error("syncProximaRevisionAeronave:", e.message);
+  }
 }
 
 module.exports = {
   actualizarHorasAeronave,
+  syncProximaRevisionAeronave,
 };
