@@ -391,3 +391,102 @@ backend por `railway up` cuando aplica; la migración 009 ya corrió contra Supa
 - Theming por academia: el sistema ya es white-label (cambiar `--academy-accent-h/c` + logo);
   falta, si se vende a otra academia, exponer ese cambio (config por tenant).
 - Revisar si hay **más deriva de constraints** al ejercitar estados nuevos (mismo patrón que 009).
+
+---
+
+## 13. Sesión 2026-06-08 — Data real, /perfil, logo oficial, Planillas v2, estilo Core Admin
+
+**IMPORTANTE — DEPLOY PENDIENTE.** Todo esto está commiteado en `master` pero (salvo que
+el usuario ya lo haya hecho) **falta desplegar**:
+```powershell
+cd "C:\Users\Daniel\Desktop\CAAA modulo op+admin\legacy\CAA-backend"; railway up --detach   # backend (Planillas v2 + endpoints self)
+cd "C:\Users\Daniel\Desktop\CAAA modulo op+admin"; git push origin master                    # frontend (Vercel)
+```
+La migración **010 ya corrió** en Supabase. El backend del límite-instructor y de `/perfil`
+(endpoints self) también requieren `railway up`. Commits de la sesión (en orden):
+`1c51def` límites instructor · `f435c54` shell unificado · `24fc843` /perfil ficha ·
+`baeebdb` login bg · `f6e8418` logo oficial · `ce81102` Usuarios colapsable ·
+`08b6959` Usuarios modal centrado · `f2424c9` Planillas v2 · `dba3f2d` estilo Core Admin ·
+`688081c` isotipo favicon/in-app.
+
+### Data real cargada (producción)
+- Desde `C:\Users\Daniel\Downloads\SALDOS 2026.xlsx` (hoja `REPORTE SALDOS ACTIVOS 2026`,
+  col "Saldos al 01 de Junio de 2026") se cargaron **17 instructores + 80 alumnos** reales con su
+  **saldo de cuenta corriente** (movimiento `AJUSTE_HABER/DEBE` "Saldo inicial migrado", 01-jun-2026;
+  total $324,629.14). Script reutilizable: `legacy/CAA-backend/seed_alumnos_reales.js` (gitignored);
+  roster + credenciales en `_roster.json` / `_credenciales_carga.csv` (gitignored, PII).
+- **Usuarios** = `nombre.apellido` (sin tildes); colisiones con sufijo (`julio.santillana2`).
+  **Contraseña inicial de todos: `caaa2026`** (must_change_password). Licencias nuevas sembradas:
+  Bimotor (id nivel 4), Instructor (nivel 5). "Julio Santillana" se fusionó en una sola cuenta de
+  instructor (se descartó su saldo de $1758 como alumno).
+
+### Instructor edita el límite base de vuelos de sus alumnos
+- `PATCH /instructor/alumnos/:id_alumno/limites` (actualiza `alumno.limite_vuelos_avion/simulador`,
+  verifica pertenencia, 0-6). En el dashboard del instructor el editor ya no depende de "semana próxima".
+
+### Shell unificado del ADMIN — 3 secciones (base del módulo Taller)
+- `AdminSidebar.jsx` reorganizado en **Operaciones · Administración · Taller**. **Solo ADMIN** ve las 3.
+  `AdministracionLayoutAuto.jsx` hace el layout role-aware en `/administracion/*` (ADMIN → shell unificado;
+  ADMINISTRACION → su sidebar). `/admin/agendar` renderiza el calendario de programación embebido
+  (`DashboardProgramacion embedded`) sin perder sidebar. Stubs `/admin/perfiles` y `/admin/alumnos`
+  eliminados (redirigen a `/administracion/*`).
+- **TALLER = placeholder "Próximamente"** en `AdminSidebar.jsx` (sección sin rutas todavía). Es lo que
+  sigue: ver "Próxima sesión: módulo Taller" abajo.
+
+### /perfil enriquecido (solo lectura) — alumno e instructor (por pestañas)
+- Alumno: Cuenta(editable) · Datos de vuelo(editable+lectura) · Documentos · Cuenta corriente · Historial.
+- Instructor: Cuenta · Datos y nómina(lectura) · Historial (incl. planillas con **Recibo PDF + Firmar**).
+- Endpoints self nuevos: `/alumno/mi-historial`, `/alumno/mis-documentos/:id/archivo-url`,
+  `/instructor/mi-ficha`, `/instructor/mi-historial`, `/instructor/recibo/:idDet(+/firmar)`.
+
+### Branding
+- **Login** (`public/login-bg.jpg`): foto de avioneta al atardecer en el panel izquierdo (anclada a la
+  derecha, degradado navy). El login conserva el **logo con letras** (emblema en chip blanco + "CAAA").
+- **Logo oficial CAAA** en toda la app + PDFs: `public/logo-caaa.png` (completo), `logo-caaa-mark.png`
+  (emblema), `src/assets/logoCaaa.js` (base64 para pdfmake), `legacy/CAA-backend/assets/*` (PDFKit).
+- **Isotipo** (`Isotipo-en-positivo--CAAA-.png`, blanco/transparente) → **favicon** (`favicon-caaa.png`,
+  blanco sobre cuadro navy) y **logos in-app**: topbars navy usan `iso-caaa-white.png`; Header/Footer
+  (claros) usan `iso-caaa-navy.png` (recoloreado). El login NO usa el isotipo.
+
+### Usuarios — modal de edición de personal
+- Secciones del instructor (alumnos/asignar/cursos/historial) ahora **colapsables** (cerradas por
+  defecto) + buscador en "asignar otros". El editor abre como **modal centrado** (no salta arriba).
+
+### Planillas v2 (réplica del módulo de Kinetic) — migración 010
+- **`config_fiscal`** (versionable por `vigente_desde`): ISSS emp/patrono + tope, AFP emp/patrono + tope,
+  tramos ISR en JSONB, retención servicios. Sembrada con la **tabla oficial El Salvador** (ISSS 3% tope
+  $1000, AFP 7.25%, ISR 17.67/60/288.57, servicios 10%). **ISR sobre base = bruto − ISSS − AFP.**
+- `nomina_periodo` += anio, mes, config_snapshot, fecha/motivo/anulado_por; estado admite **ANULADA**.
+  `nomina_detalle` += isss_patrono, afp_patrono, costo_patronal, user_snapshot, firmado_en/ip.
+- `nominaController`: get/update config fiscal; **generación por MES** (anio+mes, evita duplicados);
+  **costo patronal**; aprobar congela snapshot; **anular** (revierte egreso + teoría si estaba PAGADA);
+  **PDF de planilla** (apaisado) y **recibo individual** (`utils/pdfGenerator.js`).
+- Frontend `Nomina.jsx`: config fiscal editable (tramos ISR), selector Mes/Año, etiqueta "Mayo 2026",
+  estado ANULADA, costo patronal, botones Anular/PDF/Recibo. El instructor firma su recibo desde `/perfil`.
+
+### Estilo "Core Admin" + GUÍA DE DISEÑO (seguir en lo nuevo, incl. Taller)
+- Referencia guardada en **`design-mockups/admin-ui-reference/`** (HTML + README) y resumen en
+  **`DESIGN.md`**. Look: tarjetas con sombra suave, acordeones con chip de ícono + animación, tablas
+  tenues con badges píldora, **botones de solo ícono** (`.adf-icon-btn`), notas azules (`.adf-note`),
+  modales limpios. Utilidades en `AdministracionLayout.css` (clases `adf-*`).
+
+---
+
+## 14. PRÓXIMA SESIÓN: módulo **Taller** (mantenimiento/hangar)
+
+**Estado:** la sección "Taller" ya existe como **placeholder "Próximamente"** en el sidebar unificado del
+ADMIN (`CAA-frontend/src/components/AdminSidebar/AdminSidebar.jsx`, arreglo `secciones[].Taller`). No
+tiene rutas ni páginas todavía.
+
+**Qué falta (a definir con el usuario):**
+- Definir las interfaces del taller (probablemente: órdenes de trabajo / mantenimiento de aeronaves,
+  inventario de repuestos, bitácora del hangar, programación de revisiones 50/100HR, etc.).
+- Ya existe lógica relacionada: `mantenimiento_aeronave` (50/100HR automáticos por TAC, ver
+  `utils/aeronaveUtils.js`), `horas_vuelo_aeronave`, `mantenimiento_bloque`, y el dashboard admin de
+  Mantenimiento (`pages/Admin/Mantenimiento.jsx`). El módulo Taller probablemente consolida/expande eso.
+- **Seguir el estilo "Core Admin"** (sección 13 / `design-mockups/admin-ui-reference/`): clases `adf-*`,
+  tarjetas suaves, acordeones, botones de ícono, modales centrados limpios.
+- Rutas nuevas irían bajo el shell unificado (sección Taller del `AdminSidebar`); usar
+  `AdministracionLayoutAuto`/`AdminLayout` según corresponda, o rutas `/admin/taller/*` con `AdminLayout`.
+
+**Antes de empezar:** confirmar con el usuario el alcance exacto de las pantallas del taller.
