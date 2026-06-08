@@ -6,7 +6,7 @@ const CAAA_BLUE = "#1B365D";
 const CAAA_GREEN = "#157347";
 const CAAA_RED = "#C0392B";
 
-const LOGO_PATH = path.join(__dirname, "..", "assets", "logo-caaa-mark.png");
+const LOGO_PATH = path.join(__dirname, "..", "assets", "iso-caaa-navy.png");
 
 /**
  * Encabezado común CAAA para todos los PDFs.
