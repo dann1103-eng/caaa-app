@@ -1,5 +1,6 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/authMiddleware");
+const roleMiddleware = require("../middlewares/roleMiddleware");
 const router = express.Router();
 
 const turnoController = require("../controllers/turnoController");
@@ -16,5 +17,9 @@ router.delete("/ticker/:id",      authMiddleware, turnoController.limpiarUnicoTi
 router.post("/agregar-bloques-suspension", authMiddleware, turnoController.agregarBloquesSuspension);
 router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzarEstadoVuelo);
 router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.registrarInasistencia);
+
+// Reporte de cierre del día (vuelos por avión, PDF). Lo usa TURNO; ADMIN como
+// super-usuario y ADMINISTRACION (es su insumo para debitar saldos).
+router.get("/reporte-vuelos-dia", authMiddleware, roleMiddleware(["TURNO", "ADMIN", "ADMINISTRACION"]), turnoController.getReporteVuelosDia);
 
 module.exports = router;

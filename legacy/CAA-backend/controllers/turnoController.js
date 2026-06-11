@@ -653,3 +653,60 @@ exports.agregarBloquesSuspension = async (req, res) => {
   }
 };
 
+
+// ── Reporte "VUELOS POR AVIÓN" del día (cierre de ventas del turno) ─────────
+// PDF con todos los vuelos COMPLETADOS de la fecha, agrupados por aeronave:
+// tacómetro/hobbs inicial-final-horas, monto devengado (cargo a cuenta corriente)
+// e instructor. Replica el formato del sistema anterior (rptcaVuelos).
+exports.getReporteVuelosDia = async (req, res) => {
+  try {
+    const { generarReporteVuelosDiaPDF } = require("../utils/pdfGenerator");
+
+    // Fecha del reporte: ?fecha=YYYY-MM-DD, por defecto hoy (El Salvador).
+    let fecha = String(req.query.fecha || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      const hoy = await db.query(`SELECT (NOW() AT TIME ZONE 'America/El_Salvador')::date AS d`);
+      fecha = hoy.rows[0].d.toISOString().slice(0, 10);
+    }
+
+    const r = await db.query(`
+      SELECT v.id_vuelo,
+             a.codigo AS avion_codigo, a.modelo AS avion_modelo,
+             TRIM(ua.nombre || ' ' || COALESCE(ua.apellido, '')) AS alumno,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido, '')) AS instructor,
+             rv.tacometro_salida  AS tac_ini,
+             rv.tacometro_llegada AS tac_fin,
+             rv.hobbs_salida      AS hobbs_ini,
+             rv.hobbs_llegada     AS hobbs_fin,
+             COALESCE(mc.monto, 0) AS monto
+      FROM vuelo v
+      JOIN aeronave a   ON a.id_aeronave = v.id_aeronave
+      JOIN alumno  al   ON al.id_alumno = v.id_alumno
+      JOIN usuario ua   ON ua.id_usuario = al.id_usuario
+      LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+      LEFT JOIN usuario ui   ON ui.id_usuario = i.id_usuario
+      LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+      LEFT JOIN LATERAL (
+        SELECT ABS(m.monto_usd) AS monto
+        FROM movimiento_cuenta m
+        WHERE m.id_vuelo = v.id_vuelo
+          AND m.tipo = 'CARGO_VUELO'
+          AND COALESCE(m.anulado, false) = false
+        ORDER BY m.id DESC
+        LIMIT 1
+      ) mc ON true
+      WHERE v.fecha_vuelo = $1::date
+        AND v.estado = 'COMPLETADO'
+        AND COALESCE(rv.es_inasistencia, false) = false
+      ORDER BY a.codigo, rv.tacometro_salida NULLS LAST, v.id_vuelo
+    `, [fecha]);
+
+    const doc = generarReporteVuelosDiaPDF({ fecha, vuelos: r.rows });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="vuelos-por-avion-${fecha}.pdf"`);
+    doc.pipe(res);
+  } catch (e) {
+    console.error("getReporteVuelosDia:", e);
+    res.status(500).json({ message: "Error al generar el reporte de vuelos" });
+  }
+};

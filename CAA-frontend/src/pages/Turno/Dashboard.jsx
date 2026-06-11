@@ -14,6 +14,7 @@ import {
   limpiarUnicoTicker,
   getTicker,
   avanzarEstadoVuelo,
+  abrirReporteVuelosDia,
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
@@ -224,6 +225,21 @@ export default function TurnoDashboard() {
   const [tickerMsg, setTickerMsg] = useState("");
   const [tickerSaving, setTickerSaving] = useState(false);
   const [tickerMensajes, setTickerMensajes] = useState([]);
+  // Reporte de cierre del día (vuelos por avión)
+  const hoyISO = new Date().toLocaleDateString("sv-SE", { timeZone: "America/El_Salvador" });
+  const [reporteFecha, setReporteFecha] = useState(hoyISO);
+  const [generandoReporte, setGenerandoReporte] = useState(false);
+
+  const handleReporteDia = async () => {
+    setGenerandoReporte(true);
+    try {
+      await abrirReporteVuelosDia(reporteFecha);
+    } catch {
+      toast.error("No se pudo generar el reporte del día");
+    } finally {
+      setGenerandoReporte(false);
+    }
+  };
 
   const cargarVuelos = useCallback(async () => {
     try {
@@ -377,11 +393,32 @@ export default function TurnoDashboard() {
               })}
             </p>
           </div>
-          <div className="trn__counter">
-            <i className="bi bi-airplane-engines" style={{ marginRight: '10px' }}></i>
-            {!loading && (
-              <span>{vuelos.length} vuelo{vuelos.length !== 1 ? "s" : ""} activo{vuelos.length !== 1 ? "s" : ""}</span>
-            )}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+            <div className="trn__counter">
+              <i className="bi bi-airplane-engines" style={{ marginRight: '10px' }}></i>
+              {!loading && (
+                <span>{vuelos.length} vuelo{vuelos.length !== 1 ? "s" : ""} activo{vuelos.length !== 1 ? "s" : ""}</span>
+              )}
+            </div>
+            {/* Reporte de cierre: vuelos completados del día, por avión (PDF) */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="date"
+                value={reporteFecha}
+                max={hoyISO}
+                onChange={(e) => setReporteFecha(e.target.value)}
+                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid var(--c-line-2)", fontSize: "0.85rem" }}
+              />
+              <button
+                className="trn__ops-btn trn__ops-btn--primary"
+                disabled={generandoReporte}
+                onClick={handleReporteDia}
+                title="Vuelos completados del día agrupados por avión, con tacómetro, hobbs y monto"
+              >
+                <i className="bi bi-file-earmark-pdf" style={{ marginRight: 6 }}></i>
+                {generandoReporte ? "Generando…" : "Reporte del día"}
+              </button>
+            </div>
           </div>
         </div>
 

@@ -354,4 +354,116 @@ function generarReciboNominaPDF({ periodo, detalle }) {
   return doc;
 }
 
-module.exports = { generarFacturaPDF, generarReciboPDF, generarPlanillaPDF, generarReciboNominaPDF };
+/**
+ * Reporte "VUELOS POR AVIÓN" del día (apaisado): el cierre de ventas del turno.
+ * Replica el formato del sistema anterior (Sistekk rptcaVuelos): vuelos completados
+ * agrupados por aeronave, con tacómetro y hobbs inicial/final/horas, monto devengado
+ * e instructor; subtotales por aeronave y gran total.
+ *
+ * @param {Object} params
+ * @param {string} params.fecha      - Fecha del reporte (YYYY-MM-DD).
+ * @param {Array}  params.vuelos     - Filas ya ordenadas por aeronave:
+ *   { id_vuelo, avion_codigo, avion_modelo, alumno, instructor,
+ *     tac_ini, tac_fin, hobbs_ini, hobbs_fin, monto }
+ */
+function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
+  const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
+  const ancho = 712; // 752 - 40 (margen derecho)
+  const fmtFecha = (() => {
+    const [yy, mm, dd] = String(fecha).slice(0, 10).split("-");
+    return `${Number(dd)}/${Number(mm)}/${yy}`;
+  })();
+  let y = headerCompacto(doc, "VUELOS POR AVIÓN", `Desde ${fmtFecha} hasta ${fmtFecha}`, ancho);
+
+  const horas = (n) => (n == null ? "" : Number(n).toFixed(2));
+  // Columnas: [titulo, ancho, align]
+  const cols = [
+    ["Fecha", 52, "left"], ["Número", 46, "right"], ["Alumno", 150, "left"],
+    ["Tac. inicial", 56, "right"], ["Tac. final", 56, "right"], ["Hora", 38, "right"],
+    ["Hobbs ini.", 56, "right"], ["Hobbs fin.", 56, "right"], ["Hora", 38, "right"],
+    ["Monto", 58, "right"], ["Instructor", 146, "left"],
+  ];
+
+  const drawRow = (cells, opts = {}) => {
+    let x = 40;
+    doc.fontSize(opts.head ? 7.5 : 8.5).font(opts.bold || opts.head ? "Helvetica-Bold" : "Helvetica")
+       .fillColor(opts.color || (opts.head ? "#666" : "#222"));
+    cols.forEach((c, i) => {
+      doc.text(String(cells[i] ?? ""), x + 3, y + 4, { width: c[1] - 6, align: c[2] });
+      x += c[1];
+    });
+    y += opts.head ? 18 : 16;
+  };
+
+  const nuevaPagina = () => {
+    doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 });
+    y = 50;
+    doc.rect(40, y, ancho, 18).fill("#eef2f7");
+    drawRow(cols.map((c) => c[0]), { head: true });
+  };
+
+  doc.rect(40, y, ancho, 18).fill("#eef2f7");
+  drawRow(cols.map((c) => c[0]), { head: true });
+
+  // Agrupar por aeronave (las filas vienen ordenadas por avion_codigo).
+  const grupos = [];
+  for (const v of vuelos) {
+    const g = grupos[grupos.length - 1];
+    if (!g || g.codigo !== v.avion_codigo) {
+      grupos.push({ codigo: v.avion_codigo, modelo: v.avion_modelo, filas: [v] });
+    } else {
+      g.filas.push(v);
+    }
+  }
+
+  let gTac = 0, gHobbs = 0, gMonto = 0;
+  for (const g of grupos) {
+    if (y > 480) nuevaPagina();
+    // Encabezado del grupo
+    y += 4;
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(CAAA_BLUE)
+       .text(`AVIÓN:  ${g.codigo}    ${g.modelo || ""}`, 43, y);
+    y += 16;
+
+    let sTac = 0, sHobbs = 0, sMonto = 0;
+    for (const v of g.filas) {
+      if (y > 500) nuevaPagina();
+      const tacH = (v.tac_ini != null && v.tac_fin != null) ? Number(v.tac_fin) - Number(v.tac_ini) : null;
+      const hobH = (v.hobbs_ini != null && v.hobbs_fin != null) ? Number(v.hobbs_fin) - Number(v.hobbs_ini) : null;
+      if (tacH != null) sTac += tacH;
+      if (hobH != null) sHobbs += hobH;
+      sMonto += Number(v.monto || 0);
+      drawRow([
+        fmtFecha, v.id_vuelo, v.alumno,
+        horas(v.tac_ini), horas(v.tac_fin), horas(tacH),
+        horas(v.hobbs_ini), horas(v.hobbs_fin), horas(hobH),
+        money(v.monto), v.instructor || "—",
+      ]);
+      doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+    }
+    // Subtotal del avión
+    drawRow(["", "", `Total ${g.codigo}`, "", "", horas(sTac), "", "", horas(sHobbs), money(sMonto), ""], { bold: true, color: CAAA_BLUE });
+    gTac += sTac; gHobbs += sHobbs; gMonto += sMonto;
+    y += 2;
+  }
+
+  if (!vuelos.length) {
+    doc.fontSize(10).fillColor("#999").font("Helvetica").text("No hay vuelos completados en la fecha seleccionada.", 40, y + 10);
+    y += 30;
+  }
+
+  // Gran total
+  y += 6;
+  doc.strokeColor(CAAA_BLUE).lineWidth(1.2).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+  y += 5;
+  drawRow(["", "", "GRAN TOTAL", "", "", horas(gTac), "", "", horas(gHobbs), money(gMonto), ""], { bold: true, color: CAAA_BLUE });
+
+  // Pie: cuándo y quién lo generó queda del lado del controller (texto simple).
+  doc.fontSize(7.5).fillColor("#999").font("Helvetica")
+     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, 555);
+
+  doc.end();
+  return doc;
+}
+
+module.exports = { generarFacturaPDF, generarReciboPDF, generarPlanillaPDF, generarReciboNominaPDF, generarReporteVuelosDiaPDF };

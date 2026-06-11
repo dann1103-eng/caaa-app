@@ -52,3 +52,15 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   const res = await axios.patch(`${API_URL}/turno/vuelos/${id_vuelo}/estado`, body);
   return res.data;
 };
+
+// Reporte de cierre del día (vuelos por avión). Descarga el PDF con el token
+// (mismo patrón blob que facturas/recibos) y lo abre en otra pestaña.
+export const abrirReporteVuelosDia = async (fecha) => {
+  const res = await axios.get(`${API_URL}/turno/reporte-vuelos-dia`, {
+    params: fecha ? { fecha } : {},
+    responseType: "blob",
+  });
+  const blob = new Blob([res.data], { type: "application/pdf" });
+  const url = window.URL.createObjectURL(blob);
+  window.open(url, "_blank");
+};
