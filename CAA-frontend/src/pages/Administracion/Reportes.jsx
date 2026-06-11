@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { getPyL, getIngresos, getEgresosReport, getMorosos } from "../../services/administracionApi";
+import { abrirReporteVuelosDia } from "../../services/turnoApi";
 
 const MOCK_PYL = { ingresos: 45230.00, egresos: 28600.50, facturado: 41200.00 };
 const MOCK_INGRESOS = [
@@ -22,6 +24,22 @@ export default function Reportes() {
   const [egresos, setEgresos] = useState(MOCK_EGRESOS);
   const [morosos, setMorosos] = useState([]);
   const [usingMock, setUsingMock] = useState(false);
+
+  // Reporte operativo "Vuelos por avión" (cierre de ventas del día, mismo PDF de Turno)
+  const hoyISO = new Date().toLocaleDateString("sv-SE", { timeZone: "America/El_Salvador" });
+  const [vuelosFecha, setVuelosFecha] = useState(hoyISO);
+  const [generandoVuelos, setGenerandoVuelos] = useState(false);
+
+  const handleReporteVuelos = async () => {
+    setGenerandoVuelos(true);
+    try {
+      await abrirReporteVuelosDia(vuelosFecha);
+    } catch {
+      toast.error("No se pudo generar el reporte de vuelos");
+    } finally {
+      setGenerandoVuelos(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -48,6 +66,32 @@ export default function Reportes() {
         Análisis del periodo 2026. Ingresos, egresos, P&amp;L y alumnos morosos.
         {usingMock && <span className="adf-tag amber" style={{ marginLeft: 10 }}>Datos demo</span>}
       </p>
+
+      {/* Reporte de vuelos del día (cierre de ventas) — mismo PDF que genera Turno */}
+      <div className="adf-card" style={{ marginBottom: 22, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontWeight: 700, color: "var(--c-brand-900)" }}>
+            <i className="bi bi-file-earmark-pdf me-2" style={{ color: "var(--c-brand-700)" }}></i>
+            Vuelos por avión (cierre del día)
+          </div>
+          <div style={{ fontSize: "0.85rem", color: "var(--c-ink-3)", marginTop: 4 }}>
+            Vuelos completados de la fecha con tacómetro, hobbs y monto debitado — el reporte de ventas diario.
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="date"
+            value={vuelosFecha}
+            max={hoyISO}
+            onChange={(e) => setVuelosFecha(e.target.value)}
+            style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid var(--c-line-2)", fontSize: "0.85rem" }}
+          />
+          <button className="adf-btn" disabled={generandoVuelos} onClick={handleReporteVuelos}>
+            <i className="bi bi-download"></i>
+            {generandoVuelos ? "Generando…" : "Generar PDF"}
+          </button>
+        </div>
+      </div>
 
       <div className="adf-kpi-grid" style={{ marginBottom: 22 }}>
         <div className="adf-kpi-card">
