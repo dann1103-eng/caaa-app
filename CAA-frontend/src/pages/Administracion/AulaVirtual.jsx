@@ -65,7 +65,7 @@ export default function AulaVirtual() {
     } catch (e) { toast.error(e?.response?.data?.message || "Error al subir"); }
   };
   const abrirMatUrl = async (id) => {
-    try { const r = await getMaterialUrl(id); if (r?.url) window.open(r.url, "_blank"); }
+    try { const r = await getMaterialUrl(id); if (r?.url) window.open(r.url, "_blank", "noopener,noreferrer"); }
     catch { toast.error("No se pudo abrir"); }
   };
   const borrarMat = async (id) => {

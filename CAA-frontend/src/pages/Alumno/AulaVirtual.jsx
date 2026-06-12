@@ -75,7 +75,7 @@ export default function AulaVirtual() {
   const abrirMaterial = async (id) => {
     try {
       const r = await getMaterialUrlAlumno(id);
-      if (r?.url) window.open(r.url, "_blank");
+      if (r?.url) window.open(r.url, "_blank", "noopener,noreferrer");
     } catch { /* noop */ }
   };
 

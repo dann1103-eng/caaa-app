@@ -40,13 +40,16 @@ const ESTADO_META = {
 
 const formatHora = (h) => h?.slice(0, 5) ?? "—";
 
+// Devuelve estructura segura {icon, text} en vez de HTML crudo. Así el render usa
+// elementos React (que escapan el texto) y evitamos XSS: el METAR viene de una API
+// externa (aviationweather.gov) y no debe inyectarse como HTML sin sanitizar.
 function formatMetarResumen(decoded) {
   if (!decoded) return null;
   const partes = [];
-  if (decoded.viento)      partes.push(`<i class="bi bi-wind"></i> ${decoded.viento.texto}`);
-  if (decoded.visibilidad) partes.push(`<i class="bi bi-eye"></i> ${decoded.visibilidad.texto}`);
-  if (decoded.temperatura !== null) partes.push(`<i class="bi bi-thermometer-half"></i> ${decoded.temperatura}°C`);
-  if (decoded.qnh)         partes.push(`<i class="bi bi-arrow-down-circle"></i> ${decoded.qnh.valor} ${decoded.qnh.unidad}`);
+  if (decoded.viento)      partes.push({ icon: "bi-wind", text: decoded.viento.texto });
+  if (decoded.visibilidad) partes.push({ icon: "bi-eye", text: decoded.visibilidad.texto });
+  if (decoded.temperatura !== null) partes.push({ icon: "bi-thermometer-half", text: `${decoded.temperatura}°C` });
+  if (decoded.qnh)         partes.push({ icon: "bi-arrow-down-circle", text: `${decoded.qnh.valor} ${decoded.qnh.unidad}` });
   return partes;
 }
 
@@ -210,7 +213,9 @@ export default function PaginaProgramacion() {
             <div className="pp__topbar-metar-list">
               {metar && metar.decoded ? (
                 formatMetarResumen(metar.decoded).map((p, idx) => (
-                  <span key={idx} dangerouslySetInnerHTML={{ __html: p }} className="pp__topbar-metar-item" />
+                  <span key={idx} className="pp__topbar-metar-item">
+                    <i className={`bi ${p.icon}`}></i> {p.text}
+                  </span>
                 ))
               ) : metar ? <span className="pp__topbar-raw">{metar.raw}</span> : "Cargando…"}
               {metar?.decoded?.condicion && (

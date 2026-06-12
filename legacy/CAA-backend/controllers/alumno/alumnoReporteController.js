@@ -1,8 +1,10 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
+const { puedeAccederVuelo } = require("../../utils/ownership");
 
 exports.getReporteVuelo = catchAsync(async (req, res) => {
   const { id } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id))) return;
   const result = await db.query(`
     SELECT 
       v.*, b.hora_inicio, a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo,
@@ -47,6 +49,7 @@ exports.getReporteVuelo = catchAsync(async (req, res) => {
 
 exports.guardarReporteVuelo = catchAsync(async (req, res) => {
   const { id } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id))) return;
   const data = req.body;
   await db.query(`
     INSERT INTO reporte_vuelo (id_vuelo, tipo_vuelo, tacometro_salida, tacometro_llegada, estado)
@@ -58,6 +61,7 @@ exports.guardarReporteVuelo = catchAsync(async (req, res) => {
 
 exports.enviarReporteVuelo = catchAsync(async (req, res) => {
   const { id } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id))) return;
   const { firma_alumno } = req.body;
   await db.query(`UPDATE reporte_vuelo SET firma_alumno = $1, estado = 'PENDIENTE_INSTRUCTOR', actualizado_en = NOW() WHERE id_vuelo = $2`, [firma_alumno, id]);
   res.json({ message: "Reporte enviado al instructor" });
@@ -74,6 +78,7 @@ exports.getReportesCompletadosAlumno = catchAsync(async (req, res) => {
 
 exports.firmarReporteVueloAlumno = catchAsync(async (req, res) => {
   const { id } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id))) return;
   const { firma_alumno } = req.body;
   await db.query(`UPDATE reporte_vuelo SET firma_alumno = $1, estado = 'COMPLETADO', actualizado_en = NOW() WHERE id_vuelo = $2 AND estado = 'PENDIENTE_ALUMNO'`, [firma_alumno, id]);
   res.json({ message: "Reporte firmado y completado" });

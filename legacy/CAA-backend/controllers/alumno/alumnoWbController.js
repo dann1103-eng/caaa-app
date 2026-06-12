@@ -2,9 +2,11 @@ const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
+const { puedeAccederVuelo } = require("../../utils/ownership");
 
 exports.getWB = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const vRes = await db.query(`
     SELECT 
       v.*, 
@@ -65,6 +67,7 @@ exports.getWB = catchAsync(async (req, res) => {
 
 exports.guardarWB = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const { pesos, tow, lw, cg, dentro_limite, galones, fuel_burn } = req.body;
 
   const vRes = await db.query(`
@@ -103,12 +106,14 @@ exports.guardarWB = catchAsync(async (req, res) => {
 
 exports.completarWB = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   await db.query(`UPDATE weight_balance SET estado = 'COMPLETADO', actualizado_en = NOW() WHERE id_vuelo = $1`, [id_vuelo]);
   res.json({ message: "Weight & Balance completado" });
 });
 
 exports.getLoadsheet = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const vRes = await db.query(`SELECT v.*, ae.codigo AS aeronave_codigo FROM vuelo v JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave WHERE v.id_vuelo = $1`, [id_vuelo]);
   const lsRes = await db.query(`SELECT * FROM loadsheet WHERE id_vuelo = $1`, [id_vuelo]);
   res.json({ vuelo: vRes.rows[0], loadsheet: lsRes.rows[0] ?? null });
@@ -135,7 +140,8 @@ const toTime = (val) => {
 
 exports.guardarLoadsheet = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
-  const { 
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
+  const {
     fuelData, navRows, identification, opsData, timesData, notes,
     depAtis, arrAtis
   } = req.body;
@@ -232,8 +238,9 @@ exports.guardarLoadsheet = catchAsync(async (req, res) => {
 
 exports.enviarLoadsheetPDF = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
-  const { 
-    pdfBase64, filename, student, date, aircraft, 
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
+  const {
+    pdfBase64, filename, student, date, aircraft,
     fuelData, navRows, identification, opsData, timesData, notes,
     depAtis, arrAtis
   } = req.body;
@@ -356,6 +363,7 @@ exports.enviarLoadsheetPDF = catchAsync(async (req, res) => {
 
 exports.completarLoadsheet = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const archivo = req.file;
   // Actualizamos el estado y guardamos el nombre del archivo si se subió
   await db.query(`

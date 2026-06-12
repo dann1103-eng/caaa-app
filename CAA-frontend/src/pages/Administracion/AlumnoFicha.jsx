@@ -103,7 +103,7 @@ export default function AlumnoFicha() {
   const abrirArchivo = async (idDoc) => {
     try {
       const r = await getArchivoUrlDoc(idDoc);
-      if (r?.url) window.open(r.url, "_blank");
+      if (r?.url) window.open(r.url, "_blank", "noopener,noreferrer");
       else toast.error("Documento sin archivo");
     } catch (e) {
       toast.error(e?.response?.data?.message || "No se pudo abrir el archivo");

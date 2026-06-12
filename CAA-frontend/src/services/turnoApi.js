@@ -62,5 +62,5 @@ export const abrirReporteVuelosDia = async (fecha) => {
   });
   const blob = new Blob([res.data], { type: "application/pdf" });
   const url = window.URL.createObjectURL(blob);
-  window.open(url, "_blank");
+  window.open(url, "_blank", "noopener,noreferrer");
 };
