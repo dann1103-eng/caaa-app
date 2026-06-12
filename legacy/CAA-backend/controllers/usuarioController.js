@@ -36,24 +36,30 @@ exports.getPerfil = async (req, res) => {
 // Confirma los datos generales/fiscales del usuario (robapantallas de 1er login).
 // Guarda en `usuario` y marca datos_confirmados = true para desbloquear el home.
 exports.confirmarDatos = async (req, res) => {
-  const user = req.user;
-  const { nombre, apellido, telefono, dui, direccion } = req.body;
-  if (!nombre?.trim() || !apellido?.trim()) {
-    return res.status(400).json({ message: "Nombre y apellido son obligatorios" });
+  try {
+    const user = req.user;
+    const { nombre, apellido, telefono, dui, direccion } = req.body;
+    if (!nombre?.trim() || !apellido?.trim()) {
+      return res.status(400).json({ message: "Nombre y apellido son obligatorios" });
+    }
+    await db.query(`
+      UPDATE usuario SET
+        nombre    = $2,
+        apellido  = $3,
+        telefono  = $4,
+        dui       = $5,
+        direccion = $6,
+        datos_confirmados = true
+      WHERE id_usuario = $1
+    `, [user.id_usuario, nombre.trim(), apellido.trim(), telefono || null, dui || null, direccion || null]);
+    // Si el usuario es alumno y dio teléfono, reflejarlo también en su ficha.
+    if (telefono) {
+      await db.query(`UPDATE alumno SET telefono = $2 WHERE id_usuario = $1`, [user.id_usuario, telefono]);
+    }
+    res.json({ message: "Datos confirmados ✅" });
+  } catch (e) {
+    res.status(500).json({ message: e.message });
   }
-  await db.query(`
-    UPDATE usuario SET
-      nombre    = $2,
-      apellido  = $3,
-      telefono  = $4,
-      dui       = $5,
-      direccion = $6,
-      datos_confirmados = true
-    WHERE id_usuario = $1
-  `, [user.id_usuario, nombre.trim(), apellido.trim(), telefono || null, dui || null, direccion || null]);
-  // Si el usuario es alumno, mantener su teléfono también en la ficha de alumno.
-  await db.query(`UPDATE alumno SET telefono = $2 WHERE id_usuario = $1 AND $2 IS NOT NULL`, [user.id_usuario, telefono || null]);
-  res.json({ message: "Datos confirmados ✅" });
 };
 
 exports.cambiarPassword = async (req, res) => {
