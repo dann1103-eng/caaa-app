@@ -140,11 +140,12 @@ ejercitados aún (administración/contabilidad, aula virtual, nómina, etc.). Mi
 | `u6` | INSTRUCTOR | Ricardo Henríquez (instructor id 1) — **tiene a los 3 alumnos**. Usar para probar instructor. |
 | `u7` | ALUMNO | Sofia Hernandez (alumno id 3) |
 | `u8` | INSTRUCTOR | Alfredo (instructor id 2) |
-| `u9` | TURNO | |
+| `u9` | TURNO | **Usar para probar el reporte "Vuelos por avión"** (sección 15). |
 | `u_admin_fin` | ADMINISTRACION | Administración Financiera. Reseteado a `demo123` (flags de bloqueo limpios) vía `supabase/dump/reset_admin_fin.sql`. **Usar para probar administración/contabilidad.** |
+| `u_taller` | TALLER | Taller Prueba (mecánico, id_usuario 111). Seed `supabase/dump/seed_usuario_taller.sql`. **Usar para probar el módulo Taller** (sección 15). |
 
 - El login acepta password en **texto plano** (`demo123`) y lo convierte a bcrypt al primer login (`authController.js`).
-- Los alumnos demo (u4/u5/u7) tienen documentos rellenados (`supabase/dump/backfill_demo_alumnos.sql`) para pasar el bloqueo `must_complete_profile`.
+- **⚠️ Robapantallas de primer login (desde sesión 2026-06-12, ver sección 15):** alumnos e instructores con `usuario.datos_confirmados = false` ven un modal bloqueante al entrar. Todas las cuentas demo de alumno/instructor (u4–u8 y los 104 reales) están **sin confirmar**, así que verás el modal. Para saltarlo en pruebas: `node query.js "UPDATE usuario SET datos_confirmados=true WHERE username='uX'"`. El viejo gate de documentos de vuelo del alumno se retiró del bloqueo (ahora es recordatorio en /perfil).
 - Aeronaves: id 1 YS-334-PE (PA-38), 2 YS-333-PE (C-152), 3 YS-270-P (PA-28), 4 YS-127-P (PA-28R), 5 SIM-1 (SIMULADOR, sin W&B).
 
 ---
@@ -472,9 +473,12 @@ La migración **010 ya corrió** en Supabase. El backend del límite-instructor 
 
 ---
 
-## 14. PRÓXIMA SESIÓN: módulo **Taller** (mantenimiento/hangar)
+## 14. Módulo **Taller** — ✅ HECHO (Fase 1), ver sección 15
 
-**Estado:** la sección "Taller" ya existe como **placeholder "Próximamente"** en el sidebar unificado del
+> **Esta sección era el plan; el módulo Taller ya se construyó y desplegó en la sesión 2026-06-12.**
+> El detalle de lo implementado está en la **sección 15**. Lo de abajo queda como referencia histórica del plan.
+
+**Estado original (planeación):** la sección "Taller" existía como **placeholder "Próximamente"** en el sidebar unificado del
 ADMIN (`CAA-frontend/src/components/AdminSidebar/AdminSidebar.jsx`, arreglo `secciones[].Taller`). No
 tiene rutas ni páginas todavía.
 
@@ -490,3 +494,99 @@ tiene rutas ni páginas todavía.
   `AdministracionLayoutAuto`/`AdminLayout` según corresponda, o rutas `/admin/taller/*` con `AdminLayout`.
 
 **Antes de empezar:** confirmar con el usuario el alcance exacto de las pantallas del taller.
+
+---
+
+## 15. Sesión 2026-06-12 — Taller, reporte de Turno, contabilidad, robapantallas, extranjeros
+
+**TODO desplegado en producción** (master + `railway up` + migraciones 011–015 corridas). Para retomar:
+**lo que sigue son PRUEBAS de usuario** (ver lista al final). Commits clave en orden:
+`06579a9`/`1418f5a`/`4b6ab37`/`d1357ad`/`69da29d` (Taller) · `f202734`/`ac34269` (reporte Turno) ·
+`903070a` (contab.) · `1cf07ac`/`675e8b0` (robapantallas) · `0fb1434`/`88817c3` (extranjeros).
+
+### A. Módulo Taller (mantenimiento / aeronavegabilidad) — Fase 1, rol TALLER nuevo
+- **Rol `TALLER`** (mecánico): `usuario_rol_check` ampliado (mig 011), `roleMiddleware.VALID_ROLES` +
+  `usuariosController.ROLES_PERSONAL`. ADMIN es super-usuario (mismo patrón que ADMINISTRACION).
+  `ProtectedTaller` + `TallerLayout`/`TallerSidebar`/`TallerLayoutAuto` (reusan shell `adf-*`). Login y
+  `Perfil.goDashboard` → `/taller/dashboard`. Sidebar ADMIN: sección Taller con Dashboard/Aeronavegabilidad/
+  Mantenimiento/Inventario. Usuario de prueba **`u_taller` / `demo123`** (sección 7).
+- **Backend**: `routes/tallerRoutes.js` (`/api/taller`, roles `["TALLER","ADMIN"]`), `controllers/taller/*`
+  (componente, seguimiento, inventario, dashboard). **Tablas** (mig 011): `taller_componente` (célula/motor/
+  hélice, horas por offset de instalación), `taller_tarea_programada` (INSPECCION/AD/SB/VIDA_LIMITE por
+  horas·ciclos·calendario), `taller_cumplimiento`, `taller_repuesto`, `taller_movimiento_inventario` (kardex).
+- **Seguimiento programado**: estado VIGENTE/PROXIMO/VENCIDO derivado; "Cumplir" reinicia el reloj
+  (proxima_* = ultima + intervalo). Páginas `pages/Taller/{TallerDashboard,Aeronavegabilidad,Inventario}.jsx`.
+- **Inventario**: movimientos entrada/salida/ajuste; consumo (SALIDA) crea **egreso** categoría REPUESTOS
+  (enlazado por `id_egreso`). ⚠️ bug arreglado: `$4::numeric` en UPDATE de stock (could not determine type).
+- **Taller = FUENTE ÚNICA del ciclo de inspecciones** (mig 012): `aeronave.horas_proxima_revision` y
+  `horas_ultima_revision` son **cache** sincronizado desde la inspección 50/100h más próxima del Taller, vía
+  `aeronaveUtils.syncProximaRevisionAeronave` (se llama al cerrar vuelo y al cumplir/crear/editar tareas). Así
+  el tablero **/mantenimiento** y los **widgets de Proyección** reflejan el Taller sin cambiar sus queries.
+  La **barra de progreso** mide `(acum − ultima)/(proxima − ultima)` (antes `acum/proxima`, daba % erróneo).
+  Seed `supabase/dump/seed_taller_inspecciones_flota.sql` (50/100h por aeronave + sync) y
+  `seed_taller_demo.sql` (aeronave 1: componentes + tareas con AD vencida/anual + repuestos).
+- **Historial de mantenimientos** por aeronave: `GET /taller/aeronaves/:id/historial` + tarjeta "Últimos
+  mantenimientos realizados" en Aeronavegabilidad; toast al cumplir muestra el nuevo vencimiento.
+- **Pendiente del Taller**: la pantalla Mantenimiento operativa (iniciar/completar) sigue en `/api/admin` →
+  solo ADMIN; para que un TALLER puro la opere habría que exponerla bajo `/api/taller`. Fases 2 (órdenes de
+  trabajo + squawks + MEL) y 3 (libros del avión firmados con PDF) **no hechas**.
+
+### B. Reporte de cierre del día de TURNO — "Vuelos por avión" (PDF)
+- Réplica del formato Sistekk `rptcaVuelos` (`C:\Users\Daniel\Downloads\vuelos 03 de junio de 2026.pdf`):
+  vuelos **COMPLETADOS** del día agrupados por aeronave (tac/hobbs inicial-final-horas, monto devengado,
+  instructor) + subtotales + gran total. `generarReporteVuelosDiaPDF` en `utils/pdfGenerator.js` (apaisado).
+- `GET /api/turno/reporte-vuelos-dia?fecha=YYYY-MM-DD` (default hoy SV), roles **TURNO/ADMIN/ADMINISTRACION**.
+  Monto = `movimiento_cuenta` CARGO_VUELO no anulado del vuelo; excluye inasistencias.
+- Acceso: botón "Reporte del día" en el dashboard de **Turno**, y tarjeta "Vuelos por avión" en
+  **Administración → Reportes** (mismo PDF). Es su "reporte de ventas" para debitar saldos.
+
+### C. Contabilidad — egresos, conceptos de cobro, datos fiscales (mig 013)
+- **3 egresos nuevos**: `GASTOS_FINANCIEROS`, `IMPUESTOS_TRIBUTARIOS`, `GASTOS_NO_DEDUCIBLES` (CHECK
+  `egreso_categoria_check` ampliado + etiquetas en `Egresos.jsx`).
+- **Catálogo de conceptos de cobro** (tabla `concepto_cobro`, configurable): sembrado "Reposición de examen"
+  $60. CRUD en **Contabilidad → Ingresos → Conceptos de cobro** (`ConceptosCobro.jsx`,
+  `conceptoCobroController.js`). Cobro desde la cuenta del alumno (`CuentaDetalle` panel "Cobrar concepto"
+  → `cuentaController.cobrarConcepto`) que debita el saldo prepagado (movimiento `CARGO_OTRO` enlazado por
+  `movimiento_cuenta.id_concepto_cobro`).
+- **Datos fiscales** en `usuario`: `dui`, `direccion`, `telefono` (mig 013, backfill telefono desde alumno).
+
+### D. Robapantallas de primer login (mig 014) — alumnos e instructores
+- Modal **bloqueante** (`ConfirmDataModal` + `ForcePasswordChange` ahora renderiza modal en vez de redirigir)
+  en el primer login: confirman **nombre/apellido/correo/teléfono + DUI/dirección** (+ contraseña/correo
+  inicial). `usuario.datos_confirmados`; authController calcula `must_confirm_data` (rol ALUMNO/INSTRUCTOR &&
+  !datos_confirmados) y lo mete en `must_complete_profile`. Endpoint `PUT /usuario/confirmar-datos` (permitido
+  durante el bloqueo en `authMiddleware`). Personal (admin) que cae por contraseña/correo ve modo reducido.
+- **Se retiró** el gate viejo de documentos de vuelo del alumno (licencia/médico/seguro) del bloqueo; queda
+  como recordatorio en /perfil.
+- ⚠️ **Lección**: un controller `async` SIN try/catch que lanza → *unhandled rejection* → `server.js` hace
+  `process.exit` → **backend en loop de caída**. Pasó con `confirmarDatos` (+ `$2 IS NOT NULL` tipo ambiguo).
+  **Siempre** try/catch en controllers nuevos y castear params que puedan llegar NULL.
+
+### E. Alumnos extranjeros (mig 015)
+- `usuario.es_extranjero` / `pasaporte` / `nacionalidad`. **Tag azul "Extranjero"** junto al nombre en la
+  lista de Alumnos. Toggle "extranjero" → muestra **pasaporte + nacionalidad** en vez de DUI (facturar
+  extranjeros en El Salvador). Configurable desde **3 lugares que escriben las mismas columnas de `usuario`**
+  (quedan consistentes/precargados): (1) expand "Ver datos fiscales" en la lista (`Cuentas.jsx`), (2) sección
+  "Datos fiscales / facturación" en la **Ficha del alumno** Perfil (`AlumnoFicha.jsx` →
+  `adminUsuarioController.actualizarAlumnoFull` que ahora también actualiza `usuario`), (3) el robapantallas
+  (toggle "Soy extranjero"). Pendiente opcional: selector tipo-documento DTE + NIT.
+
+### Notas de despliegue de esta sesión
+- **Migraciones se corren ANTES del `railway up`** cuando el código nuevo ya lee las columnas (si no, el
+  backend crashea). Verificación E2E contra prod con scripts `node` (fetch a la URL de Railway, login con
+  usuarios demo) — patrón muy útil para validar sin UI.
+- Datos demo de prueba quedaron sembrados (Carlos Quevedo con cargo $60 y datos fiscales; alumnos 2/3 y
+  Daniel Aguilar marcados extranjeros). Inocuos, editables/anulables desde la UI.
+
+### 🔬 PRUEBAS PENDIENTES (próxima sesión)
+1. **Taller**: login `u_taller`; en Aeronavegabilidad cumplir la inspección 50h de YS-334-PE y ver que la
+   barra de /mantenimiento se reinicia; probar inventario (entrada/salida + egreso REPUESTOS); ver el
+   historial de mantenimientos. ADMIN (`u1`) ve Taller desde el sidebar.
+2. **Reporte Turno**: `u9` → "Reporte del día" (probar fecha 8/4/2026 que tiene vuelos); y desde
+   Administración → Reportes.
+3. **Contabilidad**: crear egreso con las 3 categorías nuevas; en Conceptos de cobro agregar uno; cobrarlo a
+   un alumno y ver que baja su saldo.
+4. **Robapantallas**: entrar con `u5`/`u7`/`u8` (sin confirmar) y verificar que el modal bloquea hasta
+   confirmar; un extranjero con toggle "Soy extranjero" (pasaporte en vez de DUI).
+5. **Extranjeros**: marcar/desmarcar desde la Ficha y desde "Ver datos fiscales"; ver el tag azul y la
+   consistencia entre ambas vistas.
