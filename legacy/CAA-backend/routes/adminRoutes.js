@@ -16,6 +16,10 @@ const adminAccess = [authMiddleware, roleMiddleware(["ADMIN", "PROGRAMACION", "T
 // --- Semanas y Calendario ---
 router.get("/semanas", adminAccess, adminVuelo.getSemanas);
 router.post("/publicar-semana", adminAccess, adminVuelo.publicarSemana);
+// Crea la siguiente fila de semana_vuelo si no existe (rescate cuando la semana
+// actual ya está publicada y no hay semana futura → el agendado quedaba bloqueado
+// con "No se encontró la semana siguiente").
+router.post("/asegurar-semana-futura", adminAccess, adminVuelo.asegurarSemanaFutura);
 router.get("/calendario", adminAccess, adminVuelo.getCalendario);
 router.get("/bloques-horario", adminAccess, adminVuelo.getBloquesHorario);
 router.put("/guardar-cambios", adminAccess, adminVuelo.guardarCambios);

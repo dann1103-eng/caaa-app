@@ -5,6 +5,7 @@ import {
   getInstructorTarifas, getInstructoresDisponibles, upsertInstructorTarifa,
   getEmpleados, crearEmpleado, actualizarEmpleado
 } from "../../services/administracionApi";
+import { fmtFecha } from "../../utils/fechas";
 
 const MOCK_AERONAVES = [
   { id: 1, modelo_aeronave: "Cessna 152",       tarifa_hora_usd: 135.00, vigente_desde: "2026-01-01", vigente_hasta: null },
@@ -340,7 +341,7 @@ export default function Tarifas() {
                     )}
                   </td>
                   <td className="amount" style={{ textAlign: "right" }}>${Number(a.tarifa_hora_usd).toFixed(2)}</td>
-                  <td style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>{a.vigente_desde}</td>
+                  <td style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>{fmtFecha(a.vigente_desde)}</td>
                   <td style={{ textAlign: "right" }}>
                     <button className="adf-btn small secondary" onClick={() => editAeroQuick(a)}>
                       <i className="bi bi-pencil"></i>Cambiar tarifa
@@ -506,7 +507,7 @@ export default function Tarifas() {
                     <td className="amount" style={{ textAlign: "right", color: i.tipo_pago === 'MENSUAL_FIJO' ? 'var(--c-ink-4)' : 'var(--c-ink-1)' }}>
                       ${Number(i.tarifa_hora_teoria || 0).toFixed(2)}
                     </td>
-                    <td style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>{i.vigente_desde}</td>
+                    <td style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>{fmtFecha(i.vigente_desde)}</td>
                     <td style={{ textAlign: "right" }}>
                       <button className="adf-btn small secondary" onClick={() => editInst(i)}>
                         <i className="bi bi-pencil"></i>Editar

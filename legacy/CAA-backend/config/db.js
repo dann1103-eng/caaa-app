@@ -13,7 +13,16 @@ const pool = new Pool({
 });
 
 pool.on("connect", (client) => {
-  client.query("SET timezone = 'America/El_Salvador'");
+  // Sin catch, un corte de conexión durante este SET genera un unhandledRejection
+  // que tumba el proceso (visto con 57P01 del pooler de Supabase).
+  client.query("SET timezone = 'America/El_Salvador'").catch((err) => {
+    console.error("❌ PG SET timezone error (ignorado):", err.message);
+  });
+  // Errores emitidos por el cliente fuera de un query activo (p.ej. el pooler
+  // termina la conexión); sin handler, derriban el proceso.
+  client.on("error", (err) => {
+    console.error("❌ PG client error (ignorado):", err.message);
+  });
 });
 
 pool.on("error", (err) => {

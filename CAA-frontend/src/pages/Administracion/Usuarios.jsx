@@ -83,7 +83,8 @@ export default function Usuarios() {
     try {
       const [i, l] = await Promise.all([getInstructoresDisponibles(), getLicencias()]);
       if (i?.ok) setInstructores(i.data);
-      if (l?.ok) setLicencias(l.data);
+      // El endpoint /administracion/licencias devuelve un array plano (no {ok,data}).
+      setLicencias(Array.isArray(l) ? l : (l?.data ?? []));
     } catch { /* vacío */ }
   };
   useEffect(() => { loadAlumnos(); loadPersonal(); loadCatalogos(); }, []);

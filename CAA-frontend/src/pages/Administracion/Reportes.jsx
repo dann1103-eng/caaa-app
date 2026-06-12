@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getPyL, getIngresos, getEgresosReport, getMorosos } from "../../services/administracionApi";
 import { abrirReporteVuelosDia } from "../../services/turnoApi";
+import { fmtMes } from "../../utils/fechas";
 
 const MOCK_PYL = { ingresos: 45230.00, egresos: 28600.50, facturado: 41200.00 };
 const MOCK_INGRESOS = [
@@ -120,7 +121,7 @@ export default function Reportes() {
             return (
               <div key={idx} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem", marginBottom: 4 }}>
-                  <span style={{ fontWeight: 600 }}>{new Date(row.mes).toLocaleDateString("es-SV", { month: "long", year: "numeric" })}</span>
+                  <span style={{ fontWeight: 600 }}>{fmtMes(row.mes)}</span>
                   <span style={{ color: "var(--c-ink-3)" }}>${Number(row.total).toLocaleString()} ({row.num_recibos} recibos)</span>
                 </div>
                 <div style={{ width: "100%", height: 14, background: "var(--c-accent-50)", borderRadius: 4 }}>

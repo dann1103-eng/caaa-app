@@ -290,10 +290,33 @@ const server = httpServer.listen(PORT, "0.0.0.0", () =>
 );
 
 process.on("unhandledRejection", (err) => {
-  console.error("💥 UNHANDLED REJECTION! Apagando suavemente...");
-  console.error(err.name, err.message);
+  console.error("💥 UNHANDLED REJECTION!");
+  console.error(err?.name, err?.message);
+
+  // Errores transitorios de conexión a la BD (p.ej. el pooler de Supabase
+  // recicla conexiones: FATAL 57P01 "terminating connection due to
+  // administrator command", o cortes de red). El pool se recupera solo;
+  // apagar el proceso por esto dejaba la API caída en producción.
+  const code = err?.code;
+  const msg = String(err?.message || "");
+  const esTransitorioDB =
+    code === "57P01" || code === "ECONNRESET" || code === "ECONNREFUSED" ||
+    code === "ETIMEDOUT" || /terminating connection|Connection terminated/i.test(msg);
+  if (esTransitorioDB) {
+    console.error("(Error transitorio de BD — el servidor sigue corriendo)");
+    return;
+  }
+
+  console.error("Apagando suavemente...");
   server.close(() => {
     process.exit(1);
   });
+  // server.close() espera a que cierren TODOS los sockets (socket.io los
+  // mantiene vivos) → sin este límite el proceso quedaba zombie: ni servía
+  // peticiones ni salía, y Railway no lo reiniciaba (502 permanente).
+  setTimeout(() => {
+    console.error("Cierre forzado tras 10s (sockets aún abiertos).");
+    process.exit(1);
+  }, 10000).unref();
 });
 

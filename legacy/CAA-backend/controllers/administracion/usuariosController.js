@@ -114,9 +114,9 @@ exports.listPersonal = async (req, res) => {
       FROM usuario u
       LEFT JOIN empleado e     ON e.id_usuario   = u.id_usuario
       LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
-      WHERE u.rol IN ('ADMIN','PROGRAMACION','TURNO','INSTRUCTOR','ADMINISTRACION')
+      WHERE u.rol = ANY($1)
       ORDER BY u.nombre, u.apellido
-    `);
+    `, [ROLES_PERSONAL]);
     res.json({ ok: true, data: r.rows });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });

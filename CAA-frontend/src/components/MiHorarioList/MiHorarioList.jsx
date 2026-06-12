@@ -4,6 +4,7 @@ import CancelarVueloModal from "../CancelarVueloModal/CancelarVueloModal";
 import { quitarSolicitudCancelacion } from "../../services/alumnoApi";
 import { toast } from "sonner";
 import ReporteVueloModal from "../ReporteVueloModal/ReporteVueloModal";
+import { fechaLocal } from "../../utils/fechas";
 import "./MiHorarioList.css";
 
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
@@ -19,10 +20,10 @@ function formatHora12(hora24) {
 
 function formatFecha(isoString) {
   if (!isoString) return "";
-  return new Date(isoString).toLocaleDateString("es-SV", {
-    day: "numeric",
-    month: "short",
-  });
+  // fecha_vuelo es DATE (medianoche UTC) → formatearla en local restaba un día
+  // (el alumno veía "LUNES 7 jun" para el vuelo del lunes 8).
+  const d = fechaLocal(isoString);
+  return d ? d.toLocaleDateString("es-SV", { day: "numeric", month: "short" }) : "";
 }
 
 const ESTADO_CFG = {

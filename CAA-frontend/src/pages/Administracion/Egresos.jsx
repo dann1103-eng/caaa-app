@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getEgresos, crearEgreso } from "../../services/administracionApi";
+import { fmtFecha } from "../../utils/fechas";
 
 const MOCK = [
   { id: 1, categoria: "COMBUSTIBLE",    proveedor: "Aviocomb S.A.",    concepto: "Avgas 100LL - 2000 gal", monto_usd: 4250.00, fecha: "2026-05-12" },
@@ -135,7 +136,7 @@ export default function Egresos() {
         <tbody>
           {egresos.map(e => (
             <tr key={e.id}>
-              <td>{new Date(e.fecha).toLocaleDateString("es-SV")}</td>
+              <td>{fmtFecha(e.fecha)}</td>
               <td><span className="adf-tag blue">{CAT_LABEL[e.categoria] || e.categoria}</span></td>
               <td>{e.proveedor || "—"}</td>
               <td style={{ color: "var(--c-ink-3)" }}>{e.concepto}</td>

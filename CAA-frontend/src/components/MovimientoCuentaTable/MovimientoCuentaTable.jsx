@@ -1,4 +1,5 @@
 import React from "react";
+import { fmtFechaCorta } from "../../utils/fechas";
 import "./MovimientoCuentaTable.css";
 
 /**
@@ -59,7 +60,7 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
             return (
               <tr key={m.id} className={m.anulado ? "anulado" : ""}>
                 <td className="adf-hoja__date">
-                  {new Date(m.fecha).toLocaleDateString("es-SV", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                  {fmtFechaCorta(m.fecha)}
                 </td>
                 <td className="adf-hoja__instructor">{instructorTxt}</td>
                 <td className="adf-hoja__doc">{facturaNo ? <span className="mono"><span className="muted">#</span>{facturaNo}</span> : <span className="muted">—</span>}</td>
