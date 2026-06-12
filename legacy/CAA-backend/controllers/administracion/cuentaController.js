@@ -8,6 +8,7 @@ exports.listAlumnosConSaldo = async (req, res) => {
              u.correo,
              u.nombre, u.apellido,
              u.dui, u.direccion,
+             u.es_extranjero, u.pasaporte, u.nacionalidad,
              COALESCE(u.telefono, a.telefono) AS telefono,
              COALESCE(c.saldo_actual_usd, 0) AS saldo_actual_usd,
              c.ultimo_movimiento_en,
@@ -33,21 +34,25 @@ exports.listAlumnosConSaldo = async (req, res) => {
 exports.actualizarDatosFiscales = async (req, res) => {
   try {
     const { id_alumno } = req.params;
-    const { dui, direccion, telefono, correo, nombre, apellido } = req.body;
+    const { dui, direccion, telefono, correo, nombre, apellido, es_extranjero, pasaporte, nacionalidad } = req.body;
     const uRes = await db.query(`SELECT id_usuario FROM alumno WHERE id_alumno = $1`, [id_alumno]);
     if (!uRes.rows.length) return res.status(404).json({ ok: false, message: "Alumno no encontrado" });
     const id_usuario = uRes.rows[0].id_usuario;
     const r = await db.query(`
       UPDATE usuario SET
-        dui       = COALESCE($2, dui),
-        direccion = COALESCE($3, direccion),
-        telefono  = COALESCE($4, telefono),
-        correo    = COALESCE(NULLIF($5, ''), correo),
-        nombre    = COALESCE(NULLIF($6, ''), nombre),
-        apellido  = COALESCE(NULLIF($7, ''), apellido)
+        dui          = COALESCE($2, dui),
+        direccion    = COALESCE($3, direccion),
+        telefono     = COALESCE($4, telefono),
+        correo       = COALESCE(NULLIF($5, ''), correo),
+        nombre       = COALESCE(NULLIF($6, ''), nombre),
+        apellido     = COALESCE(NULLIF($7, ''), apellido),
+        es_extranjero = COALESCE($8::boolean, es_extranjero),
+        pasaporte    = COALESCE($9, pasaporte),
+        nacionalidad = COALESCE($10, nacionalidad)
       WHERE id_usuario = $1
-      RETURNING dui, direccion, telefono, correo, nombre, apellido
-    `, [id_usuario, dui ?? null, direccion ?? null, telefono ?? null, correo ?? null, nombre ?? null, apellido ?? null]);
+      RETURNING dui, direccion, telefono, correo, nombre, apellido, es_extranjero, pasaporte, nacionalidad
+    `, [id_usuario, dui ?? null, direccion ?? null, telefono ?? null, correo ?? null, nombre ?? null, apellido ?? null,
+        es_extranjero ?? null, pasaporte ?? null, nacionalidad ?? null]);
     res.json({ ok: true, data: r.rows[0] });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });

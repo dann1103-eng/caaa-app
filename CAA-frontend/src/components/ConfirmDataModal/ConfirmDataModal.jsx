@@ -13,7 +13,7 @@ const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || "");
  */
 export default function ConfirmDataModal({ user, onDone }) {
   const [perfil, setPerfil] = useState(null);
-  const [f, setF] = useState({ nombre: "", apellido: "", correo: "", telefono: "", dui: "", direccion: "", password: "" });
+  const [f, setF] = useState({ nombre: "", apellido: "", correo: "", telefono: "", dui: "", direccion: "", password: "", es_extranjero: false, pasaporte: "", nacionalidad: "" });
   const [saving, setSaving] = useState(false);
 
   const requierePass   = user?.must_change_password === true;
@@ -30,6 +30,7 @@ export default function ConfirmDataModal({ user, onDone }) {
         nombre: p.nombre || "", apellido: p.apellido || "",
         correo: p.correo || "", telefono: p.telefono || "",
         dui: p.dui || "", direccion: p.direccion || "",
+        es_extranjero: !!p.es_extranjero, pasaporte: p.pasaporte || "", nacionalidad: p.nacionalidad || "",
       }));
     }).catch(() => {});
   }, []);
@@ -40,7 +41,12 @@ export default function ConfirmDataModal({ user, onDone }) {
     if (!emailOk(f.correo)) return toast.error("Ingresá un correo válido.");
     if (requiereDatos) {
       if (!f.nombre.trim() || !f.apellido.trim()) return toast.error("Ingresá tu nombre y apellido.");
-      if (!f.telefono.trim() || !f.dui.trim() || !f.direccion.trim()) return toast.error("Completá teléfono, DUI y dirección.");
+      if (!f.telefono.trim() || !f.direccion.trim()) return toast.error("Completá teléfono y dirección.");
+      if (f.es_extranjero) {
+        if (!f.pasaporte.trim() || !f.nacionalidad.trim()) return toast.error("Completá pasaporte y nacionalidad.");
+      } else if (!f.dui.trim()) {
+        return toast.error("Completá tu DUI.");
+      }
     }
     if (requierePass) {
       if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(f.password)) {
@@ -51,7 +57,13 @@ export default function ConfirmDataModal({ user, onDone }) {
     try {
       if (requierePass) await cambiarPassword(f.password);
       if (requiereCorreo || (f.correo !== (perfil?.correo || ""))) await cambiarCorreo(f.correo);
-      if (requiereDatos) await confirmarDatos({ nombre: f.nombre, apellido: f.apellido, telefono: f.telefono, dui: f.dui, direccion: f.direccion });
+      if (requiereDatos) await confirmarDatos({
+        nombre: f.nombre, apellido: f.apellido, telefono: f.telefono, direccion: f.direccion,
+        es_extranjero: f.es_extranjero,
+        dui: f.es_extranjero ? "" : f.dui,
+        pasaporte: f.es_extranjero ? f.pasaporte : "",
+        nacionalidad: f.es_extranjero ? f.nacionalidad : "",
+      });
 
       const { token, user: fresh } = await refreshToken();
       localStorage.setItem("token", token);
@@ -89,10 +101,23 @@ export default function ConfirmDataModal({ user, onDone }) {
             {requiereDatos && <>
             <div className="cdm-field"><label>Teléfono</label>
               <input value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} placeholder="0000-0000" /></div>
-            <div className="cdm-field"><label>DUI</label>
-              <input value={f.dui} onChange={(e) => setF({ ...f, dui: e.target.value })} placeholder="00000000-0" /></div>
+            {f.es_extranjero ? (
+              <div className="cdm-field"><label>N° de pasaporte</label>
+                <input value={f.pasaporte} onChange={(e) => setF({ ...f, pasaporte: e.target.value })} placeholder="Ej. A12345678" /></div>
+            ) : (
+              <div className="cdm-field"><label>DUI</label>
+                <input value={f.dui} onChange={(e) => setF({ ...f, dui: e.target.value })} placeholder="00000000-0" /></div>
+            )}
+            {f.es_extranjero && (
+              <div className="cdm-field"><label>Nacionalidad / País</label>
+                <input value={f.nacionalidad} onChange={(e) => setF({ ...f, nacionalidad: e.target.value })} placeholder="Ej. Guatemala" /></div>
+            )}
             <div className="cdm-field cdm-field--full"><label>Dirección de casa</label>
               <input value={f.direccion} onChange={(e) => setF({ ...f, direccion: e.target.value })} placeholder="Dirección completa" /></div>
+            <label className="cdm-field--full" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.85rem", cursor: "pointer" }}>
+              <input type="checkbox" checked={f.es_extranjero} onChange={(e) => setF({ ...f, es_extranjero: e.target.checked })} />
+              Soy extranjero (facturar con pasaporte)
+            </label>
             </>}
             {requierePass && (
               <div className="cdm-field cdm-field--full">

@@ -32,8 +32,8 @@ export const updatePerfilAlumno = async ({ telefono, numero_licencia, certificad
   });
   return res.data;
 };
-export const confirmarDatos = async ({ nombre, apellido, telefono, dui, direccion }) => {
-  const res = await axios.put(`${API_URL}/usuario/confirmar-datos`, { nombre, apellido, telefono, dui, direccion });
+export const confirmarDatos = async (payload) => {
+  const res = await axios.put(`${API_URL}/usuario/confirmar-datos`, payload);
   return res.data;
 };
 

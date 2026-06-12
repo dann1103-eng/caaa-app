@@ -17,6 +17,9 @@ exports.getPerfil = async (req, res) => {
       u.datos_confirmados,
       u.dui,
       u.direccion,
+      u.es_extranjero,
+      u.pasaporte,
+      u.nacionalidad,
       COALESCE(u.telefono, a.telefono) AS telefono,
       a.numero_licencia,
       a.certificado_medico,
@@ -38,20 +41,24 @@ exports.getPerfil = async (req, res) => {
 exports.confirmarDatos = async (req, res) => {
   try {
     const user = req.user;
-    const { nombre, apellido, telefono, dui, direccion } = req.body;
+    const { nombre, apellido, telefono, dui, direccion, es_extranjero, pasaporte, nacionalidad } = req.body;
     if (!nombre?.trim() || !apellido?.trim()) {
       return res.status(400).json({ message: "Nombre y apellido son obligatorios" });
     }
     await db.query(`
       UPDATE usuario SET
-        nombre    = $2,
-        apellido  = $3,
-        telefono  = $4,
-        dui       = $5,
-        direccion = $6,
+        nombre       = $2,
+        apellido     = $3,
+        telefono     = $4,
+        dui          = $5,
+        direccion    = $6,
+        es_extranjero = COALESCE($7::boolean, es_extranjero),
+        pasaporte    = $8,
+        nacionalidad = $9,
         datos_confirmados = true
       WHERE id_usuario = $1
-    `, [user.id_usuario, nombre.trim(), apellido.trim(), telefono || null, dui || null, direccion || null]);
+    `, [user.id_usuario, nombre.trim(), apellido.trim(), telefono || null, dui || null, direccion || null,
+        es_extranjero ?? null, pasaporte || null, nacionalidad || null]);
     // Si el usuario es alumno y dio teléfono, reflejarlo también en su ficha.
     if (telefono) {
       await db.query(`UPDATE alumno SET telefono = $2 WHERE id_usuario = $1`, [user.id_usuario, telefono]);

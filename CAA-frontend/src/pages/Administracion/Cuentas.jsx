@@ -41,6 +41,7 @@ export default function Cuentas() {
       nombre: a.nombre || "", apellido: a.apellido || "",
       dui: a.dui || "", correo: a.correo || "",
       direccion: a.direccion || "", telefono: a.telefono || "",
+      es_extranjero: !!a.es_extranjero, pasaporte: a.pasaporte || "", nacionalidad: a.nacionalidad || "",
     });
   };
 
@@ -132,7 +133,10 @@ export default function Cuentas() {
           {filtrados.map(a => (
             <React.Fragment key={a.id_alumno}>
             <tr>
-              <td><i className="bi bi-person-circle me-2"></i><strong>{a.username}</strong></td>
+              <td>
+                <i className="bi bi-person-circle me-2"></i><strong>{a.username}</strong>
+                {a.es_extranjero && <span className="adf-tag blue" style={{ marginLeft: 8 }}>Extranjero</span>}
+              </td>
               <td>
                 <code style={{ color: "var(--c-brand-700)" }}>{a.numero_licencia || "—"}</code>
                 {a.licencia_nombre && <span style={{ color: "var(--c-ink-3)", fontSize: "0.8rem", marginLeft: 6 }}>{a.licencia_nombre}</span>}
@@ -165,13 +169,27 @@ export default function Cuentas() {
                     <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 12 }}>
                       <i className="bi bi-receipt me-2"></i>DATOS FISCALES
                     </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer", marginBottom: 12 }}>
+                      <input type="checkbox" checked={!!fiscalForm.es_extranjero}
+                        onChange={(e) => setFiscalForm({ ...fiscalForm, es_extranjero: e.target.checked })} />
+                      Alumno extranjero (facturar con pasaporte)
+                    </label>
                     <div className="adf-form-grid">
                       <div className="adf-form-field"><label>Nombre</label>
                         <input value={fiscalForm.nombre} onChange={(e) => setFiscalForm({ ...fiscalForm, nombre: e.target.value })} /></div>
                       <div className="adf-form-field"><label>Apellido</label>
                         <input value={fiscalForm.apellido} onChange={(e) => setFiscalForm({ ...fiscalForm, apellido: e.target.value })} /></div>
-                      <div className="adf-form-field"><label>DUI</label>
-                        <input value={fiscalForm.dui} onChange={(e) => setFiscalForm({ ...fiscalForm, dui: e.target.value })} placeholder="00000000-0" /></div>
+                      {fiscalForm.es_extranjero ? (
+                        <>
+                          <div className="adf-form-field"><label>N° de pasaporte</label>
+                            <input value={fiscalForm.pasaporte} onChange={(e) => setFiscalForm({ ...fiscalForm, pasaporte: e.target.value })} placeholder="Ej. A12345678" /></div>
+                          <div className="adf-form-field"><label>Nacionalidad / País</label>
+                            <input value={fiscalForm.nacionalidad} onChange={(e) => setFiscalForm({ ...fiscalForm, nacionalidad: e.target.value })} placeholder="Ej. Guatemala" /></div>
+                        </>
+                      ) : (
+                        <div className="adf-form-field"><label>DUI</label>
+                          <input value={fiscalForm.dui} onChange={(e) => setFiscalForm({ ...fiscalForm, dui: e.target.value })} placeholder="00000000-0" /></div>
+                      )}
                       <div className="adf-form-field"><label>Correo electrónico</label>
                         <input type="email" value={fiscalForm.correo} onChange={(e) => setFiscalForm({ ...fiscalForm, correo: e.target.value })} /></div>
                       <div className="adf-form-field"><label>Teléfono</label>
