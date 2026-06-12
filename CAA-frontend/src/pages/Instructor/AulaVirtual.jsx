@@ -55,7 +55,7 @@ export default function InstructorAulaVirtual() {
     try { await subirMaterialUnidad(matUnidad, fd); toast.success("Material subido"); setMats((await getMaterialUnidad(matUnidad))?.data || []); }
     catch (e) { toast.error(e?.response?.data?.message || "Error al subir"); }
   };
-  const verMat = async (id) => { try { const r = await getMaterialUrl(id); if (r?.url) window.open(r.url, "_blank"); } catch { toast.error("No se pudo abrir"); } };
+  const verMat = async (id) => { try { const r = await getMaterialUrl(id); if (r?.url) window.open(r.url, "_blank", "noopener,noreferrer"); } catch { toast.error("No se pudo abrir"); } };
   const borrarMat = async (id) => { if (!confirm("¿Eliminar material?")) return; try { await eliminarMaterial(id); setMats(p => p.filter(m => m.id !== id)); } catch { toast.error("Error"); } };
 
   // ── Evaluaciones ──

@@ -1,9 +1,11 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
+const { puedeAccederVuelo } = require("../../utils/ownership");
 
 exports.getPlanVuelo = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const result = await db.query(`
     SELECT v.*, ae.codigo AS aeronave_codigo, u_al.nombre AS alumno_nombre, u_ins.nombre AS instructor_nombre
     FROM vuelo v
@@ -22,6 +24,7 @@ exports.getPlanVuelo = catchAsync(async (req, res) => {
 
 exports.guardarPlanVuelo = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const data = req.body;
   await db.query(`
     INSERT INTO plan_vuelo (id_vuelo, reglas, hora_salida, altitud, ruta, estado)
@@ -33,6 +36,7 @@ exports.guardarPlanVuelo = catchAsync(async (req, res) => {
 
 exports.completarPlanVuelo = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const archivo = req.file;
   if (!archivo) return res.status(400).json({ message: "Se requiere el PDF del plan de vuelo" });
 

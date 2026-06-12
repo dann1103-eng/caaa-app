@@ -1,9 +1,11 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
+const { puedeAccederVuelo } = require("../../utils/ownership");
 
 exports.solicitarCancelacion = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
+  if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const { motivo } = req.body;
   const client = await db.connect();
   try {
@@ -59,9 +61,18 @@ exports.quitarSolicitudCancelacion = catchAsync(async (req, res) => {
   try {
     await client.query("BEGIN");
     const reqRes = await client.query(`SELECT id_alumno, estado FROM solicitud_cancelacion WHERE id_solicitud_cancelacion = $1 FOR UPDATE`, [id_solicitud_cancelacion]);
-    if (reqRes.rows.length === 0) return res.status(404).json({ message: "Solicitud no encontrada" });
-    if (reqRes.rows[0].estado !== 'PENDIENTE') return res.status(400).json({ message: "Solo podés quitar solicitudes PENDIENTES" });
-    
+    if (reqRes.rows.length === 0) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Solicitud no encontrada" }); }
+
+    // IDOR: la solicitud debe pertenecer al alumno autenticado.
+    const propRes = await client.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1`, [req.user.id_usuario]);
+    const idAlumnoPropio = propRes.rows[0]?.id_alumno;
+    if (!idAlumnoPropio || reqRes.rows[0].id_alumno !== idAlumnoPropio) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "No tenés acceso a esta solicitud" });
+    }
+
+    if (reqRes.rows[0].estado !== 'PENDIENTE') { await client.query("ROLLBACK"); return res.status(400).json({ message: "Solo podés quitar solicitudes PENDIENTES" }); }
+
     await client.query(`DELETE FROM solicitud_cancelacion WHERE id_solicitud_cancelacion = $1`, [id_solicitud_cancelacion]);
     await logAuditoria(client, { accion: "QUITAR_SOLICITUD_CANCELACION", entidad: "solicitud_cancelacion", id_entidad: id_solicitud_cancelacion, actor: req.user, req, descripcion: "Alumno quitó solicitud" });
     await client.query("COMMIT");

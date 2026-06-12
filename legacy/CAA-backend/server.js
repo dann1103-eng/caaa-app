@@ -2,6 +2,7 @@ require("dotenv").config();
 const http = require("http");
 const express = require("express");
 const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 const path = require("path");
 const { DateTime } = require("luxon");
@@ -52,11 +53,30 @@ const io = new Server(httpServer, { cors: corsOptions });
 app.set("io", io);
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  // HSTS: fuerza HTTPS en el navegador por 180 días (defensa contra MITM /
+  // SSL-stripping). El TLS lo terminan Railway/Vercel; esto lo refuerza en cliente.
+  hsts: { maxAge: 15552000, includeSubDomains: true, preload: false },
 }));
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+
+// ── Rate limiting global (anti-DDoS / fuerza bruta) ─────────────────────────
+// Límite amplio por IP sobre toda la API. El login tiene un límite más estricto
+// propio (routes/authRoutes.js). 'trust proxy' (arriba) hace que se use la IP
+// real del cliente detrás del proxy de Railway, no la del proxy.
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  // 600 req/min por IP (~10/seg). Margen amplio: en la escuela muchos usuarios
+  // comparten la misma IP pública (NAT), así que un límite bajo los bloquearía.
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Demasiadas peticiones. Bajá el ritmo e intentá de nuevo en un momento." },
+});
+app.use("/api", globalLimiter);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

@@ -1,8 +1,19 @@
-# Ignorar el archivo de variables de entorno
+# Ignorar el archivo de variables de entorno (todas las variantes)
 .env
+.env.*
+!.env.example
 
 # Ignorar la carpeta de node_modules (dependencias)
 node_modules/
+
+# Subidas de usuarios y archivos temporales
+uploads/
+temp.js
+
+# Datos reales / PII / utilitarios de carga de una sola vez (NO commitear)
+_roster.json
+_credenciales_carga.csv
+seed_alumnos_reales.js
 
 # Otras configuraciones de sistemas operativos (opcional)
 .DS_Store
