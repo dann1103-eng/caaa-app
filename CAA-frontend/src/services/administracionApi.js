@@ -25,6 +25,12 @@ export const getCuentaAlumno    = async (id) => (await axios.get(`${BASE}/cuenta
 export const getExtractoAlumno  = async (id, params) => (await axios.get(`${BASE}/cuenta/${id}/extracto`, { params })).data;
 export const ajustarCuenta      = async (id, payload) => (await axios.post(`${BASE}/cuenta/${id}/ajuste`, payload)).data;
 export const cargoManualCuenta  = async (id, payload) => (await axios.post(`${BASE}/cuenta/${id}/cargo-manual`, payload)).data;
+export const cobrarConceptoCuenta = async (id, payload) => (await axios.post(`${BASE}/cuenta/${id}/cobro-concepto`, payload)).data;
+export const actualizarDatosFiscales = async (id, payload) => (await axios.patch(`${BASE}/alumnos/${id}/datos-fiscales`, payload)).data;
+// Conceptos de cobro (catálogo configurable de tipos de ingreso/cobro)
+export const getConceptosCobro      = async (params) => (await axios.get(`${BASE}/conceptos-cobro`, { params })).data;
+export const crearConceptoCobro     = async (payload) => (await axios.post(`${BASE}/conceptos-cobro`, payload)).data;
+export const actualizarConceptoCobro = async (id, payload) => (await axios.patch(`${BASE}/conceptos-cobro/${id}`, payload)).data;
 export const editarMovimiento   = async (idMov, payload) => (await axios.patch(`${BASE}/movimientos/${idMov}`, payload)).data;
 export const anularMovimiento   = async (idMov, motivo) => (await axios.patch(`${BASE}/movimientos/${idMov}/anular`, { motivo })).data;
 

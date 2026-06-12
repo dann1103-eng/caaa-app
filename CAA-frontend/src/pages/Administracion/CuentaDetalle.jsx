@@ -4,7 +4,8 @@ import { toast } from "sonner";
 import {
   getCuentaAlumno, getExtractoAlumno,
   crearRecibo, cargoManualCuenta,
-  editarMovimiento, anularMovimiento
+  editarMovimiento, anularMovimiento,
+  cobrarConceptoCuenta, getConceptosCobro
 } from "../../services/administracionApi";
 import SaldoBadge from "../../components/SaldoBadge/SaldoBadge";
 import MovimientoCuentaTable from "../../components/MovimientoCuentaTable/MovimientoCuentaTable";
@@ -41,6 +42,8 @@ export default function CuentaDetalle() {
   const [recForm, setRecForm] = useState({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "" });
   const [cargoForm, setCargoForm] = useState(EMPTY_FORM);
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM, motivo_edicion: "" });
+  const [conceptos, setConceptos] = useState([]);
+  const [conceptoForm, setConceptoForm] = useState({ id_concepto: "", monto_usd: "", fecha: new Date().toISOString().slice(0, 10), descripcion: "" });
 
   const load = async () => {
     try {
@@ -52,6 +55,27 @@ export default function CuentaDetalle() {
     }
   };
   useEffect(() => { load(); }, [id]);
+
+  useEffect(() => {
+    getConceptosCobro({ activos: "true" }).then(r => { if (r?.ok) setConceptos(r.data); }).catch(() => {});
+  }, []);
+
+  const handleCobrarConcepto = async (e) => {
+    e.preventDefault();
+    if (!conceptoForm.id_concepto) return toast.error("Elegí un concepto.");
+    try {
+      await cobrarConceptoCuenta(id, {
+        id_concepto: Number(conceptoForm.id_concepto),
+        monto_usd: conceptoForm.monto_usd === "" ? null : Number(conceptoForm.monto_usd),
+        fecha: conceptoForm.fecha || null,
+        descripcion: conceptoForm.descripcion,
+      });
+      toast.success("Cobro aplicado a la cuenta.");
+      setOpenPanel(null);
+      setConceptoForm({ id_concepto: "", monto_usd: "", fecha: new Date().toISOString().slice(0, 10), descripcion: "" });
+      load();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error al aplicar el cobro."); }
+  };
 
   const handleRecibo = async (e) => {
     e.preventDefault();
@@ -177,6 +201,9 @@ export default function CuentaDetalle() {
           <button className="adf-btn secondary" onClick={() => { setCargoForm({ ...EMPTY_FORM, es_multa: true, nota: "Multa por no-show" }); setOpenPanel("cargo"); }}>
             <i className="bi bi-exclamation-octagon"></i> Multa (no-show)
           </button>
+          <button className="adf-btn secondary" onClick={() => setOpenPanel(openPanel === "concepto" ? null : "concepto")}>
+            <i className="bi bi-tags"></i> Cobrar concepto
+          </button>
           <button className="adf-btn ghost small" onClick={() => window.print()}>
             <i className="bi bi-printer"></i> Imprimir extracto
           </button>
@@ -214,6 +241,49 @@ export default function CuentaDetalle() {
             <div style={{ marginTop: 16, display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" className="adf-btn ghost" onClick={() => setOpenPanel(null)}>Cancelar</button>
               <button type="submit" className="adf-btn positive"><i className="bi bi-check2"></i> Guardar depósito</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Panel cobrar concepto del catálogo */}
+      {openPanel === "concepto" && (
+        <div className="adf-card">
+          <h3><i className="bi bi-tags"></i> Cobrar concepto</h3>
+          <p style={{ color: "var(--c-ink-3)", fontSize: 13, marginTop: -8, marginBottom: 16 }}>
+            Aplica un cobro del catálogo (ej. reposición de examen). Debita el saldo prepagado del alumno.
+            {conceptos.length === 0 && <span> No hay conceptos activos — creá uno en Contabilidad → Ingresos → Conceptos de cobro.</span>}
+          </p>
+          <form onSubmit={handleCobrarConcepto}>
+            <div className="adf-form-grid">
+              <div className="adf-form-field">
+                <label>Concepto</label>
+                <select value={conceptoForm.id_concepto} onChange={(e) => {
+                  const c = conceptos.find(x => String(x.id) === e.target.value);
+                  setConceptoForm({ ...conceptoForm, id_concepto: e.target.value, monto_usd: c ? Number(c.monto_usd).toFixed(2) : "" });
+                }}>
+                  <option value="">— Elegir —</option>
+                  {conceptos.map(c => <option key={c.id} value={c.id}>{c.nombre} (${Number(c.monto_usd).toFixed(2)})</option>)}
+                </select>
+              </div>
+              <div className="adf-form-field">
+                <label>Monto USD</label>
+                <input type="number" step="0.01" min="0.01" value={conceptoForm.monto_usd}
+                  onChange={(e) => setConceptoForm({ ...conceptoForm, monto_usd: e.target.value })} placeholder="Por defecto del concepto" />
+              </div>
+              <div className="adf-form-field">
+                <label>Fecha</label>
+                <input type="date" value={conceptoForm.fecha} onChange={(e) => setConceptoForm({ ...conceptoForm, fecha: e.target.value })} />
+              </div>
+              <div className="adf-form-field" style={{ gridColumn: "1 / -1" }}>
+                <label>Descripción (opcional)</label>
+                <input value={conceptoForm.descripcion} placeholder="Detalle del cobro"
+                  onChange={(e) => setConceptoForm({ ...conceptoForm, descripcion: e.target.value })} />
+              </div>
+            </div>
+            <div style={{ marginTop: 16, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button type="button" className="adf-btn ghost" onClick={() => setOpenPanel(null)}>Cancelar</button>
+              <button type="submit" className="adf-btn"><i className="bi bi-check2"></i> Aplicar cobro</button>
             </div>
           </form>
         </div>

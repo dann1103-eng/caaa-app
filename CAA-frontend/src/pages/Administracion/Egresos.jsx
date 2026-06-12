@@ -30,6 +30,9 @@ const CATEGORIAS = [
   { v: "VIATICOS",          t: "Viáticos" },
   { v: "CAPACITACION",      t: "Capacitación" },
   { v: "BANCARIO",          t: "Comisiones bancarias" },
+  { v: "GASTOS_FINANCIEROS",    t: "Gastos financieros" },
+  { v: "IMPUESTOS_TRIBUTARIOS", t: "Impuestos tributarios" },
+  { v: "GASTOS_NO_DEDUCIBLES",  t: "Gastos no deducibles" },
   { v: "OTRO",              t: "Otro" },
 ];
 const CAT_LABEL = Object.fromEntries(CATEGORIAS.map(c => [c.v, c.t]));

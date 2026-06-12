@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getAlumnosConSaldo } from "../../services/administracionApi";
+import { toast } from "sonner";
+import { getAlumnosConSaldo, actualizarDatosFiscales } from "../../services/administracionApi";
 import SaldoBadge from "../../components/SaldoBadge/SaldoBadge";
 
 const MOCK = [
@@ -17,18 +18,43 @@ export default function Cuentas() {
   const [filtroInstructor, setFiltroInstructor] = useState("");
   const [filtroLicencia, setFiltroLicencia] = useState("");
   const [usingMock, setUsingMock] = useState(false);
+  const [expandido, setExpandido] = useState(null); // id_alumno con datos fiscales abiertos
+  const [fiscalForm, setFiscalForm] = useState({});
+  const [savingFiscal, setSavingFiscal] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await getAlumnosConSaldo();
-        if (r?.ok) setData(r.data);
-        else { setData(MOCK); setUsingMock(true); }
-      } catch {
-        setData(MOCK); setUsingMock(true);
-      }
-    })();
-  }, []);
+  const cargar = async () => {
+    try {
+      const r = await getAlumnosConSaldo();
+      if (r?.ok) setData(r.data);
+      else { setData(MOCK); setUsingMock(true); }
+    } catch {
+      setData(MOCK); setUsingMock(true);
+    }
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const toggleFiscal = (a) => {
+    if (expandido === a.id_alumno) { setExpandido(null); return; }
+    setExpandido(a.id_alumno);
+    setFiscalForm({
+      nombre: a.nombre || "", apellido: a.apellido || "",
+      dui: a.dui || "", correo: a.correo || "",
+      direccion: a.direccion || "", telefono: a.telefono || "",
+    });
+  };
+
+  const guardarFiscal = async (id_alumno) => {
+    setSavingFiscal(true);
+    try {
+      await actualizarDatosFiscales(id_alumno, fiscalForm);
+      toast.success("Datos fiscales guardados");
+      await cargar();
+      setExpandido(null);
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Error al guardar");
+    } finally { setSavingFiscal(false); }
+  };
 
   // Opciones distintas para los filtros (derivadas de los datos cargados).
   const instructores = [...new Set(data.map(a => a.instructor_username).filter(Boolean))].sort();
@@ -104,7 +130,8 @@ export default function Cuentas() {
         </thead>
         <tbody>
           {filtrados.map(a => (
-            <tr key={a.id_alumno}>
+            <React.Fragment key={a.id_alumno}>
+            <tr>
               <td><i className="bi bi-person-circle me-2"></i><strong>{a.username}</strong></td>
               <td>
                 <code style={{ color: "var(--c-brand-700)" }}>{a.numero_licencia || "—"}</code>
@@ -117,11 +144,52 @@ export default function Cuentas() {
                 {a.ultimo_movimiento_en ? new Date(a.ultimo_movimiento_en).toLocaleDateString("es-SV") : "—"}
               </td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                <button
+                  className="adf-btn small secondary"
+                  style={{ marginRight: 6 }}
+                  onClick={() => toggleFiscal(a)}
+                  aria-expanded={expandido === a.id_alumno}
+                >
+                  <i className={`bi ${expandido === a.id_alumno ? "bi-chevron-up" : "bi-receipt"}`}></i>
+                  Ver datos fiscales
+                </button>
                 <Link className="adf-btn small" to={`/administracion/alumnos/${a.id_alumno}`}>
                   <i className="bi bi-person-vcard"></i>Abrir ficha
                 </Link>
               </td>
             </tr>
+            {expandido === a.id_alumno && (
+              <tr className="adf-fiscal-row">
+                <td colSpan={7} style={{ background: "var(--c-surface-2)", padding: 0 }}>
+                  <div className="adf-acc__body" style={{ padding: "16px 20px" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 12 }}>
+                      <i className="bi bi-receipt me-2"></i>DATOS FISCALES
+                    </div>
+                    <div className="adf-form-grid">
+                      <div className="adf-form-field"><label>Nombre</label>
+                        <input value={fiscalForm.nombre} onChange={(e) => setFiscalForm({ ...fiscalForm, nombre: e.target.value })} /></div>
+                      <div className="adf-form-field"><label>Apellido</label>
+                        <input value={fiscalForm.apellido} onChange={(e) => setFiscalForm({ ...fiscalForm, apellido: e.target.value })} /></div>
+                      <div className="adf-form-field"><label>DUI</label>
+                        <input value={fiscalForm.dui} onChange={(e) => setFiscalForm({ ...fiscalForm, dui: e.target.value })} placeholder="00000000-0" /></div>
+                      <div className="adf-form-field"><label>Correo electrónico</label>
+                        <input type="email" value={fiscalForm.correo} onChange={(e) => setFiscalForm({ ...fiscalForm, correo: e.target.value })} /></div>
+                      <div className="adf-form-field"><label>Teléfono</label>
+                        <input value={fiscalForm.telefono} onChange={(e) => setFiscalForm({ ...fiscalForm, telefono: e.target.value })} placeholder="0000-0000" /></div>
+                      <div className="adf-form-field" style={{ gridColumn: "1 / -1" }}><label>Dirección de casa</label>
+                        <input value={fiscalForm.direccion} onChange={(e) => setFiscalForm({ ...fiscalForm, direccion: e.target.value })} placeholder="Dirección completa" /></div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                      <button className="adf-btn secondary small" onClick={() => setExpandido(null)}>Cerrar</button>
+                      <button className="adf-btn small" disabled={savingFiscal} onClick={() => guardarFiscal(a.id_alumno)}>
+                        <i className="bi bi-check"></i>{savingFiscal ? "Guardando…" : "Guardar"}
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            )}
+            </React.Fragment>
           ))}
           {filtrados.length === 0 && (
             <tr><td colSpan={7} style={{ textAlign: "center", padding: 30, color: "var(--c-ink-4)" }}>

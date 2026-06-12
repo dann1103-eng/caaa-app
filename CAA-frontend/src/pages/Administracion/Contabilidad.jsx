@@ -5,6 +5,7 @@ import Facturas from "./Facturas";
 import Egresos from "./Egresos";
 import Nomina from "./Nomina";
 import Tarifas from "./Tarifas";
+import ConceptosCobro from "./ConceptosCobro";
 
 const TABS = [
   { key: "ingresos", label: "Ingresos", icon: "bi-arrow-down-circle" },
@@ -20,7 +21,7 @@ export default function Contabilidad() {
   const initial = VALID_TABS.includes(params.get("tab")) ? params.get("tab") : "ingresos";
   const [tab, setTab] = useState(initial);
   const [ingresosSub, setIngresosSub] = useState(
-    params.get("sub") === "facturas" ? "facturas" : "recibos"
+    ["facturas", "conceptos"].includes(params.get("sub")) ? params.get("sub") : "recibos"
   );
 
   const changeTab = (key) => {
@@ -69,8 +70,14 @@ export default function Contabilidad() {
               onClick={() => changeSub("facturas")}>
               <i className="bi bi-file-earmark-text"></i>Facturas
             </button>
+            <button className={`adf-btn small ${ingresosSub === "conceptos" ? "" : "secondary"}`}
+              onClick={() => changeSub("conceptos")}>
+              <i className="bi bi-tags"></i>Conceptos de cobro
+            </button>
           </div>
-          {ingresosSub === "recibos" ? <Recibos /> : <Facturas />}
+          {ingresosSub === "recibos" && <Recibos />}
+          {ingresosSub === "facturas" && <Facturas />}
+          {ingresosSub === "conceptos" && <ConceptosCobro />}
         </>
       )}
 

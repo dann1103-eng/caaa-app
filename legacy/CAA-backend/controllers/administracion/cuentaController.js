@@ -6,6 +6,9 @@ exports.listAlumnosConSaldo = async (req, res) => {
       SELECT a.id_alumno,
              u.username,
              u.correo,
+             u.nombre, u.apellido,
+             u.dui, u.direccion,
+             COALESCE(u.telefono, a.telefono) AS telefono,
              COALESCE(c.saldo_actual_usd, 0) AS saldo_actual_usd,
              c.ultimo_movimiento_en,
              a.numero_licencia,
@@ -20,6 +23,32 @@ exports.listAlumnosConSaldo = async (req, res) => {
       ORDER BY u.username
     `);
     res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Actualiza los datos fiscales/generales (en `usuario`) de un alumno. Sirve para
+// crear DUI/dirección/teléfono que antes no existían (fila "Ver datos fiscales").
+exports.actualizarDatosFiscales = async (req, res) => {
+  try {
+    const { id_alumno } = req.params;
+    const { dui, direccion, telefono, correo, nombre, apellido } = req.body;
+    const uRes = await db.query(`SELECT id_usuario FROM alumno WHERE id_alumno = $1`, [id_alumno]);
+    if (!uRes.rows.length) return res.status(404).json({ ok: false, message: "Alumno no encontrado" });
+    const id_usuario = uRes.rows[0].id_usuario;
+    const r = await db.query(`
+      UPDATE usuario SET
+        dui       = COALESCE($2, dui),
+        direccion = COALESCE($3, direccion),
+        telefono  = COALESCE($4, telefono),
+        correo    = COALESCE(NULLIF($5, ''), correo),
+        nombre    = COALESCE(NULLIF($6, ''), nombre),
+        apellido  = COALESCE(NULLIF($7, ''), apellido)
+      WHERE id_usuario = $1
+      RETURNING dui, direccion, telefono, correo, nombre, apellido
+    `, [id_usuario, dui ?? null, direccion ?? null, telefono ?? null, correo ?? null, nombre ?? null, apellido ?? null]);
+    res.json({ ok: true, data: r.rows[0] });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
   }
@@ -204,6 +233,53 @@ exports.cargoManual = async (req, res) => {
     const io = req.app.get("io");
     if (io) io.emit("cuenta_alumno_movimiento", { id_alumno: Number(id_alumno), saldo: nuevo_saldo });
 
+    res.json({ ok: true, data: mov.rows[0], saldo: nuevo_saldo });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Aplica un cobro de un concepto del catálogo (concepto_cobro) a la cuenta del
+ * alumno: debita el saldo prepagado (movimiento CARGO_OTRO) y enlaza el concepto
+ * para poder reportar ingresos por concepto. Ej: "Reposición de examen" $60.
+ */
+exports.cobrarConcepto = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id_alumno } = req.params;
+    const { id_concepto, monto_usd, fecha, descripcion } = req.body;
+
+    const cRes = await client.query(`SELECT * FROM concepto_cobro WHERE id = $1 AND activo = true`, [id_concepto]);
+    if (!cRes.rows.length) return res.status(404).json({ ok: false, message: "Concepto de cobro no encontrado" });
+    const concepto = cRes.rows[0];
+    const monto = Number(monto_usd != null && monto_usd !== '' ? monto_usd : concepto.monto_usd);
+    if (!(monto > 0)) return res.status(400).json({ ok: false, message: "El monto debe ser mayor a 0" });
+
+    await client.query("BEGIN");
+    let cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
+    if (cuenta.rows.length === 0) {
+      await client.query(`INSERT INTO cuenta_corriente_alumno (id_alumno, saldo_actual_usd) VALUES ($1, 0)`, [id_alumno]);
+      cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
+    }
+    const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) - monto;
+    await client.query(`UPDATE cuenta_corriente_alumno SET saldo_actual_usd = $2, ultimo_movimiento_en = NOW() WHERE id_alumno = $1`, [id_alumno, nuevo_saldo]);
+
+    const desc = (descripcion && descripcion.trim()) || concepto.nombre;
+    const mov = await client.query(`
+      INSERT INTO movimiento_cuenta
+        (id_alumno, tipo, fecha, descripcion, monto_usd, saldo_resultante_usd,
+         id_concepto_cobro, generado_automatico, registrado_por)
+      VALUES ($1, 'CARGO_OTRO', COALESCE($2, NOW()), $3, $4, $5, $6, FALSE, $7)
+      RETURNING *
+    `, [id_alumno, fecha || null, desc, -monto, nuevo_saldo, id_concepto, req.user?.id_usuario || null]);
+
+    await client.query("COMMIT");
+    const io = req.app.get("io");
+    if (io) io.emit("cuenta_alumno_movimiento", { id_alumno: Number(id_alumno), saldo: nuevo_saldo });
     res.json({ ok: true, data: mov.rows[0], saldo: nuevo_saldo });
   } catch (e) {
     await client.query("ROLLBACK");

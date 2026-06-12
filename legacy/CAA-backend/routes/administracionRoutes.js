@@ -21,6 +21,7 @@ const medicos = require("../controllers/administracion/medicosController");
 const reportes = require("../controllers/administracion/reportesController");
 const aula     = require("../controllers/administracion/aulaVirtualController");
 const adminUsuario = require("../controllers/admin/adminUsuarioController");
+const conceptos = require("../controllers/administracion/conceptoCobroController");
 
 // Upload de documentos: en memoria, para subir el buffer a Supabase Storage
 // (persistente). El disco de Railway es efímero y se borra en cada redeploy.
@@ -62,8 +63,15 @@ router.get("/cuenta/:id_alumno",            roleMiddleware(READ_ROLES),  cuenta.
 router.get("/cuenta/:id_alumno/extracto",   roleMiddleware(READ_ROLES),  cuenta.getExtracto);
 router.post("/cuenta/:id_alumno/ajuste",    roleMiddleware(WRITE_ROLES), cuenta.ajuste);
 router.post("/cuenta/:id_alumno/cargo-manual", roleMiddleware(WRITE_ROLES), cuenta.cargoManual);
+router.post("/cuenta/:id_alumno/cobro-concepto", roleMiddleware(WRITE_ROLES), cuenta.cobrarConcepto);
+router.patch("/alumnos/:id_alumno/datos-fiscales", roleMiddleware(WRITE_ROLES), cuenta.actualizarDatosFiscales);
 router.patch("/movimientos/:id",            roleMiddleware(WRITE_ROLES), cuenta.editarMovimiento);
 router.patch("/movimientos/:id/anular",     roleMiddleware(WRITE_ROLES), cuenta.anularMovimiento);
+
+// ── Conceptos de cobro (catálogo de tipos de ingreso) ─────────────────
+router.get("/conceptos-cobro",              roleMiddleware(READ_ROLES),  conceptos.list);
+router.post("/conceptos-cobro",             roleMiddleware(WRITE_ROLES), conceptos.create);
+router.patch("/conceptos-cobro/:id",        roleMiddleware(WRITE_ROLES), conceptos.update);
 
 // ── Recibos ───────────────────────────────────────────────────────────
 router.get("/recibos",                      roleMiddleware(READ_ROLES),  recibos.list);
