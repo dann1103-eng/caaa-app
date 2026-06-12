@@ -32,6 +32,11 @@ export const updatePerfilAlumno = async ({ telefono, numero_licencia, certificad
   });
   return res.data;
 };
+export const confirmarDatos = async ({ nombre, apellido, telefono, dui, direccion }) => {
+  const res = await axios.put(`${API_URL}/usuario/confirmar-datos`, { nombre, apellido, telefono, dui, direccion });
+  return res.data;
+};
+
 export const refreshToken = async () => {
   const res = await axios.get(`${API_URL}/auth/refresh`);
   return res.data;

@@ -30,6 +30,7 @@ exports.login = async (req, res) => {
         u.password_hash,
         u.must_change_password,
         u.must_set_email,
+        u.datos_confirmados,
         u.failed_login_count,
         u.locked_until,
         a.numero_licencia,
@@ -55,15 +56,10 @@ exports.login = async (req, res) => {
 
     // ... (skipped code for brevity in instruction, but keeping it in replacement)
     
-    // Calculate if profile is incomplete (for Alumnos)
-    const docsIncompletos = user.rol === 'ALUMNO' && (
-      !user.numero_licencia || user.numero_licencia.trim() === '' ||
-      !user.certificado_medico ||
-      !user.certificado_medico_numero || user.certificado_medico_numero.trim() === '' ||
-      !user.seguro_vida_numero || user.seguro_vida_numero.trim() === ''
-    );
-
-    const mustCompleteProfile = user.must_change_password || user.must_set_email || docsIncompletos;
+    // Robapantallas de primer login: alumnos e instructores deben confirmar sus
+    // datos generales (contacto + fiscales) antes de entrar al home.
+    const mustConfirmData = (user.rol === 'ALUMNO' || user.rol === 'INSTRUCTOR') && !user.datos_confirmados;
+    const mustCompleteProfile = user.must_change_password || user.must_set_email || mustConfirmData;
 
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
       await client.query("ROLLBACK");
@@ -154,6 +150,7 @@ exports.login = async (req, res) => {
       rol: user.rol,
       must_change_password: user.must_change_password,
       must_set_email: user.must_set_email,
+      must_confirm_data: mustConfirmData,
       must_complete_profile: mustCompleteProfile,
       session_id: currentSessionId,
     };
@@ -173,6 +170,7 @@ exports.login = async (req, res) => {
         rol: user.rol,
         must_change_password: user.must_change_password,
         must_set_email: user.must_set_email,
+        must_confirm_data: mustConfirmData,
         must_complete_profile: mustCompleteProfile,
       },
     });
@@ -195,25 +193,18 @@ exports.refresh = async (req, res) => {
     
     // Obtener datos frescos de la DB para recalcular el estado del perfil
     const result = await db.query(`
-      SELECT 
-        u.id_usuario, u.username, u.nombre, u.apellido, u.rol, 
-        u.must_change_password, u.must_set_email,
-        a.numero_licencia, a.certificado_medico, a.seguro_vida, a.seguro_vida_numero, a.certificado_medico_numero
+      SELECT
+        u.id_usuario, u.username, u.nombre, u.apellido, u.rol,
+        u.must_change_password, u.must_set_email, u.datos_confirmados
       FROM usuario u
-      LEFT JOIN alumno a ON a.id_usuario = u.id_usuario
       WHERE u.id_usuario = $1
     `, [decoded.id_usuario]);
 
     if (result.rows.length === 0) return res.status(401).json({ message: "Usuario no encontrado" });
     const user = result.rows[0];
 
-    const docsIncompletos = user.rol === 'ALUMNO' && (
-      !user.numero_licencia || user.numero_licencia.trim() === '' ||
-      !user.certificado_medico ||
-      !user.certificado_medico_numero || user.certificado_medico_numero.trim() === '' ||
-      !user.seguro_vida_numero || user.seguro_vida_numero.trim() === ''
-    );
-    const mustCompleteProfile = user.must_change_password || user.must_set_email || docsIncompletos;
+    const mustConfirmData = (user.rol === 'ALUMNO' || user.rol === 'INSTRUCTOR') && !user.datos_confirmados;
+    const mustCompleteProfile = user.must_change_password || user.must_set_email || mustConfirmData;
 
     const payload = {
       id_usuario: user.id_usuario,
@@ -223,6 +214,7 @@ exports.refresh = async (req, res) => {
       rol: user.rol,
       must_change_password: user.must_change_password,
       must_set_email: user.must_set_email,
+      must_confirm_data: mustConfirmData,
       must_complete_profile: mustCompleteProfile,
       session_id: decoded.session_id,
     };
@@ -241,6 +233,7 @@ exports.refresh = async (req, res) => {
         rol: user.rol,
         must_change_password: user.must_change_password,
         must_set_email: user.must_set_email,
+        must_confirm_data: mustConfirmData,
         must_complete_profile: mustCompleteProfile,
       }
     });

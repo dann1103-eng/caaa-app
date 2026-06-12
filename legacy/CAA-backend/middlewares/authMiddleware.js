@@ -42,6 +42,7 @@ module.exports = async function authMiddleware(req, res, next) {
         "/api/usuario/cambiar-correo",
         "/api/usuario/update-info",
         "/api/usuario/update-perfil-alumno",
+        "/api/usuario/confirmar-datos",
         "/api/auth/refresh",
         "/api/auth/logout"
       ];

@@ -1,0 +1,87 @@
+.cdm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: oklch(20% 0.04 255 / 0.55);
+  backdrop-filter: blur(4px);
+  animation: cdmFade 0.2s ease-out;
+}
+@keyframes cdmFade { from { opacity: 0; } to { opacity: 1; } }
+
+.cdm-card {
+  width: 100%;
+  max-width: 560px;
+  background: var(--c-surface-1, #fff);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px oklch(20% 0.04 255 / 0.35);
+  overflow: hidden;
+  animation: cdmIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes cdmIn { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.cdm-head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 22px 26px;
+  background: var(--c-brand-900, #1B365D);
+  color: #fff;
+}
+.cdm-logo {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  background: #fff; border-radius: 12px;
+}
+.cdm-logo img { height: 30px; width: auto; display: block; }
+.cdm-title { margin: 0; font-size: 1.25rem; font-weight: 700; }
+.cdm-sub { margin: 4px 0 0; font-size: 0.85rem; opacity: 0.85; }
+
+.cdm-body { padding: 22px 26px 26px; }
+.cdm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.cdm-field { display: flex; flex-direction: column; gap: 6px; }
+.cdm-field--full { grid-column: 1 / -1; }
+.cdm-field label { font-size: 0.78rem; font-weight: 600; color: var(--c-ink-2, #344); }
+.cdm-req { color: var(--c-danger-600, #b42318); font-weight: 700; }
+.cdm-field input {
+  padding: 10px 12px;
+  border: 1px solid var(--c-line-2, #d6dbe2);
+  border-radius: 9px;
+  font-size: 0.95rem;
+  background: var(--c-surface-1, #fff);
+  color: var(--c-ink-1, #222);
+}
+.cdm-field input:focus {
+  outline: none;
+  border-color: var(--c-brand-700, #234);
+  box-shadow: 0 0 0 3px oklch(45% 0.1 255 / 0.15);
+}
+
+.cdm-submit {
+  margin-top: 20px;
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 10px;
+  background: var(--c-brand-700, #1B365D);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.cdm-submit:hover:not(:disabled) { filter: brightness(1.1); }
+.cdm-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.cdm-note { text-align: center; font-size: 0.78rem; color: var(--c-ink-3, #667); margin: 12px 0 0; }
+
+@media (max-width: 520px) {
+  .cdm-grid { grid-template-columns: 1fr; }
+}
