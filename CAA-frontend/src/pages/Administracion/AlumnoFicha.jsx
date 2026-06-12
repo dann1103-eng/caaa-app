@@ -60,6 +60,13 @@ export default function AlumnoFicha() {
         seguro_vida_numero: f.seguro_vida_numero || "",
         limite_vuelos_avion: f.limite_vuelos_avion ?? "",
         limite_vuelos_simulador: f.limite_vuelos_simulador ?? "",
+        // Datos fiscales / facturación (viven en usuario)
+        correo: f.correo || "",
+        direccion: f.direccion || "",
+        dui: f.dui || "",
+        es_extranjero: !!f.es_extranjero,
+        pasaporte: f.pasaporte || "",
+        nacionalidad: f.nacionalidad || "",
       });
       setLicencias(Array.isArray(lic) ? lic : []);
       setInstructores(inst?.ok ? inst.data : (Array.isArray(inst) ? inst : []));
@@ -233,6 +240,36 @@ export default function AlumnoFicha() {
                 </label>
               </div>
             </div>
+
+            {/* ── Datos fiscales / facturación ── */}
+            <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+              <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
+                <i className="bi bi-receipt me-2"></i>DATOS FISCALES / FACTURACIÓN
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer", marginBottom: 12 }}>
+                <input type="checkbox" checked={!!form.es_extranjero}
+                  onChange={(e) => setForm({ ...form, es_extranjero: e.target.checked })} />
+                Alumno extranjero (facturar con pasaporte)
+              </label>
+              <div className="adf-form-grid">
+                {form.es_extranjero ? (
+                  <>
+                    <div className="adf-form-field"><label>N° de pasaporte</label>
+                      <input value={form.pasaporte} onChange={(e) => setForm({ ...form, pasaporte: e.target.value })} placeholder="Ej. A12345678" /></div>
+                    <div className="adf-form-field"><label>Nacionalidad / País</label>
+                      <input value={form.nacionalidad} onChange={(e) => setForm({ ...form, nacionalidad: e.target.value })} placeholder="Ej. Guatemala" /></div>
+                  </>
+                ) : (
+                  <div className="adf-form-field"><label>DUI</label>
+                    <input value={form.dui} onChange={(e) => setForm({ ...form, dui: e.target.value })} placeholder="00000000-0" /></div>
+                )}
+                <div className="adf-form-field"><label>Correo electrónico</label>
+                  <input type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} /></div>
+                <div className="adf-form-field" style={{ gridColumn: "1 / -1" }}><label>Dirección de casa</label>
+                  <input value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} placeholder="Dirección completa" /></div>
+              </div>
+            </div>
+
             <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
               <button type="submit" className="adf-btn" disabled={guardando}>
                 <i className="bi bi-check2"></i> {guardando ? "Guardando…" : "Guardar cambios"}

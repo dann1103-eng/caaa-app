@@ -27,6 +27,7 @@ exports.getAlumnoFichaAdmin = catchAsync(async (req, res) => {
   const { id_alumno } = req.params;
   const result = await db.query(`
     SELECT u.id_usuario, u.nombre, u.apellido, u.correo, u.username,
+           u.dui, u.direccion, u.es_extranjero, u.pasaporte, u.nacionalidad,
            a.id_alumno, a.id_instructor, a.id_licencia, a.numero_licencia,
            a.telefono, a.soleado, a.horas_acumuladas,
            a.certificado_medico, a.certificado_medico_numero,
@@ -56,6 +57,8 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
     seguro_vida, seguro_vida_vencimiento, seguro_vida_numero,
     limite_vuelos_avion, limite_vuelos_simulador,
     id_instructor,
+    // Datos fiscales / facturación (viven en `usuario`)
+    correo, dui, direccion, es_extranjero, pasaporte, nacionalidad,
   } = req.body;
 
   const r = await db.query(`
@@ -84,6 +87,22 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
     id_instructor ?? null,
   ]);
   if (r.rows.length === 0) return res.status(404).json({ message: "Alumno no encontrado" });
+
+  // Datos fiscales / facturación en `usuario` (DUI/pasaporte/extranjero/dirección/correo).
+  await db.query(`
+    UPDATE usuario SET
+      correo        = COALESCE(NULLIF($2, ''), correo),
+      dui           = COALESCE($3, dui),
+      direccion     = COALESCE($4, direccion),
+      es_extranjero = COALESCE($5::boolean, es_extranjero),
+      pasaporte     = COALESCE($6, pasaporte),
+      nacionalidad  = COALESCE($7, nacionalidad)
+    WHERE id_usuario = (SELECT id_usuario FROM alumno WHERE id_alumno = $1)
+  `, [
+    id_alumno, correo ?? null, dui ?? null, direccion ?? null,
+    typeof es_extranjero === "boolean" ? es_extranjero : null,
+    pasaporte ?? null, nacionalidad ?? null,
+  ]);
 
   await logAuditoria(client_safe(), {
     accion: "OTRO", entidad: "alumno", id_entidad: id_alumno, actor: req.user, req,
