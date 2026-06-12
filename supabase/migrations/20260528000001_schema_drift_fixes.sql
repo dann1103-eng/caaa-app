@@ -97,3 +97,11 @@ CREATE TABLE IF NOT EXISTS public.solicitud_cancelacion (
   resuelto_por integer,
   creado_en    timestamp without time zone DEFAULT now()
 );
+
+-- ── Sesión 2026-06-12 (testing E2E): valores faltantes del enum audit_action ──
+-- El código audita la resolución de solicitudes de cancelación (admin) y el
+-- retiro de la solicitud (alumno) con valores que el enum viejo no tiene;
+-- aceptar/rechazar una cancelación fallaba con
+-- "invalid input value for enum audit_action".
+ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'RESOLVER_SOLICITUD_CANCELACION';
+ALTER TYPE audit_action ADD VALUE IF NOT EXISTS 'QUITAR_SOLICITUD_CANCELACION';

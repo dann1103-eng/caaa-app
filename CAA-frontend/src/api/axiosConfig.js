@@ -30,7 +30,11 @@ axios.interceptors.request.use((config) => {
 axios.interceptors.response.use(
   (res) => res,
   async (err) => {
-    if (err.response?.status === 401 && !err.config._retry) {
+    // Un 401 del propio login/refresh NO es sesión vencida: si se trata como tal,
+    // el redirect duro a /login recarga la página y se traga el toast de
+    // "Credenciales incorrectas" (el usuario no veía ningún error al fallar el login).
+    const esEndpointAuth = /\/auth\/(login|refresh)/.test(err.config?.url || "");
+    if (err.response?.status === 401 && !err.config._retry && !esEndpointAuth) {
       if (err.response.data?.session_conflict) {
         localStorage.removeItem("token");
         localStorage.removeItem("user");

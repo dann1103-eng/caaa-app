@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer } from 'react'
 import { AIRCRAFT } from '../data/aircraft'
+import { calcWB, checkCGInEnvelope } from '../utils/wbCalc'
 
 const initialState = {
   idVuelo: null,
@@ -96,10 +97,33 @@ function reducer(state, action) {
 
 const LoadSheetContext = createContext()
 
+// Calcula wbResults a partir de los pesos guardados. Sin esto, al restaurar un
+// loadsheet (p.ej. el instructor en modo lectura) los totales/CG quedaban en 0 y
+// el Paso 5 decía "REVISAR ✗" hasta visitar el Paso 2 (que es donde recalcula).
+function computeWbResults(acKey, wbInputs, fuelBurn) {
+  const ac = AIRCRAFT[acKey]
+  if (!ac || !wbInputs || Object.keys(wbInputs).length === 0) return null
+  const { totalW, totalM, cg } = calcWB(ac, wbInputs)
+  const overweight = totalW > ac.max_gross
+  const envCheck = checkCGInEnvelope(totalW, cg, ac.limits_normal)
+  const cgOk = envCheck.inside
+  const allOk = !overweight && cgOk && totalW > ac.empty_weight
+  const fuelStation = ac.stations.find(s => s.is_fuel)
+  const burnGal = parseFloat(fuelBurn) || 0
+  const burnW = burnGal * ac.fuel_lb_gal
+  const ldgW = totalW - burnW
+  const ldgM = totalM - (burnW * (fuelStation?.arm || 0))
+  const ldgCG = ldgW > 0 ? ldgM / ldgW : 0
+  const ldgEnv = checkCGInEnvelope(ldgW, ldgCG, ac.limits_normal)
+  return { totalW, totalM, cg, cgOk, overweight, allOk, fwd: envCheck.fwd, aft: envCheck.aft, ldgW, ldgM, ldgCG, ldgCgOk: ldgEnv.inside }
+}
+
 function buildInitial(initial) {
   if (!initial) return initialState
+  const wbResults = computeWbResults(initial.currentAC, initial.wbInputs, initial.fuelBurn)
   return {
     ...initialState,
+    ...(wbResults ? { wbResults } : {}),
     ...initial,
     flightData: { ...initialState.flightData, ...(initial.flightData || {}) },
     fuelData: { ...initialState.fuelData, ...(initial.fuelData || {}) },
