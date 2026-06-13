@@ -1,4 +1,7 @@
 const nodemailer = require("nodemailer");
+// Railway no rutea IPv6 (igual que con Supabase). Sin esto nodemailer resuelve
+// smtp.gmail.com a una IPv6 y falla con ENETUNREACH. Preferir IPv4 globalmente.
+try { require("dns").setDefaultResultOrder("ipv4first"); } catch { /* node viejo */ }
 
 // Acepta ambos juegos de nombres que conviven en el repo:
 //   MAIL_USERNAME/MAIL_USER, MAIL_FROM_ADDRESS/MAIL_FROM.
@@ -26,6 +29,7 @@ const realTransporter = nodemailer.createTransport({
   port: PORT,
   secure: PORT === 465,
   auth: { user: USER, pass: PASS },
+  family: 4, // fuerza IPv4 en la conexión SMTP (Railway sin IPv6)
 });
 
 const DEFAULT_FROM = `"${FROM_NAME}" <${FROM_ADDRESS}>`;
