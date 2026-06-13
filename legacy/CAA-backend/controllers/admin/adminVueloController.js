@@ -2,6 +2,7 @@ const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
+const { horarioAlumnoEmail, horarioInstructorEmail } = require("../../utils/emailTemplates");
 const { getNextSemanaId, getCurrentSemanaId } = require("../../utils/adminHelpers");
 
 exports.getSemanas = catchAsync(async (req, res) => {
@@ -164,16 +165,35 @@ exports.publicarSemana = catchAsync(async (req, res) => {
     await client.query("COMMIT");
 
     const semanaLabel = `${new Date(fecha_inicio).toLocaleDateString("es-SV", { timeZone: "UTC" })} al ${new Date(fecha_fin).toLocaleDateString("es-SV", { timeZone: "UTC" })}`;
-    vuelos.forEach(v => {
+
+    // Un solo correo consolidado por persona (no uno por vuelo). Se agrupa por
+    // correo; los vuelos de cada quien se ordenan por día y hora.
+    const ordenar = (arr) => arr.sort(
+      (a, b) => (a.dia_semana - b.dia_semana) || String(a.hora_inicio).localeCompare(String(b.hora_inicio))
+    );
+    const porAlumno = new Map();
+    const porInstructor = new Map();
+    for (const v of vuelos) {
       if (v.alumno_correo) {
-        transporter.sendMail({
-          from: process.env.MAIL_FROM_ADDRESS,
-          to: v.alumno_correo,
-          subject: `Tu horario de vuelos ha sido publicado — semana ${semanaLabel}`,
-          text: `Hola ${v.alumno_nombre},\n\nTu horario de vuelos para la semana del ${semanaLabel} ha sido publicado:\n• ${v.dia_nombre} ${v.bloque} — ${v.aeronave}`,
-        }).catch(err => console.error(`Error enviando email a ${v.alumno_correo}:`, err));
+        if (!porAlumno.has(v.alumno_correo)) porAlumno.set(v.alumno_correo, { nombre: v.alumno_nombre, vuelos: [] });
+        porAlumno.get(v.alumno_correo).vuelos.push(v);
       }
-    });
+      if (v.instructor_correo) {
+        if (!porInstructor.has(v.instructor_correo)) porInstructor.set(v.instructor_correo, { nombre: v.instructor_nombre, vuelos: [] });
+        porInstructor.get(v.instructor_correo).vuelos.push(v);
+      }
+    }
+
+    for (const [correo, { nombre, vuelos: vs }] of porAlumno) {
+      const { subject, html, text } = horarioAlumnoEmail({ nombre, semanaLabel, vuelos: ordenar(vs) });
+      transporter.sendMail({ to: correo, subject, html, text })
+        .catch(err => console.error(`Error enviando horario a alumno ${correo}:`, err));
+    }
+    for (const [correo, { nombre, vuelos: vs }] of porInstructor) {
+      const { subject, html, text } = horarioInstructorEmail({ nombre, semanaLabel, vuelos: ordenar(vs) });
+      transporter.sendMail({ to: correo, subject, html, text })
+        .catch(err => console.error(`Error enviando horario a instructor ${correo}:`, err));
+    }
 
     res.json({
       message: "Semana publicada y vuelos generados correctamente",

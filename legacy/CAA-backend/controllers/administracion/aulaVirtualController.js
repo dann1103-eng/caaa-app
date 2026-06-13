@@ -2,6 +2,20 @@ const path = require("path");
 const db = require("../../config/db");
 const { subirArchivo, urlFirmada, borrarArchivo, storageDisponible, BUCKETS } = require("../../utils/storage");
 const { notificarRoles, notificarUsuario } = require("../../utils/notificaciones");
+const transporter = require("../../utils/mailer");
+const { examenFinalEmail } = require("../../utils/emailTemplates");
+
+// Destinatarios del correo de "examen final aprobado": MAIL_ADMIN_NOTIFY si está
+// definido (p.ej. el correo de Mayra / Administración), si no los correos de los
+// usuarios con rol ADMINISTRACION/ADMIN.
+async function destinatariosAdminNotify(client) {
+  const override = (process.env.MAIL_ADMIN_NOTIFY || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (override.length) return override;
+  const r = await client.query(
+    `SELECT correo FROM usuario WHERE rol IN ('ADMINISTRACION','ADMIN') AND correo IS NOT NULL AND correo <> ''`
+  );
+  return r.rows.map((x) => x.correo);
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // UNIDADES TEÓRICAS
@@ -473,7 +487,20 @@ exports.registrarNota = async (req, res) => {
           if (d.instructor_uid) {
             await notificarUsuario(client, d.instructor_uid, { tipo: 'EXAMEN_FINAL', mensaje: msg });
           }
-          // (Correo: pendiente de configurar SMTP / MAIL_ENABLED.)
+
+          // Correo a Administración (Mayra). No bloquea la transacción si falla.
+          try {
+            const dest = await destinatariosAdminNotify(client);
+            if (dest.length) {
+              const { subject, html, text } = examenFinalEmail({
+                alumno: d.alumno, curso: d.curso, enlace: `/administracion/alumnos/${ea.id_alumno}`,
+              });
+              transporter.sendMail({ to: dest, subject, html, text })
+                .catch((err) => console.error("Error enviando correo de examen final:", err));
+            }
+          } catch (err) {
+            console.error("Error preparando correo de examen final:", err.message);
+          }
 
           // Pago de teoría: al instructor del examen final (o el titular del alumno).
           const id_instructor_pago = e.id_instructor || d.alumno_instructor || null;
