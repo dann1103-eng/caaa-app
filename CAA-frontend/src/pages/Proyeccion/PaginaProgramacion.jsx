@@ -53,17 +53,10 @@ function formatMetarResumen(decoded) {
   return partes;
 }
 
-function getEstadoDinamico(v, diaHoy) {
-  if (v.estado === "CANCELADO") return "CANCELADO";
-  if (Number(v.dia_semana) !== diaHoy) return v.estado || "PROGRAMADO";
-  const now = new Date();
-  const [hS, mS] = v.hora_inicio.split(":").map(Number);
-  const [hE, mE] = v.hora_fin.split(":").map(Number);
-  const start = new Date(now); start.setHours(hS, mS, 0, 0);
-  const end   = new Date(now); end.setHours(hE, mE, 0, 0);
-  if (now < start) return "PROGRAMADO";
-  if (now >= start && now < end) return "EN_VUELO";
-  return "COMPLETADO";
+// Devuelve el estado real de la BD. La proyección NO sobreescribe con el reloj:
+// solo el instructor/turno puede avanzar el estado manualmente.
+function getEstadoDinamico(v) {
+  return v.estado || "PROGRAMADO";
 }
 
 function calcProgreso(v) {
@@ -179,8 +172,8 @@ export default function PaginaProgramacion() {
 
   /* ── derived ── */
   const vuelosConEstado = useMemo(() =>
-    vuelos.map(v => ({ ...v, estadoDinamico: getEstadoDinamico(v, diaHoy) })),
-    [vuelos, diaHoy]
+    vuelos.map(v => ({ ...v, estadoDinamico: getEstadoDinamico(v) })),
+    [vuelos]
   );
 
   const vuelosEnCurso = useMemo(() =>
@@ -191,13 +184,26 @@ export default function PaginaProgramacion() {
     [vuelosConEstado, diaHoy]
   );
 
-  const proximosVuelos = useMemo(() =>
-    vuelosConEstado
-      .filter(v => Number(v.dia_semana) === diaHoy && v.estadoDinamico === "PROGRAMADO")
-      .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
-      .slice(0, 5),
-    [vuelosConEstado, diaHoy]
-  );
+  // Widget "Próximo Bloque": bloque más cercano que aún no ha iniciado
+  const proximoBloque = useMemo(() => {
+    const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
+    const vuelosHoy = vuelosConEstado.filter(v =>
+      Number(v.dia_semana) === diaHoy && v.estado !== "CANCELADO"
+    );
+    const bloquesHoy = [...new Map(
+      vuelosHoy.map(v => [v.id_bloque, { id_bloque: v.id_bloque, hora_inicio: v.hora_inicio, hora_fin: v.hora_fin }])
+    ).values()].sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+
+    const siguiente = bloquesHoy.find(b => {
+      const [h, m] = b.hora_inicio.split(":").map(Number);
+      return h * 60 + m > ahoraMin;
+    });
+    if (!siguiente) return null;
+    return {
+      bloque: siguiente,
+      vuelos: vuelosHoy.filter(v => v.id_bloque === siguiente.id_bloque),
+    };
+  }, [vuelosConEstado, diaHoy]);
 
   const vuelosFiltrados = useMemo(() =>
     vuelosConEstado.filter(v => Number(v.dia_semana) === tabActivo),
@@ -294,6 +300,45 @@ export default function PaginaProgramacion() {
                   </table>
                 </div>
               </div>
+
+              {/* Próximo Bloque */}
+              {proximoBloque && (
+                <div className="pp__card" style={{ flex: '0 0 auto' }}>
+                  <div className="pp__card-head">
+                    <h2 className="pp__card-title"><i className="bi bi-clock-history" /> Próximo Bloque</h2>
+                    <span className="pp__card-badge" style={{ background: 'var(--c-warn-100)', color: 'var(--c-warn-700)' }}>
+                      {formatHora(proximoBloque.bloque.hora_inicio)} – {formatHora(proximoBloque.bloque.hora_fin)}
+                    </span>
+                  </div>
+                  <div className="pp__tbl-wrap">
+                    <table className="pp__table">
+                      <thead>
+                        <tr>
+                          <th>ESTUDIANTE / INSTRUCTOR</th>
+                          <th>AERONAVE</th>
+                          <th>ESTADO</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {proximoBloque.vuelos.map(v => (
+                          <tr key={v.id_vuelo}>
+                            <td>
+                              <div className="pp__tbl-person">{v.alumno_nombre}</div>
+                              <div className="pp__tbl-sub">Cap. {v.instructor_nombre}</div>
+                            </td>
+                            <td><span className="pp__tbl-aero">{v.aeronave_codigo}</span></td>
+                            <td>
+                              <span className="pp__tbl-badge pp__tbl-badge--programado">
+                                Programado
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Schedule */}
               <div className="pp__card pp__schedule-card">
