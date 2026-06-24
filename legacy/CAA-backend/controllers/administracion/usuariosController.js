@@ -189,7 +189,7 @@ exports.editarPersonal = async (req, res) => {
     } = req.body;
 
     await client.query("BEGIN");
-    const uRes = await client.query(`SELECT id_usuario FROM usuario WHERE id_usuario = $1 FOR UPDATE`, [id_usuario]);
+    const uRes = await client.query(`SELECT id_usuario, nombre, apellido FROM usuario WHERE id_usuario = $1 FOR UPDATE`, [id_usuario]);
     if (!uRes.rows.length) {
       await client.query("ROLLBACK");
       return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -211,26 +211,37 @@ exports.editarPersonal = async (req, res) => {
       WHERE id_usuario = $1
     `, [id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null]);
 
-    // Datos de nómina: solo si ya tiene ficha de empleado (no se crea aquí; los
-    // instructores configuran su pago en Tarifas → Instructores).
-    const emp = await client.query(`SELECT id FROM empleado WHERE id_usuario = $1`, [id_usuario]);
-    if (emp.rows.length) {
-      const nombreCompleto = (nombre != null || apellido != null)
-        ? `${nombre ?? ''} ${apellido ?? ''}`.trim()
-        : null;
-      await client.query(`
-        UPDATE empleado SET
-          nombre                      = COALESCE($2, nombre),
-          cargo                       = COALESCE($3, cargo),
-          dui                         = COALESCE($4, dui),
-          nit                         = COALESCE($5, nit),
-          isss_num                    = COALESCE($6, isss_num),
-          afp_num                     = COALESCE($7, afp_num),
-          sueldo_base                 = COALESCE($8, sueldo_base),
-          es_servicios_profesionales  = COALESCE($9, es_servicios_profesionales)
-        WHERE id_usuario = $1
-      `, [id_usuario, nombreCompleto || null, cargo, dui, nit, isss_num, afp_num,
-          sueldo_base != null ? Number(sueldo_base) : null, es_servicios_profesionales]);
+    // Datos de nómina: UPSERT — si ya tiene ficha la actualiza, si no la crea.
+    const hayNomina = cargo != null || dui != null || nit != null || isss_num != null ||
+                      afp_num != null || sueldo_base != null || es_servicios_profesionales != null;
+    if (hayNomina) {
+      const uRow = uRes.rows[0];
+      const nombreCompleto = [nombre ?? uRow?.nombre, apellido ?? uRow?.apellido].filter(Boolean).join(" ") || null;
+      const empExist = await client.query(`SELECT id FROM empleado WHERE id_usuario = $1`, [id_usuario]);
+      if (empExist.rows.length) {
+        await client.query(`
+          UPDATE empleado SET
+            nombre                     = COALESCE($2, nombre),
+            cargo                      = COALESCE($3, cargo),
+            dui                        = COALESCE($4, dui),
+            nit                        = COALESCE($5, nit),
+            isss_num                   = COALESCE($6, isss_num),
+            afp_num                    = COALESCE($7, afp_num),
+            sueldo_base                = COALESCE($8, sueldo_base),
+            es_servicios_profesionales = COALESCE($9, es_servicios_profesionales)
+          WHERE id_usuario = $1
+        `, [id_usuario, nombreCompleto, cargo ?? null, dui ?? null, nit ?? null,
+            isss_num ?? null, afp_num ?? null,
+            sueldo_base != null ? Number(sueldo_base) : null,
+            es_servicios_profesionales ?? null]);
+      } else {
+        await client.query(`
+          INSERT INTO empleado (id_usuario, nombre, cargo, dui, nit, isss_num, afp_num, sueldo_base, es_servicios_profesionales)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [id_usuario, nombreCompleto, cargo ?? null, dui ?? null, nit ?? null,
+            isss_num ?? null, afp_num ?? null,
+            Number(sueldo_base || 0), !!(es_servicios_profesionales ?? false)]);
+      }
     }
 
     if (rolFinal === 'INSTRUCTOR') {

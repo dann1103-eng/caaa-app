@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import {
   getAeronaveTarifas, getAeronavesParaTarifa, upsertAeronaveTarifa,
   getInstructorTarifas, getInstructoresDisponibles, upsertInstructorTarifa,
-  getEmpleados, crearEmpleado, actualizarEmpleado
+  getUsuariosPersonal, editarUsuarioPersonal
 } from "../../services/administracionApi";
 import { fmtFecha } from "../../utils/fechas";
 
@@ -41,7 +41,6 @@ const EMPTY_INST_FORM = {
 };
 
 const EMPTY_EMP_FORM = {
-  nombre: "",
   cargo: "",
   dui: "",
   nit: "",
@@ -80,20 +79,20 @@ export default function Tarifas() {
   const [instForm, setInstForm] = useState(EMPTY_INST_FORM);
   const [editingInst, setEditingInst] = useState(null);
 
-  const [empleados, setEmpleados] = useState([]);
+  const [personal, setPersonal] = useState([]);
   const [showEmpForm, setShowEmpForm] = useState(false);
   const [empForm, setEmpForm] = useState(EMPTY_EMP_FORM);
   const [editingEmp, setEditingEmp] = useState(null);
 
-  const loadEmpleados = async () => {
+  const loadPersonal = async () => {
     try {
-      const r = await getEmpleados();
-      if (r?.ok) setEmpleados(r.data);
-    } catch { /* mock: deja la lista como esté */ }
+      const r = await getUsuariosPersonal();
+      if (r?.ok) setPersonal(r.data);
+    } catch { /* silencioso */ }
   };
 
   const load = async () => {
-    loadEmpleados();
+    loadPersonal();
     try {
       const [a, av, i, ds] = await Promise.all([getAeronaveTarifas(), getAeronavesParaTarifa(), getInstructorTarifas(), getInstructoresDisponibles()]);
       if (a?.ok && i?.ok) {
@@ -198,49 +197,40 @@ export default function Tarifas() {
     setShowInstForm(true);
   };
 
-  // ── Empleados de planta ────────────────────────────────────────────
+  // ── Personal (nómina) ─────────────────────────────────────────────
   const handleSaveEmp = async (e) => {
     e.preventDefault();
-    if (!empForm.nombre.trim()) return toast.error("El nombre es obligatorio");
+    if (!editingEmp) return;
     const payload = {
-      nombre: empForm.nombre.trim(),
       cargo: empForm.cargo || null,
       dui: empForm.dui || null,
       nit: empForm.nit || null,
       isss_num: empForm.isss_num || null,
       afp_num: empForm.afp_num || null,
-      sueldo_base: Number(empForm.sueldo_base || 0),
+      sueldo_base: empForm.sueldo_base !== "" ? Number(empForm.sueldo_base) : null,
       es_servicios_profesionales: !!empForm.es_servicios_profesionales
     };
     try {
-      if (editingEmp) await actualizarEmpleado(editingEmp.id, payload);
-      else await crearEmpleado(payload);
-      toast.success(editingEmp ? "Empleado actualizado" : "Empleado creado");
+      await editarUsuarioPersonal(editingEmp.id_usuario, payload);
+      toast.success("Datos de nómina actualizados");
       setShowEmpForm(false);
       setEditingEmp(null);
       setEmpForm(EMPTY_EMP_FORM);
-      loadEmpleados();
-    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+      loadPersonal();
+    } catch (err) { toast.error(err?.response?.data?.message || "Error"); }
   };
 
-  const editEmp = (em) => {
-    setEditingEmp(em);
+  const editEmp = (p) => {
+    setEditingEmp(p);
     setEmpForm({
-      nombre: em.nombre || "",
-      cargo: em.cargo || "",
-      dui: em.dui || "",
-      nit: em.nit || "",
-      isss_num: em.isss_num || "",
-      afp_num: em.afp_num || "",
-      sueldo_base: em.sueldo_base || "",
-      es_servicios_profesionales: !!em.es_servicios_profesionales
+      cargo: p.cargo || "",
+      dui: p.dui || "",
+      nit: p.nit || "",
+      isss_num: p.isss_num || "",
+      afp_num: p.afp_num || "",
+      sueldo_base: p.sueldo_base ?? "",
+      es_servicios_profesionales: !!(p.es_servicios_profesionales ?? (p.rol !== 'INSTRUCTOR'))
     });
-    setShowEmpForm(true);
-  };
-
-  const newEmp = () => {
-    setEditingEmp(null);
-    setEmpForm(EMPTY_EMP_FORM);
     setShowEmpForm(true);
   };
 
@@ -526,32 +516,23 @@ export default function Tarifas() {
         </>
       )}
 
-      {/* ────────────────── EMPLEADOS (PLANTA) ────────────────── */}
+      {/* ────────────────── PERSONAL / NÓMINA ────────────────── */}
       {tab === "emp" && (
         <>
           <p className="adf-section-subtitle" style={{ marginTop: 4 }}>
-            Personal administrativo (no instructor). El selector <strong>Servicios profesionales</strong> decide su planilla:
-            marcado = retención del 10%; desmarcado = planta con ISR + ISSS + AFP sobre el sueldo base.
+            Todo el personal con acceso al sistema. Aquí configuras sus datos de nómina (sueldo, DUI, AFP, ISSS).
+            Para <strong>crear o desactivar</strong> usuarios ve a <strong>Usuarios → Personal</strong>.
           </p>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
-            <button className="adf-btn" onClick={newEmp}>
-              <i className="bi bi-plus-circle"></i>Nuevo empleado
-            </button>
-          </div>
 
-          {showEmpForm && (
+          {showEmpForm && editingEmp && (
             <div className="adf-card">
               <h3>
                 <i className="bi bi-person-vcard me-2"></i>
-                {editingEmp ? `Editar empleado: ${editingEmp.nombre}` : "Nuevo empleado de planta"}
+                Datos de nómina — {editingEmp.nombre} {editingEmp.apellido}
+                <span className="adf-tag blue" style={{ marginLeft: 10, fontSize: "0.75rem" }}>{editingEmp.rol}</span>
               </h3>
               <form onSubmit={handleSaveEmp}>
                 <div className="adf-form-grid">
-                  <div className="adf-form-field">
-                    <label>Nombre completo</label>
-                    <input required value={empForm.nombre}
-                      onChange={(e) => setEmpForm({...empForm, nombre: e.target.value})} />
-                  </div>
                   <div className="adf-form-field">
                     <label>Cargo</label>
                     <input value={empForm.cargo} placeholder="Secretaria, Jefe de operaciones..."
@@ -583,7 +564,6 @@ export default function Tarifas() {
                       onChange={(e) => setEmpForm({...empForm, afp_num: e.target.value})} />
                   </div>
                 </div>
-
                 <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "0.9rem", cursor: "pointer" }}>
                     <input type="checkbox" checked={!!empForm.es_servicios_profesionales}
@@ -597,9 +577,8 @@ export default function Tarifas() {
                     </span>
                   </label>
                 </div>
-
                 <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
-                  <button type="submit" className="adf-btn"><i className="bi bi-check"></i>Guardar empleado</button>
+                  <button type="submit" className="adf-btn"><i className="bi bi-check"></i>Guardar</button>
                   <button type="button" className="adf-btn secondary"
                     onClick={() => { setShowEmpForm(false); setEditingEmp(null); }}>Cancelar</button>
                 </div>
@@ -610,7 +589,8 @@ export default function Tarifas() {
           <table className="adf-table">
             <thead>
               <tr>
-                <th>Empleado</th>
+                <th>Nombre</th>
+                <th>Rol</th>
                 <th>Cargo</th>
                 <th>Planilla</th>
                 <th style={{ textAlign: "right" }}>Sueldo base</th>
@@ -618,26 +598,31 @@ export default function Tarifas() {
               </tr>
             </thead>
             <tbody>
-              {empleados.map(em => (
-                <tr key={em.id}>
-                  <td><i className="bi bi-person-circle me-2"></i><strong>{em.nombre}</strong></td>
-                  <td style={{ color: "var(--c-ink-3)" }}>{em.cargo || "—"}</td>
+              {personal.map(p => (
+                <tr key={p.id_usuario}>
+                  <td><i className="bi bi-person-circle me-2"></i><strong>{p.nombre} {p.apellido}</strong></td>
+                  <td><span className="adf-tag blue" style={{ fontSize: "0.75rem" }}>{p.rol}</span></td>
+                  <td style={{ color: "var(--c-ink-3)" }}>{p.cargo || "—"}</td>
                   <td>
-                    {em.es_servicios_profesionales
-                      ? <span className="adf-tag green">Servicios 10%</span>
-                      : <span className="adf-tag blue">Planta ISR</span>}
+                    {p.id_empleado
+                      ? (p.es_servicios_profesionales
+                          ? <span className="adf-tag green">Servicios 10%</span>
+                          : <span className="adf-tag blue">Planta ISR</span>)
+                      : <span className="adf-tag amber">Sin configurar</span>}
                   </td>
-                  <td className="amount" style={{ textAlign: "right" }}>${Number(em.sueldo_base || 0).toFixed(2)}</td>
+                  <td className="amount" style={{ textAlign: "right" }}>
+                    {p.id_empleado ? `$${Number(p.sueldo_base || 0).toFixed(2)}` : "—"}
+                  </td>
                   <td style={{ textAlign: "right" }}>
-                    <button className="adf-btn small secondary" onClick={() => editEmp(em)}>
-                      <i className="bi bi-pencil"></i>Editar
+                    <button className="adf-btn small secondary" onClick={() => editEmp(p)}>
+                      <i className="bi bi-pencil"></i>Editar nómina
                     </button>
                   </td>
                 </tr>
               ))}
-              {empleados.length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
-                  No hay empleados de planta registrados. Agrega el primero con el botón verde.
+              {personal.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
+                  No hay personal registrado. Crea usuarios desde <strong>Usuarios → Personal</strong>.
                 </td></tr>
               )}
             </tbody>
