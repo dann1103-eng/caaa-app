@@ -481,7 +481,8 @@ function generarPyLPDF({ pyl, ingresosDetalle, egresosDetalle, desde, hasta, inc
 
   const fmtPeriodo = (d) => {
     if (!d) return "—";
-    const [y, m] = d.split("-");
+    const iso = d instanceof Date ? d.toISOString() : String(d);
+    const [y, m] = iso.split("-");
     const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     return `${meses[parseInt(m,10)-1]} ${y}`;
   };
