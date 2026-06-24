@@ -492,9 +492,18 @@ function generarPyLPDF({ pyl, ingresosDetalle, egresosDetalle, desde, hasta, inc
   };
   const money = (v) => `$${Number(v || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 
-  const titulo = "ESTADO DE RESULTADOS";
-  const fechaHdr = `${fmtFecha(desde)} – ${fmtFecha(hasta)}`;
-  let y = drawHeader(doc, titulo, fechaHdr);
+  const fmtCompacto = (d) => {
+    if (!d) return "—";
+    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const dt = new Date(d + "T12:00:00");
+    return `${meses[dt.getMonth()]} ${dt.getFullYear()}`;
+  };
+  let y = drawHeader(doc, "P & L", `${fmtCompacto(desde)} – ${fmtCompacto(hasta)}`);
+
+  // Subtítulo completo debajo de la línea del header
+  doc.fontSize(13).font("Helvetica-Bold").fillColor(CAAA_BLUE)
+     .text("ESTADO DE RESULTADOS", 50, y, { align: "center", width: 495 });
+  y += 22;
 
   // ── Cuadro de KPIs ──────────────────────────────────────────────────────
   const kpis = [
