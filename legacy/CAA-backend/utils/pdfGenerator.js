@@ -466,4 +466,151 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
   return doc;
 }
 
-module.exports = { generarFacturaPDF, generarReciboPDF, generarPlanillaPDF, generarReciboNominaPDF, generarReporteVuelosDiaPDF };
+/**
+ * Genera un PDF de Estado de Resultados (P&L).
+ * @param {Object} pyl            - { ingresos, egresos, facturado, margen }
+ * @param {Array}  ingresosDetalle - filas de ingresos por mes (puede ser [])
+ * @param {Array}  egresosDetalle  - filas de egresos por categoría (puede ser [])
+ * @param {string} desde          - "YYYY-MM-DD"
+ * @param {string} hasta          - "YYYY-MM-DD"
+ * @param {boolean} incluirMensual
+ * @param {boolean} incluirCategorias
+ */
+function generarPyLPDF({ pyl, ingresosDetalle, egresosDetalle, desde, hasta, incluirMensual, incluirCategorias }) {
+  const doc = new PDFDocument({ size: "LETTER", margin: 50 });
+
+  const fmtPeriodo = (d) => {
+    if (!d) return "—";
+    const [y, m] = d.split("-");
+    const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    return `${meses[parseInt(m,10)-1]} ${y}`;
+  };
+  const fmtFecha = (d) => {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("es-SV", { timeZone: "America/El_Salvador", day: "2-digit", month: "long", year: "numeric" });
+  };
+  const money = (v) => `$${Number(v || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+
+  const titulo = "ESTADO DE RESULTADOS";
+  const fechaHdr = `${fmtFecha(desde)} – ${fmtFecha(hasta)}`;
+  let y = drawHeader(doc, titulo, fechaHdr);
+
+  // ── Cuadro de KPIs ──────────────────────────────────────────────────────
+  const kpis = [
+    { label: "Ingresos (recibos cobrados)", valor: pyl.ingresos, color: CAAA_GREEN },
+    { label: "Egresos (gastos)", valor: pyl.egresos, color: CAAA_RED },
+    { label: "Margen operativo", valor: pyl.margen, color: Number(pyl.margen) >= 0 ? CAAA_GREEN : CAAA_RED },
+    { label: "Total facturado", valor: pyl.facturado, color: CAAA_BLUE },
+  ];
+
+  const boxW = 115, boxH = 52, gapX = 10;
+  let bx = 50;
+  kpis.forEach(({ label, valor, color }) => {
+    doc.roundedRect(bx, y, boxW, boxH, 4).strokeColor("#dde2ec").lineWidth(1).stroke();
+    doc.fontSize(7).font("Helvetica").fillColor("#666").text(label, bx + 8, y + 8, { width: boxW - 16 });
+    doc.fontSize(15).font("Helvetica-Bold").fillColor(color).text(money(valor), bx + 8, y + 24, { width: boxW - 16, align: "right" });
+    bx += boxW + gapX;
+  });
+  y += boxH + 20;
+
+  // ── Desglose mensual ─────────────────────────────────────────────────────
+  if (incluirMensual && ingresosDetalle && ingresosDetalle.length) {
+    doc.fontSize(11).font("Helvetica-Bold").fillColor(CAAA_BLUE).text("Ingresos por mes", 50, y);
+    y += 18;
+
+    const colW = [160, 100, 80];
+    const headers = ["Mes", "Total recibido", "N° recibos"];
+    const startX = 50;
+
+    doc.rect(startX, y, colW[0] + colW[1] + colW[2], 16).fill("#eef2f7");
+    let cx = startX;
+    headers.forEach((h, i) => {
+      doc.fontSize(7.5).font("Helvetica-Bold").fillColor("#555").text(h, cx + 4, y + 4, { width: colW[i] - 8, align: i > 0 ? "right" : "left" });
+      cx += colW[i];
+    });
+    y += 16;
+
+    let totalRec = 0, totalNr = 0;
+    for (const row of ingresosDetalle) {
+      if (y > 680) { doc.addPage(); y = 50; }
+      cx = startX;
+      const cells = [fmtPeriodo(row.mes), money(row.total), String(row.num_recibos)];
+      cells.forEach((c, i) => {
+        doc.fontSize(8.5).font("Helvetica").fillColor("#222").text(c, cx + 4, y + 3, { width: colW[i] - 8, align: i > 0 ? "right" : "left" });
+        cx += colW[i];
+      });
+      doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(startX, y + 14).lineTo(startX + colW[0] + colW[1] + colW[2], y + 14).stroke();
+      totalRec += Number(row.total);
+      totalNr += Number(row.num_recibos);
+      y += 15;
+    }
+    // Total
+    cx = startX;
+    doc.rect(startX, y, colW[0] + colW[1] + colW[2], 16).fill("#e8f0fe");
+    [["Total", money(totalRec), String(totalNr)]].forEach((cells) => {
+      cells.forEach((c, i) => {
+        doc.fontSize(8.5).font("Helvetica-Bold").fillColor(CAAA_BLUE).text(c, cx + 4, y + 4, { width: colW[i] - 8, align: i > 0 ? "right" : "left" });
+        cx += colW[i];
+      });
+    });
+    y += 24;
+  }
+
+  // ── Desglose por categoría ────────────────────────────────────────────────
+  if (incluirCategorias && egresosDetalle && egresosDetalle.length) {
+    if (y > 600) { doc.addPage(); y = 50; }
+    doc.fontSize(11).font("Helvetica-Bold").fillColor(CAAA_BLUE).text("Egresos por categoría", 50, y);
+    y += 18;
+
+    const colW = [240, 100, 80];
+    const headers = ["Categoría", "Total", "N°"];
+    const startX = 50;
+
+    doc.rect(startX, y, colW[0] + colW[1] + colW[2], 16).fill("#fdecea");
+    let cx = startX;
+    headers.forEach((h, i) => {
+      doc.fontSize(7.5).font("Helvetica-Bold").fillColor("#555").text(h, cx + 4, y + 4, { width: colW[i] - 8, align: i > 0 ? "right" : "left" });
+      cx += colW[i];
+    });
+    y += 16;
+
+    let totalEgr = 0, totalN = 0;
+    const LABEL = {
+      NOMINA:"Nómina", COMBUSTIBLE:"Combustible", MANTENIMIENTO:"Mantenimiento",
+      SERVICIOS:"Servicios", SUMINISTROS:"Suministros", REPUESTOS:"Repuestos",
+      HONORARIOS:"Honorarios", SERVICIOS_BASICOS:"Servicios básicos", ALQUILER:"Alquiler",
+      HANGAR:"Hangar", IMPUESTOS:"Impuestos", SEGUROS:"Seguros", TASAS_AAC:"Tasas AAC",
+      PUBLICIDAD:"Publicidad", VIATICOS:"Viáticos", CAPACITACION:"Capacitación",
+      BANCARIO:"Bancario", OTROS:"Otros", GASTOS_FINANCIEROS:"Gastos financieros",
+      IMPUESTOS_TRIBUTARIOS:"Impuestos tributarios", GASTOS_NO_DEDUCIBLES:"Gastos no deducibles",
+    };
+    for (const row of egresosDetalle) {
+      if (y > 680) { doc.addPage(); y = 50; }
+      cx = startX;
+      const cells = [LABEL[row.categoria] || row.categoria, money(row.total), String(row.num)];
+      cells.forEach((c, i) => {
+        doc.fontSize(8.5).font("Helvetica").fillColor("#222").text(c, cx + 4, y + 3, { width: colW[i] - 8, align: i > 0 ? "right" : "left" });
+        cx += colW[i];
+      });
+      doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(startX, y + 14).lineTo(startX + colW[0] + colW[1] + colW[2], y + 14).stroke();
+      totalEgr += Number(row.total);
+      totalN += Number(row.num);
+      y += 15;
+    }
+    cx = startX;
+    doc.rect(startX, y, colW[0] + colW[1] + colW[2], 16).fill("#fdecea");
+    [["Total", money(totalEgr), String(totalN)]].forEach((cells) => {
+      cells.forEach((c, i) => {
+        doc.fontSize(8.5).font("Helvetica-Bold").fillColor(CAAA_RED).text(c, cx + 4, y + 4, { width: colW[i] - 8, align: i > 0 ? "right" : "left" });
+        cx += colW[i];
+      });
+    });
+    y += 16;
+  }
+
+  drawFooter(doc);
+  doc.end();
+  return doc;
+}
+
+module.exports = { generarFacturaPDF, generarReciboPDF, generarPlanillaPDF, generarReciboNominaPDF, generarReporteVuelosDiaPDF, generarPyLPDF };

@@ -176,5 +176,6 @@ router.get("/reportes/egresos",             roleMiddleware(READ_ROLES),  reporte
 router.get("/reportes/pyl",                 roleMiddleware(READ_ROLES),  reportes.pyl);
 router.get("/reportes/morosos",             roleMiddleware(READ_ROLES),  reportes.morosos);
 router.get("/reportes/kpis-dashboard",      roleMiddleware(READ_ROLES),  reportes.kpisDashboard);
+router.get("/reportes/pyl-pdf",             roleMiddleware(READ_ROLES),  reportes.pylPdf);
 
 module.exports = router;

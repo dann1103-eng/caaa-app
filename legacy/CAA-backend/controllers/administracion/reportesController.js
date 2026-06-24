@@ -1,4 +1,5 @@
 const db = require("../../config/db");
+const { generarPyLPDF } = require("../../utils/pdfGenerator");
 
 exports.ingresos = async (req, res) => {
   try {
@@ -71,6 +72,58 @@ exports.morosos = async (req, res) => {
       ORDER BY c.saldo_actual_usd ASC NULLS FIRST
     `);
     res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.pylPdf = async (req, res) => {
+  try {
+    const {
+      desde = new Date().getFullYear() + "-01-01",
+      hasta = new Date().toISOString().slice(0, 10),
+      mensual = "true",
+      categorias = "true",
+    } = req.query;
+
+    const incluirMensual = mensual !== "false";
+    const incluirCategorias = categorias !== "false";
+
+    const [pylR, ingR, egrR] = await Promise.all([
+      db.query(`
+        SELECT
+          (SELECT COALESCE(SUM(monto_usd),0) FROM recibo_pago WHERE anulado=FALSE AND fecha BETWEEN $1::date AND $2::date) AS ingresos,
+          (SELECT COALESCE(SUM(monto_usd),0) FROM egreso WHERE fecha BETWEEN $1::date AND $2::date) AS egresos,
+          (SELECT COALESCE(SUM(total_usd),0) FROM factura WHERE estado='EMITIDA' AND fecha_emision BETWEEN $1::date AND $2::date) AS facturado
+      `, [desde, hasta]),
+      incluirMensual ? db.query(`
+        SELECT date_trunc('month', fecha) AS mes, SUM(monto_usd) AS total, COUNT(*) AS num_recibos
+        FROM recibo_pago WHERE anulado=FALSE AND fecha BETWEEN $1::date AND $2::date
+        GROUP BY 1 ORDER BY 1 DESC
+      `, [desde, hasta]) : { rows: [] },
+      incluirCategorias ? db.query(`
+        SELECT categoria, SUM(monto_usd) AS total, COUNT(*) AS num
+        FROM egreso WHERE fecha BETWEEN $1::date AND $2::date
+        GROUP BY categoria ORDER BY total DESC
+      `, [desde, hasta]) : { rows: [] },
+    ]);
+
+    const pyl = pylR.rows[0];
+    pyl.margen = Number(pyl.ingresos) - Number(pyl.egresos);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="pyl-${desde}-${hasta}.pdf"`);
+
+    const doc = generarPyLPDF({
+      pyl,
+      ingresosDetalle: ingR.rows,
+      egresosDetalle: egrR.rows,
+      desde,
+      hasta,
+      incluirMensual,
+      incluirCategorias,
+    });
+    doc.pipe(res);
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
   }

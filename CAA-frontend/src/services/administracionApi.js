@@ -171,3 +171,10 @@ export const getIngresos      = async (params) => (await axios.get(`${BASE}/repo
 export const getEgresosReport = async (params) => (await axios.get(`${BASE}/reportes/egresos`, { params })).data;
 export const getPyL           = async (params) => (await axios.get(`${BASE}/reportes/pyl`, { params })).data;
 export const getMorosos       = async () => (await axios.get(`${BASE}/reportes/morosos`)).data;
+export const abrirPyLPDF = async ({ desde, hasta, mensual, categorias }) => {
+  const res = await axios.get(`${BASE}/reportes/pyl-pdf`, {
+    params: { desde, hasta, mensual, categorias },
+    responseType: "blob",
+  });
+  window.open(URL.createObjectURL(new Blob([res.data], { type: "application/pdf" })), "_blank", "noopener");
+};

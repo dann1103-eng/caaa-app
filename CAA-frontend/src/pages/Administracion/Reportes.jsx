@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getPyL, getIngresos, getEgresosReport, getMorosos } from "../../services/administracionApi";
+import { getPyL, getIngresos, getEgresosReport, getMorosos, abrirPyLPDF } from "../../services/administracionApi";
 import { abrirReporteVuelosDia } from "../../services/turnoApi";
 import { fmtMes } from "../../utils/fechas";
 
@@ -30,6 +30,24 @@ export default function Reportes() {
   const hoyISO = new Date().toLocaleDateString("sv-SE", { timeZone: "America/El_Salvador" });
   const [vuelosFecha, setVuelosFecha] = useState(hoyISO);
   const [generandoVuelos, setGenerandoVuelos] = useState(false);
+
+  const anioActual = new Date().getFullYear();
+  const [pylDesde, setPylDesde] = useState(`${anioActual}-01-01`);
+  const [pylHasta, setPylHasta] = useState(hoyISO);
+  const [pylMensual, setPylMensual] = useState(true);
+  const [pylCategorias, setPylCategorias] = useState(true);
+  const [generandoPyl, setGenerandoPyl] = useState(false);
+
+  const handlePyLPDF = async () => {
+    setGenerandoPyl(true);
+    try {
+      await abrirPyLPDF({ desde: pylDesde, hasta: pylHasta, mensual: pylMensual, categorias: pylCategorias });
+    } catch {
+      toast.error("No se pudo generar el P&L");
+    } finally {
+      setGenerandoPyl(false);
+    }
+  };
 
   const handleReporteVuelos = async () => {
     setGenerandoVuelos(true);
@@ -150,13 +168,44 @@ export default function Reportes() {
         </div>
       </div>
 
-      <div className="adf-card">
-        <h3><i className="bi bi-download me-2"></i>Exportar reportes</h3>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="adf-btn secondary"><i className="bi bi-file-earmark-excel"></i>Excel — Ingresos</button>
-          <button className="adf-btn secondary"><i className="bi bi-file-earmark-excel"></i>Excel — Egresos</button>
-          <button className="adf-btn secondary"><i className="bi bi-file-earmark-pdf"></i>PDF — P&amp;L</button>
-          <button className="adf-btn secondary"><i className="bi bi-file-earmark-pdf"></i>PDF — Estado de cuentas alumnos</button>
+      <div className="adf-card" style={{ marginTop: 22 }}>
+        <h3><i className="bi bi-file-earmark-pdf me-2"></i>PDF — Estado de Resultados (P&amp;L)</h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-end", marginTop: 12 }}>
+          <div>
+            <label style={{ fontSize: "0.8rem", color: "var(--c-ink-3)", display: "block", marginBottom: 4 }}>Desde</label>
+            <input
+              type="date"
+              value={pylDesde}
+              max={pylHasta}
+              onChange={(e) => setPylDesde(e.target.value)}
+              style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid var(--c-line-2)", fontSize: "0.85rem" }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: "0.8rem", color: "var(--c-ink-3)", display: "block", marginBottom: 4 }}>Hasta</label>
+            <input
+              type="date"
+              value={pylHasta}
+              min={pylDesde}
+              max={hoyISO}
+              onChange={(e) => setPylHasta(e.target.value)}
+              style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid var(--c-line-2)", fontSize: "0.85rem" }}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: "0.85rem", color: "var(--c-ink-2)", display: "flex", alignItems: "center", gap: 7, cursor: "pointer" }}>
+              <input type="checkbox" checked={pylMensual} onChange={(e) => setPylMensual(e.target.checked)} />
+              Incluir desglose mensual de ingresos
+            </label>
+            <label style={{ fontSize: "0.85rem", color: "var(--c-ink-2)", display: "flex", alignItems: "center", gap: 7, cursor: "pointer" }}>
+              <input type="checkbox" checked={pylCategorias} onChange={(e) => setPylCategorias(e.target.checked)} />
+              Incluir desglose de egresos por categoría
+            </label>
+          </div>
+          <button className="adf-btn" disabled={generandoPyl} onClick={handlePyLPDF}>
+            <i className="bi bi-download"></i>
+            {generandoPyl ? "Generando…" : "Generar PDF"}
+          </button>
         </div>
       </div>
     </div>
