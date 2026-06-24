@@ -169,7 +169,13 @@ export default function Reportes() {
       </div>
 
       <div className="adf-card" style={{ marginTop: 22 }}>
-        <h3><i className="bi bi-file-earmark-pdf me-2"></i>PDF — Estado de Resultados (P&amp;L)</h3>
+        <h3><i className="bi bi-download me-2"></i>Exportar reportes</h3>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+          <button className="adf-btn secondary"><i className="bi bi-file-earmark-excel"></i>Excel — Ingresos</button>
+          <button className="adf-btn secondary"><i className="bi bi-file-earmark-excel"></i>Excel — Egresos</button>
+          <button className="adf-btn secondary"><i className="bi bi-file-earmark-pdf"></i>PDF — Estado de cuentas alumnos</button>
+        </div>
+        <h3 style={{ marginTop: 8 }}><i className="bi bi-file-earmark-pdf me-2"></i>PDF — Estado de Resultados (P&amp;L)</h3>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "flex-end", marginTop: 12 }}>
           <div>
             <label style={{ fontSize: "0.8rem", color: "var(--c-ink-3)", display: "block", marginBottom: 4 }}>Desde</label>
