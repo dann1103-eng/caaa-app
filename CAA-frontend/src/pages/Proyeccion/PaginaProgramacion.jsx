@@ -184,6 +184,14 @@ export default function PaginaProgramacion() {
     [vuelosConEstado, diaHoy]
   );
 
+  const proximosVuelos = useMemo(() =>
+    vuelosConEstado
+      .filter(v => Number(v.dia_semana) === diaHoy && ["PROGRAMADO","PUBLICADO"].includes(v.estado))
+      .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
+      .slice(0, 5),
+    [vuelosConEstado, diaHoy]
+  );
+
   // Widget "Próximo Bloque": bloque más cercano que aún no ha iniciado
   const proximoBloque = useMemo(() => {
     const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
