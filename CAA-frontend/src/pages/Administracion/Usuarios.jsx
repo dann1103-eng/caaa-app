@@ -56,6 +56,9 @@ export default function Usuarios() {
   const [showPersonalForm, setShowPersonalForm] = useState(false);
   const [personalForm, setPersonalForm] = useState(EMPTY_PERSONAL);
 
+  const [busqAlumnos, setBusqAlumnos]   = useState("");
+  const [busqPersonal, setBusqPersonal] = useState("");
+
   // Edición de personal
   const [editP, setEditP] = useState(null);      // fila de personal en edición
   const [editPForm, setEditPForm] = useState({});
@@ -202,7 +205,16 @@ export default function Usuarios() {
       {/* ───────────── ALUMNOS ───────────── */}
       {tab === "alumnos" && (
         <>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10, flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 380 }}>
+              <i className="bi bi-search" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-4)", pointerEvents: "none" }}></i>
+              <input
+                value={busqAlumnos}
+                onChange={(e) => setBusqAlumnos(e.target.value)}
+                placeholder="Buscar por nombre, usuario o instructor…"
+                style={{ width: "100%", padding: "8px 10px 8px 32px", borderRadius: 8, border: "1px solid var(--c-line-2)", fontSize: "0.85rem", boxSizing: "border-box" }}
+              />
+            </div>
             <button className="adf-btn" onClick={() => { setAlumnoForm(EMPTY_ALUMNO); setShowAlumnoForm(true); }}>
               <i className="bi bi-plus-circle"></i>Nuevo alumno
             </button>
@@ -287,7 +299,11 @@ export default function Usuarios() {
               </tr>
             </thead>
             <tbody>
-              {alumnos.map(a => (
+              {alumnos.filter(a => {
+                const q = busqAlumnos.trim().toLowerCase();
+                if (!q) return true;
+                return `${a.nombre} ${a.apellido} ${a.username || ""} ${a.instructor_username || ""}`.toLowerCase().includes(q);
+              }).map(a => (
                 <tr key={a.id_alumno}>
                   <td><i className="bi bi-person-circle me-2"></i><strong>{a.nombre} {a.apellido}</strong></td>
                   <td>{a.username}</td>
@@ -301,9 +317,12 @@ export default function Usuarios() {
                   </td>
                 </tr>
               ))}
-              {alumnos.length === 0 && (
+              {alumnos.filter(a => {
+                const q = busqAlumnos.trim().toLowerCase();
+                return !q || `${a.nombre} ${a.apellido} ${a.username || ""} ${a.instructor_username || ""}`.toLowerCase().includes(q);
+              }).length === 0 && (
                 <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
-                  No hay alumnos. Crea el primero con el botón verde.
+                  {busqAlumnos ? "Ningún alumno coincide con la búsqueda." : "No hay alumnos. Crea el primero con el botón verde."}
                 </td></tr>
               )}
             </tbody>
@@ -314,7 +333,16 @@ export default function Usuarios() {
       {/* ───────────── PERSONAL ───────────── */}
       {tab === "personal" && (
         <>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10, flexWrap: "wrap" }}>
+            <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 380 }}>
+              <i className="bi bi-search" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--c-ink-4)", pointerEvents: "none" }}></i>
+              <input
+                value={busqPersonal}
+                onChange={(e) => setBusqPersonal(e.target.value)}
+                placeholder="Buscar por nombre, usuario o rol…"
+                style={{ width: "100%", padding: "8px 10px 8px 32px", borderRadius: 8, border: "1px solid var(--c-line-2)", fontSize: "0.85rem", boxSizing: "border-box" }}
+              />
+            </div>
             <button className="adf-btn" onClick={() => { setPersonalForm(EMPTY_PERSONAL); setShowPersonalForm(true); }}>
               <i className="bi bi-plus-circle"></i>Nuevo personal
             </button>
@@ -628,7 +656,11 @@ export default function Usuarios() {
               </tr>
             </thead>
             <tbody>
-              {personal.map(p => (
+              {personal.filter(p => {
+                const q = busqPersonal.trim().toLowerCase();
+                if (!q) return true;
+                return `${p.nombre} ${p.apellido} ${p.username || ""} ${p.rol || ""} ${p.cargo || ""}`.toLowerCase().includes(q);
+              }).map(p => (
                 <tr key={p.id_usuario}>
                   <td><i className="bi bi-person-circle me-2"></i><strong>{p.nombre} {p.apellido}</strong></td>
                   <td>{p.username || <span style={{ color: "var(--c-ink-4)" }}>sin login</span>}</td>
@@ -653,9 +685,12 @@ export default function Usuarios() {
                   </td>
                 </tr>
               ))}
-              {personal.length === 0 && (
+              {personal.filter(p => {
+                const q = busqPersonal.trim().toLowerCase();
+                return !q || `${p.nombre} ${p.apellido} ${p.username || ""} ${p.rol || ""} ${p.cargo || ""}`.toLowerCase().includes(q);
+              }).length === 0 && (
                 <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
-                  No hay personal registrado. Crea el primero con el botón verde.
+                  {busqPersonal ? "Ningún miembro del personal coincide con la búsqueda." : "No hay personal registrado. Crea el primero con el botón verde."}
                 </td></tr>
               )}
             </tbody>
