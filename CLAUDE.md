@@ -590,3 +590,82 @@ tiene rutas ni páginas todavía.
    confirmar; un extranjero con toggle "Soy extranjero" (pasaporte en vez de DUI).
 5. **Extranjeros**: marcar/desmarcar desde la Ficha y desde "Ver datos fiscales"; ver el tag azul y la
    consistencia entre ambas vistas.
+
+---
+
+## 16. Sesión 2026-07-06 — PDF P&L, coherencia Tarifas↔Usuarios, buscador, fixes Proyección, carga semana real
+
+**Frontend desplegado a `master` (Vercel auto). Backend PENDIENTE `railway up`** (cambió `pdfGenerator.js`,
+`reportesController.js`, `administracionRoutes.js`, `usuariosController.js`):
+```powershell
+cd "C:\Users\Daniel\Desktop\CAAA modulo op+admin\legacy\CAA-backend"; railway up --detach
+```
+
+### A. PDF "Estado de Resultados" (P&L) configurable
+- El botón de **Administración → Reportes** que "no hacía nada" ahora genera un PDF. Endpoint
+  `GET /administracion/reportes/pyl-pdf?desde&hasta&mensual&categorias`; `generarPyLPDF` en
+  `utils/pdfGenerator.js` (header CAAA, 4 KPI-cards, tabla ingresos-por-mes + tabla egresos-por-categoría,
+  **ambas opcionales** vía checkboxes en la UI). UI en `pages/Administracion/Reportes.jsx` (rango fechas +
+  checkboxes); `abrirPyLPDF` en `services/administracionApi.js` (blob→window.open).
+- ⚠️ 2 bugs corregidos: (a) `date_trunc` en node-postgres devuelve **objeto `Date`**, no string → `.split`
+  rompía con 500 (fix: `d instanceof Date ? d.toISOString() : String(d)`); (b) título largo se superponía
+  en el header → título corto `"P & L"` + subtítulo "ESTADO DE RESULTADOS" centrado.
+- **Los otros 3 botones de exportar (Excel Ingresos, Excel Egresos, PDF Estado-de-cuentas) siguen siendo
+  placeholders SIN acción** — pendientes de implementar.
+
+### B. Coherencia Tarifas ↔ Usuarios (personal unificado)
+- Antes **Contabilidad→Tarifas→Empleados** leía la tabla `empleado` standalone y **Usuarios→Personal** leía
+  `usuario` LEFT JOIN `empleado` → dos universos. Ahora Tarifas→Empleados usa `getUsuariosPersonal()`
+  (MISMO origen), se quitó el botón "Nuevo empleado" (solo se crean desde Usuarios), y editar solo toca
+  campos de nómina. Backend: `usuariosController.editarPersonal` hace **UPSERT** de `empleado` (si no tiene
+  ficha la crea al guardar). Sin ficha → badge "Sin configurar".
+
+### C. Buscador en Usuarios
+- Input client-side en ambos tabs de `pages/Administracion/Usuarios.jsx`: Alumnos (nombre/apellido/usuario/
+  instructor) y Personal (nombre/apellido/usuario/rol/cargo).
+
+### D. Proyección — fix EN_PROGRESO falso + widget "Próximo Bloque"
+- **Bug raíz** (`pages/Proyeccion/PaginaProgramacion.jsx`): `getEstadoDinamico()` sobreescribía el estado
+  real de la BD calculando `EN_VUELO` por la hora del reloj → vuelos solo PROGRAMADO se veían "en progreso"
+  en el widget. Ahora devuelve SIEMPRE `v.estado` (solo instructor/turno avanza el estado manualmente).
+- **Nuevo widget "Próximo Bloque"** entre "Vuelos en Curso" y el Schedule: detecta el siguiente bloque del
+  día que aún no inició y lista sus vuelos. CSS `.pp__tbl-badge--programado`.
+- ⚠️ **Casi-incidente:** al quitar el arg de `getEstadoDinamico` borré de más el `useMemo` de
+  `proximosVuelos` que el sidebar seguía usando → **pantalla en blanco** (ReferenceError). Restaurado.
+  **Lección: al borrar un useMemo, grep sus usos primero.**
+
+### E. Carga del programa semanal 22-27 jun 2026 (semana 6) — "a la fuerza" para pruebas E2E
+Meta de Daniel: cargar la programación real de la semana (hoy en Excel) para probar la plataforma antes de
+que la próxima semana ya programen desde la web.
+- **Fuente autoritativa:** `C:\Users\Daniel\Downloads\PROGRAMA DE VUELO DEL 22 AL 27 DE JUNIO 2026.xlsx`
+  (hoja PROGRAMA). Leer con **openpyxl** (`python -c "import openpyxl..."`) — **no hay módulo `xlsx` en
+  node**; **WebFetch NO sirve** para Google Sheets (solo devuelve el título).
+- **Estructura:** col A=horario, B=aeronave; días en tríos de columnas (Lun C/D/E … Sáb R/S/T) =
+  Alumno/Instructor/Status. Filas por bloque (6:00→blk1 … 17:20→blk9, alineados con `bloque_horario`) y
+  dentro de cada bloque una fila por aeronave.
+- **Abreviaturas = inicial + apellido, PERO muchas usan 2º nombre / 2º apellido** (típico SV): A.ZAVALA=
+  Angeline, G.MENA=Gisell, S.SANTA CRUZ=Santiago, F.GUILLEN=Francisco, L.VANEGAS/K.CASTANEDA/G.MIJANGOS=2º
+  apellido, S.FLORES=Samuel. `V.PERRZ`=Victor Perez (typo). `S.ALVARENGA`=el alumno "S. Alvarado".
+- **Correcciones BD:** matrícula `YS-270-P`→`YS-270-PE`; **BATD II = SIM-1 (id 5)**; YS-155-PE/YS-259-P/
+  YS-04-P **ya no existen** → se OMITEN.
+- **4 alumnos nuevos** (pass inicial `caaa2026`): `f.melgar`=90, `r.echegoyen`=91, `s.alvarado`=92,
+  `v.valencia`=93 (creados solo con inicial+apellido; Daniel edita luego).
+- **OMITIDOS** (requieren fichas/decisión): instructores tomando **recurrente/refresh** (L.Rodas,
+  J.Santillana, J.Burgos, E.Artiga, F.Abarca, J.Hernandez, G.Murillo — sin ficha `alumno`) y **E.Roeder en
+  YS-259-P** (instructor no está en sistema + avión inexistente).
+- **SQL final:** `supabase/migrations/20260624000004_semana_22jun_completa.sql` (idempotente: DELETE vuelos
+  sem6 + publica semana 6 + 112 INSERT hardcodeados; cancelados con `estado='CANCELADO'`) + 1 INSERT suelto
+  de S.Alvarado (Vie 14:50) = **113 vuelos**. Daniel los corre en el editor de Supabase. `vuelo` requiere
+  `creado_por` NOT NULL ∈ {ALUMNO,PROGRAMACION,ADMIN} → usar `'PROGRAMACION'`.
+- **Lección carga masiva:** un INSERT malo aborta TODA la transacción ("current transaction is aborted") y
+  arrastra los demás. Para cargas grandes: generar SQL con IDs verificados (`node query.js` para confirmar
+  alumnos/matrícula/vuelos previos) y correrlo en el editor de Supabase; o SAVEPOINTs por fila.
+
+### 🔬 PRUEBAS/PENDIENTES (próxima sesión)
+1. Confirmar que Daniel corrió el SQL de la semana + el INSERT de S.Alvarado, y que hizo `railway up`.
+2. **Pruebas E2E de la semana cargada:** loadsheets, reportes post-vuelo, descuento de saldos, reporte
+   "Vuelos por avión", contabilidad — el objetivo central de la carga.
+3. Implementar los 3 botones de export que faltan en Reportes (Excel Ingresos, Excel Egresos, PDF Estado
+   de cuentas alumnos).
+4. Decidir si se cargan los vuelos de instructores-recurrentes / E.Roeder (crear fichas de alumno u omitir
+   definitivo).
