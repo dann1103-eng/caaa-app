@@ -1,0 +1,27 @@
+-- ─────────────────────────────────────────────────────────────────────────
+-- Quitar el índice único uq_slot de solicitud_vuelo.
+--
+-- Motivo: uq_slot (id_semana, dia_semana, id_bloque, id_aeronave) impedía que
+-- DOS alumnos distintos solicitaran la misma aeronave en el mismo día+bloque,
+-- lanzando un error 23505 que la app mostraba como "Error al guardar solicitud".
+--
+-- Eso contradice el flujo de diseño del sistema, que sí está pensado para
+-- solicitudes encimadas resueltas por PROGRAMACIÓN:
+--   * al alumno getBloquesOcupados solo le muestra SUS propios bloques
+--     ("agenda libre para el resto") — no ve lo que otros pidieron;
+--   * a programación le muestra TODO "para detección de conflictos";
+--   * publicarSemana (adminVueloController) CUENTA los conflictos de aeronave e
+--     instructor y SE NIEGA a publicar si hay duplicados sin resolver — esa es
+--     la red de seguridad que sigue garantizando que un vuelo publicado nunca
+--     tenga dos alumnos en la misma aeronave/hora.
+--
+-- Ningún código usa uq_slot como target de ON CONFLICT (verificado), así que
+-- quitarlo no rompe nada. Quitar un índice es siempre seguro (no falla por
+-- filas duplicadas existentes).
+--
+-- NOTA: no es aditivo. Si algún día se quisiera volver a exigir exclusividad a
+-- nivel de solicitud, habría que re-crear el índice y para eso NO deben existir
+-- filas duplicadas en (id_semana, dia_semana, id_bloque, id_aeronave).
+-- ─────────────────────────────────────────────────────────────────────────
+
+DROP INDEX IF EXISTS public.uq_slot;
