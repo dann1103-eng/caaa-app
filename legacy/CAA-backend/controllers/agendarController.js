@@ -331,7 +331,23 @@ exports.guardarSolicitud = async (req, res) => {
 
   } catch (e) {
     await client.query("ROLLBACK");
-    console.error(e);
+    console.error("guardarSolicitud:", e);
+    // Mensajes específicos en vez del genérico 500, para que el alumno sepa
+    // qué corregir.
+    if (e.message === "Aeronave no permitida") {
+      return res.status(400).json({
+        message: "Una de las aeronaves seleccionadas no está habilitada para tu licencia.",
+      });
+    }
+    // 23505 = violación de índice único. Hoy dispara por uq_slot cuando dos
+    // alumnos piden la misma aeronave en el mismo día+bloque. Si se quita
+    // uq_slot (para permitir solicitudes encimadas que programación resuelve),
+    // esta rama queda como defensa ante cualquier otra unicidad.
+    if (e.code === "23505") {
+      return res.status(409).json({
+        message: "Ese bloque con esa aeronave ya fue solicitado. Elegí otro horario u otra aeronave.",
+      });
+    }
     res.status(500).json({ message: "Error al guardar solicitud" });
   } finally {
     client.release();
