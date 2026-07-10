@@ -3,7 +3,7 @@ const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
 const { horarioAlumnoEmail, horarioInstructorEmail } = require("../../utils/emailTemplates");
-const { getNextSemanaId, getCurrentSemanaId } = require("../../utils/adminHelpers");
+const { getNextSemanaId, getCurrentSemanaId, crearSemanaFutura } = require("../../utils/adminHelpers");
 
 exports.getSemanas = catchAsync(async (req, res) => {
   const result = await db.query(`
@@ -242,34 +242,11 @@ exports.getCalendario = catchAsync(async (req, res) => {
 });
 
 exports.asegurarSemanaFutura = catchAsync(async (req, res) => {
-  const lastRes = await db.query(`
-    SELECT fecha_fin
-    FROM semana_vuelo
-    ORDER BY fecha_fin DESC
-    LIMIT 1
-  `);
-
-  let startDate;
-  if (lastRes.rows.length === 0) {
-    startDate = new Date();
-  } else {
-    startDate = new Date(lastRes.rows[0].fecha_fin);
-    startDate.setDate(startDate.getDate() + 1);
-  }
-
-  const day = startDate.getDay();
-  const diff = (day + 6) % 7;
-  startDate.setDate(startDate.getDate() - diff);
-
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 6);
-
-  await db.query(`
-    INSERT INTO semana_vuelo (fecha_inicio, fecha_fin)
-    VALUES ($1, $2)
-  `, [startDate, endDate]);
-
-  res.json({ message: "Semana futura creada" });
+  // Disparador manual — la misma lógica ya corre sola al arrancar el
+  // servidor y una vez al día (ver asegurarProximaSemanaDisponible en
+  // server.js), así que esto queda como respaldo/uso puntual.
+  const creada = await crearSemanaFutura(db);
+  res.json({ message: "Semana futura creada", semana: creada });
 });
 
 exports.guardarCambios = catchAsync(async (req, res) => {

@@ -23,6 +23,7 @@ const administracionRoutes = require("./routes/administracionRoutes");
 const tallerRoutes = require("./routes/tallerRoutes");
 const notificacionRoutes = require("./routes/notificacionRoutes");
 const { startMetarPoller } = require("./services/metarService");
+const { asegurarProximaSemanaDisponible } = require("./utils/adminHelpers");
 const globalErrorHandler = require("./middlewares/errorMiddleware");
 
 process.on("uncaughtException", (err) => {
@@ -110,6 +111,22 @@ app.use("/api/notificaciones", notificacionRoutes);
 app.use(globalErrorHandler);
 
 startMetarPoller();
+
+// Garantiza que siempre exista una semana_vuelo futura para que el
+// auto-agendamiento del alumno y el calendario de Programación nunca se
+// queden sin "semana siguiente" — antes dependía de que alguien publicara
+// una semana manualmente para que se creara la próxima como efecto
+// secundario. Revisa al arrancar y luego una vez al día; no hace nada si ya
+// existe una semana futura.
+const UN_DIA_MS = 24 * 60 * 60 * 1000;
+asegurarProximaSemanaDisponible().catch((e) =>
+  console.error("Error asegurando semana futura (arranque):", e)
+);
+setInterval(() => {
+  asegurarProximaSemanaDisponible().catch((e) =>
+    console.error("Error asegurando semana futura:", e)
+  );
+}, UN_DIA_MS);
 
 setInterval(async () => {
   const nowSV = DateTime.now().setZone("America/El_Salvador");
