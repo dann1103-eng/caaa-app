@@ -184,9 +184,20 @@ exports.editarPersonal = async (req, res) => {
   try {
     const { id_usuario } = req.params;
     const {
-      nombre, apellido, correo, cargo, dui, nit, isss_num, afp_num,
+      username, nombre, apellido, correo, cargo, dui, nit, isss_num, afp_num,
       sueldo_base, es_servicios_profesionales, rol, activo
     } = req.body;
+
+    // Nombre de usuario (login): normalizado a minúsculas + trim para que
+    // coincida con la convención existente y con el login (que compara con
+    // LOWER()). Solo se toca si viene en el body; vacío se rechaza.
+    let usernameNorm = null;
+    if (username !== undefined && username !== null) {
+      usernameNorm = String(username).trim().toLowerCase();
+      if (!usernameNorm) {
+        return res.status(400).json({ ok: false, message: "El nombre de usuario no puede estar vacío" });
+      }
+    }
 
     await client.query("BEGIN");
     const uRes = await client.query(`SELECT id_usuario, nombre, apellido FROM usuario WHERE id_usuario = $1 FOR UPDATE`, [id_usuario]);
@@ -203,13 +214,14 @@ exports.editarPersonal = async (req, res) => {
 
     await client.query(`
       UPDATE usuario SET
+        username = COALESCE($7, username),
         rol      = COALESCE($2, rol),
         activo   = COALESCE($3, activo),
         correo   = COALESCE($4, correo),
         nombre   = COALESCE($5, nombre),
         apellido = COALESCE($6, apellido)
       WHERE id_usuario = $1
-    `, [id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null]);
+    `, [id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null, usernameNorm]);
 
     // Datos de nómina: UPSERT — si ya tiene ficha la actualiza, si no la crea.
     const hayNomina = cargo != null || dui != null || nit != null || isss_num != null ||
@@ -252,6 +264,57 @@ exports.editarPersonal = async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     await client.query("ROLLBACK");
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, message: "Ese nombre de usuario ya existe" });
+    }
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+// ── Editar cuenta de acceso del alumno (usuario/correo/nombre/apellido) ─
+// Edita solo los campos de la fila `usuario` ligada al alumno. Los datos
+// propios del alumno (licencia, seguros, límites, datos fiscales) se siguen
+// gestionando en la Ficha (adminUsuarioController.actualizarAlumnoFull).
+exports.editarAlumnoCuenta = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id_alumno } = req.params;
+    const { username, correo, nombre, apellido } = req.body;
+
+    let usernameNorm = null;
+    if (username !== undefined && username !== null) {
+      usernameNorm = String(username).trim().toLowerCase();
+      if (!usernameNorm) {
+        return res.status(400).json({ ok: false, message: "El nombre de usuario no puede estar vacío" });
+      }
+    }
+
+    await client.query("BEGIN");
+    const aRes = await client.query(`SELECT id_usuario FROM alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
+    if (!aRes.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ ok: false, message: "Alumno no encontrado" });
+    }
+    const id_usuario = aRes.rows[0].id_usuario;
+
+    await client.query(`
+      UPDATE usuario SET
+        username = COALESCE($2, username),
+        correo   = COALESCE(NULLIF($3, ''), correo),
+        nombre   = COALESCE($4, nombre),
+        apellido = COALESCE($5, apellido)
+      WHERE id_usuario = $1
+    `, [id_usuario, usernameNorm, correo ?? null, nombre || null, apellido || null]);
+
+    await client.query("COMMIT");
+    res.json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === '23505') {
+      return res.status(409).json({ ok: false, message: "Ese nombre de usuario ya existe" });
+    }
     res.status(500).json({ ok: false, message: e.message });
   } finally {
     client.release();

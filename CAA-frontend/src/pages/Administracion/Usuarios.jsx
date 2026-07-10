@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  getUsuariosAlumnos, crearUsuarioAlumno, reasignarAlumnoInstructor,
+  getUsuariosAlumnos, crearUsuarioAlumno, editarUsuarioAlumno, reasignarAlumnoInstructor,
   getUsuariosPersonal, crearUsuarioPersonal, editarUsuarioPersonal,
   resetPasswordPersonal, getInstructorCursos, setInstructorCursos,
   getHistorialInstructor, getInstructoresDisponibles, getLicencias
@@ -59,6 +59,10 @@ export default function Usuarios() {
   const [busqAlumnos, setBusqAlumnos]   = useState("");
   const [busqPersonal, setBusqPersonal] = useState("");
 
+  // Edición de la cuenta de acceso del alumno (usuario/correo/nombre/apellido)
+  const [editA, setEditA] = useState(null);      // fila de alumno en edición
+  const [editAForm, setEditAForm] = useState({});
+
   // Edición de personal
   const [editP, setEditP] = useState(null);      // fila de personal en edición
   const [editPForm, setEditPForm] = useState({});
@@ -110,6 +114,27 @@ export default function Usuarios() {
     } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
   };
 
+  // ── Edición de la cuenta del alumno (usuario/correo/nombre/apellido) ──
+  const openEditA = (a) => {
+    setEditA(a);
+    setEditAForm({
+      username: a.username || "",
+      correo: a.correo || "",
+      nombre: a.nombre || "",
+      apellido: a.apellido || "",
+    });
+  };
+
+  const handleGuardarA = async (e) => {
+    e.preventDefault();
+    try {
+      await editarUsuarioAlumno(editA.id_alumno, editAForm);
+      toast.success("Datos del alumno actualizados");
+      setEditA(null);
+      loadAlumnos();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
   const handleCrearPersonal = async (e) => {
     e.preventDefault();
     try {
@@ -129,6 +154,7 @@ export default function Usuarios() {
     setOpenSec({});          // todas las secciones colapsadas al abrir
     setAsignarQuery("");
     setEditPForm({
+      username: p.username || "",
       nombre: p.nombre || "", apellido: p.apellido || "",
       correo: p.correo || "",
       cargo: p.cargo || "",
@@ -292,6 +318,40 @@ export default function Usuarios() {
             </div>
           )}
 
+          {editA && (
+            <div className="adf-modal-backdrop" onClick={() => setEditA(null)}>
+              <div className="adf-card adf-modal-card" style={{ padding: 0 }} onClick={(e) => e.stopPropagation()}>
+                <div className="adf-edit-head">
+                  <span className="adf-edit-head__title">
+                    <span className="adf-edit-head__chip"><i className="bi bi-pencil-square"></i></span>
+                    Editar cuenta: {editA.nombre} {editA.apellido}
+                  </span>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button type="submit" form="editAlumnoForm" className="adf-btn"><i className="bi bi-check"></i>Guardar</button>
+                    <button type="button" className="adf-btn secondary" onClick={() => setEditA(null)}>Cerrar</button>
+                  </div>
+                </div>
+                <div style={{ padding: "0 var(--sp-5) var(--sp-5)" }}>
+                  <form id="editAlumnoForm" onSubmit={handleGuardarA}>
+                    <div className="adf-form-grid">
+                      <div className="adf-form-field"><label>Usuario (login)</label>
+                        <input value={editAForm.username} onChange={(e) => setEditAForm({...editAForm, username: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>Correo</label>
+                        <input type="email" value={editAForm.correo} onChange={(e) => setEditAForm({...editAForm, correo: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>Nombre</label>
+                        <input value={editAForm.nombre} onChange={(e) => setEditAForm({...editAForm, nombre: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>Apellido</label>
+                        <input value={editAForm.apellido} onChange={(e) => setEditAForm({...editAForm, apellido: e.target.value})} /></div>
+                    </div>
+                    <p style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginTop: 10 }}>
+                      El usuario se guarda en minúsculas. Para licencia, seguros, límites y datos fiscales, usá la <strong>Ficha</strong>.
+                    </p>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
           <table className="adf-table">
             <thead>
               <tr>
@@ -310,7 +370,10 @@ export default function Usuarios() {
                   <td style={{ color: "var(--c-ink-3)" }}>{a.instructor_username || "—"}</td>
                   <td>{a.licencia_nombre || "—"}{a.numero_licencia ? ` · ${a.numero_licencia}` : ""}</td>
                   <td style={{ color: "var(--c-ink-3)" }}>{a.correo || "—"}</td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button className="adf-btn small secondary" style={{ marginRight: 6 }} onClick={() => openEditA(a)}>
+                      <i className="bi bi-pencil"></i>Editar
+                    </button>
                     <Link className="adf-btn small secondary" to={`/administracion/alumnos/${a.id_alumno}`}>
                       <i className="bi bi-folder2-open"></i>Ficha
                     </Link>
@@ -443,6 +506,8 @@ export default function Usuarios() {
               <div style={{ padding: "0 var(--sp-5) var(--sp-5)" }}>
               <form id="editPersonalForm" onSubmit={handleGuardarP}>
                 <div className="adf-form-grid">
+                  <div className="adf-form-field"><label>Usuario (login)</label>
+                    <input value={editPForm.username} onChange={(e) => setEditPForm({...editPForm, username: e.target.value})} /></div>
                   <div className="adf-form-field"><label>Nombre</label>
                     <input value={editPForm.nombre} onChange={(e) => setEditPForm({...editPForm, nombre: e.target.value})} /></div>
                   <div className="adf-form-field"><label>Apellido</label>

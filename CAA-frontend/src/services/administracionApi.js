@@ -111,6 +111,8 @@ export const actualizarEmpleado = async (id, payload) => (await axios.patch(`${B
 // ── Usuarios (alumnos + personal con login) ─────────────────────────
 export const getUsuariosAlumnos   = async () => (await axios.get(`${BASE}/usuarios/alumnos`)).data;
 export const crearUsuarioAlumno   = async (payload) => (await axios.post(`${BASE}/usuarios/alumnos`, payload)).data;
+export const editarUsuarioAlumno  = async (idAlumno, payload) =>
+  (await axios.patch(`${BASE}/usuarios/alumnos/${idAlumno}`, payload)).data;
 export const reasignarAlumnoInstructor = async (idAlumno, id_instructor) =>
   (await axios.patch(`${BASE}/usuarios/alumnos/${idAlumno}/instructor`, { id_instructor })).data;
 export const getUsuariosPersonal  = async () => (await axios.get(`${BASE}/usuarios/personal`)).data;
