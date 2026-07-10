@@ -326,17 +326,26 @@ exports.publicarTicker = async (req, res) => {
   }
 
   try {
+    // Expira al final del ÚLTIMO bloque horario del día (fin de operaciones),
+    // no del bloque que esté activo justo ahora. Antes usaba el bloque
+    // activo: un aviso publicado cerca del fin de su propio bloque quedaba
+    // con expira_en a segundos de distancia y nunca llegaba a mostrarse en
+    // el tablero de Proyección (a diferencia del mensaje de "operaciones
+    // suspendidas", que se inserta con expira_en=NULL y por eso sí persiste).
     const bloqueRes = await db.query(`
-      SELECT hora_fin FROM bloque_horario 
-      WHERE hora_inicio <= (NOW() AT TIME ZONE 'America/El_Salvador')::time 
-        AND hora_fin > (NOW() AT TIME ZONE 'America/El_Salvador')::time
-      ORDER BY hora_inicio DESC LIMIT 1
+      SELECT hora_fin FROM bloque_horario ORDER BY hora_fin DESC LIMIT 1
     `);
 
     let expiraExp = "NOW() + INTERVAL '2 hours'";
     if (bloqueRes.rows.length > 0) {
       const horaFin = bloqueRes.rows[0].hora_fin;
-      expiraExp = `((NOW() AT TIME ZONE 'America/El_Salvador')::date + '${horaFin}'::time) AT TIME ZONE 'America/El_Salvador'`;
+      // GREATEST contra "ahora + 2h" evita que, si se publica fuera de
+      // horario operativo (la hora de fin de hoy ya pasó), el aviso quede
+      // guardado con una fecha de expiración ya vencida.
+      expiraExp = `GREATEST(
+        ((NOW() AT TIME ZONE 'America/El_Salvador')::date + '${horaFin}'::time) AT TIME ZONE 'America/El_Salvador',
+        NOW() + INTERVAL '2 hours'
+      )`;
     }
 
     const result = await db.query(
