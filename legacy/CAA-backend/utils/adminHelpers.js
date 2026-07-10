@@ -23,10 +23,18 @@ async function getCurrentSemanaId() {
 }
 
 /**
- * Crea la siguiente semana_vuelo (lunes→sábado) a partir de la última
- * existente (o desde hoy si no hay ninguna todavía). Misma lógica que usaba
- * el endpoint manual POST /api/admin/asegurar-semana-futura — extraída aquí
- * para poder reutilizarla también desde el job automático de abajo.
+ * Crea UNA semana_vuelo nueva (lunes + 6 días) inmediatamente posterior a la
+ * última existente (o cubriendo hoy si la BD está vacía). NO garantiza que la
+ * semana creada quede en el futuro — para eso está asegurarProximaSemanaDisponible,
+ * que la llama en bucle hasta alcanzar el futuro. La usa también el endpoint
+ * manual POST /api/admin/asegurar-semana-futura.
+ *
+ * Alineación al lunes:
+ *  - BD vacía  → lunes de la semana ACTUAL (hacia atrás) para cubrir hoy.
+ *  - Con datos → lunes SIGUIENTE al fin de la última semana (hacia adelante).
+ *    Se alinea hacia adelante a propósito: las semanas terminan en sábado, así
+ *    que el día siguiente es domingo; alinear "hacia atrás" caería sobre el
+ *    lunes de la semana previa y crearía una semana solapada/duplicada.
  */
 async function crearSemanaFutura(conn = db) {
   const lastRes = await conn.query(`
@@ -34,17 +42,15 @@ async function crearSemanaFutura(conn = db) {
   `);
 
   let startDate;
+  // getDay(): Dom=0, Lun=1, ... Sáb=6
   if (lastRes.rows.length === 0) {
     startDate = new Date();
+    startDate.setDate(startDate.getDate() - ((startDate.getDay() + 6) % 7)); // atrás → lunes actual
   } else {
     startDate = new Date(lastRes.rows[0].fecha_fin);
     startDate.setDate(startDate.getDate() + 1);
+    startDate.setDate(startDate.getDate() + ((8 - startDate.getDay()) % 7)); // adelante → próximo lunes
   }
-
-  // Alinear al lunes de esa semana (0=domingo..6=sábado en Date.getDay()).
-  const day = startDate.getDay();
-  const diff = (day + 6) % 7;
-  startDate.setDate(startDate.getDate() - diff);
 
   const endDate = new Date(startDate);
   endDate.setDate(startDate.getDate() + 6);
@@ -58,25 +64,34 @@ async function crearSemanaFutura(conn = db) {
 }
 
 /**
- * Garantiza que siempre exista al menos una semana_vuelo con
- * fecha_inicio > hoy, para que el auto-agendamiento del alumno
- * (agendarController.guardarSolicitud) y el calendario de "semana
- * siguiente" de Programación nunca se queden sin semana destino —
- * sin depender de que alguien publique una semana manualmente primero.
+ * Garantiza que exista al menos una semana_vuelo con fecha_inicio > hoy, para
+ * que el auto-agendamiento del alumno (agendarController.guardarSolicitud) y el
+ * calendario de "semana siguiente" de Programación nunca se queden sin semana
+ * destino — sin depender de que alguien publique una semana manualmente.
+ *
+ * Crea semanas en bucle (cada una 7 días después de la anterior) hasta llegar
+ * al futuro. Esto cubre el caso importante de que la última semana quede varias
+ * semanas ATRÁS en el tiempo (hueco): en vez de crear una sola semana pasada,
+ * rellena el hueco de una pasada y deja disponible la semana actual y la próxima.
  * Es seguro llamarla repetidas veces: si ya existe una semana futura, no hace nada.
  */
 async function asegurarProximaSemanaDisponible(conn = db) {
-  const existe = await conn.query(
-    `SELECT 1 FROM semana_vuelo WHERE fecha_inicio > CURRENT_DATE LIMIT 1`
-  );
-  if (existe.rows.length > 0) return null;
+  const creadas = [];
+  const MAX_ITER = 60; // tope de seguridad (~1 año) contra un bucle accidental
+  for (let i = 0; i < MAX_ITER; i++) {
+    const existe = await conn.query(
+      `SELECT 1 FROM semana_vuelo WHERE fecha_inicio > CURRENT_DATE LIMIT 1`
+    );
+    if (existe.rows.length > 0) break;
 
-  const creada = await crearSemanaFutura(conn);
-  console.log(
-    `[auto] Semana futura creada automáticamente: #${creada.id_semana} ` +
-    `(${creada.fecha_inicio.toISOString().slice(0, 10)} → ${creada.fecha_fin.toISOString().slice(0, 10)})`
-  );
-  return creada;
+    const creada = await crearSemanaFutura(conn);
+    creadas.push(creada);
+    console.log(
+      `[auto] Semana creada automáticamente: #${creada.id_semana} ` +
+      `(${creada.fecha_inicio.toISOString().slice(0, 10)} → ${creada.fecha_fin.toISOString().slice(0, 10)})`
+    );
+  }
+  return creadas;
 }
 
 module.exports = {
