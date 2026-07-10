@@ -669,3 +669,84 @@ que la próxima semana ya programen desde la web.
    de cuentas alumnos).
 4. Decidir si se cargan los vuelos de instructores-recurrentes / E.Roeder (crear fichas de alumno u omitir
    definitivo).
+
+---
+
+## 17. Sesión 2026-07-10 — Fixes de operación (semana futura, ticker, rate-limit login), drop uq_slot, editar usuarios
+
+**7 commits en `master`** (`c94532c..edc8e44`). Frontend auto-desplegado (Vercel).
+**⚠️ DEPLOY DE BACKEND PENDIENTE:** Daniel redesplegó una vez (tras `9ae595b`), pero los últimos commits de
+backend (`4727358`, `516cf25`, `edc8e44`) **muy probablemente NO están vivos** → al retomar, `railway up`
+desde `legacy/CAA-backend`. Commits en orden: `73a23fb`/`9ae595b` (semana futura) · `f128648` (ticker) ·
+`4727358` (mensajes agendar) · `516cf25` (rate-limit login) · `ba8e49a` (migración drop uq_slot) ·
+`edc8e44` (editar usuarios).
+
+### A. Semana futura automática (arregla "Semana no encontrada" al agendar)
+- **Bug:** al guardar una solicitud, `agendarController.guardarSolicitud` busca `semana_vuelo` con
+  `fecha_inicio > CURRENT_DATE`; si no existe → 400 **"Semana no encontrada"**. Esa semana siguiente solo se
+  creaba como **efecto secundario de publicar** una semana (`publicarSemana`). Si nadie publicaba, se rompía.
+- **Fix:** `utils/adminHelpers.js` → `asegurarProximaSemanaDisponible()` corre **al arrancar el server y
+  1×/día** (`server.js`, patrón como el poller de METAR). **Rellena en bucle** (tope 60) semanas hasta que
+  exista una con `fecha_inicio > hoy` — cubre el caso de que la última semana esté varias semanas ATRÁS.
+  `crearSemanaFutura()` extraída y reusada por el endpoint manual `POST /admin/asegurar-semana-futura`.
+  Alineación al lunes: BD vacía → lunes actual (atrás); con datos → próximo lunes (adelante, evita solape).
+
+### B. Ticker de avisos de Turno expiraba casi al instante
+- **Bug:** `turnoController.publicarTicker` calculaba `expira_en` contra el **bloque horario ACTIVO**; un aviso
+  publicado cerca del fin de su bloque quedaba con expiración a segundos y nunca llegaba a mostrarse en el
+  ticker de Proyección (rota 1 mensaje cada 15-90s). El de "OPERACIONES SUSPENDIDAS" nunca falló porque se
+  inserta con `expira_en=NULL`.
+- **Fix:** expira al fin del **último bloque del día** (`ORDER BY hora_fin DESC LIMIT 1`), con
+  `GREATEST(..., NOW()+2h)` por si se publica fuera de horario.
+
+### C. Mensajes de error claros al guardar solicitud de vuelo
+- `agendarController.guardarSolicitud`: aeronave fuera de licencia → **400** con motivo; violación de unicidad
+  `23505` → **409**. Antes todo caía en el genérico "Error al guardar solicitud" (500).
+
+### D. 🚨 EMERGENCIA: el rate-limit de login bloqueaba a TODA la escuela
+- **Síntoma:** todos los logins (incl. `u1`, sin cambiar contraseña) daban "credenciales inválidas".
+- **Diagnóstico (patrón útil):** `curl /api/health` → `ok:true` (DB viva) + `curl -X POST /api/auth/login` →
+  **HTTP 429** "Demasiadas peticiones". No era ni BD ni contraseñas.
+- **Causa raíz:** `routes/authRoutes.js` limitaba **10 req/IP/15min contando éxitos Y fallos**; como la escuela
+  comparte una IP pública (NAT), unos pocos ingresos legítimos bloqueaban a toda la red.
+- **Fix:** `skipSuccessfulRequests: true` (solo cuentan los FALLIDOS) + `max: 50`. La protección de fuerza
+  bruta por-cuenta (5 fallos → bloqueo 3 min en `authController`) queda intacta. **Desbloqueo inmediato =
+  reiniciar backend** (el contador vive en memoria) o esperar 15 min.
+- **Lección:** rate-limit por IP contando éxitos es tóxico con IP compartida; siempre `skipSuccessfulRequests`.
+
+### E. Drop `uq_slot` de solicitud_vuelo (permitir solicitudes encimadas)
+- Migración `supabase/migrations/20260710000001_drop_uq_slot_solicitud.sql` (**ya corrida en prod por Daniel**):
+  quita el índice único `(id_semana,dia_semana,id_bloque,id_aeronave)` que impedía que **dos alumnos** pidieran
+  la misma aeronave/hora — bloqueo que contradecía el flujo de diseño "solicitar encimado → programación
+  resuelve" (al alumno `getBloquesOcupados` solo le muestra SUS bloques; a programación le muestra todo).
+  `publicarSemana` (adminVueloController) sigue **contando conflictos y negándose a publicar** si hay
+  duplicados sin resolver (red de seguridad). Ningún `ON CONFLICT` dependía de `uq_slot`.
+
+### F. Admin puede editar nombre de usuario y correo de los usuarios
+- **Backend** `usuariosController`: `editarPersonal` ahora acepta `username`; nuevo endpoint
+  `PATCH /administracion/usuarios/alumnos/:id_alumno` = `editarAlumnoCuenta` (username/correo/nombre/apellido
+  de la fila `usuario` del alumno). Username se guarda **en minúsculas + trim** (coincide con el login que usa
+  `LOWER()`); `23505` → 409 "ese nombre de usuario ya existe". Ruta en `administracionRoutes.js`. Acceso
+  **ADMIN + ADMINISTRACION** (acceso actual del módulo).
+- **Frontend** `pages/Administracion/Usuarios.jsx`: pestaña Personal → campo "Usuario (login)" en el modal de
+  edición; pestaña Alumnos → botón **"Editar"** por fila con modal usuario/correo/nombre/apellido. El correo
+  ya se editaba a nivel de API (personal vía `editarPersonal`, alumno vía ficha `actualizarAlumnoFull`); ahora
+  queda expuesto también en la lista de Alumnos. Servicio `editarUsuarioAlumno` en `administracionApi.js`.
+- Cambiar el username **no cierra la sesión** del usuario (login valida por id + `session_id`, no por texto).
+
+### G. Pendiente que Daniel pidió — configurar envío de correo (Outlook / Microsoft 365)
+- `utils/mailer.js` **ya es SMTP genérico** (nodemailer, fuerza IPv4 por Railway), con `MAIL_ENABLED=false` hoy
+  → todo sale como `[MAIL-SILENCED]`. El miedo de que Railway bloquee SMTP es real solo para el **puerto 25**,
+  no 587/465. El problema típico con M365 institucional es que **Microsoft desactiva Basic Auth SMTP por
+  defecto** (requiere que un admin habilite SMTP AUTH por buzón).
+- **Recomendación acordada: usar un servicio transaccional (Resend/Brevo)** en vez de Outlook directo — no toca
+  código, solo env vars en Railway: `MAIL_HOST=smtp.resend.com`, `MAIL_PORT=587`, `MAIL_USER=resend`,
+  `MAIL_PASSWORD=<api key>`, `MAIL_FROM=notificaciones@<subdominio>`, `MAIL_ENABLED=true`. **Falta que Daniel dé
+  el dominio de su correo y dónde administra el DNS** para los registros SPF/DKIM exactos (usar un **subdominio
+  dedicado** para no arriesgar el DNS de recepción de M365).
+
+### Nota: `SAAS_BLUEPRINT.md` (documento SaaS de 25 secciones)
+Se generó un documento técnico exhaustivo (~19k palabras, 25 secciones) para fusionar CAAA en una plataforma
+SaaS modular (resumen ejecutivo, arquitectura, módulos, modelos de datos, APIs, componentes reutilizables,
+módulos SaaS candidatos, casos de uso, limitaciones, evolución), con 7 agentes de investigación en paralelo.
+**No quedó commiteado** (existe solo en el transcript de la sesión). Regenerar/commitear si se quiere conservar.
