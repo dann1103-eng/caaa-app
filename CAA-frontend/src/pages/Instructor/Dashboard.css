@@ -792,3 +792,21 @@
   font-weight: 600;
   margin-top: 4px;
 }
+
+/* CTA a "Solicitudes de mis alumnos" (revisión antes de programación) */
+.ins__cta-solicitudes {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--c-brand-700);
+  color: oklch(99% 0 0);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.ins__cta-solicitudes:hover { filter: brightness(1.05); }

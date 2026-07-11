@@ -24,6 +24,8 @@ export default function AgendarVuelo() {
   const [limiteSimulador, setLimiteSimulador] = useState(3);
   const [yaGuardado, setYaGuardado] = useState(false);
   const [initialSelecciones, setInitialSelecciones] = useState([]);
+  const [comentario, setComentario] = useState("");
+  const [initialComentario, setInitialComentario] = useState("");
 
   // Extracurricular: habilitado solo cuando el alumno ya completó sus horas de licencia.
   const [extraHabilitado, setExtraHabilitado] = useState(false);
@@ -45,13 +47,17 @@ export default function AgendarVuelo() {
     return false;
   })();
 
+  const comentarioCambiado = (comentario || "").trim() !== (initialComentario || "").trim();
+  const hayCambios = tieneCambios || comentarioCambiado;
+
   const handleGuardar = async () => {
     if (selecciones.length === 0) return;
 
     try {
-      await guardarSolicitud(selecciones);
+      await guardarSolicitud(selecciones, comentario);
       setYaGuardado(true);
       setInitialSelecciones(JSON.parse(JSON.stringify(selecciones))); // Actualizar estado inicial tras guardar
+      setInitialComentario(comentario);
       toast.success("Solicitud guardada correctamente");
       navigate("/alumno/dashboard");
     } catch (err) {
@@ -88,6 +94,8 @@ export default function AgendarVuelo() {
           const vuelos = solicitud.vuelos || [];
           setSelecciones(vuelos);
           setInitialSelecciones(JSON.parse(JSON.stringify(vuelos))); // Guardar copia inicial para detectar cambios
+          setComentario(solicitud.comentario_alumno || "");
+          setInitialComentario(solicitud.comentario_alumno || "");
           
           // Si ya hay vuelos guardados y ocupan el límite, marcar como ya guardado
           // Pero si está en RECHAZADA, permitimos editar
@@ -147,7 +155,7 @@ export default function AgendarVuelo() {
   })();
 
   const calendarBloqueado = bloqueadoPorEstado || agendaBloqueada;
-  const saveBloqueado = bloqueadoPorEstado || selecciones.length === 0 || tieneConflictoAvionDia || limiteAvionExcedido || limiteSimuladorExcedido || agendaBloqueada || !tieneCambios;
+  const saveBloqueado = bloqueadoPorEstado || selecciones.length === 0 || tieneConflictoAvionDia || limiteAvionExcedido || limiteSimuladorExcedido || agendaBloqueada || !hayCambios;
 
   const [modoReserva, setModoReserva] = useState("LOCAL");
   const [rutaAeronave, setRutaAeronave] = useState("");
@@ -258,10 +266,10 @@ export default function AgendarVuelo() {
               disabled={saveBloqueado}
               onClick={handleGuardar}
             >
-              {tieneConflictoAvionDia 
-                ? "Conflicto de aviones" 
-                : !tieneCambios && !bloqueadoPorEstado 
-                  ? "Sin cambios" 
+              {tieneConflictoAvionDia
+                ? "Conflicto de aviones"
+                : !hayCambios && !bloqueadoPorEstado
+                  ? "Sin cambios"
                   : `Guardar (${selecciones.length} vuelos)`}
             </button>
           </div>
@@ -294,6 +302,24 @@ export default function AgendarVuelo() {
             </span>
           </div>
         </div>
+
+        {!bloqueadoPorEstado && (
+          <div className="ag__comment">
+            <label className="ag__comment-label" htmlFor="ag-comentario">
+              <i className="bi bi-chat-left-text"></i> Comentario para tu instructor <span className="ag__comment-opt">(opcional)</span>
+            </label>
+            <textarea
+              id="ag-comentario"
+              className="ag__comment-input"
+              rows={2}
+              maxLength={500}
+              placeholder="Ej.: también tengo disponible el jueves a las 10:00 por si hay que reacomodar."
+              value={comentario}
+              onChange={(e) => setComentario(e.target.value)}
+              disabled={agendaBloqueada}
+            />
+          </div>
+        )}
 
         {agendaBloqueada && (
           <div className="ag__alert ag__alert--locked">

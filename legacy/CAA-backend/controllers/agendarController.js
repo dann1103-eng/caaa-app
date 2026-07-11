@@ -111,7 +111,7 @@ exports.getMisSolicitudes = async (req, res) => {
 
     const solicitudRes = await db.query(
       `
-      SELECT id_solicitud, estado, 
+      SELECT id_solicitud, estado, comentario_alumno,
              COALESCE(limite_vuelos_avion, $1) AS limite_vuelos_avion,
              COALESCE(limite_vuelos_simulador, $2) AS limite_vuelos_simulador
       FROM solicitud_semana
@@ -121,15 +121,16 @@ exports.getMisSolicitudes = async (req, res) => {
     );
 
     if (solicitudRes.rows.length === 0) {
-      return res.json({ 
-        estado: "BORRADOR", 
-        limite_vuelos_avion: defLimAvion, 
-        limite_vuelos_simulador: defLimSim, 
-        vuelos: [] 
+      return res.json({
+        estado: "BORRADOR",
+        limite_vuelos_avion: defLimAvion,
+        limite_vuelos_simulador: defLimSim,
+        comentario_alumno: "",
+        vuelos: []
       });
     }
 
-    const { id_solicitud, estado, limite_vuelos_avion, limite_vuelos_simulador } = solicitudRes.rows[0];
+    const { id_solicitud, estado, comentario_alumno, limite_vuelos_avion, limite_vuelos_simulador } = solicitudRes.rows[0];
 
     const vuelosRes = await db.query(
       `
@@ -140,7 +141,7 @@ exports.getMisSolicitudes = async (req, res) => {
       [id_solicitud]
     );
 
-    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, vuelos: vuelosRes.rows });
+    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, comentario_alumno: comentario_alumno || "", vuelos: vuelosRes.rows });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error obtener solicitudes" });
@@ -151,8 +152,10 @@ exports.guardarSolicitud = async (req, res) => {
   const client = await db.connect();
   try {
     const user = req.user;
-    const { vuelos } = req.body;
+    const { vuelos, comentario } = req.body;
     const { week } = req.query;
+    // Comentario del alumno para su instructor (opcional, se recorta a 500).
+    const comentarioNorm = (comentario == null) ? null : String(comentario).trim().slice(0, 500) || null;
 
     console.log("guardarSolicitud Payload Vuelos:", vuelos);
 
@@ -250,7 +253,10 @@ exports.guardarSolicitud = async (req, res) => {
     // Si estaba rechazada, al guardar vuelve a ser "BORRADOR" (o "ENVIADA" si el flujo lo requiere, 
     // pero usualmente guardar es para edición, y "Enviar" es otro paso o el mismo).
     // Aquí el sistema parece que 'guardar' es el paso final del alumno.
-    await client.query("UPDATE solicitud_semana SET estado = 'BORRADOR', fecha_actualizacion = now() WHERE id_solicitud = $1", [id_solicitud]);
+    await client.query(
+      "UPDATE solicitud_semana SET estado = 'BORRADOR', comentario_alumno = $2, fecha_actualizacion = now() WHERE id_solicitud = $1",
+      [id_solicitud, comentarioNorm]
+    );
 
     // --- Gate de extracurricular ---
     // Un alumno solo puede solicitar vuelos extracurriculares si ya completó

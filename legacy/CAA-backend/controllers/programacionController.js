@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { logAuditoria } = require("../utils/auditoria");
 const transporter = require("../utils/mailer");
 const { puedeProgramar } = require("../utils/capacidades");
+const solicitudService = require("../services/solicitudService");
 
 async function getNextSemanaId(client) {
   const semanaRes = await client.query(`
@@ -272,162 +273,9 @@ exports.guardarCambios = async (req, res) => {
 
     await client.query("BEGIN");
 
-    const idsMovidos = movimientos.map((m) => m.id_detalle);
-
-    const infoMovidosRes = await client.query(
-      `
-      SELECT
-        sv.id_detalle,
-        ss.id_alumno,
-        COALESCE(sv.id_instructor, al.id_instructor) AS id_instructor
-      FROM solicitud_vuelo sv
-      JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
-      JOIN alumno al ON al.id_alumno = ss.id_alumno
-      WHERE sv.id_detalle = ANY($1::int[])
-      `,
-      [idsMovidos]
-    );
-
-    const infoPorDetalle = new Map(
-      infoMovidosRes.rows.map((r) => [Number(r.id_detalle), r])
-    );
-
-    const destinosBloqueAeronave = new Set();
-    const destinosAlumno = new Set();
-    const destinosInstructor = new Set();
-
-    for (const m of movimientos) {
-      const info = infoPorDetalle.get(Number(m.id_detalle));
-      if (!info) {
-        throw new Error(`No se encontró información del detalle ${m.id_detalle}`);
-      }
-
-      const keyBloqueAeronave = `${m.dia_semana}-${m.id_bloque}-${m.id_aeronave}`;
-      if (destinosBloqueAeronave.has(keyBloqueAeronave)) {
-        throw Object.assign(
-          new Error("Dos vuelos no pueden quedar en el mismo bloque y aeronave"),
-          { code: "23505" }
-        );
-      }
-      destinosBloqueAeronave.add(keyBloqueAeronave);
-
-      const keyAlumno = `${info.id_alumno}-${m.dia_semana}-${m.id_bloque}`;
-      if (destinosAlumno.has(keyAlumno)) {
-        throw Object.assign(
-          new Error("Un alumno no puede tener dos vuelos en el mismo horario"),
-          { code: "23506" }
-        );
-      }
-      destinosAlumno.add(keyAlumno);
-
-      const keyInstructor = `${info.id_instructor}-${m.dia_semana}-${m.id_bloque}`;
-      if (destinosInstructor.has(keyInstructor)) {
-        throw Object.assign(
-          new Error("Un instructor no puede tener dos vuelos en el mismo horario"),
-          { code: "23507" }
-        );
-      }
-      destinosInstructor.add(keyInstructor);
-    }
-
-    for (let idx = 0; idx < movimientos.length; idx++) {
-  const m = movimientos[idx];
-
-  await client.query(
-    `
-    UPDATE solicitud_vuelo
-    SET dia_semana = 0,
-        id_bloque = $1
-    WHERE id_detalle = $2
-    `,
-    [idx + 1, m.id_detalle]
-  );
-}
-
-    for (const m of movimientos) {
-      const info = infoPorDetalle.get(Number(m.id_detalle));
-
-      const ocupadoBloqueAeronave = await client.query(
-        `
-        SELECT 1
-        FROM solicitud_vuelo
-        WHERE id_semana = $1
-          AND dia_semana = $2
-          AND id_bloque = $3
-          AND id_aeronave = $4
-          AND id_detalle <> ALL($5::int[])
-        LIMIT 1
-        `,
-        [id_semana, m.dia_semana, m.id_bloque, m.id_aeronave, idsMovidos]
-      );
-
-      if (ocupadoBloqueAeronave.rows.length > 0) {
-        throw Object.assign(
-          new Error("Ese bloque y aeronave ya está ocupado"),
-          { code: "23505" }
-        );
-      }
-
-      const ocupadoAlumno = await client.query(
-        `
-        SELECT 1
-        FROM solicitud_vuelo sv
-        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
-        WHERE sv.id_semana = $1
-          AND ss.id_alumno = $2
-          AND sv.dia_semana = $3
-          AND sv.id_bloque = $4
-          AND sv.id_detalle <> ALL($5::int[])
-        LIMIT 1
-        `,
-        [id_semana, info.id_alumno, m.dia_semana, m.id_bloque, idsMovidos]
-      );
-
-      if (ocupadoAlumno.rows.length > 0) {
-        throw Object.assign(
-          new Error("El alumno ya tiene un vuelo en ese horario"),
-          { code: "23506" }
-        );
-      }
-
-      const ocupadoInstructor = await client.query(
-        `
-        SELECT 1
-        FROM solicitud_vuelo sv
-        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
-        JOIN alumno al ON al.id_alumno = ss.id_alumno
-        WHERE sv.id_semana = $1
-          AND COALESCE(sv.id_instructor, al.id_instructor) = $2
-          AND sv.dia_semana = $3
-          AND sv.id_bloque = $4
-          AND sv.id_detalle <> ALL($5::int[])
-        LIMIT 1
-        `,
-        [id_semana, info.id_instructor, m.dia_semana, m.id_bloque, idsMovidos]
-      );
-
-
-      if (ocupadoInstructor.rows.length > 0) {
-        throw Object.assign(
-          new Error("El instructor ya tiene un vuelo en ese horario"),
-          { code: "23507" }
-        );
-      }
-    }
-
-    for (const m of movimientos) {
-      await client.query(
-        `
-        UPDATE solicitud_vuelo
-        SET dia_semana = $1,
-            id_bloque_fin = CASE WHEN id_bloque_fin IS NOT NULL THEN $2 + (id_bloque_fin - id_bloque) ELSE id_bloque_fin END,
-            id_bloque = $2,
-            id_aeronave = $3
-        WHERE id_detalle = $4
-        `,
-        [m.dia_semana, m.id_bloque, m.id_aeronave, m.id_detalle]
-      );
-    }
+    // Validación de conflictos + reubicación (aparcar → validar → colocar) en
+    // el service compartido con la variante del instructor.
+    await solicitudService.aplicarMovimientos(client, { id_semana, movimientos });
 
     await logAuditoria(client, {
       accion: "GUARDAR_CAMBIOS",

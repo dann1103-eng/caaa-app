@@ -513,6 +513,13 @@ export default function InstructorDashboard() {
             <p className="ins__eyebrow">Panel de instructor</p>
             <h2 className="ins__title">Mi actividad semanal</h2>
             <p className="ins__subtitle">Gestioná tus vuelos y alumnos asignados.</p>
+            <button
+              type="button"
+              className="ins__cta-solicitudes"
+              onClick={() => navigate("/instructor/solicitudes")}
+            >
+              <i className="bi bi-calendar-check"></i> Solicitudes de mis alumnos
+            </button>
           </div>
           <div className="ins__tabs">
             <button

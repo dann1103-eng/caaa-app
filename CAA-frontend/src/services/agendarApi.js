@@ -22,10 +22,10 @@ export const getMisSolicitudes = async (week = "next") => {
   return res.data;
 };
 
-export const guardarSolicitud = async (vuelos) => {
+export const guardarSolicitud = async (vuelos, comentario = "") => {
   const res = await axios.post(
     `${API_URL}/agendar/solicitar-vuelos`,
-    { vuelos },
+    { vuelos, comentario },
     { params: { week: "next" } }
   );
   return res.data;

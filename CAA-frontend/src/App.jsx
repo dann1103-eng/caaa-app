@@ -21,6 +21,7 @@ import TurnoDashboard from "./pages/Turno/Dashboard";
 import ProtectedTurno from "./components/routes/ProtectedTurno";
 import InstructorDashboard from "./pages/Instructor/Dashboard";
 import InstructorAulaVirtual from "./pages/Instructor/AulaVirtual";
+import InstructorSolicitudes from "./pages/Instructor/Solicitudes";
 import ProtectedInstructor from "./components/routes/ProtectedInstructor";
 import ForcePasswordChange from "./components/routes/ForcePasswordChange";
 import Perfil from "./pages/Perfil/Perfil";
@@ -240,6 +241,14 @@ function App() {
             element={
               <ProtectedInstructor>
                 <InstructorDashboard />
+              </ProtectedInstructor>
+            }
+          />
+          <Route
+            path="/instructor/solicitudes"
+            element={
+              <ProtectedInstructor>
+                <InstructorSolicitudes />
               </ProtectedInstructor>
             }
           />

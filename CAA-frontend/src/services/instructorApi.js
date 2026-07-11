@@ -97,3 +97,39 @@ export const registrarInasistencia = async (id_vuelo) => {
   const res = await axios.post(`${API_URL}/instructor/vuelos/${id_vuelo}/inasistencia`);
   return res.data;
 };
+
+// ── Solicitudes de vuelo de sus alumnos (revisión antes de programación) ──
+export const getSolicitudesCalendarioInstructor = async (week = "next") => {
+  const res = await axios.get(`${API_URL}/instructor/solicitudes/calendario?week=${week}`);
+  return res.data; // { items, publicada }
+};
+
+export const getSolicitudesResumenInstructor = async () => {
+  const res = await axios.get(`${API_URL}/instructor/solicitudes/resumen`);
+  return res.data; // { semana, alumnos }
+};
+
+export const guardarCambiosSolicitudInstructor = async (movimientos) => {
+  const res = await axios.put(`${API_URL}/instructor/solicitudes/guardar-cambios`, { movimientos });
+  return res.data;
+};
+
+export const crearSolicitudInstructor = async (payload) => {
+  const res = await axios.post(`${API_URL}/instructor/solicitudes`, payload);
+  return res.data;
+};
+
+export const eliminarSolicitudInstructor = async (id_detalle) => {
+  const res = await axios.delete(`${API_URL}/instructor/solicitudes/${id_detalle}`);
+  return res.data;
+};
+
+export const enviarSolicitudInstructor = async (id_solicitud) => {
+  const res = await axios.post(`${API_URL}/instructor/solicitudes/${id_solicitud}/enviar`);
+  return res.data;
+};
+
+export const enviarTodasSolicitudesInstructor = async () => {
+  const res = await axios.post(`${API_URL}/instructor/solicitudes/enviar-todas`);
+  return res.data;
+};

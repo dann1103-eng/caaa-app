@@ -8,6 +8,7 @@ import {
   getBloquesHorario,
   guardarCambiosAdmin,
   publicarSemana,
+  precheckPublicarSemana,
   getBloquesBloqueadosAdmin as getBloquesBloqueados,
   getInstructoresActivos,
   cambiarInstructorVuelo,
@@ -239,11 +240,18 @@ export default function AdminDashboard() {
       return;
     }
 
-    if (!window.confirm("¿Estás seguro de publicar la semana? Se generarán los vuelos oficiales y se notificará a todos los alumnos e instructores.")) {
-      return;
-    }
-
     (async () => {
+      // Aviso (no bloqueante): cuántas solicitudes van sin revisión del instructor.
+      let confirmMsg = "¿Estás seguro de publicar la semana? Se generarán los vuelos oficiales y se notificará a todos los alumnos e instructores.";
+      try {
+        const pre = await precheckPublicarSemana(id_semana_activa);
+        if (pre?.sin_revision > 0) {
+          confirmMsg = `${pre.sin_revision} solicitud(es) van sin revisión del instructor (aún en borrador). Se publicarán igual.\n\n¿Publicar la semana de todas formas?`;
+        }
+      } catch { /* si el precheck falla, seguimos con el confirm normal */ }
+
+      if (!window.confirm(confirmMsg)) return;
+
       try {
         const resp = await publicarSemana(id_semana_activa);
         toast.success("Semana publicada");

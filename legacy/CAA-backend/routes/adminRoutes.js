@@ -16,6 +16,7 @@ const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", 
 
 // --- Semanas y Calendario ---
 router.get("/semanas", adminAccess, adminVuelo.getSemanas);
+router.get("/publicar-semana/precheck", adminAccess, adminVuelo.prechequearPublicacion);
 router.post("/publicar-semana", adminAccess, adminVuelo.publicarSemana);
 // Crea la siguiente fila de semana_vuelo si no existe (rescate cuando la semana
 // actual ya está publicada y no hay semana futura → el agendado quedaba bloqueado

@@ -49,8 +49,24 @@ export default function AdminCalendar({
   aeronaves = [],
   onGuardarCambio,
   onConflictChange,
+  // Extensiones (defaults = comportamiento actual de admin/programación):
+  canEditItem,               // (item) => bool: solo estas tarjetas son editables
+  onPersistCardEdit,         // (move) => Promise: persistir cambios del popover
+  onRechazar,                // (id_detalle) => Promise: acción del botón de rechazo
+  allowInstructorChange = true, // mostrar el selector de instructor en el popover
+  onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
+  rechazarLabel = "Rechazar Vuelo",
 }) {
   const isEditable = true; // El Admin siempre puede editar, incluso post-publicación
+  const puedeEditarItem = (item) => (typeof canEditItem === "function" ? !!canEditItem(item) : true);
+
+  // Badge BORRADOR / ENVIADA (EN_REVISION) para la semana próxima.
+  const estadoSolicitudBadge = (item) => {
+    if (week !== "next") return null;
+    if (item.estado_solicitud === "EN_REVISION") return { label: "Enviada", cls: "cal-badge--enviada" };
+    if (item.estado_solicitud === "BORRADOR") return { label: "Borrador", cls: "cal-badge--borrador" };
+    return null;
+  };
   const dates = getDatesForWeek(week);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -219,7 +235,7 @@ export default function AdminCalendar({
 
   const handleCardLongPress = (e, item) => {
     e.preventDefault();
-    if (!isEditable) return;
+    if (!isEditable || !puedeEditarItem(item)) return;
     setDragging(item);
     setSelectedForMove(item);
     // Vibrate if supported
@@ -268,10 +284,15 @@ export default function AdminCalendar({
           id_bloque_fin: item.tipo_vuelo === 'RUTA' ? Number(tempBloqueFin) : null,
           id_aeronave: Number(tempAeronaveId)
         };
-        
-        // Persistencia Real Inmediata
-        const { guardarCambiosAdmin } = await import("../../services/adminApi");
-        await guardarCambiosAdmin([move]);
+
+        // Persistencia real inmediata: el caller puede inyectar su endpoint
+        // (p.ej. el instructor guarda contra /instructor/solicitudes/...).
+        if (onPersistCardEdit) {
+          await onPersistCardEdit(move);
+        } else {
+          const { guardarCambiosAdmin } = await import("../../services/adminApi");
+          await guardarCambiosAdmin([move]);
+        }
       }
 
       closePopover();
@@ -493,9 +514,10 @@ export default function AdminCalendar({
           {bloques.map((b, rowIdx) => (
             dayConfigs.map((dc) => {
               const bloqueado = isBloqueado(dc.id, b.id_bloque);
+              const agendable = !!onEmptyCellClick && !bloqueado;
               return (
-                <div key={`bg-${dc.id}-${b.id_bloque}`} 
-                  className={`calendar-cell ${bloqueado ? "lunch-cell" : ""} ${!isEditable ? "readonly" : ""}`}
+                <div key={`bg-${dc.id}-${b.id_bloque}`}
+                  className={`calendar-cell ${bloqueado ? "lunch-cell" : ""} ${!isEditable ? "readonly" : ""} ${agendable ? "cell-agendable" : ""}`}
                   style={{
                     gridColumn: `${dc.startCol} / span ${dc.colsCount}`,
                     gridRow: 3 + rowIdx,
@@ -503,12 +525,18 @@ export default function AdminCalendar({
                     borderBottom: '1px solid var(--neutral-border)',
                     zIndex: 1,
                     transition: 'background 0.2s',
+                    cursor: agendable ? 'pointer' : 'default',
                   }}
+                  title={agendable ? "Click para agendar en este bloque" : undefined}
                   onClick={() => {
-                    if (!selectedForMove || !isEditable) return;
-                    handleDrop({ dia_semana: dc.id, id_bloque: b.id_bloque, id_aeronave: selectedForMove.id_aeronave });
-                    setSelectedForMove(null);
-                    setDragging(null);
+                    if (selectedForMove) {
+                      if (!isEditable) return;
+                      handleDrop({ dia_semana: dc.id, id_bloque: b.id_bloque, id_aeronave: selectedForMove.id_aeronave });
+                      setSelectedForMove(null);
+                      setDragging(null);
+                      return;
+                    }
+                    if (agendable) onEmptyCellClick({ dia_semana: dc.id, id_bloque: b.id_bloque });
                   }}
                   onDragOver={(!isEditable || bloqueado) ? undefined : (e) => e.preventDefault()}
                   onDrop={
@@ -539,13 +567,15 @@ export default function AdminCalendar({
                     const isSelected = selectedForMove?.id_detalle === item.id_detalle;
                     const estadoClass = getEstadoClass(item);
                     const conflictText = getConflictInfo(item);
-                    
+                    const editable = puedeEditarItem(item);
+                    const badge = estadoSolicitudBadge(item);
+
                     return (
                       <div
                         key={`local-${item.id_detalle}`}
-                        className={`flight-card ${estadoClass} ${modified ? "is-dirty" : ""} ${isSelected ? 'selected-for-move' : ''} ${conflictText ? 'vuelo-card--conflicto' : ''}`}
-                        draggable={isEditable}
-                        style={{ 
+                        className={`flight-card ${estadoClass} ${modified ? "is-dirty" : ""} ${isSelected ? 'selected-for-move' : ''} ${conflictText ? 'vuelo-card--conflicto' : ''} ${!editable ? 'flight-card--readonly' : ''}`}
+                        draggable={isEditable && editable}
+                        style={{
                           minHeight: '60px',
                           pointerEvents: 'auto',
                           opacity: 0.85, // Set opacity for lunch visibility
@@ -554,7 +584,7 @@ export default function AdminCalendar({
                         onContextMenu={(e) => handleCardLongPress(e, item)}
                         title={conflictText || "Click para detalles, click derecho para mover"}
                         onDragStart={(e) => {
-                          if (!isEditable) return;
+                          if (!isEditable || !editable) return;
                           setDragging({
                             id_detalle: item.id_detalle,
                             id_bloque: item.id_bloque,
@@ -567,6 +597,7 @@ export default function AdminCalendar({
                           <div className="flight-alumno" style={{ fontWeight: 600 }}>
                             {conflictText && <span className="conflict-icon">⚠</span>}
                             {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
+                            {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
                             {item.alumno_nombre.split(" ")[0]}
                           </div>
                           <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>
@@ -601,7 +632,9 @@ export default function AdminCalendar({
                 const isSelected = selectedForMove?.id_detalle === item.id_detalle;
                 const estadoClass = getEstadoClass(item);
                 const conflictText = getConflictInfo(item);
-                
+                const editable = puedeEditarItem(item);
+                const badge = estadoSolicitudBadge(item);
+
                 // Pastel colors
                 const colors = ['#f0fdfa', '#fefce8', '#eff6ff', '#fdf2f8', '#faf5ff', '#fff7ed'];
                 const bgColor = colors[Number(item.id_detalle || 0) % colors.length];
@@ -619,9 +652,9 @@ export default function AdminCalendar({
                     pointerEvents: 'none'
                   }}>
                     <div
-                      className={`flight-card ${estadoClass} ${modified ? "is-dirty" : ""} ${isSelected ? 'selected-for-move' : ''} ${conflictText || hasPopConflictAero || hasPopConflictInst ? 'vuelo-card--conflicto' : ''} ${hasPopConflictInst ? 'vuelo-card--conflicto-inst' : ''}`}
-                      draggable={isEditable}
-                      style={{ 
+                      className={`flight-card ${estadoClass} ${modified ? "is-dirty" : ""} ${isSelected ? 'selected-for-move' : ''} ${conflictText || hasPopConflictAero || hasPopConflictInst ? 'vuelo-card--conflicto' : ''} ${hasPopConflictInst ? 'vuelo-card--conflicto-inst' : ''} ${!editable ? 'flight-card--readonly' : ''}`}
+                      draggable={isEditable && editable}
+                      style={{
                         flexGrow: 1, minHeight: '60px',
                         pointerEvents: 'auto',
                         borderLeft: '4px solid var(--primary)',
@@ -633,7 +666,7 @@ export default function AdminCalendar({
                       onContextMenu={(e) => handleCardLongPress(e, item)}
                       title={conflictText || "Click para detalles, click derecho para mover"}
                       onDragStart={(e) => {
-                        if (!isEditable) return;
+                        if (!isEditable || !editable) return;
                         setDragging({
                           id_detalle: item.id_detalle,
                           id_bloque: item.id_bloque,
@@ -647,6 +680,7 @@ export default function AdminCalendar({
                           {conflictText && <span className="conflict-icon">⚠</span>}
                           <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>Ruta</span>
                           {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
+                          {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
                           {item.alumno_nombre.split(" ")[0]}
                         </div>
                         <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>
@@ -682,7 +716,7 @@ export default function AdminCalendar({
             className="flight-popover"
             style={{ top: activePopover.y, left: activePopover.x }}
           >
-            <PopoverContent 
+            <PopoverContent
               activePopover={activePopover}
               tempAeronaveId={tempAeronaveId}
               setTempAeronaveId={setTempAeronaveId}
@@ -696,7 +730,10 @@ export default function AdminCalendar({
               instructores={instructores}
               popoverConflict={popoverConflict}
               bloques={bloques}
-              isEditable={isEditable}
+              isEditable={isEditable && puedeEditarItem(activePopover.item)}
+              allowInstructorChange={allowInstructorChange}
+              onRechazar={onRechazar}
+              rechazarLabel={rechazarLabel}
               loadingSave={loadingSave}
               handleSave={handleSave}
               closePopover={closePopover}
@@ -723,6 +760,9 @@ function PopoverContent({
   popoverConflict,
   bloques,
   isEditable,
+  allowInstructorChange = true,
+  onRechazar,
+  rechazarLabel = "Rechazar Vuelo",
   loadingSave,
   handleSave,
   closePopover,
@@ -755,9 +795,15 @@ function PopoverContent({
           </div>
         )}
 
+        {!isEditable && (
+          <div className="pop-alert" style={{ background: 'var(--c-info-50, #eff6ff)', color: 'var(--c-info-700, #1d4ed8)', border: '1px solid var(--c-info-200, #bfdbfe)' }}>
+            <i className="bi bi-eye"></i> Solo lectura — este vuelo no es de tus alumnos.
+          </div>
+        )}
+
         <div className={`pop-field ${popoverConflict.aero ? 'pop-field--error' : ''}`}>
           <label>Aeronave</label>
-          <select value={tempAeronaveId} onChange={e => setTempAeronaveId(e.target.value)}>
+          <select value={tempAeronaveId} disabled={!isEditable} onChange={e => setTempAeronaveId(e.target.value)}>
             {aeronaves
               .filter(a => {
                 const isActual = Number(a.id_aeronave) === Number(activePopover.item.id_aeronave);
@@ -772,24 +818,26 @@ function PopoverContent({
           </select>
         </div>
 
-        <div className={`pop-field ${popoverConflict.inst ? 'pop-field--error' : ''}`}>
-          <label>Instructor</label>
-          <select value={tempInstructorId} onChange={e => setTempInstructorId(e.target.value)}>
-            <option value="">-- Sin asignar --</option>
-            {instructores.map(ins => (
-              <option key={ins.id_instructor} value={ins.id_instructor}>
-                {ins.nombre_completo}
-              </option>
-            ))}
-          </select>
-        </div>
+        {allowInstructorChange && (
+          <div className={`pop-field ${popoverConflict.inst ? 'pop-field--error' : ''}`}>
+            <label>Instructor</label>
+            <select value={tempInstructorId} disabled={!isEditable} onChange={e => setTempInstructorId(e.target.value)}>
+              <option value="">-- Sin asignar --</option>
+              {instructores.map(ins => (
+                <option key={ins.id_instructor} value={ins.id_instructor}>
+                  {ins.nombre_completo}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {activePopover.item.tipo_vuelo === 'RUTA' && (
           <>
             <div className="pop-row" style={{ display: 'flex', gap: '10px' }}>
               <div className="pop-field" style={{ flex: 1 }}>
                 <label>Bloque Inicio</label>
-                <select value={tempBloqueInicio} onChange={e => setTempBloqueInicio(e.target.value)}>
+                <select value={tempBloqueInicio} disabled={!isEditable} onChange={e => setTempBloqueInicio(e.target.value)}>
                   {bloques.map(b => (
                     <option key={b.id_bloque} value={b.id_bloque}>{b.hora_inicio.slice(0,5)}</option>
                   ))}
@@ -797,7 +845,7 @@ function PopoverContent({
               </div>
               <div className="pop-field" style={{ flex: 1 }}>
                 <label>Bloque Fin</label>
-                <select value={tempBloqueFin} onChange={e => setTempBloqueFin(e.target.value)}>
+                <select value={tempBloqueFin} disabled={!isEditable} onChange={e => setTempBloqueFin(e.target.value)}>
                   {bloques
                     .map((b, idx) => ({ ...b, idx }))
                     .filter(b => b.idx >= bloques.findIndex(bx => Number(bx.id_bloque) === Number(tempBloqueInicio)))
@@ -816,52 +864,57 @@ function PopoverContent({
           </>
         )}
 
-        <div className="pop-actions">
-          <button 
-            className={`btn-save ${(popoverConflict.aero || popoverConflict.inst) ? 'btn-save--conflict' : ''}`}
-            onClick={handleSave} 
-            disabled={loadingSave || (activePopover.item.tipo_vuelo === 'RUTA' && Number(tempBloqueFin) <= Number(tempBloqueInicio))}
-          >
-            {loadingSave ? <span className="pop-spinner"></span> : 
-             (popoverConflict.aero || popoverConflict.inst) ? 'Guardar con conflictos' : 'Guardar cambios'}
-          </button>
+        {isEditable && (
+          <div className="pop-actions">
+            <button
+              className={`btn-save ${(popoverConflict.aero || popoverConflict.inst) ? 'btn-save--conflict' : ''}`}
+              onClick={handleSave}
+              disabled={loadingSave || (activePopover.item.tipo_vuelo === 'RUTA' && Number(tempBloqueFin) <= Number(tempBloqueInicio))}
+            >
+              {loadingSave ? <span className="pop-spinner"></span> :
+               (popoverConflict.aero || popoverConflict.inst) ? 'Guardar con conflictos' : 'Guardar cambios'}
+            </button>
 
-          {isEditable && (
-            <button 
+            <button
               className="btn-move-v"
               onClick={() => {
                 setDragging(activePopover.item);
-                setSelectedForMove(activePopover.item); 
+                setSelectedForMove(activePopover.item);
                 closePopover();
               }}
             >
               Mover vuelo
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="pop-danger-zone">
-          <button 
-            className="btn-reject-v"
-            onClick={async () => {
-              const confirm = window.confirm(`¿Rechazar este vuelo de ${activePopover.item.alumno_nombre}?`);
-              if (!confirm) return;
-              try {
-                const { rechazarSolicitudIndividual } = await import("../../services/adminApi");
-                await rechazarSolicitudIndividual(activePopover.item.id_detalle);
+        {isEditable && (
+          <div className="pop-danger-zone">
+            <button
+              className="btn-reject-v"
+              onClick={async () => {
+                const confirm = window.confirm(`¿${rechazarLabel} de ${activePopover.item.alumno_nombre}?`);
+                if (!confirm) return;
                 const { toast } = await import("sonner");
-                toast.success("Vuelo rechazado individualmente");
-                closePopover();
-                if (onRefresh) onRefresh();
-              } catch (e) {
-                const { toast } = await import("sonner");
-                toast.error("Error al rechazar");
-              }
-            }}
-          >
-            Rechazar Vuelo
-          </button>
-        </div>
+                try {
+                  if (onRechazar) {
+                    await onRechazar(activePopover.item.id_detalle);
+                  } else {
+                    const { rechazarSolicitudIndividual } = await import("../../services/adminApi");
+                    await rechazarSolicitudIndividual(activePopover.item.id_detalle);
+                  }
+                  toast.success("Vuelo actualizado");
+                  closePopover();
+                  if (onRefresh) onRefresh();
+                } catch (e) {
+                  toast.error(e?.response?.data?.message || "Error al procesar");
+                }
+              }}
+            >
+              {rechazarLabel}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

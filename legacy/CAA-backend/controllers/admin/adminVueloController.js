@@ -49,8 +49,16 @@ exports.publicarSemana = catchAsync(async (req, res) => {
 
     const { fecha_inicio, fecha_fin } = semanaRes.rows[0];
 
+    // Solo cuentan (y se publican) los vuelos de baskets vigentes: se excluyen
+    // solicitudes RECHAZADAS/CANCELADAS y detalles individuales RECHAZADA —
+    // igual que getCalendario, para no publicar filas que nadie veía.
     const totalVuelosRes = await client.query(
-      "SELECT COUNT(*) FROM solicitud_vuelo WHERE id_semana = $1",
+      `SELECT COUNT(*)
+         FROM solicitud_vuelo sv
+         JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        WHERE sv.id_semana = $1
+          AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
+          AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')`,
       [id_semana]
     );
     if (parseInt(totalVuelosRes.rows[0].count) === 0) {
@@ -72,8 +80,10 @@ exports.publicarSemana = catchAsync(async (req, res) => {
         JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
         JOIN alumno al ON al.id_alumno = ss.id_alumno
         WHERE sv.id_semana = $1
+          AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
+          AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
       )
-      SELECT 
+      SELECT
         (SELECT COUNT(*) FROM (SELECT 1 FROM expanded_vuelos GROUP BY dia_semana, id_bloque, id_aeronave HAVING COUNT(*) > 1) t) as aero,
         (SELECT COUNT(*) FROM (SELECT 1 FROM expanded_vuelos WHERE id_instructor IS NOT NULL GROUP BY dia_semana, id_bloque, id_instructor HAVING COUNT(*) > 1) t) as inst
     `, [id_semana]);
@@ -91,7 +101,11 @@ exports.publicarSemana = catchAsync(async (req, res) => {
 
     await client.query("SELECT 1 FROM semana_vuelo WHERE id_semana = $1 FOR UPDATE", [id_semana]);
     await client.query("UPDATE semana_vuelo SET publicada = true, fecha_publicacion = now() WHERE id_semana = $1", [id_semana]);
-    await client.query("UPDATE solicitud_semana SET estado = 'PUBLICADO', fecha_actualizacion = now() WHERE id_semana = $1", [id_semana]);
+    // Solo los baskets vigentes pasan a PUBLICADO (no RECHAZADA/CANCELADA).
+    await client.query(`
+      UPDATE solicitud_semana SET estado = 'PUBLICADO', fecha_actualizacion = now()
+      WHERE id_semana = $1 AND estado NOT IN ('RECHAZADA','CANCELADA')
+    `, [id_semana]);
 
     await client.query("DELETE FROM vuelo WHERE id_semana = $1", [id_semana]);
     await client.query(`
@@ -103,6 +117,8 @@ exports.publicarSemana = catchAsync(async (req, res) => {
       JOIN alumno al ON al.id_alumno = ss.id_alumno
       JOIN semana_vuelo sw ON sw.id_semana = sv.id_semana
       WHERE sv.id_semana = $1
+        AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
+        AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
     `, [id_semana]);
 
     const vuelosRes = await client.query(`
@@ -239,6 +255,31 @@ exports.getCalendario = catchAsync(async (req, res) => {
 
   const semRes = await db.query("SELECT publicada FROM semana_vuelo WHERE id_semana = $1", [idSemana]);
   res.json({ items: result.rows, publicada: semRes.rows[0]?.publicada || false });
+});
+
+// Antes de publicar: cuántos baskets vigentes hay y cuántos siguen en BORRADOR
+// (es decir, que el instructor aún no envió a programación). Nunca bloquea;
+// solo alimenta el confirm del botón "Publicar semana".
+exports.prechequearPublicacion = catchAsync(async (req, res) => {
+  const { id_semana } = req.query;
+  if (!id_semana) return res.status(400).json({ message: "ID de semana no proporcionado" });
+
+  const r = await db.query(`
+    SELECT
+      COUNT(*) FILTER (WHERE estado NOT IN ('RECHAZADA','CANCELADA'))              AS total,
+      COUNT(*) FILTER (WHERE estado = 'BORRADOR')                                  AS sin_revision,
+      COUNT(*) FILTER (WHERE estado = 'EN_REVISION')                               AS enviadas
+    FROM solicitud_semana
+    WHERE id_semana = $1
+      AND id_solicitud IN (SELECT DISTINCT id_solicitud FROM solicitud_vuelo WHERE id_semana = $1)
+  `, [id_semana]);
+
+  const row = r.rows[0] || {};
+  res.json({
+    total: parseInt(row.total || 0),
+    sin_revision: parseInt(row.sin_revision || 0),
+    enviadas: parseInt(row.enviadas || 0),
+  });
 });
 
 exports.asegurarSemanaFutura = catchAsync(async (req, res) => {

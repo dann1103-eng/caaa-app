@@ -28,6 +28,11 @@ export const publicarSemana = async (id_semana) => {
   return res.data;
 };
 
+export const precheckPublicarSemana = async (id_semana) => {
+  const res = await axios.get(`${API_URL}/admin/publicar-semana/precheck`, { params: { id_semana } });
+  return res.data; // { total, sin_revision, enviadas }
+};
+
 // ── Aeronaves ─────────────────────────────────────────────────────────────────
 export const getAeronavesActivasAdmin = async () => {
   const res = await axios.get(`${API_URL}/admin/aeronaves`);

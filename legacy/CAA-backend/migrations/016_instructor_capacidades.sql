@@ -7,11 +7,12 @@
 --   puede_programar:      le habilita las funciones del rol PROGRAMACION
 --                         (calendario completo, mover vuelos, publicar semana).
 --
--- es_instructor_teoria se crea con DEFAULT TRUE y después se baja el default a
--- FALSE: así los instructores EXISTENTES conservan ambas superficies (cero
--- cambio de comportamiento al desplegar; los flags se apagan por persona desde
--- Usuarios) y los NUEVOS nacen solo como instructores de vuelo salvo que se
--- marque lo contrario. Re-ejecutar esta migración no pisa toggles ya editados.
+-- es_instructor_teoria se AGREGA con DEFAULT TRUE (Postgres rellena a TRUE todas
+-- las filas existentes) y LUEGO se baja el default a FALSE: así los instructores
+-- EXISTENTES conservan ambas superficies (cero cambio de comportamiento al
+-- desplegar; los flags se apagan por persona desde Usuarios) y los NUEVOS nacen
+-- solo como instructores de vuelo salvo que se marque lo contrario. No hace
+-- falta UPDATE: el backfill del ADD COLUMN ya deja a los existentes en TRUE.
 -- =============================================================================
 
 BEGIN;
