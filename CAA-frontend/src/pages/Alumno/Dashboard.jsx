@@ -9,7 +9,8 @@ import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/Es
 import {
   getMiHorario,
   getMiInfo,
-  getMisSolicitudesCancelacion
+  getMisSolicitudesCancelacion,
+  getCondicionesCancelacion
 } from "../../services/alumnoApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
@@ -52,6 +53,7 @@ export default function AlumnoDashboard() {
   const [loadingVuelos, setLoadingVuelos] = useState(false);
   const [solicitudes, setSolicitudes] = useState([]);
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
+  const [estadoCancel, setEstadoCancel] = useState(null);
   const [info, setInfo] = useState(null);
   useEffect(() => {
     getMiInfo().then(setInfo).catch(() => { });
@@ -74,8 +76,12 @@ export default function AlumnoDashboard() {
     if (weekMode !== "cancelaciones") return;
     setLoadingSolicitudes(true);
     try {
-      const data = await getMisSolicitudesCancelacion();
+      const [data, estado] = await Promise.all([
+        getMisSolicitudesCancelacion(),
+        getCondicionesCancelacion().catch(() => null),
+      ]);
       setSolicitudes(Array.isArray(data) ? data : []);
+      if (estado) setEstadoCancel(estado);
     } catch {
       setSolicitudes([]);
     } finally {
@@ -237,6 +243,18 @@ export default function AlumnoDashboard() {
               />
             ) : (
               <div className="mhl__list" style={{ marginTop: '20px' }}>
+                {estadoCancel && (
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px', padding: '12px 14px', background: 'var(--c-surface-1)', border: '1px solid var(--c-line-1)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ fontSize: 'var(--text-sm)' }}><strong>{estadoCancel.count_mes ?? 0}</strong> este mes</div>
+                    <div style={{ fontSize: 'var(--text-sm)' }}><strong>{estadoCancel.racha_semanas ?? 0}</strong> semana(s) seguida(s)</div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--c-ink-3)', width: '100%' }}>
+                      Recordá: solo <strong>1 cancelación por semana</strong>. La 4ª del mes o la 4ª semana seguida generan multa de $35.
+                      {(estadoCancel.count_mes >= 3 || estadoCancel.racha_semanas >= 3) && (
+                        <span style={{ color: 'var(--c-warn-700)', fontWeight: 600 }}> Tu próxima cancelación podría tener multa.</span>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {loadingSolicitudes ? (
                   <div className="mhl__state"><span className="mhl__spinner"/><span>Cargando solicitudes...</span></div>
                 ) : solicitudes.length === 0 ? (

@@ -38,8 +38,10 @@ export const getMisSolicitudesCancelacion = async () => {
   return res.data;
 };
 
-export const getCondicionesCancelacion = async () => {
-  const res = await axios.get(`${API_URL}/alumno/condiciones-cancelacion`);
+export const getCondicionesCancelacion = async (id_vuelo = null) => {
+  const res = await axios.get(`${API_URL}/alumno/condiciones-cancelacion`, {
+    params: id_vuelo ? { id_vuelo } : {},
+  });
   return res.data;
 };
 

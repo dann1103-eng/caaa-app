@@ -10,7 +10,7 @@ import "./CancelarVueloModal.css";
  */
 export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
   const [condiciones, setCondiciones] = useState([]);
-  const [cancelacionesAceptadasMes, setCancelacionesAceptadasMes] = useState(0);
+  const [estado, setEstado] = useState({ count_mes: 0, racha_semanas: 0, ya_cancelo_esta_semana: false, proxima_tiene_multa: false, motivo: null, monto: 0 });
   const [loadingCond, setLoadingCond] = useState(true);
   const [aceptadoCondiciones, setAceptadoCondiciones] = useState(false);
   const [aceptadoMulta, setAceptadoMulta] = useState(false);
@@ -19,21 +19,30 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getCondicionesCancelacion()
+    getCondicionesCancelacion(vuelo.id_vuelo)
       .then((res) => {
         setCondiciones(res.condiciones || []);
-        setCancelacionesAceptadasMes(res.cancelaciones_aceptadas_mes || 0);
+        setEstado({
+          count_mes: res.count_mes ?? res.cancelaciones_aceptadas_mes ?? 0,
+          racha_semanas: res.racha_semanas ?? 0,
+          ya_cancelo_esta_semana: !!res.ya_cancelo_esta_semana,
+          proxima_tiene_multa: !!res.proxima_tiene_multa,
+          motivo: res.motivo ?? null,
+          monto: res.monto ?? 0,
+        });
       })
       .catch(() => setCondiciones([]))
       .finally(() => setLoadingCond(false));
-  }, []);
+  }, [vuelo.id_vuelo]);
 
-  const tieneMulta = cancelacionesAceptadasMes >= 4;
+  const tieneMulta = estado.proxima_tiene_multa;
+  const bloqueadoSemana = estado.ya_cancelo_esta_semana;
 
   const puedeConfirmar =
     aceptadoCondiciones &&
     motivo.trim().length > 0 &&
     (!tieneMulta || aceptadoMulta) &&
+    !bloqueadoSemana &&
     !submitting;
 
   const handleConfirmar = async () => {
@@ -62,10 +71,29 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
         {/* Body */}
         <div className="cv-body">
 
-          {/* Aviso Multa */}
-          {tieneMulta && (
+          {/* Resumen del estado de cancelaciones del alumno */}
+          {!loadingCond && (
+            <div style={{ backgroundColor: 'var(--c-surface-2, #f1f5f9)', border: '1px solid var(--c-line, #e2e8f0)', padding: '10px 12px', borderRadius: 'var(--radius-sm, 8px)', marginBottom: '14px', fontSize: '0.84rem', color: 'var(--c-ink-2, #334155)', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              <span><strong>{estado.count_mes}</strong> cancelacion{estado.count_mes === 1 ? '' : 'es'} este mes</span>
+              <span><strong>{estado.racha_semanas}</strong> semana{estado.racha_semanas === 1 ? '' : 's'} seguida{estado.racha_semanas === 1 ? '' : 's'}</span>
+            </div>
+          )}
+
+          {/* Bloqueo: ya canceló esta semana (1 por semana) */}
+          {bloqueadoSemana && (
             <div style={{ backgroundColor: 'var(--c-danger-50)', border: '1px solid var(--c-danger-100)', padding: '12px', borderRadius: 'var(--radius-sm)', marginBottom: '16px', color: 'var(--c-danger-700)', fontSize: '0.9rem' }}>
-              <i className="bi bi-exclamation-triangle" /> Has superado 4 cancelaciones este mes. Esta solicitud tiene un costo de $35. ¿Aceptás el cargo?
+              <i className="bi bi-lock" /> Ya tenés una cancelación esta semana. Solo se permite <strong>1 por semana</strong>.
+            </div>
+          )}
+
+          {/* Aviso Multa (server-driven: mensual o racha) */}
+          {tieneMulta && !bloqueadoSemana && (
+            <div style={{ backgroundColor: 'var(--c-danger-50)', border: '1px solid var(--c-danger-100)', padding: '12px', borderRadius: 'var(--radius-sm)', marginBottom: '16px', color: 'var(--c-danger-700)', fontSize: '0.9rem' }}>
+              <i className="bi bi-exclamation-triangle" />{" "}
+              {estado.motivo === 'RACHA'
+                ? `Es tu 4ª semana consecutiva cancelando. `
+                : `Superaste 3 cancelaciones este mes. `}
+              Esta solicitud tiene un costo de <strong>${estado.monto || 35}</strong>. ¿Aceptás el cargo?
               <label style={{ display: 'flex', alignItems: 'center', marginTop: '10px', gap: '8px', cursor: 'pointer', fontWeight: 600 }}>
                 <input
                   type="checkbox"
@@ -74,6 +102,13 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
                 />
                 Sí, acepto el cargo.
               </label>
+            </div>
+          )}
+
+          {/* Aviso preventivo (aún sin multa pero cerca del umbral) */}
+          {!tieneMulta && !bloqueadoSemana && (estado.count_mes >= 3 || estado.racha_semanas >= 3) && (
+            <div style={{ backgroundColor: 'var(--c-warn-50, #fffbeb)', border: '1px solid var(--c-warn-100, #fef3c7)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', color: 'var(--c-warn-700, #b45309)', fontSize: '0.85rem' }}>
+              <i className="bi bi-info-circle" /> Ojo: tu próxima cancelación podría generar multa de $35.
             </div>
           )}
 

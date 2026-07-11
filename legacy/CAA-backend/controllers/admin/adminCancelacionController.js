@@ -32,13 +32,20 @@ exports.getSolicitudesCancelacion = catchAsync(async (req, res) => {
       u.apellido AS alumno_apellido,
       sc.tiene_multa AS con_multa,
       sc.monto_multa,
+      sc.motivo,
       (
-        SELECT COUNT(*) 
-        FROM solicitud_cancelacion sc2 
-        WHERE sc2.id_alumno = sc.id_alumno 
+        SELECT COUNT(*)
+        FROM solicitud_cancelacion sc2
+        WHERE sc2.id_alumno = sc.id_alumno
+          AND sc2.estado IN ('PENDIENTE','ACEPTADA')
+          AND date_trunc('month', sc2.creado_en) = date_trunc('month', CURRENT_DATE)
+      ) AS cancelaciones_mes,
+      (
+        SELECT COUNT(*)
+        FROM solicitud_cancelacion sc2
+        WHERE sc2.id_alumno = sc.id_alumno
           AND sc2.estado = 'ACEPTADA'
-          AND EXTRACT(MONTH FROM sc2.creado_en) = EXTRACT(MONTH FROM CURRENT_DATE)
-          AND EXTRACT(YEAR FROM sc2.creado_en) = EXTRACT(YEAR FROM CURRENT_DATE)
+          AND date_trunc('month', sc2.creado_en) = date_trunc('month', CURRENT_DATE)
       ) AS cancelaciones_aceptadas_mes
     FROM solicitud_cancelacion sc
     JOIN vuelo v ON v.id_vuelo = sc.id_vuelo

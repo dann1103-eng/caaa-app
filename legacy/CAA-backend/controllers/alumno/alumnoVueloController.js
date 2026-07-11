@@ -1,5 +1,6 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
+const { getEstadoCancelaciones } = require("../../services/cancelacionService");
 
 exports.getMiHorario = catchAsync(async (req, res) => {
   const { week = "current" } = req.query;
@@ -80,20 +81,22 @@ exports.getMiProximoMantenimiento = catchAsync(async (req, res) => {
 
 exports.getCondicionesCancelacion = catchAsync(async (req, res) => {
   const result = await db.query("SELECT * FROM condiciones_cancelacion WHERE activa = true ORDER BY orden ASC");
-  
-  const countRes = await db.query(`
-    SELECT COUNT(*) 
-    FROM solicitud_cancelacion sc
-    JOIN alumno al ON al.id_alumno = sc.id_alumno
-    WHERE al.id_usuario = $1
-      AND sc.estado = 'ACEPTADA'
-      AND EXTRACT(MONTH FROM sc.creado_en) = EXTRACT(MONTH FROM CURRENT_DATE)
-      AND EXTRACT(YEAR FROM sc.creado_en) = EXTRACT(YEAR FROM CURRENT_DATE)
-  `, [req.user.id_usuario]);
 
-  res.json({ 
+  const alRes = await db.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1`, [req.user.id_usuario]);
+  const idAlumno = alRes.rows[0]?.id_alumno;
+  const idVuelo = req.query.id_vuelo ? Number(req.query.id_vuelo) : null;
+
+  let estado = { count_mes: 0, racha_semanas: 0, ya_cancelo_esta_semana: false, proxima_tiene_multa: false, motivo: null, monto: 0 };
+  if (idAlumno) {
+    estado = await getEstadoCancelaciones(idAlumno, idVuelo);
+  }
+
+  res.json({
     condiciones: result.rows,
-    cancelaciones_aceptadas_mes: parseInt(countRes.rows[0].count)
+    // Compat: el modal viejo leía cancelaciones_aceptadas_mes; ahora usamos el
+    // conteo unificado PENDIENTE+ACEPTADA.
+    cancelaciones_aceptadas_mes: estado.count_mes,
+    ...estado,
   });
 });
 

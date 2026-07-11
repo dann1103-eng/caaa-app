@@ -105,10 +105,11 @@ export default function CancelacionesAdmin() {
                   <p><strong>Fecha Vuelo:</strong> {new Date(s.fecha_hora_vuelo).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}</p>
                   <p><strong>Motivo:</strong> {s.justificacion}</p>
                   <p><strong>Solicitado el:</strong> {new Date(s.fecha_solicitud).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}</p>
-                  <p><strong>Cancelaciones en el mes:</strong> {s.cancelaciones_aceptadas_mes}</p>
+                  <p><strong>Cancelaciones este mes:</strong> {s.cancelaciones_mes ?? s.cancelaciones_aceptadas_mes} <span style={{ color: 'var(--c-ink-3)' }}>({s.cancelaciones_aceptadas_mes} aceptadas)</span></p>
                   {s.con_multa && (
                     <div style={{ marginTop: '12px', color: 'var(--c-danger-700)', backgroundColor: 'var(--c-danger-50)', padding: '8px', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontWeight: 600 }}>
-                      <i className="bi bi-exclamation-triangle-fill"></i> Costo de ${s.monto_multa} aceptada por el alumno
+                      <i className="bi bi-exclamation-triangle-fill"></i> Multa de ${s.monto_multa}
+                      {s.motivo === 'RACHA' ? ' (4ª semana consecutiva)' : s.motivo === 'MENSUAL' ? ' (4ª del mes)' : ''} — a cobrar por Administración
                     </div>
                   )}
                 </div>

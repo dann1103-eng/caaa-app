@@ -2,6 +2,7 @@ const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const { puedeAccederVuelo } = require("../../utils/ownership");
+const { getEstadoCancelaciones } = require("../../services/cancelacionService");
 
 exports.solicitarCancelacion = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
@@ -13,27 +14,36 @@ exports.solicitarCancelacion = catchAsync(async (req, res) => {
     const alumnoRes = await client.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1`, [req.user.id_usuario]);
     const idAlumno = alumnoRes.rows[0].id_alumno;
 
-    // Verificar cuántas lleva este mes
-    const countRes = await client.query(`
-      SELECT COUNT(*) FROM solicitud_cancelacion 
-      WHERE id_alumno = $1 
-        AND estado IN ('ACEPTADA', 'PENDIENTE')
-        AND date_trunc('month', creado_en) = date_trunc('month', CURRENT_DATE)
-    `, [idAlumno]);
-    
-    const totalMes = parseInt(countRes.rows[0].count);
-    const tieneMulta = totalMes >= 4;
-    const montoMulta = tieneMulta ? 35.00 : 0;
+    // Límite duro: solo 1 cancelación por semana. Si ya hay una vigente
+    // (PENDIENTE/ACEPTADA) para un vuelo de la MISMA semana → 409.
+    const semRes = await client.query(`
+      SELECT 1
+        FROM solicitud_cancelacion sc
+        JOIN vuelo v  ON v.id_vuelo = sc.id_vuelo
+        JOIN vuelo vt ON vt.id_vuelo = $2
+       WHERE sc.id_alumno = $1
+         AND sc.estado IN ('PENDIENTE','ACEPTADA')
+         AND v.id_semana = vt.id_semana
+       LIMIT 1
+    `, [idAlumno, id_vuelo]);
+    if (semRes.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Ya tenés una cancelación esta semana. Solo se permite 1 por semana." });
+    }
+
+    // Estado de cancelaciones ANTES de insertar → decide multa (mensual/racha).
+    const estado = await getEstadoCancelaciones(idAlumno, id_vuelo, client);
+    const tieneMulta = estado.proxima_tiene_multa;
+    const montoMulta = estado.monto;
 
     await client.query(`
       INSERT INTO solicitud_cancelacion (id_vuelo, id_alumno, motivo, estado, tiene_multa, monto_multa)
       VALUES ($1, $2, $3, 'PENDIENTE', $4, $5)
     `, [id_vuelo, idAlumno, motivo, tieneMulta, montoMulta]);
 
-
-    await logAuditoria(client, { accion: "SOLICITAR_CANCELACION", entidad: "vuelo", id_entidad: id_vuelo, actor: req.user, req, descripcion: "Alumno solicitó cancelación" });
+    await logAuditoria(client, { accion: "SOLICITAR_CANCELACION", entidad: "vuelo", id_entidad: id_vuelo, actor: req.user, req, descripcion: `Alumno solicitó cancelación${tieneMulta ? ` (multa ${estado.motivo})` : ""}` });
     await client.query("COMMIT");
-    res.json({ message: "Solicitud enviada correctamente" });
+    res.json({ message: "Solicitud enviada correctamente", tiene_multa: tieneMulta, monto_multa: montoMulta, motivo: estado.motivo });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
