@@ -750,3 +750,84 @@ Se generó un documento técnico exhaustivo (~19k palabras, 25 secciones) para f
 SaaS modular (resumen ejecutivo, arquitectura, módulos, modelos de datos, APIs, componentes reutilizables,
 módulos SaaS candidatos, casos de uso, limitaciones, evolución), con 7 agentes de investigación en paralelo.
 **No quedó commiteado** (existe solo en el transcript de la sesión). Regenerar/commitear si se quiere conservar.
+
+---
+
+## 18. Sesión 2026-07-11 — Flujo instructor→programación, tipos de instructor, agendar desde calendario, cancelaciones, teoría, responsive, fixes UX y STAND-BY
+
+**Rama `claude/focused-lederberg-90ed0b` (worktree), 9 commits `022909d..68c6a27` sobre master. NO
+fusionada. Migraciones 016-019 YA aplicadas a Supabase por Claude (aditivas + 1 ensanche de CHECK; el
+backend viejo las tolera).** Deploy pendiente (Daniel): fusionar rama a master + `git push` (Vercel
+frontend) + `railway up --detach` desde `legacy/CAA-backend`. Verificación E2E hecha contra Supabase con
+backend local (junction de node_modules + copia de .env al worktree, `PORT=5099 node server.js`, scripts).
+
+### Tipos de instructor + capacidad programación (mig 016)
+`instructor.es_instructor_vuelo / es_instructor_teoria / puede_programar` (existentes con ambos tipos en
+true). **`utils/capacidades.js`** = fuente única de gates, **respaldados en BD** (aplican sin re-login;
+tokens viejos no otorgan de más). `requireCapacidad(roles, cap)` reemplaza roleMiddleware en `/admin`;
+`aulaInstructorGate` (es_instructor_teoria) en `/administracion/aula/*`. JWT (login+refresh) expone los
+flags (solo UX). Toggles en Usuarios. **PROGRAMACION deja de ser solo un rol**: un instructor con
+`puede_programar` entra al calendario/publica.
+
+### Flujo alumno → instructor → programación (mig 017)
+`solicitud_semana += comentario_alumno / enviada_instructor_en / enviada_por`; **EN_REVISION** = "enviada
+a programación por el instructor" (candadea al alumno). **`services/solicitudService.js`** centraliza
+validación de conflictos (aparcar→validar→colocar) e inserción aditiva (un INSERT, NO delete-all).
+Endpoints `/instructor/solicitudes/*` (calendario con `es_mio`, resumen, guardar-cambios, crear, eliminar,
+enviar/enviar-todas). Página **`/instructor/solicitudes`** (AdminCalendar editable solo `es_mio` + lista
+de baskets con comentario y "Enviar a programación"). **Precheck de publicación** (avisa cuántas van sin
+revisión; nunca bloquea). **FIX bug latente**: `publicarSemana` ya NO publica filas RECHAZADA/CANCELADA
+(conteo/CTE/INSERT ahora filtran estado como getCalendario).
+
+### Agendar desde el calendario del dashboard (Fase 3, sin migración)
+Click en celda vacía → **`AgendarVueloModal`** (alumno libre, instructor default cambiable, aeronave con
+validación de licencia salvo extracurricular, LOCAL/RUTA). `AdminCalendar.onEmptyCellClick`. Backend:
+`POST /programacion/solicitudes` (semana no publicada, aditivo) y `/programacion/vuelos` (publicada, vuelo
+directo con `solicitud_vuelo` de respaldo para editabilidad, `creado_por='PROGRAMACION'`, notifica).
+Instructor crea para sus alumnos con `createFn`. Quitado el botón "Agendar Vuelo" del nav de programación
+(ruta `/programacion/agendar` deprecada pero viva).
+
+### Reglas de cancelación (Fase 4, sin migración)
+**`services/cancelacionService.getEstadoCancelaciones`** = `{count_mes, racha_semanas,
+ya_cancelo_esta_semana, proxima_tiene_multa, motivo, monto}`. **1 cancelación por semana (409)**; fix
+off-by-one mensual (`>=3` → la 4ª del mes tiene multa); **racha** (4ª semana consecutiva = multa). Cobro
+sigue **MANUAL** (solo marca `tiene_multa/monto/motivo`). Modal/dashboard-alumno/admin con contadores y
+avisos. `getCondicionesCancelacion?id_vuelo`.
+
+### Lado teoría (mig 018)
+`sesion_clase.hora_inicio/hora_fin` → sesiones = "citas de clase". `crearSesion` fuerza `id_instructor`
+del token para INSTRUCTOR (antes spoofeable). `GET /alumno/mis-clases` (cursos con inscripción activa).
+Header/redirects por flags (solo-teoría → /instructor/aula-virtual; solo-vuelo no ve aula). Card "Próximas
+clases" (alumno) + panel "Mis próximas clases" (instructor, `?mias=1`).
+
+### Responsive (Fase 6, solo frontend)
+`.adf-table` → `.adf-table-wrap` + red de seguridad `@media(<=1024)` (scroll horizontal de toda tabla no
+envuelta; antes desbordaban). Shells AdminLayout/Sidebar colapsan a **1024** (antes 768). AdminCalendar
+`isMobile` 640→**768**. **Header hamburguesa real** (dropdown ícono+etiqueta) ≤768. Modales anchos ≤640
+una columna. Loadsheet `p-2 sm:p-5`.
+
+### Fixes UX
+- **Primer login móvil**: `ForcePasswordChange` ya NO excluye `/perfil` (el robapantallas aparece en
+  cualquier ruta) + Login manda al dashboard en vez de `/perfil` → el modal sale de inmediato en móvil.
+- **Agendar manual**: `getInstructoresActivos` filtra a `es_instructor_vuelo=true`.
+- **Slots**: nombres cortos **"R.Flores"** (`LEFT(nombre,1)||'.'||split_part(apellido,' ',1)` como
+  `*_nombre_corto` en los 3 calendarios; `abbrevNombre` en AdminCalendar).
+- **Comentario del alumno**: **obligatorio** al agendar; visible en el **popover del vuelo** (`ss.comentario_alumno` en los 3 calendarios).
+
+### Sistema STAND-BY / lista de espera (mig 019: `slot_standby`)
+Varios alumnos piden el mismo horario (día+bloque) → uno asignado, resto **en espera** (no rechazados).
+**Turno ordena** la lista (`StandbyModal` desde el popover del calendario; candidatos = quienes pidieron
+ese horario). Al aceptarse una cancelación (`resolverSolicitudCancelacion` ACEPTADA) **con margen ≥6h y NO
+por cierre de operaciones** (esa ruta no llama al disparador) → **oferta automática secuencial** al #1;
+si rechaza o expira (**4h**, job `expirarOfertasVencidas` cada 5 min) → #2. El alumno ve card "Se liberó
+un vuelo que pediste" (aceptar crea el vuelo PUBLICADO con `solicitud_vuelo` de respaldo + notifica al
+instructor). `standbyController.js`; rutas `/admin/standby*` (Turno) + `/alumno/mis-ofertas` +
+`/alumno/standby/:id/aceptar|rechazar`. Constantes `MARGEN_MIN_HORAS=6`, `OFERTA_VENTANA_HORAS=4`.
+**Decisiones de Daniel**: automática secuencial · margen 6h · Turno ordena · notificación in-app
+(correo/WhatsApp después).
+
+### Pendiente / próximo
+- **Brainstorm: "instructores que vuelan con instructores"** (recurrentes/refresh) — Daniel pidió 2-3
+  preguntas antes de modelar (horas ¿a nombre de quién?, ¿se cobra?, ¿cuenta a un curso?). **NO construido.**
+- Fusionar rama + `railway up`; pruebas E2E de usuario en prod; sembrar inscripciones demo para el aula.
+- Configurar correo (Resend/Brevo) sigue pendiente de sesiones anteriores.
