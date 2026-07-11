@@ -113,8 +113,8 @@
 .adm-layout__content .header { display: none !important; }
 .adm-layout__content > div { padding-top: 0 !important; }
 
-/* ── Responsive ── */
-@media (max-width: 768px) {
+/* ── Responsive ── (colapsa a drawer a 1024, igual que el shell de Administración) */
+@media (max-width: 1024px) {
   .adm-topbar__menu-btn { display: block; }
   .adm-layout__content { margin-left: 0; padding: var(--sp-4) var(--sp-3); }
   .adm-topbar__title { display: none; }

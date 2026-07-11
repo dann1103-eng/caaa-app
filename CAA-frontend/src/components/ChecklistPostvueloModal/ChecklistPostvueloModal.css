@@ -280,3 +280,7 @@
   font-size: var(--text-sm);
   margin-bottom: 0.8rem;
 }
+
+@media (max-width: 640px) {
+  .cpv-modal { width: min(620px, calc(100vw - 20px)); max-height: 92dvh; }
+}

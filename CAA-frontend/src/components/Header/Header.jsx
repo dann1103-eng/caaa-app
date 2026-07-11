@@ -1,10 +1,13 @@
 import "./Header.css";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
 
 export default function Header() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -46,41 +49,54 @@ export default function Header() {
               <div className="header__user-actions">
                 <NotificationBell />
 
-                <Link to={getDashboardLink()} className="header__action-link">
-                  <i className="bi bi-speedometer2 header__action-icon" />
-                  <span>Dashboard</span>
-                </Link>
-
-                {(["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) || user.puede_programar) && (
-                  <a href="/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link">
-                    <i className="bi bi-easel header__action-icon" />
-                    <span>Proyección</span>
-                  </a>
-                )}
-
-                {user.rol === "INSTRUCTOR" && user.puede_programar && (
-                  <Link to="/programacion/dashboard" className="header__action-link">
-                    <i className="bi bi-calendar-week header__action-icon" />
-                    <span>Programación</span>
-                  </Link>
-                )}
-
-                {user.rol === "INSTRUCTOR" && user.es_instructor_teoria !== false && (
-                  <Link to="/instructor/aula-virtual" className="header__action-link">
-                    <i className="bi bi-mortarboard header__action-icon" />
-                    <span>Aula Virtual</span>
-                  </Link>
-                )}
-
-                <Link to="/perfil" className="header__action-link">
-                  <i className="bi bi-person header__action-icon" />
-                  <span>Perfil</span>
-                </Link>
-
-                <button onClick={handleLogout} className="header__btn-logout-new">
-                  <i className="bi bi-box-arrow-right header__action-icon" />
-                  <span>Salir</span>
+                <button
+                  className="header__hamburger"
+                  aria-label="Menú"
+                  aria-expanded={menuOpen}
+                  onClick={() => setMenuOpen((v) => !v)}
+                >
+                  <i className={`bi ${menuOpen ? "bi-x-lg" : "bi-list"}`} />
                 </button>
+
+                {menuOpen && <div className="header__menu-backdrop" onClick={closeMenu} />}
+
+                <div className={`header__menu ${menuOpen ? "header__menu--open" : ""}`}>
+                  <Link to={getDashboardLink()} className="header__action-link" onClick={closeMenu}>
+                    <i className="bi bi-speedometer2 header__action-icon" />
+                    <span>Dashboard</span>
+                  </Link>
+
+                  {(["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) || user.puede_programar) && (
+                    <a href="/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-easel header__action-icon" />
+                      <span>Proyección</span>
+                    </a>
+                  )}
+
+                  {user.rol === "INSTRUCTOR" && user.puede_programar && (
+                    <Link to="/programacion/dashboard" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-calendar-week header__action-icon" />
+                      <span>Programación</span>
+                    </Link>
+                  )}
+
+                  {user.rol === "INSTRUCTOR" && user.es_instructor_teoria !== false && (
+                    <Link to="/instructor/aula-virtual" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-mortarboard header__action-icon" />
+                      <span>Aula Virtual</span>
+                    </Link>
+                  )}
+
+                  <Link to="/perfil" className="header__action-link" onClick={closeMenu}>
+                    <i className="bi bi-person header__action-icon" />
+                    <span>Perfil</span>
+                  </Link>
+
+                  <button onClick={handleLogout} className="header__btn-logout-new">
+                    <i className="bi bi-box-arrow-right header__action-icon" />
+                    <span>Salir</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

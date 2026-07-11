@@ -77,11 +77,11 @@ export default function AdminCalendar({
   const [tempInstructorId, setTempInstructorId] = useState("");
   const [tempBloqueInicio, setTempBloqueInicio] = useState("");
   const [tempBloqueFin, setTempBloqueFin] = useState("");
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileDayOffset, setMobileDayOffset] = useState(0);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
 
     // Socket real-time refresh

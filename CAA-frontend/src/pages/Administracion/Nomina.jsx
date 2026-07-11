@@ -364,7 +364,8 @@ export default function Nomina() {
             </div>
           </div>
 
-          <table className="adf-table" style={{ minWidth: 1000 }}>
+          <div className="adf-table-wrap">
+          <table className="adf-table adf-table--wide">
             <thead>
               {esPlanta ? (
                 <tr><th>Empleado / Instructor</th><th style={{ textAlign: "right" }}>Bruto</th><th style={{ textAlign: "right" }}>ISR</th>
@@ -426,6 +427,7 @@ export default function Nomina() {
               )}
             </tbody>
           </table>
+          </div>
 
           <div style={{ marginTop: 16, padding: 14, background: "var(--c-surface-2)", borderRadius: 10,
             display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>

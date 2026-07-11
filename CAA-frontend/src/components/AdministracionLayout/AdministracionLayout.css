@@ -248,6 +248,27 @@
 .adf-table .pos    { color: var(--c-accent-700); }
 .adf-table .neg    { color: var(--c-danger-700); }
 
+/* Contenedor con scroll horizontal para tablas anchas (evita que rompan el
+   viewport en tablet/móvil). Uso explícito recomendado: envolver la <table>. */
+.adf-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+.adf-table--wide { min-width: 1000px; }
+
+/* Red de seguridad: toda .adf-table no envuelta se vuelve scroll horizontal a
+   partir de 1024px, para no desbordar la página en pantallas chicas. */
+@media (max-width: 1024px) {
+  .adf-table:not(.adf-table--wide) {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+}
+
 /* ─── Buttons ──────────────────────────────────────────────────────── */
 .adf-btn {
   background-color: var(--c-brand-500);

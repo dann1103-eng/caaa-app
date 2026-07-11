@@ -261,3 +261,8 @@
 
 .ap-toggle--on .ap-toggle-thumb { background: var(--c-success-500); opacity: 1; }
 .ap-toggle--off .ap-toggle-thumb { background: var(--c-ink-4); opacity: 1; }
+
+@media (max-width: 640px) {
+  .ap-modal { width: min(640px, calc(100vw - 20px)); max-height: 92dvh; }
+  .ap-grid--2, .ap-grid--3 { grid-template-columns: 1fr; }
+}

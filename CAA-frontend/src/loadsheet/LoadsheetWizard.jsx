@@ -18,7 +18,7 @@ export default function LoadsheetWizard({ onExit, readOnly = false }) {
   const CurrentStep = steps[state.step];
 
   return (
-    <div className="ls-root min-h-screen bg-[#e8e8e8] p-5">
+    <div className="ls-root min-h-screen bg-[#e8e8e8] p-2 sm:p-5">
       <div className="max-w-5xl mx-auto">
         <div className="bg-[#1a3a5c] text-white px-6 py-4 rounded-t-lg flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -36,7 +36,7 @@ export default function LoadsheetWizard({ onExit, readOnly = false }) {
           </div>
           <StatusBadge status={state.wbResults?.allOk ? true : state.wbResults?.totalW > 0 ? false : null} />
         </div>
-        <div className="bg-white border border-gray-300 border-t-0 rounded-b-lg p-5">
+        <div className="bg-white border border-gray-300 border-t-0 rounded-b-lg p-3 sm:p-5">
           {readOnly && (
             <div className="mb-4 px-4 py-2 rounded-md bg-amber-50 border border-amber-300 text-amber-800 text-sm font-semibold">
               👁 Modo lectura — revisión del instructor. El loadsheet enviado por el alumno no se puede editar aquí.

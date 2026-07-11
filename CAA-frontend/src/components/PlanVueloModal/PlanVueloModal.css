@@ -240,3 +240,8 @@
 .pv-error {
   color: var(--c-danger-700);
 }
+
+@media (max-width: 640px) {
+  .pv-modal { width: min(760px, calc(100vw - 20px)); max-height: 92dvh; }
+  .pv-grid--2, .pv-grid--3, .pv-grid--4 { grid-template-columns: 1fr; }
+}
