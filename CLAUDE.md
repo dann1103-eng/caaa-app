@@ -826,8 +826,37 @@ instructor). `standbyController.js`; rutas `/admin/standby*` (Turno) + `/alumno/
 **Decisiones de Daniel**: automática secuencial · margen 6h · Turno ordena · notificación in-app
 (correo/WhatsApp después).
 
+### ⏸️ Instructores que vuelan con instructores (recurrentes/refresh) — NO CONSTRUIDO, definir con la escuela primero
+
+**Qué es:** hay vuelos donde quien RECIBE la instrucción es un instructor (chequeos recurrentes,
+refresh, proficiency). **Evidencia real:** en la carga del programa semanal 22-27 jun (sección 16) se
+OMITIERON los vuelos de L.Rodas, J.Santillana, J.Burgos, E.Artiga, F.Abarca, J.Hernandez y G.Murillo
+justamente por esto — instructores tomando recurrente SIN ficha `alumno` → el sistema no los puede
+representar hoy. O sea: pasa todas las semanas y hoy esos vuelos quedan fuera de la plataforma.
+
+**Estado (decisión de Daniel, sesión 2026-07-11):** NO modelarlo todavía. **Primero hay que
+informarse bien con la escuela de cómo funciona operativamente**; con esa info se hace el brainstorm
+y recién entonces se diseña. No construir nada de esto sin ese paso.
+
+**Preguntas que responder con la escuela antes de diseñar:**
+1. ¿Las horas del vuelo van a la bitácora del instructor-practicante? ¿Suman a su experiencia/licencia?
+2. ¿Se cobra? ¿A quién y a qué tarifa (o es un beneficio/costo interno de la escuela)?
+3. ¿El instructor que INSTRUYE cobra esas horas en nómina como horas de vuelo normales?
+4. ¿Cuenta a algún curso/syllabus (recurrente estructurado con unidades) o es vuelo suelto?
+5. ¿Cómo se agenda hoy en la práctica? ¿El practicante lo pide como un alumno o lo asigna programación directo?
+6. ¿Lleva reporte post-vuelo / checklist / loadsheet igual que un vuelo de alumno?
+7. ¿Qué frecuencia/vencimientos hay que rastrear (cada 6/12 meses, proficiency check, médico)?
+8. ¿Solo instructores de la casa, o también externos (p.ej. E.Roeder, que tampoco está en el sistema)?
+
+**Opciones de modelado ya esbozadas (elegir DESPUÉS de tener la info):**
+- **(A) Vuelo entre instructores:** el `vuelo` lleva un "practicante" que es instructor (sin ficha de
+  alumno), marcado tipo RECURRENTE; horas a nombre del practicante. Liviano, pero toca vuelo/reportes/
+  conflictos (hoy el practicante ocuparía el campo `id_alumno`, que es FK a `alumno`).
+- **(B) Ficha de alumno ligada al usuario instructor:** reusa TODO el flujo existente (solicitud,
+  agenda, bitácora, cobro). Más pesado; ojo: `alumno.id_instructor` es NOT NULL y muchos gates asumen
+  `rol === 'ALUMNO'` (dual-rol a revisar). Se descartó de una en la carga de junio, pero queda como opción.
+
 ### Pendiente / próximo
-- **Brainstorm: "instructores que vuelan con instructores"** (recurrentes/refresh) — Daniel pidió 2-3
-  preguntas antes de modelar (horas ¿a nombre de quién?, ¿se cobra?, ¿cuenta a un curso?). **NO construido.**
+- **Informarse con la escuela sobre recurrentes** (ver subsección anterior) → brainstorm → diseño.
 - Fusionar rama + `railway up`; pruebas E2E de usuario en prod; sembrar inscripciones demo para el aula.
 - Configurar correo (Resend/Brevo) sigue pendiente de sesiones anteriores.
