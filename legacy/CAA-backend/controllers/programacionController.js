@@ -102,9 +102,11 @@ exports.getCalendario = async (req, res) => {
 
           v.id_alumno,
           COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
+          LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
 
           v.id_instructor,
           COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
+          LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
 
           v.estado AS estado_vuelo,
           v.justificacion_cancelacion,
@@ -137,6 +139,7 @@ exports.getCalendario = async (req, res) => {
         sv.id_detalle,
         sv.id_solicitud,
         ss.estado AS estado_solicitud,
+        ss.comentario_alumno,
         sv.estado AS estado_vuelo_individual,
 
         sv.id_semana,
@@ -153,9 +156,11 @@ exports.getCalendario = async (req, res) => {
 
         ss.id_alumno,
         COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
+        LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
 
         i.id_instructor,
         COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
+        LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
 
         NULL::int AS id_vuelo,
         NULL::text AS estado_vuelo,

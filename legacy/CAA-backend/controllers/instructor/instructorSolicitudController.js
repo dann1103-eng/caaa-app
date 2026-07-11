@@ -26,12 +26,14 @@ exports.getCalendario = async (req, res) => {
 
     const result = await db.query(`
       SELECT
-        sv.id_detalle, sv.id_solicitud, ss.estado AS estado_solicitud, sv.estado AS estado_vuelo_individual,
+        sv.id_detalle, sv.id_solicitud, ss.estado AS estado_solicitud, ss.comentario_alumno, sv.estado AS estado_vuelo_individual,
         v.id_vuelo, v.estado AS estado_vuelo, COALESCE(v.estado, ss.estado) AS estado_mostrar,
         sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
         sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,
         ss.id_alumno, u_al.nombre || ' ' || u_al.apellido AS alumno_nombre,
+        LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
         i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
+        LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
         COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular,
         (COALESCE(sv.id_instructor, al.id_instructor) = $2) AS es_mio
       FROM solicitud_vuelo sv

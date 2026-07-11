@@ -155,7 +155,10 @@ export default function AgendarVuelo() {
   })();
 
   const calendarBloqueado = bloqueadoPorEstado || agendaBloqueada;
-  const saveBloqueado = bloqueadoPorEstado || selecciones.length === 0 || tieneConflictoAvionDia || limiteAvionExcedido || limiteSimuladorExcedido || agendaBloqueada || !hayCambios;
+  // El comentario/observaciones es obligatorio al enviar la solicitud (otros
+  // horarios disponibles, restricciones, etc. — el instructor lo verá).
+  const faltaComentario = selecciones.length > 0 && !comentario.trim();
+  const saveBloqueado = bloqueadoPorEstado || selecciones.length === 0 || tieneConflictoAvionDia || limiteAvionExcedido || limiteSimuladorExcedido || agendaBloqueada || !hayCambios || faltaComentario;
 
   const [modoReserva, setModoReserva] = useState("LOCAL");
   const [rutaAeronave, setRutaAeronave] = useState("");
@@ -306,18 +309,23 @@ export default function AgendarVuelo() {
         {!bloqueadoPorEstado && (
           <div className="ag__comment">
             <label className="ag__comment-label" htmlFor="ag-comentario">
-              <i className="bi bi-chat-left-text"></i> Comentario para tu instructor <span className="ag__comment-opt">(opcional)</span>
+              <i className="bi bi-chat-left-text"></i> Observaciones para tu instructor <span style={{ color: "#dc2626" }}>*</span>
             </label>
             <textarea
               id="ag-comentario"
               className="ag__comment-input"
               rows={2}
               maxLength={500}
-              placeholder="Ej.: también tengo disponible el jueves a las 10:00 por si hay que reacomodar."
+              placeholder="Obligatorio: otros horarios en los que también podés volar, restricciones o comentarios. Ej.: si no hay cupo el miércoles 9:00, puedo jueves después de las 14:00 o viernes en la mañana."
               value={comentario}
               onChange={(e) => setComentario(e.target.value)}
               disabled={agendaBloqueada}
             />
+            {faltaComentario && (
+              <p style={{ fontSize: "0.78rem", color: "#dc2626", marginTop: 6, marginBottom: 0 }}>
+                <i className="bi bi-exclamation-circle me-1"></i>Escribí tus observaciones antes de guardar (otros horarios disponibles, restricciones…).
+              </p>
+            )}
           </div>
         )}
 

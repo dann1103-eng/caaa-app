@@ -121,11 +121,16 @@ exports.listCursos = async (req, res) => {
 
 exports.listSesiones = async (req, res) => {
   try {
-    const { id_curso, futuras } = req.query;
+    const { id_curso, futuras, mias } = req.query;
     const params = [];
     const conds = [];
     if (id_curso) { params.push(id_curso); conds.push(`s.id_curso = $${params.length}`); }
     if (futuras === "1" || futuras === "true") conds.push(`s.fecha >= CURRENT_DATE`);
+    // "mias": solo las sesiones del instructor autenticado (sus próximas clases).
+    if ((mias === "1" || mias === "true") && req.user?.rol === "INSTRUCTOR") {
+      const idIns = await resolverIdInstructor(req.user.id_usuario);
+      params.push(idIns); conds.push(`s.id_instructor = $${params.length}`);
+    }
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     const r = await db.query(`
       SELECT s.id, s.id_curso, s.id_unidad, s.fecha, s.hora_inicio, s.hora_fin, s.tema, s.id_instructor,

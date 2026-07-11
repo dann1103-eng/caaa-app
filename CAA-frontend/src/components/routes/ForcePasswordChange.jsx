@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import ConfirmDataModal from "../ConfirmDataModal/ConfirmDataModal";
 
 /**
@@ -9,7 +9,6 @@ import ConfirmDataModal from "../ConfirmDataModal/ConfirmDataModal";
  * de mostrar la app. Al confirmar, refresca el token y se desmonta.
  */
 export default function ForcePasswordChange({ children }) {
-  const location = useLocation();
   const [bump, setBump] = useState(0); // fuerza re-render tras confirmar
 
   const token = localStorage.getItem("token");
@@ -25,8 +24,10 @@ export default function ForcePasswordChange({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  // En /perfil no mostramos el modal (la persona puede gestionar su perfil ahí).
-  if (user?.must_complete_profile && location.pathname !== "/perfil") {
+  // El robapantallas se muestra en CUALQUIER ruta (incluida /perfil). Antes se
+  // excluía /perfil, pero como el primer login aterriza justo ahí, el modal
+  // quedaba suprimido y solo aparecía al navegar (bug notorio en móvil).
+  if (user?.must_complete_profile) {
     return <ConfirmDataModal key={bump} user={user} onDone={() => setBump((n) => n + 1)} />;
   }
 

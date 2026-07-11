@@ -14,6 +14,20 @@ const DIAS = [
 
 const formatHora = (h) => h?.slice(0, 5);
 
+// Nombre corto tipo "R.Flores": usa el campo *_corto del backend si viene; si no,
+// lo deriva del nombre completo (inicial del primer nombre + primer apellido).
+const abbrevNombre = (corto, full) => {
+  if (corto) return corto;
+  if (!full) return "";
+  const parts = String(full).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  // Heurística: inicial del primer token + segundo token (primer apellido si hay
+  // 2 nombres, o el apellido si hay 1 nombre). Sirve para el caso común.
+  const inicial = parts[0][0];
+  const apellido = parts.length >= 3 ? parts[Math.floor(parts.length / 2)] : parts[1];
+  return `${inicial}.${apellido}`;
+};
+
 const getDatesForWeek = (week) => {
   const now = new Date();
   const day = now.getDay(); // 0 (Sun) to 6 (Sat)
@@ -598,11 +612,11 @@ export default function AdminCalendar({
                             {conflictText && <span className="conflict-icon">⚠</span>}
                             {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                             {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
-                            {item.alumno_nombre.split(" ")[0]}
+                            {abbrevNombre(item.alumno_nombre_corto, item.alumno_nombre)}
                           </div>
                           <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>
                             {item.aeronave_codigo}
-                            {item.instructor_nombre && ` • Inst: ${item.instructor_nombre.split(" ")[0]}`}
+                            {item.instructor_nombre && ` • Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                           </div>
                           {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
                         </div>
@@ -686,7 +700,7 @@ export default function AdminCalendar({
                         <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>
                           {item.aeronave_codigo}
                           {item.instructor_nombre && <br/>}
-                          {item.instructor_nombre && `Inst: ${item.instructor_nombre.split(" ")[0]}`}
+                          {item.instructor_nombre && `Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                         </div>
                         {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
                       </div>
@@ -784,6 +798,12 @@ function PopoverContent({
       </div>
 
       <div className="pop-body">
+        {activePopover.item.comentario_alumno && (
+          <div className="pop-alert" style={{ background: 'var(--c-info-50, #eff6ff)', color: 'var(--c-ink-2, #334155)', border: '1px solid var(--c-info-100, #dbeafe)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+            <i className="bi bi-chat-left-quote" style={{ color: 'var(--c-info-700, #1d4ed8)', marginTop: 2 }}></i>
+            <span><strong>Nota del alumno:</strong> {activePopover.item.comentario_alumno}</span>
+          </div>
+        )}
         {popoverConflict.aero && (
           <div className="pop-alert pop-alert--danger">
             ⚠ <strong>Conflicto de Aeronave:</strong> Este avión ya está asignado en este bloque.

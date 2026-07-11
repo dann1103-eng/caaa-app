@@ -21,11 +21,10 @@ export default function Login() {
 
       const user = data.user;
 
-      if (user.must_change_password || user.must_set_email) {
-        navigate("/perfil");
-        return;
-      }
-
+      // Primer login (cambio de contraseña/correo y/o confirmación de datos):
+      // se navega al dashboard y el robapantallas global (ForcePasswordChange)
+      // se muestra encima. No se manda a /perfil para que el modal aparezca de
+      // inmediato también en móvil.
       if (user.rol === "ALUMNO") navigate("/alumno/dashboard");
       else if (user.rol === "PROGRAMACION") navigate("/programacion/dashboard");
       else if (user.rol === "ADMIN") navigate("/admin/dashboard");

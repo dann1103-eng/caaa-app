@@ -231,11 +231,14 @@ exports.getCalendario = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT
       sv.id_detalle, sv.id_solicitud, ss.estado AS estado_solicitud, sv.estado AS estado_vuelo_individual,
+      ss.comentario_alumno,
       v.id_vuelo, v.estado AS estado_vuelo, COALESCE(v.estado, ss.estado) AS estado_mostrar,
       sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
       sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,
       ss.id_alumno, u_al.nombre || ' ' || u_al.apellido AS alumno_nombre,
+      LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
       i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
+      LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
       COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular
     FROM solicitud_vuelo sv
     JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
@@ -381,10 +384,15 @@ exports.getBloquesBloqueados = catchAsync(async (req, res) => {
 });
 
 exports.getInstructoresActivos = catchAsync(async (req, res) => {
+  // Solo instructores de VUELO: son los únicos asignables a un vuelo. El flag
+  // se filtra aquí para que todos los selectores de agenda (modal + popover)
+  // muestren únicamente a estos.
   const result = await db.query(`
-    SELECT i.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo
+    SELECT i.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo,
+           i.es_instructor_vuelo, i.es_instructor_teoria, i.puede_programar
     FROM instructor i JOIN usuario u ON u.id_usuario = i.id_usuario
-    WHERE i.activo = true ORDER BY u.apellido, u.nombre
+    WHERE i.activo = true AND i.es_instructor_vuelo = true
+    ORDER BY u.apellido, u.nombre
   `);
   res.json(result.rows);
 });

@@ -26,6 +26,7 @@ export default function InstructorAulaVirtual() {
   const [sesiones, setSesiones] = useState([]);
   const [sesionForm, setSesionForm] = useState({ fecha: new Date().toISOString().slice(0, 10), hora_inicio: "", hora_fin: "", tema: "", id_unidad: "" });
   const [asistencia, setAsistencia] = useState(null); // {sesion, lista}
+  const [misProximas, setMisProximas] = useState([]);
 
   useEffect(() => {
     getAulaCursos().then(r => {
@@ -33,6 +34,7 @@ export default function InstructorAulaVirtual() {
       setCursos(cs);
       if (cs.length && !cursoSel) setCursoSel(String(cs[0].id));
     }).catch(() => toast.error("No se pudieron cargar los cursos"));
+    getSesiones({ mias: 1, futuras: 1 }).then(r => setMisProximas(r?.data || [])).catch(() => setMisProximas([]));
   }, []);
 
   useEffect(() => {
@@ -101,6 +103,25 @@ export default function InstructorAulaVirtual() {
           <i className="bi bi-mortarboard-fill me-2"></i>Aula Virtual — Instructor
         </h1>
         <p style={{ color: "var(--c-ink-2)", marginBottom: 16 }}>Material, calificaciones y asistencia de tus cursos teóricos.</p>
+
+        {misProximas.length > 0 && (
+          <div style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-line-1)", borderRadius: "var(--radius-md)", padding: 14, marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, color: "var(--c-ink-1)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+              <i className="bi bi-calendar-event" style={{ color: "var(--c-brand-700)" }}></i> Mis próximas clases
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {misProximas.slice(0, 8).map(s => (
+                <div key={s.id} style={{ borderLeft: "3px solid var(--c-brand-700)", paddingLeft: 8, minWidth: 180 }}>
+                  <div style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums", color: "var(--c-ink-1)" }}>
+                    {new Date(s.fecha).toLocaleDateString("es-SV", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" })}
+                    {s.hora_inicio ? ` · ${String(s.hora_inicio).slice(0,5)}` : ""}{s.hora_fin ? `–${String(s.hora_fin).slice(0,5)}` : ""}
+                  </div>
+                  <div style={{ fontSize: "var(--text-sm)", color: "var(--c-ink-2)" }}>{s.curso_codigo}{s.tema ? ` · ${s.tema}` : ""}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", marginRight: 8 }}>Curso:</label>
