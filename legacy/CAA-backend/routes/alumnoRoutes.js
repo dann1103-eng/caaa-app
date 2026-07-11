@@ -57,6 +57,12 @@ router.get("/bloques-bloqueados", alumnoAccess, alumnoVuelo.getBloquesBloqueados
 router.get("/condiciones-cancelacion", alumnoAccess, alumnoVuelo.getCondicionesCancelacion);
 router.get("/mis-clases", alumnoAccess, alumnoVuelo.getMisClases);
 
+// Lista de espera (stand-by): ofertas de cupos liberados.
+const standby = require("../controllers/standbyController");
+router.get("/mis-ofertas", alumnoAccess, standby.misOfertas);
+router.post("/standby/:id_standby/aceptar", alumnoAccess, standby.aceptarOferta);
+router.post("/standby/:id_standby/rechazar", alumnoAccess, standby.rechazarOferta);
+
 // --- Cuenta corriente y Administración (Módulo Admin/Contabilidad) ---
 router.get("/mi-cuenta", alumnoAccess, alumnoCuenta.miCuenta);
 router.get("/mi-cuenta/extracto", alumnoAccess, alumnoCuenta.miExtracto);

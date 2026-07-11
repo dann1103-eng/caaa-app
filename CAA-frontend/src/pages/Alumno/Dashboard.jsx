@@ -11,7 +11,10 @@ import {
   getMiInfo,
   getMisSolicitudesCancelacion,
   getCondicionesCancelacion,
-  getMisClases
+  getMisClases,
+  getMisOfertas,
+  aceptarOfertaStandby,
+  rechazarOfertaStandby
 } from "../../services/alumnoApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
@@ -57,10 +60,23 @@ export default function AlumnoDashboard() {
   const [estadoCancel, setEstadoCancel] = useState(null);
   const [info, setInfo] = useState(null);
   const [misClases, setMisClases] = useState([]);
+  const [ofertas, setOfertas] = useState([]);
+  const cargarOfertas = () => getMisOfertas().then((d) => setOfertas(Array.isArray(d) ? d : [])).catch(() => setOfertas([]));
   useEffect(() => {
     getMiInfo().then(setInfo).catch(() => { });
     getMisClases().then((d) => setMisClases(Array.isArray(d) ? d : [])).catch(() => setMisClases([]));
+    cargarOfertas();
   }, []);
+
+  const DIAS_OF = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const aceptarOferta = async (id) => {
+    try { const r = await aceptarOfertaStandby(id); toast.success(r?.message || "¡Cupo tomado!"); cargarOfertas(); fetchVuelos(); }
+    catch (e) { toast.error(e?.response?.data?.message || "No se pudo tomar el cupo"); cargarOfertas(); }
+  };
+  const rechazarOferta = async (id) => {
+    try { await rechazarOfertaStandby(id); toast.success("Oferta rechazada"); cargarOfertas(); }
+    catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
 
   const fetchVuelos = useCallback(async () => {
     if (weekMode === "cancelaciones") return;
@@ -214,6 +230,32 @@ export default function AlumnoDashboard() {
         {/* ── Body: main + sidebar ── */}
         <div className="dash__body">
           <div className="dash__main">
+            {/* Ofertas de cupos liberados (lista de espera) */}
+            {ofertas.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                {ofertas.map((o) => (
+                  <div key={o.id_standby} style={{ background: "var(--c-success-50, #f0fdf4)", border: "1px solid var(--c-success-100, #dcfce7)", borderRadius: "var(--radius-md)", padding: "14px 16px", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: "var(--c-success-700, #15803d)", marginBottom: 6 }}>
+                      <i className="bi bi-stopwatch"></i> ¡Se liberó un vuelo que pediste!
+                    </div>
+                    <div style={{ fontSize: "var(--text-sm)", color: "var(--c-ink-2)", marginBottom: 10 }}>
+                      {DIAS_OF[o.dia_semana]} · {String(o.hora_inicio).slice(0,5)}{o.hora_fin ? `–${String(o.hora_fin).slice(0,5)}` : ""}
+                      {o.aeronave_codigo ? ` · ${o.aeronave_codigo}` : ""}
+                      {o.expira_en ? <span style={{ color: "var(--c-ink-3)" }}> · vence {new Date(o.expira_en).toLocaleString("es-SV", { timeZone: "America/El_Salvador", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })}</span> : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => aceptarOferta(o.id_standby)} style={{ background: "var(--c-success-600, #16a34a)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)", padding: "8px 16px", fontWeight: 700, cursor: "pointer" }}>
+                        <i className="bi bi-check2 me-1"></i>Tomar el cupo
+                      </button>
+                      <button onClick={() => rechazarOferta(o.id_standby)} style={{ background: "transparent", color: "var(--c-ink-2)", border: "1px solid var(--c-line-1)", borderRadius: "var(--radius-sm)", padding: "8px 16px", fontWeight: 600, cursor: "pointer" }}>
+                        No, gracias
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="dash__tabs">
               <button

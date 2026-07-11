@@ -69,6 +69,7 @@ export default function AdminCalendar({
   onRechazar,                // (id_detalle) => Promise: acción del botón de rechazo
   allowInstructorChange = true, // mostrar el selector de instructor en el popover
   onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
+  onGestionarEspera,         // (slot) => void: abrir gestor de lista de espera
   rechazarLabel = "Rechazar Vuelo",
 }) {
   const isEditable = true; // El Admin siempre puede editar, incluso post-publicación
@@ -747,6 +748,7 @@ export default function AdminCalendar({
               isEditable={isEditable && puedeEditarItem(activePopover.item)}
               allowInstructorChange={allowInstructorChange}
               onRechazar={onRechazar}
+              onGestionarEspera={onGestionarEspera}
               rechazarLabel={rechazarLabel}
               loadingSave={loadingSave}
               handleSave={handleSave}
@@ -776,6 +778,7 @@ function PopoverContent({
   isEditable,
   allowInstructorChange = true,
   onRechazar,
+  onGestionarEspera,
   rechazarLabel = "Rechazar Vuelo",
   loadingSave,
   handleSave,
@@ -906,6 +909,22 @@ function PopoverContent({
               Mover vuelo
             </button>
           </div>
+        )}
+
+        {onGestionarEspera && (
+          <button
+            type="button"
+            className="btn-move-v"
+            style={{ width: '100%', marginTop: 8 }}
+            onClick={() => onGestionarEspera({
+              id_semana: activePopover.item.id_semana,
+              dia_semana: activePopover.item.dia_semana,
+              id_bloque: activePopover.item.id_bloque,
+              hora: activePopover.item.hora_inicio ? String(activePopover.item.hora_inicio).slice(0,5) : "",
+            })}
+          >
+            <i className="bi bi-hourglass-split"></i> Lista de espera
+          </button>
         )}
 
         {isEditable && (

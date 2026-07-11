@@ -33,6 +33,14 @@ export const precheckPublicarSemana = async (id_semana) => {
   return res.data; // { total, sin_revision, enviadas }
 };
 
+// ── Lista de espera (stand-by) — la ordena Turno ──
+export const getStandbyCandidatos = async (id_semana, dia_semana, id_bloque) =>
+  (await axios.get(`${API_URL}/admin/standby/candidatos`, { params: { id_semana, dia_semana, id_bloque } })).data;
+export const getStandbyLista = async (id_semana, dia_semana, id_bloque) =>
+  (await axios.get(`${API_URL}/admin/standby`, { params: { id_semana, dia_semana, id_bloque } })).data;
+export const setStandbyLista = async (payload) =>
+  (await axios.put(`${API_URL}/admin/standby`, payload)).data;
+
 // ── Aeronaves ─────────────────────────────────────────────────────────────────
 export const getAeronavesActivasAdmin = async () => {
   const res = await axios.get(`${API_URL}/admin/aeronaves`);

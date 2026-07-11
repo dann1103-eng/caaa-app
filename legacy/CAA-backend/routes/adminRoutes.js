@@ -62,4 +62,11 @@ router.get("/auditoria", adminAccess, adminAuditoria.getAuditoria);
 router.get("/solicitudes-cancelacion", adminAccess, adminCancelacion.getSolicitudesCancelacion);
 router.post("/solicitudes-cancelacion/:id/resolver", adminAccess, adminCancelacion.resolverSolicitudCancelacion);
 
+// --- Lista de espera (stand-by) — la ordena Turno ---
+const standby = require("../controllers/standbyController");
+router.get("/standby/candidatos", adminAccess, standby.getCandidatos);
+router.get("/standby", adminAccess, standby.getLista);
+router.put("/standby", adminAccess, standby.setLista);
+router.delete("/standby/:id_standby", adminAccess, standby.quitarCandidato);
+
 module.exports = router;

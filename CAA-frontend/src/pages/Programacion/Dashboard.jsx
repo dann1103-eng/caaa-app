@@ -12,6 +12,7 @@ import {
 
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
+import StandbyModal from "../../components/StandbyModal/StandbyModal";
 import { getInstructoresActivos, cambiarInstructorVuelo } from "../../services/adminApi";
 import "./Dashboard.css";
 
@@ -112,6 +113,7 @@ export default function ProgramacionDashboard({ embedded = false }) {
   const [modalReasignar, setModalReasignar] = useState(null);
   const [instructores, setInstructores] = useState([]);
   const [agendarCell, setAgendarCell] = useState(null);
+  const [esperaSlot, setEsperaSlot] = useState(null);
 
   const reload = async () => {
     setLoading(true);
@@ -419,11 +421,16 @@ export default function ProgramacionDashboard({ embedded = false }) {
                 aeronaves={aeronaves}
                 onGuardarCambio={onGuardarCambio}
                 onEmptyCellClick={(cell) => setAgendarCell(cell)}
+                onGestionarEspera={(slot) => setEsperaSlot(slot)}
               />
             )}
           </div>
         </div>
       </div>
+
+      {esperaSlot && (
+        <StandbyModal slot={esperaSlot} onClose={() => setEsperaSlot(null)} />
+      )}
 
       {agendarCell && (
         <AgendarVueloModal

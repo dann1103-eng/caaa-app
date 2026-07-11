@@ -2,6 +2,7 @@ const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
+const { dispararOfertaPorCancelacion } = require("../standbyController");
 
 exports.getSolicitudesCancelacion = catchAsync(async (req, res) => {
   const { estado } = req.query;
@@ -73,6 +74,12 @@ exports.resolverSolicitudCancelacion = catchAsync(async (req, res) => {
     
     if (decision === 'ACEPTADA') {
       await client.query(`UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW() WHERE id_vuelo = $1`, [solRes.rows[0].id_vuelo]);
+      // Lista de espera: ofrecer el cupo liberado al siguiente candidato (si hay
+      // margen suficiente). NO se dispara en cierres de operaciones (esa ruta no
+      // llama aquí). No debe abortar la cancelación si algo falla.
+      try {
+        await dispararOfertaPorCancelacion(client, solRes.rows[0].id_vuelo, req.app.get("io"));
+      } catch (e) { console.error("[standby] disparo por cancelación:", e.message); }
     }
 
     await logAuditoria(client, { accion: "RESOLVER_SOLICITUD_CANCELACION", entidad: "solicitud_cancelacion", id_entidad: id, actor: req.user, req, descripcion: `Admin ${decision} solicitud` });

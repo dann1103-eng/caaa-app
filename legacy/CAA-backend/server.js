@@ -128,6 +128,13 @@ setInterval(() => {
   );
 }, UN_DIA_MS);
 
+// Lista de espera (stand-by): expira ofertas vencidas y ofrece al siguiente
+// candidato. Cada 5 minutos (el plazo de respuesta es de horas, no hace falta más).
+const { expirarOfertasVencidas } = require("./controllers/standbyController");
+setInterval(() => {
+  expirarOfertasVencidas(io).catch((e) => console.error("Error job stand-by:", e));
+}, 5 * 60 * 1000);
+
 setInterval(async () => {
   const nowSV = DateTime.now().setZone("America/El_Salvador");
   const horaActual = nowSV.toFormat("HH:mm:00");

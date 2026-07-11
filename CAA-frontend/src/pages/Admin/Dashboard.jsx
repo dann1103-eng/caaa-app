@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import ToastMantenimiento from "../../components/ToastMantenimiento/ToastMantenimiento";
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
+import StandbyModal from "../../components/StandbyModal/StandbyModal";
 import {
   getCalendarioAdmin,
   getAeronavesActivasAdmin,
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
   const [instructores, setInstructores] = useState([]);
   const [publicada, setPublicada] = useState(true);
   const [agendarCell, setAgendarCell] = useState(null); // { dia_semana, id_bloque }
+  const [esperaSlot, setEsperaSlot] = useState(null);   // { id_semana, dia_semana, id_bloque, hora }
 
   const load = async (w = week) => {
     setLoading(true);
@@ -433,9 +435,14 @@ export default function AdminDashboard() {
               onRefresh={() => load()}
               onConflictChange={setHasConflicts}
               onEmptyCellClick={(cell) => setAgendarCell(cell)}
+              onGestionarEspera={(slot) => setEsperaSlot(slot)}
             />
           )}
         </div>
+
+        {esperaSlot && (
+          <StandbyModal slot={esperaSlot} onClose={() => setEsperaSlot(null)} />
+        )}
 
         {agendarCell && (
           <AgendarVueloModal

@@ -50,6 +50,20 @@ export const getMisClases = async () => {
   return res.data;
 };
 
+// Lista de espera (stand-by): ofertas de cupos liberados.
+export const getMisOfertas = async () => {
+  const res = await axios.get(`${API_URL}/alumno/mis-ofertas`);
+  return res.data;
+};
+export const aceptarOfertaStandby = async (id_standby) => {
+  const res = await axios.post(`${API_URL}/alumno/standby/${id_standby}/aceptar`);
+  return res.data;
+};
+export const rechazarOfertaStandby = async (id_standby) => {
+  const res = await axios.post(`${API_URL}/alumno/standby/${id_standby}/rechazar`);
+  return res.data;
+};
+
 export const getBloquesBloqueadosAlumno = async () => {
   const res = await axios.get(`${API_URL}/alumno/bloques-bloqueados`);
   return res.data;
