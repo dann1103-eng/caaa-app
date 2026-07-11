@@ -24,7 +24,7 @@ export default function InstructorAulaVirtual() {
   const [evalAlumnos, setEvalAlumnos] = useState(null); // {ev, lista}
 
   const [sesiones, setSesiones] = useState([]);
-  const [sesionForm, setSesionForm] = useState({ fecha: new Date().toISOString().slice(0, 10), tema: "", id_unidad: "" });
+  const [sesionForm, setSesionForm] = useState({ fecha: new Date().toISOString().slice(0, 10), hora_inicio: "", hora_fin: "", tema: "", id_unidad: "" });
   const [asistencia, setAsistencia] = useState(null); // {sesion, lista}
 
   useEffect(() => {
@@ -76,9 +76,9 @@ export default function InstructorAulaVirtual() {
   const crearSes = async () => {
     if (!cursoSel) return;
     try {
-      await crearSesion({ id_curso: Number(cursoSel), id_unidad: sesionForm.id_unidad || null, fecha: sesionForm.fecha, tema: sesionForm.tema });
+      await crearSesion({ id_curso: Number(cursoSel), id_unidad: sesionForm.id_unidad || null, fecha: sesionForm.fecha, hora_inicio: sesionForm.hora_inicio || null, hora_fin: sesionForm.hora_fin || null, tema: sesionForm.tema });
       toast.success("Sesión creada (lista pre-cargada como presentes)");
-      setSesionForm({ fecha: new Date().toISOString().slice(0, 10), tema: "", id_unidad: "" });
+      setSesionForm({ fecha: new Date().toISOString().slice(0, 10), hora_inicio: "", hora_fin: "", tema: "", id_unidad: "" });
       setSesiones((await getSesiones({ id_curso: cursoSel }))?.data || []);
     } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
   };
@@ -205,6 +205,10 @@ export default function InstructorAulaVirtual() {
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end", marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid var(--c-line-1)" }}>
                   <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Fecha</label>
                     <input type="date" value={sesionForm.fecha} onChange={(e) => setSesionForm({ ...sesionForm, fecha: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }} /></div>
+                  <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Desde</label>
+                    <input type="time" value={sesionForm.hora_inicio} onChange={(e) => setSesionForm({ ...sesionForm, hora_inicio: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }} /></div>
+                  <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Hasta</label>
+                    <input type="time" value={sesionForm.hora_fin} onChange={(e) => setSesionForm({ ...sesionForm, hora_fin: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }} /></div>
                   <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Unidad (opcional)</label>
                     <select value={sesionForm.id_unidad} onChange={(e) => setSesionForm({ ...sesionForm, id_unidad: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }}>
                       <option value="">—</option>
@@ -217,7 +221,7 @@ export default function InstructorAulaVirtual() {
                 {sesiones.length === 0 ? <p style={{ color: "var(--c-ink-2)" }}>Sin sesiones de clase aún.</p> :
                   sesiones.map(s => (
                     <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--c-line-1)", padding: "10px 0" }}>
-                      <div><strong style={{ fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" }}>{s.fecha}</strong> {s.tema && `· ${s.tema}`} {s.unidad_numero ? `· U${s.unidad_numero}` : ""}
+                      <div><strong style={{ fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" }}>{s.fecha}{s.hora_inicio ? ` ${String(s.hora_inicio).slice(0,5)}` : ""}{s.hora_fin ? `–${String(s.hora_fin).slice(0,5)}` : ""}</strong> {s.tema && `· ${s.tema}`} {s.unidad_numero ? `· U${s.unidad_numero}` : ""}
                         <div style={{ fontSize: "var(--text-xs)", color: "var(--c-ink-3)", fontVariantNumeric: "tabular-nums" }}>{s.presentes}/{s.total} presentes</div></div>
                       <button onClick={() => abrirAsistencia(s)} style={{ border: "1px solid var(--c-line-2)", background: "transparent", borderRadius: "var(--radius-sm)", padding: "4px 10px", cursor: "pointer", color: "var(--c-ink-1)" }}>Pasar lista</button>
                     </div>

@@ -45,6 +45,11 @@ export const getCondicionesCancelacion = async (id_vuelo = null) => {
   return res.data;
 };
 
+export const getMisClases = async () => {
+  const res = await axios.get(`${API_URL}/alumno/mis-clases`);
+  return res.data;
+};
+
 export const getBloquesBloqueadosAlumno = async () => {
   const res = await axios.get(`${API_URL}/alumno/bloques-bloqueados`);
   return res.data;

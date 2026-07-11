@@ -72,4 +72,20 @@ function requireCapacidad(roles, capacidad) {
   };
 }
 
-module.exports = { getCapacidadesInstructor, puedeProgramar, requireCapacidad, ROLES_PROGRAMACION };
+/**
+ * Gate para el Aula Virtual: los roles no-INSTRUCTOR pasan (ya los filtra
+ * roleMiddleware); un INSTRUCTOR requiere es_instructor_teoria. Así un instructor
+ * solo-de-vuelo no ve/gestiona el aula.
+ */
+async function aulaInstructorGate(req, res, next) {
+  try {
+    if (req.user?.rol !== "INSTRUCTOR") return next();
+    const cap = await getCapacidadesInstructor(req);
+    if (cap && cap.activo && cap.es_instructor_teoria) return next();
+    return res.status(403).json({ ok: false, message: "No tenés habilitado el módulo de teoría (Aula Virtual)." });
+  } catch (e) {
+    next(e);
+  }
+}
+
+module.exports = { getCapacidadesInstructor, puedeProgramar, requireCapacidad, aulaInstructorGate, ROLES_PROGRAMACION };

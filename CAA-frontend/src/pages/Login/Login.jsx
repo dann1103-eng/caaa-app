@@ -30,7 +30,7 @@ export default function Login() {
       else if (user.rol === "PROGRAMACION") navigate("/programacion/dashboard");
       else if (user.rol === "ADMIN") navigate("/admin/dashboard");
       else if (user.rol === "TURNO") navigate("/turno");
-      else if (user.rol === "INSTRUCTOR") navigate("/instructor");
+      else if (user.rol === "INSTRUCTOR") navigate(user.es_instructor_vuelo === false ? "/instructor/aula-virtual" : "/instructor");
       else if (user.rol === "ADMINISTRACION") navigate("/administracion/dashboard");
       else if (user.rol === "TALLER") navigate("/taller/dashboard");
     } catch {

@@ -10,7 +10,8 @@ import {
   getMiHorario,
   getMiInfo,
   getMisSolicitudesCancelacion,
-  getCondicionesCancelacion
+  getCondicionesCancelacion,
+  getMisClases
 } from "../../services/alumnoApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
@@ -55,8 +56,10 @@ export default function AlumnoDashboard() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
   const [estadoCancel, setEstadoCancel] = useState(null);
   const [info, setInfo] = useState(null);
+  const [misClases, setMisClases] = useState([]);
   useEffect(() => {
     getMiInfo().then(setInfo).catch(() => { });
+    getMisClases().then((d) => setMisClases(Array.isArray(d) ? d : [])).catch(() => setMisClases([]));
   }, []);
 
   const fetchVuelos = useCallback(async () => {
@@ -294,6 +297,25 @@ export default function AlumnoDashboard() {
 
           {/* ── Sidebar ── */}
           <aside className="dash__sidebar">
+            {misClases.length > 0 && (
+              <div className="dash__widget" style={{ background: 'var(--c-surface-1)', border: '1px solid var(--c-line-1)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontWeight: 700, color: 'var(--c-ink-1)' }}>
+                  <i className="bi bi-mortarboard" style={{ color: 'var(--c-brand-700)' }}></i> Próximas clases
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {misClases.map((c) => (
+                    <div key={c.id} style={{ fontSize: 'var(--text-sm)', borderLeft: '3px solid var(--c-brand-700)', paddingLeft: 8 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--c-ink-1)', fontVariantNumeric: 'tabular-nums' }}>
+                        {new Date(c.fecha).toLocaleDateString('es-SV', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })}
+                        {c.hora_inicio ? ` · ${String(c.hora_inicio).slice(0,5)}` : ''}{c.hora_fin ? `–${String(c.hora_fin).slice(0,5)}` : ''}
+                      </div>
+                      <div style={{ color: 'var(--c-ink-2)' }}>{c.curso_codigo}{c.tema ? ` · ${c.tema}` : ''}</div>
+                      {c.instructor_nombre && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--c-ink-3)' }}>{c.instructor_nombre}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <MetarWidget />
             <EstadoOperacionesWidget />
           </aside>

@@ -6,6 +6,7 @@ const router = express.Router();
 
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const { aulaInstructorGate } = require("../utils/capacidades");
 
 const tarifas = require("../controllers/administracion/tarifasController");
 const cursos = require("../controllers/administracion/cursosController");
@@ -137,6 +138,9 @@ router.patch("/medicos/:id",                roleMiddleware(WRITE_ROLES), medicos
 
 // ── Aula Virtual ──────────────────────────────────────────────────────
 // Read se comparte con instructor; write solo admin/administracion.
+// Un INSTRUCTOR necesita es_instructor_teoria para entrar al aula (los demás
+// roles pasan; el gate solo filtra al instructor solo-de-vuelo).
+router.use("/aula", aulaInstructorGate);
 const AULA_READ  = ["ADMINISTRACION","ADMIN","INSTRUCTOR"];
 const AULA_WRITE = ["ADMINISTRACION","ADMIN","INSTRUCTOR"];
 

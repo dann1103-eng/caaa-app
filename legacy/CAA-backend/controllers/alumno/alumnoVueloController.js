@@ -106,3 +106,27 @@ exports.getBloquesBloqueados = catchAsync(async (req, res) => {
   res.json(result.rows);
 });
 
+// Próximas clases teóricas del alumno (sesiones futuras de sus cursos activos).
+exports.getMisClases = catchAsync(async (req, res) => {
+  const alRes = await db.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1`, [req.user.id_usuario]);
+  const idAlumno = alRes.rows[0]?.id_alumno;
+  if (!idAlumno) return res.json([]);
+
+  const r = await db.query(`
+    SELECT s.id, s.fecha, s.hora_inicio, s.hora_fin, s.tema,
+           c.codigo AS curso_codigo, c.nombre AS curso_nombre,
+           un.numero AS unidad_numero, un.nombre AS unidad_nombre,
+           (u.nombre || ' ' || u.apellido) AS instructor_nombre
+    FROM sesion_clase s
+    JOIN curso c ON c.id = s.id_curso
+    JOIN inscripcion_curso ic ON ic.id_curso = s.id_curso AND ic.id_alumno = $1 AND ic.estado = 'ACTIVO'
+    LEFT JOIN unidad_teorica un ON un.id = s.id_unidad
+    LEFT JOIN instructor i ON i.id_instructor = s.id_instructor
+    LEFT JOIN usuario u ON u.id_usuario = i.id_usuario
+    WHERE s.fecha >= CURRENT_DATE
+    ORDER BY s.fecha ASC, s.hora_inicio ASC NULLS LAST
+    LIMIT 10
+  `, [idAlumno]);
+  res.json(r.rows);
+});
+

@@ -55,6 +55,7 @@ router.get("/mi-info", alumnoAccess, alumnoVuelo.getMiInfo);
 router.get("/mi-proximo-mantenimiento", alumnoAccess, alumnoVuelo.getMiProximoMantenimiento);
 router.get("/bloques-bloqueados", alumnoAccess, alumnoVuelo.getBloquesBloqueados);
 router.get("/condiciones-cancelacion", alumnoAccess, alumnoVuelo.getCondicionesCancelacion);
+router.get("/mis-clases", alumnoAccess, alumnoVuelo.getMisClases);
 
 // --- Cuenta corriente y Administración (Módulo Admin/Contabilidad) ---
 router.get("/mi-cuenta", alumnoAccess, alumnoCuenta.miCuenta);

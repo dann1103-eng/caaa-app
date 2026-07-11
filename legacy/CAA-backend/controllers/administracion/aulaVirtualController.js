@@ -4,6 +4,7 @@ const { subirArchivo, urlFirmada, borrarArchivo, storageDisponible, BUCKETS } = 
 const { notificarRoles, notificarUsuario } = require("../../utils/notificaciones");
 const transporter = require("../../utils/mailer");
 const { examenFinalEmail } = require("../../utils/emailTemplates");
+const { resolverIdInstructor } = require("../../utils/instructorHelpers");
 
 // Destinatarios del correo de "examen final aprobado": MAIL_ADMIN_NOTIFY si está
 // definido (p.ej. el correo de Mayra / Administración), si no los correos de los
@@ -120,12 +121,14 @@ exports.listCursos = async (req, res) => {
 
 exports.listSesiones = async (req, res) => {
   try {
-    const { id_curso } = req.query;
+    const { id_curso, futuras } = req.query;
     const params = [];
-    let where = "";
-    if (id_curso) { params.push(id_curso); where = `WHERE s.id_curso = $${params.length}`; }
+    const conds = [];
+    if (id_curso) { params.push(id_curso); conds.push(`s.id_curso = $${params.length}`); }
+    if (futuras === "1" || futuras === "true") conds.push(`s.fecha >= CURRENT_DATE`);
+    const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     const r = await db.query(`
-      SELECT s.id, s.id_curso, s.id_unidad, s.fecha, s.tema, s.id_instructor,
+      SELECT s.id, s.id_curso, s.id_unidad, s.fecha, s.hora_inicio, s.hora_fin, s.tema, s.id_instructor,
              c.codigo AS curso_codigo, u.numero AS unidad_numero, u.nombre AS unidad_nombre,
              (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id) AS total,
              (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id AND a.estado='PRESENTE') AS presentes
@@ -133,7 +136,7 @@ exports.listSesiones = async (req, res) => {
       JOIN curso c ON c.id = s.id_curso
       LEFT JOIN unidad_teorica u ON u.id = s.id_unidad
       ${where}
-      ORDER BY s.fecha DESC, s.id DESC
+      ORDER BY s.fecha DESC, s.hora_inicio DESC NULLS LAST, s.id DESC
     `, params);
     res.json({ ok: true, data: r.rows });
   } catch (e) {
@@ -144,13 +147,21 @@ exports.listSesiones = async (req, res) => {
 exports.crearSesion = async (req, res) => {
   const client = await db.connect();
   try {
-    const { id_curso, id_unidad, fecha, tema, id_instructor } = req.body;
+    const { id_curso, id_unidad, fecha, tema, hora_inicio, hora_fin } = req.body;
+    let { id_instructor } = req.body;
     if (!id_curso) return res.status(400).json({ ok: false, message: "id_curso requerido" });
+
+    // Un INSTRUCTOR solo puede crear sesiones a su propio nombre (no spoofear
+    // id_instructor por el body). Admin/Administración sí pueden asignar.
+    if (req.user?.rol === "INSTRUCTOR") {
+      id_instructor = await resolverIdInstructor(req.user.id_usuario);
+    }
+
     await client.query("BEGIN");
     const r = await client.query(`
-      INSERT INTO sesion_clase (id_curso, id_unidad, fecha, tema, id_instructor, creado_por)
-      VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5, $6) RETURNING *
-    `, [id_curso, id_unidad || null, fecha || null, tema || null, id_instructor || null, req.user?.id_usuario || null]);
+      INSERT INTO sesion_clase (id_curso, id_unidad, fecha, hora_inicio, hora_fin, tema, id_instructor, creado_por)
+      VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5, $6, $7, $8) RETURNING *
+    `, [id_curso, id_unidad || null, fecha || null, hora_inicio || null, hora_fin || null, tema || null, id_instructor || null, req.user?.id_usuario || null]);
 
     // Pre-cargar la lista con todos los alumnos activos del curso (default PRESENTE).
     await client.query(`

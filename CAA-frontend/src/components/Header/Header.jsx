@@ -65,7 +65,7 @@ export default function Header() {
                   </Link>
                 )}
 
-                {user.rol === "INSTRUCTOR" && (
+                {user.rol === "INSTRUCTOR" && user.es_instructor_teoria !== false && (
                   <Link to="/instructor/aula-virtual" className="header__action-link">
                     <i className="bi bi-mortarboard header__action-icon" />
                     <span>Aula Virtual</span>
