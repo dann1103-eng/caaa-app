@@ -52,6 +52,32 @@
 .avm-search:focus { outline: none; border-color: var(--c-brand-700, #1e3a8a); box-shadow: 0 0 0 3px var(--c-brand-50, #eff6ff); }
 .avm-error { border-color: var(--c-danger-500, #ef4444) !important; }
 
+/* Combobox de alumno: input + lista flotante de coincidencias en vivo */
+.avm-combo { position: relative; }
+.avm-combo .avm-search { margin-bottom: 0; }
+.avm-combo__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--c-surface, #fff);
+  border: 1px solid var(--c-line, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  z-index: 10;
+}
+.avm-combo__item {
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  color: var(--c-ink, #0f172a);
+  cursor: pointer;
+}
+.avm-combo__item--active { background: var(--c-brand-50, #eff6ff); }
+.avm-combo__item--selected { font-weight: 700; }
+.avm-combo__empty { padding: 10px; font-size: 0.85rem; color: var(--c-ink-3, #64748b); }
+
 .avm-req { color: var(--c-danger-600, #dc2626); }
 .avm-hint { margin: 2px 0 0; font-size: 0.74rem; color: var(--c-ink-3, #64748b); }
 .avm-warn { margin: 4px 0 0; font-size: 0.78rem; color: var(--c-danger-700, #b91c1c); display: flex; gap: 5px; align-items: center; }

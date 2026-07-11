@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   getAlumnosListAdmin,
@@ -34,6 +34,9 @@ export default function AgendarVueloModal({
   const [idAlumno, setIdAlumno] = useState("");
   const [idInstructor, setIdInstructor] = useState(fixedInstructor ? String(fixedInstructor) : "");
   const [busqueda, setBusqueda] = useState("");
+  const [alumnoAbierto, setAlumnoAbierto] = useState(false);
+  const [alumnoHighlight, setAlumnoHighlight] = useState(0);
+  const alumnoBoxRef = useRef(null);
   const [idAeronave, setIdAeronave] = useState("");
   const [tipoVuelo, setTipoVuelo] = useState("LOCAL");
   const [bloqueFin, setBloqueFin] = useState(String(id_bloque));
@@ -72,9 +75,35 @@ export default function AgendarVueloModal({
 
   const alumnosFiltrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
-    if (!q) return alumnos;
-    return alumnos.filter(a => (a.nombre_completo || `${a.nombre} ${a.apellido}`).toLowerCase().includes(q));
+    const base = !q ? alumnos : alumnos.filter(a => (a.nombre_completo || `${a.nombre} ${a.apellido}`).toLowerCase().includes(q));
+    return base.slice(0, 50); // lista larga (todos los alumnos) → limitar el desplegable
   }, [alumnos, busqueda]);
+
+  // Cerrar el desplegable de alumno al hacer click fuera.
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (alumnoBoxRef.current && !alumnoBoxRef.current.contains(e.target)) setAlumnoAbierto(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  useEffect(() => { setAlumnoHighlight(0); }, [busqueda]);
+
+  const seleccionarAlumno = (a) => {
+    setIdAlumno(String(a.id_alumno));
+    setBusqueda(a.nombre_completo || `${a.nombre} ${a.apellido}`);
+    setAlumnoAbierto(false);
+  };
+
+  const onAlumnoKeyDown = (e) => {
+    if (!alumnoAbierto && (e.key === "ArrowDown" || e.key === "ArrowUp")) { setAlumnoAbierto(true); return; }
+    if (!alumnoAbierto) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setAlumnoHighlight(h => Math.min(h + 1, alumnosFiltrados.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setAlumnoHighlight(h => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); const a = alumnosFiltrados[alumnoHighlight]; if (a) seleccionarAlumno(a); }
+    else if (e.key === "Escape") { setAlumnoAbierto(false); }
+  };
 
   const aeronaveNoPermitida = useMemo(() => {
     if (extra || !idAeronave || permitidas === null) return false;
@@ -133,22 +162,45 @@ export default function AgendarVueloModal({
         </div>
 
         <div className="avm-body">
-          <div className="avm-field">
+          <div className="avm-field" ref={alumnoBoxRef}>
             <label>Alumno</label>
-            <input
-              className="avm-search"
-              placeholder="Buscar alumno por nombre…"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
-            <select value={idAlumno} onChange={(e) => setIdAlumno(e.target.value)} size={1}>
-              <option value="">— Elegí un alumno —</option>
-              {alumnosFiltrados.map(a => (
-                <option key={a.id_alumno} value={a.id_alumno}>
-                  {a.nombre_completo || `${a.nombre} ${a.apellido}`}
-                </option>
-              ))}
-            </select>
+            <div className="avm-combo">
+              <input
+                className="avm-search"
+                placeholder="Buscar alumno por nombre…"
+                value={busqueda}
+                onFocus={() => setAlumnoAbierto(true)}
+                onChange={(e) => {
+                  setBusqueda(e.target.value);
+                  setIdAlumno("");
+                  setAlumnoAbierto(true);
+                }}
+                onKeyDown={onAlumnoKeyDown}
+                role="combobox"
+                aria-expanded={alumnoAbierto}
+                aria-autocomplete="list"
+              />
+              {alumnoAbierto && (
+                <div className="avm-combo__list" role="listbox">
+                  {alumnosFiltrados.length === 0 ? (
+                    <div className="avm-combo__empty">Sin coincidencias.</div>
+                  ) : (
+                    alumnosFiltrados.map((a, idx) => (
+                      <div
+                        key={a.id_alumno}
+                        role="option"
+                        aria-selected={Number(idAlumno) === Number(a.id_alumno)}
+                        className={`avm-combo__item ${idx === alumnoHighlight ? "avm-combo__item--active" : ""} ${Number(idAlumno) === Number(a.id_alumno) ? "avm-combo__item--selected" : ""}`}
+                        onMouseDown={(e) => { e.preventDefault(); seleccionarAlumno(a); }}
+                        onMouseEnter={() => setAlumnoHighlight(idx)}
+                      >
+                        {a.nombre_completo || `${a.nombre} ${a.apellido}`}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="avm-field">
