@@ -3,6 +3,7 @@ const { logAuditoria } = require("../utils/auditoria");
 const transporter = require("../utils/mailer");
 const { puedeProgramar } = require("../utils/capacidades");
 const solicitudService = require("../services/solicitudService");
+const { notificarUsuario } = require("../utils/notificaciones");
 
 async function getNextSemanaId(client) {
   const semanaRes = await client.query(`
@@ -589,6 +590,161 @@ exports.getAeronavesDisponibles = async (req, res) => {
   } catch (e) {
     console.error("getAeronavesDisponibles:", e);
     res.status(500).json({ message: "Error al obtener aeronaves disponibles" });
+  }
+};
+
+// ── Agendar desde el calendario del dashboard ─────────────────────────────
+// Un solo vuelo, aditivo. Lo usan ADMIN/PROGRAMACION y el instructor con
+// puede_programar (todos pasan por requireProgramacion).
+
+// (A) Semana NO publicada → crea una solicitud (aditiva, sin pisar el basket).
+exports.agendarSolicitud = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const user = await requireProgramacion(req, res);
+    if (!user) return;
+
+    const { id_alumno, id_instructor, dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, es_extracurricular } = req.body;
+    if (!id_alumno || !dia_semana || !id_bloque || !id_aeronave) {
+      return res.status(400).json({ message: "Faltan datos del vuelo (alumno, día, bloque, aeronave)" });
+    }
+    if (Number(dia_semana) < 1 || Number(dia_semana) > 6) {
+      return res.status(400).json({ message: "Día inválido (Lunes a Sábado)" });
+    }
+
+    const semana = await solicitudService.getNextSemana(client);
+    if (!semana) return res.status(404).json({ message: "No hay semana próxima" });
+    if (semana.publicada) return res.status(403).json({ message: "La semana ya está publicada — usá el agendado directo." });
+
+    await client.query("BEGIN");
+    const out = await solicitudService.insertarSolicitudVuelo(client, {
+      id_alumno, id_semana: semana.id_semana, dia_semana, id_bloque, id_bloque_fin,
+      id_aeronave, tipo_vuelo, id_instructor: id_instructor || null, es_extracurricular,
+    });
+    await logAuditoria(client, {
+      accion: "OTRO", entidad: "solicitud_vuelo", id_entidad: out.id_detalle, id_semana: semana.id_semana,
+      actor: user, req, descripcion: `Agendado manual (solicitud) alumno ${id_alumno}`,
+    });
+    await client.query("COMMIT");
+
+    const io = req.app.get("io");
+    if (io) io.emit("guardar_cambios", { origen: "agendar" });
+
+    res.json({ message: "Vuelo agendado", ...out });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.status === 400) return res.status(400).json({ message: e.message });
+    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23506") return res.status(409).json({ message: "El alumno ya tiene un vuelo en ese horario" });
+    if (e.code === "23507") return res.status(409).json({ message: "El instructor ya tiene un vuelo en ese horario" });
+    console.error("agendarSolicitud:", e);
+    res.status(500).json({ message: "Error al agendar el vuelo" });
+  } finally {
+    client.release();
+  }
+};
+
+// (B) Semana publicada / en curso → crea el vuelo directo (con solicitud_vuelo
+// de respaldo para que sea editable por id_detalle), notifica y avisa.
+exports.agendarVueloDirecto = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const user = await requireProgramacion(req, res);
+    if (!user) return;
+
+    const { id_semana, id_alumno, id_instructor, dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, es_extracurricular } = req.body;
+    if (!id_semana || !id_alumno || !id_instructor || !dia_semana || !id_bloque || !id_aeronave) {
+      return res.status(400).json({ message: "Faltan datos del vuelo (semana, alumno, instructor, día, bloque, aeronave)" });
+    }
+    if (Number(dia_semana) < 1 || Number(dia_semana) > 6) {
+      return res.status(400).json({ message: "Día inválido (Lunes a Sábado)" });
+    }
+
+    const semRes = await client.query("SELECT id_semana, fecha_inicio, publicada FROM semana_vuelo WHERE id_semana = $1", [id_semana]);
+    if (semRes.rows.length === 0) return res.status(404).json({ message: "Semana no encontrada" });
+    if (!semRes.rows[0].publicada) return res.status(400).json({ message: "La semana no está publicada — usá el agendado normal." });
+
+    const fin = Number(id_bloque_fin || id_bloque);
+
+    // Conflictos contra vuelos reales (no cancelados), por rango de bloques.
+    const conflicto = async (campo, valor, label, code) => {
+      const q = campo === "aeronave"
+        ? `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND id_aeronave=$3 AND estado <> 'CANCELADO'
+             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`
+        : campo === "alumno"
+        ? `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND id_alumno=$3 AND estado <> 'CANCELADO'
+             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`
+        : `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND id_instructor=$3 AND estado <> 'CANCELADO'
+             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`;
+      const r = await client.query(q, [id_semana, dia_semana, valor, id_bloque, fin]);
+      if (r.rows.length) throw Object.assign(new Error(label), { code });
+    };
+
+    await client.query("BEGIN");
+
+    await conflicto("aeronave", id_aeronave, "Ese bloque y aeronave ya está ocupado", "23505");
+    await conflicto("alumno", id_alumno, "El alumno ya tiene un vuelo en ese horario", "23506");
+    await conflicto("instructor", id_instructor, "El instructor ya tiene un vuelo en ese horario", "23507");
+
+    // Basket + solicitud_vuelo de respaldo (id_detalle para editar en el calendario).
+    const ss = await client.query(
+      `INSERT INTO solicitud_semana (id_semana, id_alumno, estado)
+       VALUES ($1, $2, 'PUBLICADO')
+       ON CONFLICT (id_semana, id_alumno) DO UPDATE SET fecha_actualizacion = now()
+       RETURNING id_solicitud`,
+      [id_semana, id_alumno]
+    );
+    const id_solicitud = ss.rows[0].id_solicitud;
+
+    const sv = await client.query(
+      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id_detalle`,
+      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true]
+    );
+    const id_detalle = sv.rows[0].id_detalle;
+
+    const vue = await client.query(
+      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, estado, creado_por, fecha_vuelo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PUBLICADO','PROGRAMACION',
+               (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1))
+       RETURNING id_vuelo`,
+      [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true]
+    );
+    const id_vuelo = vue.rows[0].id_vuelo;
+
+    // Notificar (in-app) al alumno y al instructor.
+    const uids = await client.query(
+      `SELECT a.id_usuario AS alumno_uid, i.id_usuario AS instructor_uid, ae.codigo AS aeronave
+         FROM alumno a, instructor i, aeronave ae
+        WHERE a.id_alumno = $1 AND i.id_instructor = $2 AND ae.id_aeronave = $3`,
+      [id_alumno, id_instructor, id_aeronave]
+    );
+    const info = uids.rows[0] || {};
+    const dias = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const msg = `Se te agendó un vuelo el ${dias[Number(dia_semana)]} (aeronave ${info.aeronave || ""}).`;
+    if (info.alumno_uid) await notificarUsuario(client, info.alumno_uid, { tipo: "VUELO", mensaje: msg, enlace: "/alumno/dashboard" });
+    if (info.instructor_uid) await notificarUsuario(client, info.instructor_uid, { tipo: "VUELO", mensaje: msg, enlace: "/instructor" });
+
+    await logAuditoria(client, {
+      accion: "OTRO", entidad: "vuelo", id_entidad: id_vuelo, id_semana,
+      actor: user, req, descripcion: `Agendado directo (semana publicada) alumno ${id_alumno}`,
+    });
+
+    await client.query("COMMIT");
+
+    const io = req.app.get("io");
+    if (io) io.emit("guardar_cambios", { origen: "agendar-directo" });
+
+    res.json({ message: "Vuelo agendado y publicado", id_vuelo, id_detalle });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23506") return res.status(409).json({ message: "El alumno ya tiene un vuelo en ese horario" });
+    if (e.code === "23507") return res.status(409).json({ message: "El instructor ya tiene un vuelo en ese horario" });
+    console.error("agendarVueloDirecto:", e);
+    res.status(500).json({ message: "Error al agendar el vuelo" });
+  } finally {
+    client.release();
   }
 };
 

@@ -13,6 +13,8 @@ const {
   reasignarAeronave,
   getAeronavesDisponibles,
   guardarSolicitudProgramacion,
+  agendarSolicitud,
+  agendarVueloDirecto,
 } = require("../controllers/programacionController");
 
 const proyeccionMiddleware = require("../middlewares/proyeccionMiddleware");
@@ -27,5 +29,8 @@ router.get("/mantenimiento-resumen", proyeccionMiddleware, getMantenimientoResum
 router.post("/vuelos/:id_vuelo/reasignar-aeronave", authMiddleware, reasignarAeronave);
 router.get("/aeronaves-disponibles", authMiddleware, getAeronavesDisponibles);
 router.post("/solicitar-vuelos", authMiddleware, guardarSolicitudProgramacion);
+// Agendar desde el calendario (click en slot vacío):
+router.post("/solicitudes", authMiddleware, agendarSolicitud);      // semana no publicada (aditivo)
+router.post("/vuelos", authMiddleware, agendarVueloDirecto);        // semana publicada (vuelo directo)
 
 module.exports = router;

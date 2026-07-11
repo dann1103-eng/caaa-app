@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Header from "../../components/Header/Header";
 import {
@@ -12,6 +11,7 @@ import {
 } from "../../services/programacionApi";
 
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
+import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import { getInstructoresActivos, cambiarInstructorVuelo } from "../../services/adminApi";
 import "./Dashboard.css";
 
@@ -99,7 +99,6 @@ function ReasignarAeronaveModal({ vuelo, onClose, onReasignado }) {
 }
 
 export default function ProgramacionDashboard({ embedded = false }) {
-  const navigate = useNavigate();
   const [week, setWeek] = useState("next");
 
   const [bloques, setBloques] = useState([]);
@@ -112,6 +111,7 @@ export default function ProgramacionDashboard({ embedded = false }) {
   const [loading, setLoading] = useState(true);
   const [modalReasignar, setModalReasignar] = useState(null);
   const [instructores, setInstructores] = useState([]);
+  const [agendarCell, setAgendarCell] = useState(null);
 
   const reload = async () => {
     setLoading(true);
@@ -376,14 +376,6 @@ export default function ProgramacionDashboard({ embedded = false }) {
                 </button>
               </div>
 
-              <button
-                  className="prog__btn"
-                  style={{ background: 'var(--c-brand-700)', color: 'oklch(99% 0 0)', borderColor: 'transparent' }}
-                  onClick={() => navigate("/programacion/agendar")}
-                >
-                  <i className="bi bi-calendar-plus me-2"></i> Agendar Vuelo
-                </button>
-
               {week === "next" && (
                 <>
                   <button
@@ -426,11 +418,26 @@ export default function ProgramacionDashboard({ embedded = false }) {
                 onRefresh={() => reload()}
                 aeronaves={aeronaves}
                 onGuardarCambio={onGuardarCambio}
+                onEmptyCellClick={(cell) => setAgendarCell(cell)}
               />
             )}
           </div>
         </div>
       </div>
+
+      {agendarCell && (
+        <AgendarVueloModal
+          week={week}
+          publicada={week === "current"}
+          id_semana={items[0]?.id_semana}
+          dia_semana={agendarCell.dia_semana}
+          id_bloque={agendarCell.id_bloque}
+          bloques={bloques}
+          aeronaves={aeronaves}
+          onClose={() => setAgendarCell(null)}
+          onCreated={() => reload()}
+        />
+      )}
 
       {modalReasignar && (
         <ReasignarAeronaveModal

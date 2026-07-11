@@ -17,6 +17,17 @@ export const getCalendarioProgramacion = async (week = "next") => {
   return res.data;
 };
 
+// Agendar desde el calendario (click en slot vacío).
+export const agendarSolicitudCalendario = async (payload) => {
+  const res = await axios.post(`${API_URL}/programacion/solicitudes`, payload);
+  return res.data;
+};
+
+export const agendarVueloDirectoCalendario = async (payload) => {
+  const res = await axios.post(`${API_URL}/programacion/vuelos`, payload);
+  return res.data;
+};
+
 export const pasarSolicitudEnRevision = async (id_solicitud) => {
   const res = await axios.post(`${API_URL}/programacion/solicitudes/${id_solicitud}/en-revision`, {});
   return res.data;

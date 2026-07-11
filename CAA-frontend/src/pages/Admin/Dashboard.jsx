@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import ToastMantenimiento from "../../components/ToastMantenimiento/ToastMantenimiento";
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
+import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import {
   getCalendarioAdmin,
   getAeronavesActivasAdmin,
@@ -30,6 +31,7 @@ export default function AdminDashboard() {
   const [showAlumnoPerfil, setShowAlumnoPerfil] = useState(false);
   const [instructores, setInstructores] = useState([]);
   const [publicada, setPublicada] = useState(true);
+  const [agendarCell, setAgendarCell] = useState(null); // { dia_semana, id_bloque }
 
   const load = async (w = week) => {
     setLoading(true);
@@ -430,9 +432,24 @@ export default function AdminDashboard() {
               onCambiarInstructor={onCambiarInstructor}
               onRefresh={() => load()}
               onConflictChange={setHasConflicts}
+              onEmptyCellClick={(cell) => setAgendarCell(cell)}
             />
           )}
         </div>
+
+        {agendarCell && (
+          <AgendarVueloModal
+            week={week}
+            publicada={publicada}
+            id_semana={items[0]?.id_semana}
+            dia_semana={agendarCell.dia_semana}
+            id_bloque={agendarCell.id_bloque}
+            bloques={bloques}
+            aeronaves={aeronaves}
+            onClose={() => setAgendarCell(null)}
+            onCreated={() => load()}
+          />
+        )}
 
         {/* ── Cancelaciones Recientes ── */}
         {items.some(v => v.estado_vuelo === 'CANCELADO') && (

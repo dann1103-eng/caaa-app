@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Header from "../../components/Header/Header";
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
+import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import { getBloquesHorario, getBloquesBloqueados } from "../../services/agendarApi";
 import {
   getSolicitudesCalendarioInstructor,
   getSolicitudesResumenInstructor,
   guardarCambiosSolicitudInstructor,
+  crearSolicitudInstructor,
   eliminarSolicitudInstructor,
   enviarSolicitudInstructor,
   enviarTodasSolicitudesInstructor,
@@ -34,6 +36,11 @@ export default function InstructorSolicitudes() {
   const [publicada, setPublicada] = useState(false);
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [agendarCell, setAgendarCell] = useState(null);
+
+  const miIdInstructor = (() => {
+    try { return JSON.parse(localStorage.getItem("user"))?.id_instructor || null; } catch { return null; }
+  })();
 
   const reload = async () => {
     setLoading(true);
@@ -191,6 +198,7 @@ export default function InstructorSolicitudes() {
                 onPersistCardEdit={async (move) => { await guardarCambiosSolicitudInstructor([move]); }}
                 onRechazar={async (id_detalle) => { await eliminarSolicitudInstructor(id_detalle); }}
                 rechazarLabel="Quitar de la solicitud"
+                onEmptyCellClick={publicada ? undefined : (cell) => setAgendarCell(cell)}
                 onRefresh={reload}
               />
             )}
@@ -243,6 +251,27 @@ export default function InstructorSolicitudes() {
           </aside>
         </div>
       </div>
+
+      {agendarCell && (
+        <AgendarVueloModal
+          week="next"
+          publicada={false}
+          id_semana={resumen.semana?.id_semana}
+          dia_semana={agendarCell.dia_semana}
+          id_bloque={agendarCell.id_bloque}
+          bloques={bloques}
+          aeronaves={aeronaves}
+          fixedInstructor={miIdInstructor}
+          alumnosScope={resumen.alumnos.map(a => ({
+            id_alumno: a.id_alumno,
+            nombre_completo: a.alumno_nombre,
+            id_instructor: miIdInstructor,
+          }))}
+          createFn={(payload) => crearSolicitudInstructor(payload)}
+          onClose={() => setAgendarCell(null)}
+          onCreated={reload}
+        />
+      )}
     </>
   );
 }
