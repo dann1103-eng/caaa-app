@@ -37,9 +37,14 @@ exports.login = async (req, res) => {
         a.certificado_medico,
         a.seguro_vida,
         a.seguro_vida_numero,
-        a.certificado_medico_numero
+        a.certificado_medico_numero,
+        ins.id_instructor,
+        ins.es_instructor_vuelo,
+        ins.es_instructor_teoria,
+        ins.puede_programar
       FROM usuario u
       LEFT JOIN alumno a ON a.id_usuario = u.id_usuario
+      LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
       WHERE LOWER(u.username) = LOWER($1)
         AND u.activo = true
       FOR UPDATE OF u
@@ -142,12 +147,23 @@ exports.login = async (req, res) => {
 
     await client.query("COMMIT");
 
+    // Capacidades del instructor (tipos + programación). En el token/response
+    // son solo para UX del frontend; los gates del backend consultan la BD
+    // (utils/capacidades) para que un toggle aplique sin re-login.
+    const capacidades = {
+      id_instructor: user.id_instructor ?? null,
+      es_instructor_vuelo: user.es_instructor_vuelo ?? null,
+      es_instructor_teoria: user.es_instructor_teoria ?? null,
+      puede_programar: user.puede_programar ?? null,
+    };
+
     const payload = {
       id_usuario: user.id_usuario,
       username: user.username,
       nombre: user.nombre,
       apellido: user.apellido,
       rol: user.rol,
+      ...capacidades,
       must_change_password: user.must_change_password,
       must_set_email: user.must_set_email,
       must_confirm_data: mustConfirmData,
@@ -168,6 +184,7 @@ exports.login = async (req, res) => {
         apellido: user.apellido,
         correo: user.correo,
         rol: user.rol,
+        ...capacidades,
         must_change_password: user.must_change_password,
         must_set_email: user.must_set_email,
         must_confirm_data: mustConfirmData,
@@ -195,8 +212,10 @@ exports.refresh = async (req, res) => {
     const result = await db.query(`
       SELECT
         u.id_usuario, u.username, u.nombre, u.apellido, u.rol,
-        u.must_change_password, u.must_set_email, u.datos_confirmados
+        u.must_change_password, u.must_set_email, u.datos_confirmados,
+        ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar
       FROM usuario u
+      LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
       WHERE u.id_usuario = $1
     `, [decoded.id_usuario]);
 
@@ -206,12 +225,20 @@ exports.refresh = async (req, res) => {
     const mustConfirmData = (user.rol === 'ALUMNO' || user.rol === 'INSTRUCTOR') && !user.datos_confirmados;
     const mustCompleteProfile = user.must_change_password || user.must_set_email || mustConfirmData;
 
+    const capacidades = {
+      id_instructor: user.id_instructor ?? null,
+      es_instructor_vuelo: user.es_instructor_vuelo ?? null,
+      es_instructor_teoria: user.es_instructor_teoria ?? null,
+      puede_programar: user.puede_programar ?? null,
+    };
+
     const payload = {
       id_usuario: user.id_usuario,
       username: user.username,
       nombre: user.nombre,
       apellido: user.apellido,
       rol: user.rol,
+      ...capacidades,
       must_change_password: user.must_change_password,
       must_set_email: user.must_set_email,
       must_confirm_data: mustConfirmData,
@@ -231,6 +258,7 @@ exports.refresh = async (req, res) => {
         nombre: user.nombre,
         apellido: user.apellido,
         rol: user.rol,
+        ...capacidades,
         must_change_password: user.must_change_password,
         must_set_email: user.must_set_email,
         must_confirm_data: mustConfirmData,

@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { logAuditoria } = require("../utils/auditoria");
 const transporter = require("../utils/mailer");
+const { puedeProgramar } = require("../utils/capacidades");
 
 async function getNextSemanaId(client) {
   const semanaRes = await client.query(`
@@ -34,25 +35,26 @@ const getCurrentSemanaId = async (db) => {
   return res.rows[0]?.id_semana;
 };
 
-function requireProgramacion(req, res) {
+async function requireProgramacion(req, res) {
   if (!req.user) {
     res.status(401).json({ message: "No autenticado" });
     return null;
   }
-  // ADMIN puede agendar vuelos igual que PROGRAMACION.
-  if (!["PROGRAMACION", "ADMIN"].includes(req.user.rol)) {
+  // ADMIN y PROGRAMACION siempre; INSTRUCTOR solo con el toggle puede_programar.
+  if (!(await puedeProgramar(req))) {
     res.status(403).json({ message: "Acceso denegado" });
     return null;
   }
   return req.user;
 }
 
-function requireProgramacionOrAdmin(req, res) {
+async function requireProgramacionOrAdmin(req, res) {
   if (!req.user) {
     res.status(401).json({ message: "No autenticado" });
     return null;
   }
-  if (!["PROGRAMACION", "ADMIN", "PROYECCION"].includes(req.user.rol)) {
+  if (req.user.rol === "PROYECCION") return req.user;
+  if (!(await puedeProgramar(req))) {
     res.status(403).json({ message: "Acceso denegado" });
     return null;
   }
@@ -61,7 +63,7 @@ function requireProgramacionOrAdmin(req, res) {
 
 exports.getCalendario = async (req, res) => {
   try {
-    const user = requireProgramacion(req, res);
+    const user = await requireProgramacion(req, res);
     if (!user) return;
 
     const { week = "next" } = req.query;
@@ -186,7 +188,7 @@ exports.getCalendario = async (req, res) => {
 
 exports.getAeronavesActivas = async (req, res) => {
   try {
-    const user = requireProgramacion(req, res);
+    const user = await requireProgramacion(req, res);
     if (!user) return;
 
     const result = await db.query(`
@@ -205,7 +207,7 @@ exports.getAeronavesActivas = async (req, res) => {
 
 exports.enRevision = async (req, res) => {
   try {
-    const user = requireProgramacion(req, res);
+    const user = await requireProgramacion(req, res);
     if (!user) return;
 
     const { id_solicitud } = req.params;
@@ -237,7 +239,7 @@ exports.guardarCambios = async (req, res) => {
   const client = await db.connect();
 
   try {
-    const user = requireProgramacion(req, res);
+    const user = await requireProgramacion(req, res);
     if (!user) return;
 
     const { movimientos } = req.body;
@@ -531,7 +533,7 @@ exports.getBloquesBloqueados = async (req, res) => {
 
 exports.getEstadoFlota = async (req, res) => {
   try {
-    const user = requireProgramacionOrAdmin(req, res);
+    const user = await requireProgramacionOrAdmin(req, res);
     if (!user) return;
 
     const r = await db.query(`
@@ -590,7 +592,7 @@ exports.getEstadoFlota = async (req, res) => {
 
 exports.getMantenimientoResumen = async (req, res) => {
   try {
-    const user = requireProgramacionOrAdmin(req, res);
+    const user = await requireProgramacionOrAdmin(req, res);
     if (!user) return;
 
     // Fuente única: la próxima revisión sale del cache sincronizado desde el
@@ -630,7 +632,7 @@ exports.reasignarAeronave = async (req, res) => {
   const { id_aeronave } = req.body;
   const client = await db.connect();
   try {
-    const user = requireProgramacion(req, res);
+    const user = await requireProgramacion(req, res);
     if (!user) return;
 
     if (!id_aeronave) {
@@ -712,7 +714,7 @@ exports.reasignarAeronave = async (req, res) => {
 
 exports.getAeronavesDisponibles = async (req, res) => {
   try {
-    const user = requireProgramacion(req, res);
+    const user = await requireProgramacion(req, res);
     if (!user) return;
 
     const { id_semana, id_bloque, dia_semana } = req.query;
@@ -745,7 +747,7 @@ exports.getAeronavesDisponibles = async (req, res) => {
 exports.guardarSolicitudProgramacion = async (req, res) => {
   const client = await db.connect();
   try {
-    const user = requireProgramacion(req, res);
+    const user = await requireProgramacion(req, res);
     if (!user) return;
 
     const { id_alumno, id_instructor, vuelos } = req.body;

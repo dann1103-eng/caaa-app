@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middlewares/authMiddleware");
-const roleMiddleware = require("../middlewares/roleMiddleware");
+const { requireCapacidad } = require("../utils/capacidades");
 
 const adminVuelo = require("../controllers/admin/adminVueloController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
@@ -10,8 +10,9 @@ const adminUsuario = require("../controllers/admin/adminUsuarioController");
 const adminAuditoria = require("../controllers/admin/adminAuditoriaController");
 const adminCancelacion = require("../controllers/admin/adminCancelacionController");
 
-// Todas las rutas de admin requieren al menos rol ADMIN o PROGRAMACION
-const adminAccess = [authMiddleware, roleMiddleware(["ADMIN", "PROGRAMACION", "TURNO"])];
+// Roles de operaciones, o un INSTRUCTOR activo con el toggle puede_programar
+// (capacidad PROGRAMAR = todo lo que hace el rol PROGRAMACION).
+const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", "TURNO"], "PROGRAMAR")];
 
 // --- Semanas y Calendario ---
 router.get("/semanas", adminAccess, adminVuelo.getSemanas);

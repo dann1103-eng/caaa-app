@@ -109,7 +109,7 @@ exports.listPersonal = async (req, res) => {
       SELECT u.id_usuario, u.username, u.rol, u.nombre, u.apellido, u.correo, u.activo,
              e.id AS id_empleado, e.cargo, e.sueldo_base, e.es_servicios_profesionales,
              e.dui, e.nit, e.isss_num, e.afp_num,
-             ins.id_instructor,
+             ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar,
              (SELECT COUNT(*) FROM alumno a WHERE a.id_instructor = ins.id_instructor) AS num_alumnos
       FROM usuario u
       LEFT JOIN empleado e     ON e.id_usuario   = u.id_usuario
@@ -129,7 +129,8 @@ exports.crearPersonal = async (req, res) => {
     const {
       username, password, nombre, apellido, correo, rol,
       cargo, dui, nit, isss_num, afp_num,
-      sueldo_base, es_servicios_profesionales
+      sueldo_base, es_servicios_profesionales,
+      es_instructor_vuelo, es_instructor_teoria, puede_programar
     } = req.body;
 
     if (!username || !password || !nombre || !apellido) {
@@ -138,6 +139,9 @@ exports.crearPersonal = async (req, res) => {
     const rolFinal = (rol || 'ADMINISTRACION').toUpperCase();
     if (!ROLES_PERSONAL.includes(rolFinal)) {
       return res.status(400).json({ ok: false, message: "Rol inválido para personal" });
+    }
+    if (es_instructor_vuelo === false && es_instructor_teoria === false) {
+      return res.status(400).json({ ok: false, message: "El instructor debe ser de vuelo, de teoría o ambos" });
     }
 
     await client.query("BEGIN");
@@ -161,6 +165,19 @@ exports.crearPersonal = async (req, res) => {
     // Si el rol es INSTRUCTOR, crear su ficha de instructor (para asignarle alumnos).
     if (rolFinal === 'INSTRUCTOR') {
       await asegurarInstructorTx(client, id_usuario);
+      // Capacidades opcionales al crear (defaults de la columna: solo vuelo).
+      if (es_instructor_vuelo != null || es_instructor_teoria != null || puede_programar != null) {
+        await client.query(`
+          UPDATE instructor SET
+            es_instructor_vuelo  = COALESCE($2, es_instructor_vuelo),
+            es_instructor_teoria = COALESCE($3, es_instructor_teoria),
+            puede_programar      = COALESCE($4, puede_programar)
+          WHERE id_usuario = $1
+        `, [id_usuario,
+            es_instructor_vuelo != null ? !!es_instructor_vuelo : null,
+            es_instructor_teoria != null ? !!es_instructor_teoria : null,
+            puede_programar != null ? !!puede_programar : null]);
+      }
     }
 
     await client.query("COMMIT");
@@ -185,7 +202,8 @@ exports.editarPersonal = async (req, res) => {
     const { id_usuario } = req.params;
     const {
       username, nombre, apellido, correo, cargo, dui, nit, isss_num, afp_num,
-      sueldo_base, es_servicios_profesionales, rol, activo
+      sueldo_base, es_servicios_profesionales, rol, activo,
+      es_instructor_vuelo, es_instructor_teoria, puede_programar
     } = req.body;
 
     // Nombre de usuario (login): normalizado a minúsculas + trim para que
@@ -258,6 +276,33 @@ exports.editarPersonal = async (req, res) => {
 
     if (rolFinal === 'INSTRUCTOR') {
       await asegurarInstructorTx(client, id_usuario);
+    }
+
+    // Capacidades del instructor (tipos + toggle de programación). Solo aplican
+    // si el usuario tiene ficha de instructor. Un instructor debe quedar como
+    // de vuelo, de teoría o ambos — nunca ninguno.
+    if (es_instructor_vuelo != null || es_instructor_teoria != null || puede_programar != null) {
+      const insRes = await client.query(
+        `SELECT es_instructor_vuelo, es_instructor_teoria FROM instructor WHERE id_usuario = $1 FOR UPDATE`,
+        [id_usuario]
+      );
+      if (insRes.rows.length) {
+        const cur = insRes.rows[0];
+        const vueloFinal = es_instructor_vuelo != null ? !!es_instructor_vuelo : cur.es_instructor_vuelo;
+        const teoriaFinal = es_instructor_teoria != null ? !!es_instructor_teoria : cur.es_instructor_teoria;
+        if (!vueloFinal && !teoriaFinal) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ ok: false, message: "El instructor debe ser de vuelo, de teoría o ambos" });
+        }
+        await client.query(`
+          UPDATE instructor SET
+            es_instructor_vuelo  = $2,
+            es_instructor_teoria = $3,
+            puede_programar      = COALESCE($4, puede_programar)
+          WHERE id_usuario = $1
+        `, [id_usuario, vueloFinal, teoriaFinal,
+            puede_programar != null ? !!puede_programar : null]);
+      }
     }
 
     await client.query("COMMIT");

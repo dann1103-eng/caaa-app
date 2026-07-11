@@ -163,6 +163,13 @@ export default function Usuarios() {
       dui: p.dui || "", nit: p.nit || "", isss_num: p.isss_num || "", afp_num: p.afp_num || "",
       rol: p.rol || "ADMINISTRACION",
       activo: p.activo !== false,
+      // Capacidades: solo aplican a usuarios con ficha de instructor (si no,
+      // quedan undefined y el payload no las manda).
+      ...(p.id_instructor ? {
+        es_instructor_vuelo: p.es_instructor_vuelo !== false,
+        es_instructor_teoria: p.es_instructor_teoria !== false,
+        puede_programar: !!p.puede_programar,
+      } : {}),
     });
     setInstrHist(null);
     if (p.id_instructor) {
@@ -560,6 +567,39 @@ export default function Usuarios() {
                     Acceso activo
                   </label>
                 </div>
+
+                {editP.id_instructor && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--c-line-2)" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
+                      CAPACIDADES DEL INSTRUCTOR
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!editPForm.es_instructor_vuelo}
+                          onChange={(e) => setEditPForm({...editPForm, es_instructor_vuelo: e.target.checked})} />
+                        <span><strong>Instructor de vuelo</strong> — gestiona los vuelos y solicitudes de sus alumnos.</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!editPForm.es_instructor_teoria}
+                          onChange={(e) => setEditPForm({...editPForm, es_instructor_teoria: e.target.checked})} />
+                        <span><strong>Instructor de teoría</strong> — gestiona el Aula Virtual (clases, notas, material).</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!editPForm.puede_programar}
+                          onChange={(e) => setEditPForm({...editPForm, puede_programar: e.target.checked})} />
+                        <span><strong>Programación</strong> — ve el calendario completo de la escuela, mueve vuelos y publica la semana.</span>
+                      </label>
+                    </div>
+                    {!editPForm.es_instructor_vuelo && !editPForm.es_instructor_teoria && (
+                      <p style={{ fontSize: "0.8rem", color: "var(--c-danger-700, #b42318)", marginTop: 8 }}>
+                        <i className="bi bi-exclamation-triangle me-1"></i>Debe ser de vuelo, de teoría o ambos.
+                      </p>
+                    )}
+                    <p style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginTop: 8, marginBottom: 0 }}>
+                      Los cambios aplican de inmediato en el servidor; el instructor verá la navegación nueva al volver a iniciar sesión.
+                    </p>
+                  </div>
+                )}
                 {editPForm.rol === "INSTRUCTOR" && !editP.id_instructor && (
                   <p style={{ fontSize: "0.8rem", color: "var(--c-warn-700)", marginTop: 8 }}>
                     <i className="bi bi-info-circle me-1"></i>Al guardar con rol Instructor se creará su ficha; reabre la edición para asignarle alumnos y cursos.

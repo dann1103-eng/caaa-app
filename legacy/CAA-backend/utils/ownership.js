@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { puedeProgramar } = require("./capacidades");
 
 // Roles de staff que pueden operar sobre cualquier vuelo (no están atados a un
 // alumno o instructor específico). PROYECCION sólo llega por proyeccionMiddleware
@@ -27,6 +28,10 @@ async function puedeAccederVuelo(req, res, idVuelo) {
   const rol = req.user?.rol;
 
   if (STAFF_ROLES.includes(rol)) return true;
+
+  // Instructor con el toggle de programación opera como staff (gestiona
+  // cualquier vuelo, igual que el rol PROGRAMACION).
+  if (rol === "INSTRUCTOR" && (await puedeProgramar(req))) return true;
 
   const idNum = Number(idVuelo);
   if (!Number.isInteger(idNum)) {

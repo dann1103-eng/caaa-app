@@ -51,11 +51,18 @@ export default function Header() {
                   <span>Dashboard</span>
                 </Link>
 
-                {["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) && (
+                {(["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) || user.puede_programar) && (
                   <a href="/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link">
                     <i className="bi bi-easel header__action-icon" />
-                    <span>Programación</span>
+                    <span>Proyección</span>
                   </a>
+                )}
+
+                {user.rol === "INSTRUCTOR" && user.puede_programar && (
+                  <Link to="/programacion/dashboard" className="header__action-link">
+                    <i className="bi bi-calendar-week header__action-icon" />
+                    <span>Programación</span>
+                  </Link>
                 )}
 
                 {user.rol === "INSTRUCTOR" && (
