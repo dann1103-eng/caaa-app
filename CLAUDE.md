@@ -856,7 +856,22 @@ y recién entonces se diseña. No construir nada de esto sin ese paso.
   agenda, bitácora, cobro). Más pesado; ojo: `alumno.id_instructor` es NOT NULL y muchos gates asumen
   `rol === 'ALUMNO'` (dual-rol a revisar). Se descartó de una en la carga de junio, pero queda como opción.
 
+### Aeronaves por licencia (`licencia_aeronave`) — corregido, Bimotor pendiente
+
+**Corregido (migraciones `20260711000001`/`002`, ya corridas):** la distribución tenía datos
+incorrectos (a un alumno de Instrumentos no le aparecía el YS-270-PE). Distribución real:
+Privado → YS-333-PE/YS-334-PE/SIM-1; Instrumentos → + YS-270-PE; Comercial → + YS-127-P (las 5).
+**Instructor** (4 alumnos) → las 5 aeronaves (antes tenía 0, confirmado por Daniel: "los instructor
+vuelan todos").
+
+**Bimotor (5 alumnos) queda sin ninguna aeronave, A PROPÓSITO — no es un bug.** Daniel: "los bimotor
+vuelan unos de otras escuelas" (la flota de CAAA no tiene bimotor) **pero todavía le falta aclarar
+cómo se manejará eso en el sistema** (¿aeronave externa registrada igual? ¿se salta el chequeo de
+licencia para ellos? ¿otro flujo?). No modelar/tocar Bimotor sin esa aclaración — mismo patrón que
+"instructores recurrentes": esperar información antes de diseñar.
+
 ### Pendiente / próximo
+- **Bimotor**: aclarar con Daniel cómo manejar alumnos que vuelan en otra escuela (ver arriba).
 - **Informarse con la escuela sobre recurrentes** (ver subsección anterior) → brainstorm → diseño.
 - Fusionar rama + `railway up`; pruebas E2E de usuario en prod; sembrar inscripciones demo para el aula.
 - Configurar correo (Resend/Brevo) sigue pendiente de sesiones anteriores.
