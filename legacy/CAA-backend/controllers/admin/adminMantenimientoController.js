@@ -127,6 +127,68 @@ exports.cancelarMantenimiento = catchAsync(async (req, res) => {
   }
 });
 
+// Agrega días/bloques a un mantenimiento existente (modal "Gestionar"). Además
+// de guardar los bloques, EXTIENDE la ventana [fecha_inicio, fecha_fin] del
+// mantenimiento para cubrir los nuevos días — así el bloqueo del agendamiento
+// (que es por rango de fechas) realmente los toma en cuenta. Luego recalcula el
+// estado del avión (por si la extensión ya cubre hoy).
+exports.agregarBloquesMantenimiento = catchAsync(async (req, res) => {
+  const { id } = req.params; // id_aeronave
+  const { id_mantenimiento, bloques } = req.body;
+  if (!id_mantenimiento || !Array.isArray(bloques) || bloques.length === 0) {
+    return res.status(400).json({ message: "id_mantenimiento y bloques son requeridos" });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const mantRes = await client.query(
+      `SELECT id_mantenimiento, id_aeronave FROM mantenimiento_aeronave
+        WHERE id_mantenimiento = $1 AND id_aeronave = $2 FOR UPDATE`,
+      [id_mantenimiento, id]
+    );
+    if (mantRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Mantenimiento no encontrado para esa aeronave" });
+    }
+
+    const fechas = [];
+    for (const b of bloques) {
+      await client.query(
+        `INSERT INTO mantenimiento_bloque (id_mantenimiento, fecha, id_bloque) VALUES ($1, $2, $3)`,
+        [id_mantenimiento, b.fecha, b.id_bloque]
+      );
+      if (b.fecha) fechas.push(b.fecha);
+    }
+
+    // Extiende la ventana del mantenimiento para cubrir los días agregados.
+    if (fechas.length > 0) {
+      const minFecha = fechas.reduce((a, b) => (a < b ? a : b));
+      const maxFecha = fechas.reduce((a, b) => (a > b ? a : b));
+      await client.query(
+        `UPDATE mantenimiento_aeronave SET
+           fecha_inicio = LEAST(COALESCE(fecha_inicio::date, fecha_programada), $2::date),
+           fecha_fin    = GREATEST(COALESCE(fecha_fin::date, fecha_inicio::date, fecha_programada), $3::date)
+         WHERE id_mantenimiento = $1`,
+        [id_mantenimiento, minFecha, maxFecha]
+      );
+    }
+
+    await sincronizarEstadoFlota(client, Number(id));
+    await logAuditoria(client, {
+      accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req,
+      descripcion: `Agregados ${bloques.length} bloque(s) al mantenimiento ${id_mantenimiento}`,
+    });
+    await client.query("COMMIT");
+    res.json({ message: "Bloques agregados" });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
 exports.getAlertasMantenimiento = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT id_aeronave, codigo, modelo, tipo,

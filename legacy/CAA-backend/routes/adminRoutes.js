@@ -44,6 +44,7 @@ router.get("/mantenimiento/:id/detalle", adminAccess, adminMantenimiento.getMant
 router.post("/aeronaves/:id/iniciar-mantenimiento", adminAccess, adminMantenimiento.iniciarMantenimiento);
 router.post("/aeronaves/:id/completar-mantenimiento", adminAccess, adminMantenimiento.completarMantenimiento);
 router.delete("/mantenimiento/:id", adminAccess, adminMantenimiento.cancelarMantenimiento);
+router.post("/aeronaves/:id/agregar-bloques-mantenimiento", adminAccess, adminMantenimiento.agregarBloquesMantenimiento);
 router.get("/aeronaves/alertas-mantenimiento", adminAccess, adminMantenimiento.getAlertasMantenimiento);
 router.post("/aeronaves/:id/preview-mantenimiento", adminAccess, adminMantenimiento.previewMantenimiento);
 
