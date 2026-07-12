@@ -2,6 +2,7 @@ const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
+const { sincronizarEstadoFlota } = require("../../utils/mantenimientoUtils");
 
 exports.getMantenimientoAeronaves = catchAsync(async (req, res) => {
   const aeronavesRes = await db.query(`
@@ -47,11 +48,14 @@ exports.iniciarMantenimiento = catchAsync(async (req, res) => {
       }
     }
 
-    await client.query(`UPDATE aeronave SET activa = false, estado = 'MANTENIMIENTO' WHERE id_aeronave = $1`, [id]);
-    await logAuditoria(client, { accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req, descripcion: `Iniciado mantenimiento ${tipo} para aeronave ${aeronaveRes.rows[0].codigo}` });
-    
+    // El avión sale de servicio SOLO si el mantenimiento cubre hoy (fecha_inicio
+    // <= hoy). Un mantenimiento con fecha futura queda registrado pero el avión
+    // sigue volable hasta que llegue su ventana (lo hace el job diario).
+    await sincronizarEstadoFlota(client, Number(id));
+    await logAuditoria(client, { accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req, descripcion: `Programado mantenimiento ${tipo} para aeronave ${aeronaveRes.rows[0].codigo}` });
+
     await client.query("COMMIT");
-    res.json({ message: "Mantenimiento iniciado", id_mantenimiento });
+    res.json({ message: "Mantenimiento registrado", id_mantenimiento });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -69,10 +73,52 @@ exports.completarMantenimiento = catchAsync(async (req, res) => {
     if (mantRes.rows.length === 0) throw new Error("No hay mantenimiento en curso");
 
     await client.query(`UPDATE mantenimiento_aeronave SET estado = 'COMPLETADO', completado = true, fecha_completado = NOW() WHERE id_mantenimiento = $1`, [mantRes.rows[0].id_mantenimiento]);
-    await client.query(`UPDATE aeronave SET activa = true, estado = 'ACTIVO' WHERE id_aeronave = $1`, [id]);
-    
+    // Reactiva el avión solo si ya no le queda otro mantenimiento vigente hoy.
+    await sincronizarEstadoFlota(client, Number(id));
+
     await client.query("COMMIT");
     res.json({ message: "Mantenimiento completado" });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// Elimina un mantenimiento (p.ej. metido por error): borra el registro y sus
+// bloques, y recalcula el estado del avión (lo reactiva si ya no le queda
+// ningún mantenimiento vigente hoy).
+exports.cancelarMantenimiento = catchAsync(async (req, res) => {
+  const { id } = req.params; // id_mantenimiento
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const mantRes = await client.query(
+      `SELECT m.id_mantenimiento, m.id_aeronave, m.tipo, a.codigo
+         FROM mantenimiento_aeronave m JOIN aeronave a ON a.id_aeronave = m.id_aeronave
+        WHERE m.id_mantenimiento = $1 FOR UPDATE`,
+      [id]
+    );
+    if (mantRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Mantenimiento no encontrado" });
+    }
+    const { id_aeronave, tipo, codigo } = mantRes.rows[0];
+
+    await client.query(`DELETE FROM mantenimiento_bloque WHERE id_mantenimiento = $1`, [id]);
+    await client.query(`DELETE FROM mantenimiento_aeronave WHERE id_mantenimiento = $1`, [id]);
+
+    // Recalcular estado del avión tras quitar el mantenimiento.
+    await sincronizarEstadoFlota(client, Number(id_aeronave));
+
+    await logAuditoria(client, {
+      accion: "OTRO", entidad: "aeronave", id_entidad: Number(id_aeronave), actor: req.user, req,
+      descripcion: `Eliminado mantenimiento ${tipo} (id ${id}) de aeronave ${codigo}`,
+    });
+
+    await client.query("COMMIT");
+    res.json({ message: "Mantenimiento eliminado" });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

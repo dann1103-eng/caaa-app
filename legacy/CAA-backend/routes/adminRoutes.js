@@ -43,6 +43,7 @@ router.get("/mantenimiento", adminAccess, adminMantenimiento.getMantenimientoAer
 router.get("/mantenimiento/:id/detalle", adminAccess, adminMantenimiento.getMantenimientoDetalle);
 router.post("/aeronaves/:id/iniciar-mantenimiento", adminAccess, adminMantenimiento.iniciarMantenimiento);
 router.post("/aeronaves/:id/completar-mantenimiento", adminAccess, adminMantenimiento.completarMantenimiento);
+router.delete("/mantenimiento/:id", adminAccess, adminMantenimiento.cancelarMantenimiento);
 router.get("/aeronaves/alertas-mantenimiento", adminAccess, adminMantenimiento.getAlertasMantenimiento);
 router.post("/aeronaves/:id/preview-mantenimiento", adminAccess, adminMantenimiento.previewMantenimiento);
 

@@ -4,6 +4,7 @@ const transporter = require("../utils/mailer");
 const { puedeProgramar } = require("../utils/capacidades");
 const solicitudService = require("../services/solicitudService");
 const { notificarUsuario } = require("../utils/notificaciones");
+const { mantenimientoCubreFechaSQL } = require("../utils/mantenimientoUtils");
 
 async function getNextSemanaId(client) {
   const semanaRes = await client.query(`
@@ -420,10 +421,10 @@ exports.getEstadoFlota = async (req, res) => {
         LIMIT 1
       ) v ON true
       LEFT JOIN LATERAL (
-        SELECT m2.id_mantenimiento
-        FROM mantenimiento_aeronave m2
-        WHERE m2.id_aeronave = a.id_aeronave
-          AND m2.completado = false
+        SELECT m.id_mantenimiento
+        FROM mantenimiento_aeronave m
+        WHERE m.id_aeronave = a.id_aeronave
+          AND ${mantenimientoCubreFechaSQL("CURRENT_DATE")}
         LIMIT 1
       ) m ON true
       WHERE a.activa = true
@@ -573,6 +574,8 @@ exports.getAeronavesDisponibles = async (req, res) => {
 
     const { id_semana, id_bloque, dia_semana } = req.query;
 
+    // Fecha concreta del slot = lunes de la semana + (dia_semana - 1).
+    const fechaSlot = `((SELECT fecha_inicio FROM semana_vuelo WHERE id_semana = $1) + ($3::int - 1))`;
     const r = await db.query(
       `SELECT a.id_aeronave, a.codigo, a.modelo
        FROM aeronave a
@@ -586,6 +589,11 @@ exports.getAeronavesDisponibles = async (req, res) => {
              AND v.id_bloque = $2
              AND v.dia_semana = $3
              AND v.estado NOT IN ('CANCELADO')
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM mantenimiento_aeronave m
+           WHERE m.id_aeronave = a.id_aeronave
+             AND ${mantenimientoCubreFechaSQL(fechaSlot)}
          )
        ORDER BY a.codigo`,
       [id_semana, id_bloque, dia_semana]

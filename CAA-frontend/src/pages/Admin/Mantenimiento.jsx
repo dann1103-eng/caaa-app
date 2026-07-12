@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   getMantenimientoAeronaves,
   completarMantenimiento,
+  cancelarMantenimiento,
   registrarHorasManuales,
 } from "../../services/adminApi";
 import IniciarMantenimientoModal from "../../components/IniciarMantenimientoModal/IniciarMantenimientoModal";
@@ -144,6 +145,7 @@ export default function MantenimientoAdmin() {
   const [loading, setLoading]               = useState(true);
   const [showModal, setShowModal]           = useState(false);
   const [completing, setCompleting]         = useState(null);
+  const [deleting, setDeleting]             = useState(null);
   const [tabMant, setTabMant]               = useState("pendientes");
   const [modalMant, setModalMant]           = useState(null);
   const [modalGestionar, setModalGestionar] = useState(null);
@@ -186,6 +188,29 @@ export default function MantenimientoAdmin() {
       },
       cancel: { label: "Cancelar", onClick: () => {} },
       duration: 10000,
+    });
+  };
+
+  const handleEliminar = (m) => {
+    toast(`¿Eliminar el mantenimiento ${m.tipo} de ${m.aeronave_codigo}?`, {
+      description: "Se quita el registro y el avión vuelve a estar disponible si no le queda otro mantenimiento vigente hoy.",
+      action: {
+        label: "Eliminar",
+        onClick: async () => {
+          setDeleting(m.id_mantenimiento);
+          try {
+            await cancelarMantenimiento(m.id_mantenimiento);
+            toast.success("Mantenimiento eliminado");
+            await cargar();
+          } catch (e) {
+            toast.error(e.response?.data?.message || "Error al eliminar");
+          } finally {
+            setDeleting(null);
+          }
+        },
+      },
+      cancel: { label: "Cancelar", onClick: () => {} },
+      duration: 12000,
     });
   };
 
@@ -398,6 +423,14 @@ export default function MantenimientoAdmin() {
                                   onClick={() => setModalGestionar(m)}
                                 >
                                   Gestionar
+                                </button>
+                                <button
+                                  className="mnt__btn mnt__btn--sm mnt__btn--danger"
+                                  disabled={deleting === m.id_mantenimiento}
+                                  onClick={() => handleEliminar(m)}
+                                  title="Eliminar este mantenimiento (metido por error)"
+                                >
+                                  {deleting === m.id_mantenimiento ? "…" : "Eliminar"}
                                 </button>
                               </div>
                             </td>

@@ -128,6 +128,20 @@ setInterval(() => {
   );
 }, UN_DIA_MS);
 
+// Sincroniza activa/estado de la flota con los mantenimientos que cubren HOY:
+// un avión sale de servicio cuando entra la ventana de su mantenimiento y vuelve
+// cuando pasa (o al completarlo/eliminarlo). Así un mantenimiento futuro no
+// bloquea el avión hoy ni en fechas fuera de su ventana. Al arrancar y 1×/día.
+const { sincronizarEstadoFlota } = require("./utils/mantenimientoUtils");
+sincronizarEstadoFlota().catch((e) =>
+  console.error("Error sincronizando flota por mantenimiento (arranque):", e)
+);
+setInterval(() => {
+  sincronizarEstadoFlota().catch((e) =>
+    console.error("Error sincronizando flota por mantenimiento:", e)
+  );
+}, UN_DIA_MS);
+
 // Lista de espera (stand-by): expira ofertas vencidas y ofrece al siguiente
 // candidato. Cada 5 minutos (el plazo de respuesta es de horas, no hace falta más).
 const { expirarOfertasVencidas } = require("./controllers/standbyController");

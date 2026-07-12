@@ -155,6 +155,11 @@ export const completarMantenimiento = async (id_aeronave) => {
   return res.data;
 };
 
+export const cancelarMantenimiento = async (id_mantenimiento) => {
+  const res = await axios.delete(`${API_URL}/admin/mantenimiento/${id_mantenimiento}`);
+  return res.data;
+};
+
 export const registrarHorasManuales = async (datos) => {
   const res = await axios.post(`${API_URL}/admin/mantenimiento/horas-manuales`, datos);
   return res.data;
