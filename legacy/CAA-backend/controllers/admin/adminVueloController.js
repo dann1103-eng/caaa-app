@@ -406,7 +406,7 @@ exports.getInstructoresActivos = catchAsync(async (req, res) => {
   // se filtra aquí para que todos los selectores de agenda (modal + popover)
   // muestren únicamente a estos.
   const result = await db.query(`
-    SELECT i.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo,
+    SELECT i.id_instructor, u.id_usuario, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo,
            i.es_instructor_vuelo, i.es_instructor_teoria, i.puede_programar
     FROM instructor i JOIN usuario u ON u.id_usuario = i.id_usuario
     WHERE i.activo = true AND i.es_instructor_vuelo = true

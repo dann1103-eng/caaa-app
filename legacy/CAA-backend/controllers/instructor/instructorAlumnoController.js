@@ -75,6 +75,7 @@ exports.getMisAlumnos = async (req, res) => {
         AND ss.id_semana = $2
        WHERE a.id_instructor = $1
          AND a.activo = true
+         AND NOT COALESCE(a.es_practicante, false)
        ORDER BY u.apellido, u.nombre`,
       [id_instructor, semana?.id_semana ?? null]
     );

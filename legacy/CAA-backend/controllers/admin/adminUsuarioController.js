@@ -6,7 +6,8 @@ exports.getAlumnosListAdmin = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT a.id_alumno, a.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo
     FROM alumno a JOIN usuario u ON u.id_usuario = a.id_usuario
-    WHERE a.activo = true ORDER BY u.apellido, u.nombre
+    WHERE a.activo = true AND NOT COALESCE(a.es_practicante, false)
+    ORDER BY u.apellido, u.nombre
   `);
   res.json(result.rows);
 });
@@ -145,7 +146,8 @@ exports.getAlumnosConLimite = catchAsync(async (req, res) => {
             WHERE i.id_instructor = a.id_instructor LIMIT 1) AS instructor_nombre
     FROM alumno a JOIN usuario u ON u.id_usuario = a.id_usuario
     LEFT JOIN solicitud_semana ss ON ss.id_alumno = a.id_alumno AND ss.id_semana = $1
-    WHERE a.activo = true ORDER BY u.apellido, u.nombre
+    WHERE a.activo = true AND NOT COALESCE(a.es_practicante, false)
+    ORDER BY u.apellido, u.nombre
   `, [semanaRes.rows[0].id_semana]);
   res.json({ semana: semanaRes.rows[0], alumnos: result.rows });
 });

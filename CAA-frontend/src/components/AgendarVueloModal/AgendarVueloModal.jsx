@@ -55,6 +55,13 @@ export default function AgendarVueloModal({
   const [motivo, setMotivo] = useState("TRASLADO");
   const [descReserva, setDescReserva] = useState("");
   const permiteReserva = !createFn; // el instructor no reserva aviones
+  // Modo "instructor-con-instructor" (CHEQUEO/REFRESH): el practicante (un
+  // instructor) ocupa el slot de estudiante y el PIC lo instruye. Solo staff y
+  // sobre semana publicada (vuelo directo).
+  const [esInstruccion, setEsInstruccion] = useState(false);
+  const [tipoInstruccion, setTipoInstruccion] = useState("CHEQUEO");
+  const [idPracticante, setIdPracticante] = useState(""); // id_usuario del practicante
+  const permiteInstruccion = !createFn && !!publicada;
 
   useEffect(() => {
     (async () => {
@@ -125,6 +132,8 @@ export default function AgendarVueloModal({
   const rutaInvalida = tipoVuelo === "RUTA" && Number(bloqueFin) < bloqueEff;
   const puedeGuardar = esReserva
     ? (idAeronave && !rutaInvalida && !saving)
+    : esInstruccion
+    ? (idPracticante && idInstructor && idAeronave && !rutaInvalida && !saving)
     : (idAlumno && idAeronave && (!publicada || idInstructor) && !aeronaveNoPermitida && !rutaInvalida && !saving);
 
   const guardar = async () => {
@@ -153,7 +162,17 @@ export default function AgendarVueloModal({
       return;
     }
 
-    const payload = {
+    const payload = esInstruccion ? {
+      id_semana,
+      id_usuario_practicante: Number(idPracticante),
+      tipo_instruccion: tipoInstruccion,
+      id_instructor: idInstructor ? Number(idInstructor) : null,
+      dia_semana: diaEff,
+      id_bloque: bloqueEff,
+      id_bloque_fin: tipoVuelo === "RUTA" ? Number(bloqueFin) : bloqueEff,
+      id_aeronave: Number(idAeronave),
+      tipo_vuelo: tipoVuelo,
+    } : {
       id_semana,
       id_alumno: Number(idAlumno),
       id_instructor: idInstructor ? Number(idInstructor) : null,
@@ -192,7 +211,7 @@ export default function AgendarVueloModal({
       <div className="avm-card" onClick={(e) => e.stopPropagation()}>
         <div className="avm-head">
           <div>
-            <div className="avm-eyebrow">{esReserva ? "Reservar aeronave (uso especial)" : publicada ? "Agendar vuelo (semana publicada)" : "Agendar vuelo"}</div>
+            <div className="avm-eyebrow">{esReserva ? "Reservar aeronave (uso especial)" : esInstruccion ? "Vuelo instructor-con-instructor" : publicada ? "Agendar vuelo (semana publicada)" : "Agendar vuelo"}</div>
             <h3 className="avm-title">{DIAS[diaEff]} · {horaTxt}</h3>
           </div>
           <button className="avm-close" onClick={onClose}>&times;</button>
@@ -217,8 +236,14 @@ export default function AgendarVueloModal({
           )}
           {permiteReserva && (
             <label className="avm-check" style={{ marginBottom: 2 }}>
-              <input type="checkbox" checked={esReserva} onChange={(e) => setEsReserva(e.target.checked)} />
+              <input type="checkbox" checked={esReserva} onChange={(e) => { setEsReserva(e.target.checked); if (e.target.checked) setEsInstruccion(false); }} />
               Uso especial del avión (sin alumno): traslado, prueba, administrativo…
+            </label>
+          )}
+          {permiteInstruccion && !esReserva && (
+            <label className="avm-check" style={{ marginBottom: 2 }}>
+              <input type="checkbox" checked={esInstruccion} onChange={(e) => { setEsInstruccion(e.target.checked); if (e.target.checked) setEsReserva(false); }} />
+              Vuelo instructor-con-instructor (chequeo / refresh)
             </label>
           )}
 
@@ -240,7 +265,26 @@ export default function AgendarVueloModal({
             </>
           )}
 
-          {!esReserva && (<>
+          {!esReserva && esInstruccion && (<>
+          <div className="avm-field">
+            <label>Practicante (instructor que recibe instrucción) <span className="avm-req">*</span></label>
+            <select value={idPracticante} onChange={(e) => setIdPracticante(e.target.value)}>
+              <option value="">— Elegí al practicante —</option>
+              {instructores.map(i => (
+                <option key={i.id_usuario} value={i.id_usuario}>{i.nombre_completo}</option>
+              ))}
+            </select>
+          </div>
+          <div className="avm-field">
+            <label>Tipo <span className="avm-req">*</span></label>
+            <select value={tipoInstruccion} onChange={(e) => setTipoInstruccion(e.target.value)}>
+              <option value="CHEQUEO">Chequeo — lo paga la escuela (no se debita a nadie)</option>
+              <option value="REFRESH">Refresh — lo paga el practicante (cobro manual)</option>
+            </select>
+          </div>
+          </>)}
+
+          {!esReserva && !esInstruccion && (
           <div className="avm-field" ref={alumnoBoxRef}>
             <label>Alumno</label>
             <div className="avm-combo">
@@ -281,9 +325,11 @@ export default function AgendarVueloModal({
               )}
             </div>
           </div>
+          )}
 
+          {!esReserva && (
           <div className="avm-field">
-            <label>Instructor {publicada && <span className="avm-req">*</span>}</label>
+            <label>{esInstruccion ? "PIC (instructor que instruye)" : "Instructor"} {publicada && <span className="avm-req">*</span>}</label>
             {fixedInstructor ? (
               <input value={(instructores.find(i => Number(i.id_instructor) === Number(fixedInstructor))?.nombre_completo) || "Vos"} disabled />
             ) : (
@@ -294,9 +340,9 @@ export default function AgendarVueloModal({
                 ))}
               </select>
             )}
-            <p className="avm-hint">Podés asignar cualquier instructor (no tiene que ser el de cabecera del alumno).</p>
+            <p className="avm-hint">{esInstruccion ? "El PIC cobra la hora; debe ser distinto del practicante." : "Podés asignar cualquier instructor (no tiene que ser el de cabecera del alumno)."}</p>
           </div>
-          </>)}
+          )}
 
           <div className="avm-field">
             <label>Aeronave</label>
@@ -328,7 +374,7 @@ export default function AgendarVueloModal({
             )}
           </div>
 
-          {!esReserva && (
+          {!esReserva && !esInstruccion && (
             <label className="avm-check">
               <input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} />
               Extracurricular (cualquier aeronave; no cuenta al límite semanal)

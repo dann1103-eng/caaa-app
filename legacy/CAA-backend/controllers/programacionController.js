@@ -5,6 +5,7 @@ const { puedeProgramar } = require("../utils/capacidades");
 const solicitudService = require("../services/solicitudService");
 const { notificarUsuario } = require("../utils/notificaciones");
 const { mantenimientoCubreFechaSQL } = require("../utils/mantenimientoUtils");
+const { asegurarFichaPracticante, normalizarTipoInstruccion } = require("../utils/practicanteHelper");
 
 async function getNextSemanaId(client) {
   const semanaRes = await client.query(`
@@ -686,9 +687,19 @@ exports.agendarVueloDirecto = async (req, res) => {
     }
     if (!user) return;
 
-    const { id_semana, id_alumno, id_instructor, dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, es_extracurricular } = req.body;
-    if (!id_semana || !id_alumno || !id_instructor || !dia_semana || !id_bloque || !id_aeronave) {
-      return res.status(400).json({ message: "Faltan datos del vuelo (semana, alumno, instructor, día, bloque, aeronave)" });
+    const { id_semana, id_alumno: idAlumnoBody, id_instructor, dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, es_extracurricular, id_usuario_practicante, tipo_instruccion: tipoInstruccionBody } = req.body;
+    const tipoInstruccion = normalizarTipoInstruccion(tipoInstruccionBody);
+
+    // En NORMAL se exige id_alumno; en instructor-con-instructor (CHEQUEO/REFRESH)
+    // el slot de estudiante se deriva de la ficha espejo del practicante.
+    if (!id_semana || !id_instructor || !dia_semana || !id_bloque || !id_aeronave) {
+      return res.status(400).json({ message: "Faltan datos del vuelo (semana, instructor, día, bloque, aeronave)" });
+    }
+    if (tipoInstruccion === "NORMAL" && !idAlumnoBody) {
+      return res.status(400).json({ message: "Falta el alumno" });
+    }
+    if (tipoInstruccion !== "NORMAL" && !id_usuario_practicante) {
+      return res.status(400).json({ message: "Falta el instructor practicante" });
     }
     if (Number(dia_semana) < 1 || Number(dia_semana) > 6) {
       return res.status(400).json({ message: "Día inválido (Lunes a Sábado)" });
@@ -699,6 +710,7 @@ exports.agendarVueloDirecto = async (req, res) => {
     if (!semRes.rows[0].publicada) return res.status(400).json({ message: "La semana no está publicada — usá el agendado normal." });
 
     const fin = Number(id_bloque_fin || id_bloque);
+    let id_alumno = idAlumnoBody;
 
     // Conflictos contra vuelos reales (no cancelados), por rango de bloques.
     const conflicto = async (campo, valor, label, code) => {
@@ -715,6 +727,16 @@ exports.agendarVueloDirecto = async (req, res) => {
     };
 
     await client.query("BEGIN");
+
+    // Instructor-con-instructor: el PIC no puede ser el practicante, y el slot de
+    // estudiante pasa a ser la ficha espejo del practicante (se crea si no existe).
+    if (tipoInstruccion !== "NORMAL") {
+      const picUid = await client.query(`SELECT id_usuario FROM instructor WHERE id_instructor = $1`, [id_instructor]);
+      if (picUid.rows[0]?.id_usuario === Number(id_usuario_practicante)) {
+        throw Object.assign(new Error("El PIC y el practicante no pueden ser la misma persona"), { code: "VALIDATION" });
+      }
+      id_alumno = await asegurarFichaPracticante(client, id_usuario_practicante);
+    }
 
     await conflicto("aeronave", id_aeronave, "Ese bloque y aeronave ya está ocupado", "23505");
     await conflicto("alumno", id_alumno, "El alumno ya tiene un vuelo en ese horario", "23506");
@@ -742,18 +764,18 @@ exports.agendarVueloDirecto = async (req, res) => {
     const id_solicitud = ss.rows[0].id_solicitud;
 
     const sv = await client.query(
-      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id_detalle`,
-      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true]
+      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, tipo_instruccion)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id_detalle`,
+      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true, tipoInstruccion]
     );
     const id_detalle = sv.rows[0].id_detalle;
 
     const vue = await client.query(
-      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, estado, creado_por, fecha_vuelo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'PUBLICADO','PROGRAMACION',
+      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, estado, creado_por, fecha_vuelo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PUBLICADO','PROGRAMACION',
                (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1))
        RETURNING id_vuelo`,
-      [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true]
+      [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true, tipoInstruccion]
     );
     const id_vuelo = vue.rows[0].id_vuelo;
 
@@ -783,6 +805,7 @@ exports.agendarVueloDirecto = async (req, res) => {
     res.json({ message: "Vuelo agendado y publicado", id_vuelo, id_detalle });
   } catch (e) {
     await client.query("ROLLBACK");
+    if (e.code === "VALIDATION") return res.status(400).json({ message: e.message });
     if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
     if (e.code === "23506") return res.status(409).json({ message: "El alumno ya tiene un vuelo en ese horario" });
     if (e.code === "23507") return res.status(409).json({ message: "El instructor ya tiene un vuelo en ese horario" });

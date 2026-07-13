@@ -46,6 +46,7 @@ exports.listAlumnos = async (req, res) => {
       LEFT JOIN instructor i ON i.id_instructor = a.id_instructor
       LEFT JOIN usuario iu ON iu.id_usuario = i.id_usuario
       LEFT JOIN licencia l ON l.id_licencia = a.id_licencia
+      WHERE NOT COALESCE(a.es_practicante, false)
       ORDER BY u.nombre, u.apellido
     `);
     res.json({ ok: true, data: r.rows });

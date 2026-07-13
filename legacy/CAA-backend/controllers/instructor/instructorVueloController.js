@@ -129,6 +129,40 @@ exports.getVuelosSemana = async (req, res) => {
   }
 };
 
+// Vuelos donde ESTE instructor es el PRACTICANTE (recibe instrucción), es decir
+// ocupa el slot de estudiante vía su ficha espejo. Alimenta la sección
+// "Mis vuelos de práctica" del dashboard del instructor: desde ahí abre el
+// loadsheet en edición y firma el reporte como estudiante (rutas /alumno/*, que
+// ya lo admiten por pertenencia). El PIC va en id_instructor (no es él).
+exports.getMisVuelosPractica = async (req, res) => {
+  try {
+    const r = await db.query(
+      `SELECT v.id_vuelo, v.fecha_vuelo, v.estado, v.tipo_instruccion, v.dia_semana,
+              bh.hora_inicio, bh.hora_fin,
+              a.codigo AS aeronave_codigo, a.tipo AS aeronave_tipo,
+              upic.nombre AS pic_nombre, upic.apellido AS pic_apellido,
+              (SELECT ls.estado FROM loadsheet ls WHERE ls.id_vuelo = v.id_vuelo LIMIT 1) AS loadsheet_estado,
+              rv.estado AS reporte_estado, rv.es_inasistencia
+         FROM vuelo v
+         JOIN alumno al       ON al.id_alumno = v.id_alumno
+         JOIN bloque_horario bh ON bh.id_bloque = v.id_bloque
+         JOIN aeronave a       ON a.id_aeronave = v.id_aeronave
+         JOIN instructor ipic  ON ipic.id_instructor = v.id_instructor
+         JOIN usuario upic     ON upic.id_usuario = ipic.id_usuario
+         LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+        WHERE al.id_usuario = $1
+          AND v.tipo_instruccion IN ('CHEQUEO', 'REFRESH')
+          AND v.estado <> 'CANCELADO'
+        ORDER BY v.fecha_vuelo DESC NULLS LAST, bh.hora_inicio`,
+      [req.user.id_usuario]
+    );
+    res.json(r.rows);
+  } catch (e) {
+    console.error("getMisVuelosPractica:", e);
+    res.status(500).json({ message: "Error al obtener vuelos de práctica" });
+  }
+};
+
 exports.avanzarEstadoVuelo = async (req, res) => {
   const { id_vuelo } = req.params;
   const { duracion_estimada_min: duracionBody, tiempo_vuelo_min } = req.body;
@@ -177,6 +211,29 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     if (!nuevoEstado) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: "El vuelo no puede avanzar de estado" });
+    }
+
+    // GUARDIA DE AVIÓN OCUPADO: no sacar a hangar si esa aeronave ya está en uso
+    // en otro vuelo (mismo criterio que el flujo de Turno, ver turnoController).
+    if (nuevoEstado === "SALIDA_HANGAR") {
+      const ocup = await client.query(
+        `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
+           FROM vuelo v2
+           LEFT JOIN alumno al ON al.id_alumno = v2.id_alumno
+           LEFT JOIN usuario u ON u.id_usuario = al.id_usuario
+          WHERE v2.id_aeronave = $1
+            AND v2.id_vuelo <> $2
+            AND v2.estado IN ('SALIDA_HANGAR','EN_PROGRESO','REGRESO_HANGAR')
+          LIMIT 1`,
+        [vuelo.id_aeronave, Number(id_vuelo)]
+      );
+      if (ocup.rows.length > 0) {
+        await client.query("ROLLBACK");
+        const q = ocup.rows[0].quien;
+        return res.status(409).json({
+          message: `Esta aeronave aún está en vuelo${q ? ` con ${q}` : ""} — no se puede sacar hasta que regrese al hangar.`,
+        });
+      }
     }
 
     if (nuevoEstado === "COMPLETADO") {
@@ -307,19 +364,9 @@ exports.registrarInasistencia = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const timeCheck = await client.query(
-      `SELECT (NOW() AT TIME ZONE 'America/El_Salvador')::time < bh.hora_inicio AS es_temprano
-       FROM vuelo v
-       JOIN bloque_horario bh ON bh.id_bloque = v.id_bloque
-       WHERE v.id_vuelo = $1`,
-      [id_vuelo]
-    );
-
-    if (timeCheck.rows.length > 0 && timeCheck.rows[0].es_temprano) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "No se puede registrar inasistencia antes de la hora programada" });
-    }
-
+    // (Se removió el candado de "hora programada": marcar la inasistencia de un
+    // no-show ANTES de su hora es justo lo que libera el avión para adelantar
+    // otro vuelo con esa misma aeronave.)
     const upd = await client.query(
       `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0 
        WHERE id_vuelo = $1 AND id_instructor = $2 RETURNING id_vuelo`,

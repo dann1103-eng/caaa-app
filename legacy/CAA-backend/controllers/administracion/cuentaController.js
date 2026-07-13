@@ -12,6 +12,7 @@ exports.listAlumnosConSaldo = async (req, res) => {
              COALESCE(u.telefono, a.telefono) AS telefono,
              COALESCE(c.saldo_actual_usd, 0) AS saldo_actual_usd,
              c.ultimo_movimiento_en,
+             a.es_practicante,
              a.numero_licencia,
              a.id_instructor, iu.username AS instructor_username,
              a.id_licencia, l.nombre AS licencia_nombre

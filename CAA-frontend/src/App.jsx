@@ -268,6 +268,17 @@ function App() {
               </ProtectedInstructor>
             }
           />
+          {/* Vuelo de práctica (chequeo/refresh): el instructor practicante edita
+              su loadsheet como estudiante (mismos endpoints /alumno, admitidos por
+              pertenencia). */}
+          <Route
+            path="/instructor/practica/loadsheet/:id_vuelo"
+            element={
+              <ProtectedInstructor>
+                <LoadsheetPage apiBase="alumno" />
+              </ProtectedInstructor>
+            }
+          />
 
           {/* ── Módulo Administración / Contabilidad ── */}
           <Route path="/administracion" element={<Navigate to="/administracion/dashboard" replace />} />

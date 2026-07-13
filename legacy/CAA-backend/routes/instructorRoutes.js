@@ -21,6 +21,7 @@ const accessVuelo = [authMiddleware, requireCapacidad(["ADMIN"], "VUELO")];
 
 router.get("/vuelos-hoy",                                     access, instructorVuelo.getVuelosHoy);
 router.get("/vuelos-semana",                                  access, instructorVuelo.getVuelosSemana);
+router.get("/mis-vuelos-practica",                            access, instructorVuelo.getMisVuelosPractica);
 router.get("/mis-alumnos",                                    access, instructorAlumno.getMisAlumnos);
 router.get("/mi-ficha",                                       access, instructorAlumno.miFicha);
 router.get("/mi-historial",                                   access, instructorAlumno.miHistorial);

@@ -118,26 +118,38 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       return res.status(400).json({ message: "Los simuladores no permiten cambios de estado" });
     }
 
-    // RESTRICCIÓN: No permitir SALIDA_HANGAR antes de la hora programada
-    if (vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO") {
-      const timeCheck = await client.query(
-        `SELECT (NOW() AT TIME ZONE 'America/El_Salvador')::time < bh.hora_inicio AS es_temprano
-         FROM vuelo v
-         JOIN bloque_horario bh ON bh.id_bloque = v.id_bloque
-         WHERE v.id_vuelo = $1`,
-        [id_vuelo]
-      );
-      if (timeCheck.rows.length > 0 && timeCheck.rows[0].es_temprano) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "No se puede iniciar el vuelo antes de la hora programada" });
-      }
-    }
-
     let nuevoEstado = NEXT_ESTADO[vuelo.estado];
 
     if (!nuevoEstado) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: "El vuelo no puede avanzar de estado" });
+    }
+
+    // GUARDIA DE AVIÓN OCUPADO (reemplaza el viejo candado de "hora programada").
+    // Ahora Turno/instructor pueden ADELANTAR vuelos en cualquier momento; la
+    // única restricción al dar "salida a hangar" es que la aeronave no esté ya
+    // físicamente en uso en otro vuelo (en el aire o en salida/regreso al hangar).
+    // Marcar la inasistencia del vuelo que ocupa el avión (lo deja COMPLETADO) lo
+    // libera y habilita volar con el adelantado.
+    if (nuevoEstado === "SALIDA_HANGAR") {
+      const ocup = await client.query(
+        `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
+           FROM vuelo v2
+           LEFT JOIN alumno al ON al.id_alumno = v2.id_alumno
+           LEFT JOIN usuario u ON u.id_usuario = al.id_usuario
+          WHERE v2.id_aeronave = $1
+            AND v2.id_vuelo <> $2
+            AND v2.estado IN ('SALIDA_HANGAR','EN_PROGRESO','REGRESO_HANGAR')
+          LIMIT 1`,
+        [vuelo.id_aeronave, Number(id_vuelo)]
+      );
+      if (ocup.rows.length > 0) {
+        await client.query("ROLLBACK");
+        const q = ocup.rows[0].quien;
+        return res.status(409).json({
+          message: `Esta aeronave aún está en vuelo${q ? ` con ${q}` : ""} — no se puede sacar hasta que regrese al hangar.`,
+        });
+      }
     }
 
     let duracionMin = null;
