@@ -1,0 +1,17 @@
+{
+  "name": "CAAA - Centro de Adiestramiento Aéreo Académico",
+  "short_name": "CAAA",
+  "description": "Gestión de programación de vuelos, mantenimiento y administración de CAAA",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1B365D",
+  "theme_color": "#1B365D",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -109,8 +109,8 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
     // Validar rangos numéricos solo si NO es inasistencia
     if (!esInasistencia) {
       const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible];
-      if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) > 9999.9))) {
-        return res.status(400).json({ message: "Los valores numéricos no pueden superar 9999.9" });
+      if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) < 0))) {
+        return res.status(400).json({ message: "Los valores numéricos deben ser números válidos." });
       }
     }
 
@@ -173,8 +173,8 @@ exports.firmarReporteVuelo = async (req, res) => {
     // Validar rangos numéricos solo si NO es inasistencia
     if (!esInasistencia) {
       const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible];
-      if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) > 9999.9))) {
-        return res.status(400).json({ message: "Los valores numéricos no pueden superar 9999.9" });
+      if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) < 0))) {
+        return res.status(400).json({ message: "Los valores numéricos deben ser números válidos." });
       }
     }
 

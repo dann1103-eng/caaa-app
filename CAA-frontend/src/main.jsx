@@ -14,3 +14,12 @@ createRoot(document.getElementById("root")).render(
     <App />
   </StrictMode>
 );
+
+// Registrar el service worker desde el arranque (no solo al activar push) para
+// que Android ofrezca la instalación completa de la PWA (modo standalone),
+// no solo un acceso directo del navegador.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}

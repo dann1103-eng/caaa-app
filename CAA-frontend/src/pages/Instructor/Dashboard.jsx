@@ -6,6 +6,7 @@ import Header from "../../components/Header/Header";
 import ToastMantenimiento from "../../components/ToastMantenimiento/ToastMantenimiento";
 import ChecklistPostvueloModal from "../../components/ChecklistPostvueloModal/ChecklistPostvueloModal";
 import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
+import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
 import {
   getVuelosSemana,
   getMisAlumnos,
@@ -535,6 +536,10 @@ export default function InstructorDashboard() {
               Semana siguiente
             </button>
           </div>
+        </div>
+
+        <div className="ins__avisos">
+          <AvisosTurnoWidget />
         </div>
 
         <div className="ins__section">

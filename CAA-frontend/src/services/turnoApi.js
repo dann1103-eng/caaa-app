@@ -53,6 +53,13 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   return res.data;
 };
 
+// Editar tripulación (alumno/instructor/aeronave) + almas a bordo, para cuando
+// no hay nadie de programación disponible para resolver un cambio en el momento.
+export const editarTripulacionVuelo = async (id_vuelo, payload) => {
+  const res = await axios.patch(`${API_URL}/turno/vuelos/${id_vuelo}/tripulacion`, payload);
+  return res.data;
+};
+
 // Reporte de cierre del día (vuelos por avión). Descarga el PDF con el token
 // (mismo patrón blob que facturas/recibos) y lo abre en otra pestaña.
 export const abrirReporteVuelosDia = async (fecha) => {

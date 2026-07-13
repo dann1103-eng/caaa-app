@@ -70,9 +70,13 @@ app.options("*", cors(corsOptions));
 // real del cliente detrás del proxy de Railway, no la del proxy.
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  // 600 req/min por IP (~10/seg). Margen amplio: en la escuela muchos usuarios
+  // 1200 req/min por IP (~20/seg). Margen amplio: en la escuela muchos usuarios
   // comparten la misma IP pública (NAT), así que un límite bajo los bloquearía.
-  max: 600,
+  // Subido de 600→1200 con más usuarios simultáneos (Proyección refresca cada
+  // 20s + socket.io en modo polling por dispositivo); no protege autenticación
+  // (eso lo hace authLimiter) así que subirlo no debilita la defensa contra
+  // fuerza bruta, solo da margen de capacidad.
+  max: 1200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: "Demasiadas peticiones. Bajá el ritmo e intentá de nuevo en un momento." },

@@ -36,6 +36,7 @@
 .avm-field > label { font-size: 0.82rem; font-weight: 700; color: var(--c-ink-2, #334155); }
 .avm-field select,
 .avm-field input,
+.avm-field textarea,
 .avm-search {
   border: 1px solid var(--c-line, #e2e8f0);
   border-radius: 8px;
@@ -46,9 +47,11 @@
   color: var(--c-ink, #0f172a);
   width: 100%;
 }
+.avm-field textarea { resize: vertical; }
 .avm-search { margin-bottom: 6px; }
 .avm-field select:focus,
 .avm-field input:focus,
+.avm-field textarea:focus,
 .avm-search:focus { outline: none; border-color: var(--c-brand-700, #1e3a8a); box-shadow: 0 0 0 3px var(--c-brand-50, #eff6ff); }
 .avm-error { border-color: var(--c-danger-500, #ef4444) !important; }
 

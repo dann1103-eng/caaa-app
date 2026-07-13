@@ -332,11 +332,17 @@ exports.enviarLoadsheetPDF = catchAsync(async (req, res) => {
     await client.query("COMMIT");
     client.release();
 
-    // --- BLOQUE 2: ENVÍO DE CORREO (INDEPENDIENTE, solo si hay PDF) ---
-    try {
-      if (!pdfBase64) throw new Error("Sin PDF: se omite el correo");
+    // Responder de inmediato: lo crítico (guardar + marcar ENVIADO) ya está en
+    // firme. El correo es "mejor esfuerzo" y NO debe bloquear al alumno — si el
+    // SMTP está lento o cuelga (pasó en prod: timeouts de 30-60s por IPv6 a
+    // Gmail), antes el botón "Guardar y enviar" se quedaba cargando todo ese
+    // tiempo. Ahora el envío corre en segundo plano, sin await en la respuesta.
+    res.json({ ok: true, message: "Procesado correctamente", estado: "ENVIADO" });
+
+    // --- BLOQUE 2: ENVÍO DE CORREO (best-effort, en segundo plano) ---
+    if (pdfBase64) {
       const recipient = process.env.RECIPIENT_EMAIL || process.env.MAIL_FROM_ADDRESS;
-      await transporter.sendMail({
+      transporter.sendMail({
         from: `"CAAA Load Sheet" <${process.env.MAIL_USERNAME}>`,
         to: recipient,
         subject: `Load Sheet — ${student || 'Alumno'} — ${aircraft || ''} — ${date || ''}`,
@@ -347,12 +353,8 @@ exports.enviarLoadsheetPDF = catchAsync(async (req, res) => {
           encoding: 'base64',
           contentType: 'application/pdf',
         }],
-      });
-    } catch (emailErr) {
-      console.error(`⚠️ Email falló:`, emailErr);
+      }).catch((emailErr) => console.error(`⚠️ Email falló:`, emailErr));
     }
-
-    res.json({ ok: true, message: "Procesado correctamente", estado: "ENVIADO" });
 
   } catch (err) {
     if (client) { await client.query("ROLLBACK"); client.release(); }

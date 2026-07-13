@@ -6,6 +6,7 @@ import Header from "../../components/Header/Header";
 import MiHorarioList from "../../components/MiHorarioList/MiHorarioList";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/EstadoOperacionesWidget";
+import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
 import {
   getMiHorario,
   getMiInfo,
@@ -360,6 +361,7 @@ export default function AlumnoDashboard() {
             )}
             <MetarWidget />
             <EstadoOperacionesWidget />
+            <AvisosTurnoWidget />
           </aside>
         </div>
       </div>

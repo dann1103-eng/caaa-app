@@ -4,6 +4,38 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { login } from "../../services/loginApi";
 
+// Cada causa de fallo de login tiene un status HTTP distinto — mapear cada
+// una a su propio mensaje evita el bug de mostrar "Credenciales incorrectas"
+// cuando en realidad es un límite de peticiones (429) o una cuenta bloqueada
+// temporalmente (403): el usuario reintentaba pensando que escribió mal la
+// contraseña, cuando el problema era otro y solo hacía falta esperar.
+function mensajeErrorLogin(err) {
+  const status = err?.response?.status;
+  const data = err?.response?.data;
+
+  if (!err?.response) {
+    return "No se pudo conectar con el servidor. Revisá tu conexión a internet e intentá de nuevo.";
+  }
+  if (status === 429) {
+    return data?.message || "Demasiados intentos desde esta red. Esperá unos minutos e intentá de nuevo.";
+  }
+  if (status === 403) {
+    // Cuenta bloqueada por intentos fallidos (ya bloqueada, o se acaba de bloquear ahora).
+    return data?.message || "Cuenta bloqueada temporalmente por intentos fallidos. Esperá unos minutos.";
+  }
+  if (status === 401) {
+    const restantes = data?.intentos_restantes;
+    if (restantes != null) {
+      return `Usuario o contraseña incorrectos. Te quedan ${restantes} intento${restantes === 1 ? "" : "s"} antes de que se bloquee la cuenta.`;
+    }
+    return data?.message || "Usuario o contraseña incorrectos.";
+  }
+  if (status === 400) {
+    return data?.message || "Completá tu usuario y contraseña.";
+  }
+  return "Ocurrió un error inesperado. Intentá de nuevo en unos minutos.";
+}
+
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -32,8 +64,8 @@ export default function Login() {
       else if (user.rol === "INSTRUCTOR") navigate(user.es_instructor_vuelo === false ? "/instructor/aula-virtual" : "/instructor");
       else if (user.rol === "ADMINISTRACION") navigate("/administracion/dashboard");
       else if (user.rol === "TALLER") navigate("/taller/dashboard");
-    } catch {
-      toast.error("Credenciales incorrectas");
+    } catch (err) {
+      toast.error(mensajeErrorLogin(err));
     }
   };
 

@@ -16,6 +16,10 @@ router.delete("/ticker",          authMiddleware, turnoController.limpiarTicker)
 router.delete("/ticker/:id",      authMiddleware, turnoController.limpiarUnicoTicker);
 router.post("/agregar-bloques-suspension", authMiddleware, turnoController.agregarBloquesSuspension);
 router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzarEstadoVuelo);
+
+// Editar tripulación (alumno/instructor/aeronave) + almas a bordo. Mutación
+// más sensible que avanzar estado → gate de rol explícito (no solo JWT válido).
+router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, roleMiddleware(["TURNO", "ADMIN"]), turnoController.editarTripulacion);
 router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.registrarInasistencia);
 
 // Reporte de cierre del día (vuelos por avión, PDF). Lo usa TURNO; ADMIN como

@@ -114,9 +114,8 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     ];
 
     if (numericFields.includes(key)) {
-      // Permitir solo números y un punto decimal
-      // Formato: hasta 4 dígitos, un punto opcional, y hasta 1 decimal
-      const regex = /^\d{0,4}(\.\d{0,1})?$/;
+      // Permitir solo números y un punto decimal (sin límite de dígitos enteros)
+      const regex = /^\d*(\.\d{0,1})?$/;
       if (val !== "" && !regex.test(val)) {
         return; // Ignorar cambio si no cumple el formato
       }

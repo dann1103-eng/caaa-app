@@ -19,6 +19,7 @@ import {
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
+import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
 import { getCalendarioAdmin, getAeronavesActivasAdmin, getBloquesHorario } from "../../services/adminApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
@@ -69,6 +70,7 @@ function hhmmToMin(hhmm) {
 function VueloCard({ vuelo, onRefresh }) {
   const tagClass = ESTADO_COLOR[vuelo.estado] ?? "trn__tag--gris";
   const [advancing, setAdvancing] = useState(false);
+  const [editando, setEditando] = useState(false);
 
   const handleAvanzar = async () => {
     setAdvancing(true);
@@ -110,8 +112,17 @@ function VueloCard({ vuelo, onRefresh }) {
     <div className="trn__card">
       <div className="trn__card-top">
         <div className="trn__card-info">
-          <span className="trn__aeronave">{vuelo.aeronave_codigo}</span>
-          <span className={`trn__tag ${tagClass}`}>{ESTADO_LABEL[vuelo.estado] ?? vuelo.estado}</span>
+          <div className="trn__card-info-left">
+            <span className="trn__aeronave">{vuelo.aeronave_codigo}</span>
+            <span className={`trn__tag ${tagClass}`}>{ESTADO_LABEL[vuelo.estado] ?? vuelo.estado}</span>
+          </div>
+          <button
+            className="trn__btn-editar"
+            onClick={() => setEditando(true)}
+            title="Editar tripulación (alumno, instructor, aeronave, almas a bordo)"
+          >
+            <i className="bi bi-pencil-square"></i>
+          </button>
         </div>
         <div className="trn__card-nombres">
           <span className="trn__alumno">
@@ -120,6 +131,11 @@ function VueloCard({ vuelo, onRefresh }) {
           <span className="trn__instructor">
             Inst: {vuelo.instructor_nombre} {vuelo.instructor_apellido}
           </span>
+          {vuelo.almas_a_bordo != null && (
+            <span className="trn__almas" title={vuelo.pasajeros_extra || ""}>
+              <i className="bi bi-people-fill"></i> {vuelo.almas_a_bordo} a bordo
+            </span>
+          )}
         </div>
       </div>
 
@@ -135,6 +151,14 @@ function VueloCard({ vuelo, onRefresh }) {
           </button>
         )}
       </div>
+
+      {editando && (
+        <EditarTripulacionModal
+          vuelo={vuelo}
+          onClose={() => setEditando(false)}
+          onSaved={onRefresh}
+        />
+      )}
     </div>
   );
 }

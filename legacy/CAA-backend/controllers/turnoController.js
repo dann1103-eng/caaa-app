@@ -2,6 +2,7 @@ const db = require("../config/db");
 const { logAuditoria } = require("../utils/auditoria");
 const transporter = require("../utils/mailer");
 const { notificarStaff } = require("../utils/webpush");
+const { notificarUsuario } = require("../utils/notificaciones");
 
 // Flujo unificado TURNO + INSTRUCTOR
 const NEXT_ESTADO = {
@@ -42,6 +43,8 @@ exports.getVuelosHoy = async (req, res) => {
          v.id_alumno,
          v.id_instructor,
          v.duracion_estimada_min,
+         v.almas_a_bordo,
+         v.pasajeros_extra,
          bh.hora_inicio,
          bh.hora_fin,
          a.codigo  AS aeronave_codigo,
@@ -756,5 +759,170 @@ exports.getReporteVuelosDia = async (req, res) => {
   } catch (e) {
     console.error("getReporteVuelosDia:", e);
     res.status(500).json({ message: "Error al generar el reporte de vuelos" });
+  }
+};
+
+// ── Editar tripulación de un vuelo (Turno) ──────────────────────────────────
+// En el aeropuerto no siempre hay alguien de programación disponible para
+// resolver un cambio de última hora: Turno puede reasignar alumno/instructor/
+// aeronave de un vuelo de la semana publicada, y anotar "almas a bordo" +
+// notas de pasajeros extra (vuelos demo con gente que no está en el sistema).
+exports.editarTripulacion = async (req, res) => {
+  const { id_vuelo } = req.params;
+  const { id_alumno, id_instructor, id_aeronave, almas_a_bordo, pasajeros_extra } = req.body;
+  const user = req.user;
+  const io = req.app.get("io");
+
+  if (!id_alumno || !id_instructor || !id_aeronave) {
+    return res.status(400).json({ message: "Faltan datos (alumno, instructor, aeronave)" });
+  }
+
+  let almas = null;
+  if (almas_a_bordo !== "" && almas_a_bordo != null) {
+    almas = parseInt(almas_a_bordo, 10);
+    if (isNaN(almas) || almas < 0 || almas > 10) {
+      return res.status(400).json({ message: "Almas a bordo debe ser un número entre 0 y 10" });
+    }
+  }
+  const pasajeros = pasajeros_extra ? String(pasajeros_extra).trim().slice(0, 500) || null : null;
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const vueloRes = await client.query(
+      `SELECT v.id_vuelo, v.id_semana, v.dia_semana, v.id_bloque, v.id_bloque_fin, v.estado,
+              v.id_alumno, v.id_instructor, v.id_aeronave, v.es_extracurricular, sw.publicada
+         FROM vuelo v
+         JOIN semana_vuelo sw ON sw.id_semana = v.id_semana
+        WHERE v.id_vuelo = $1 FOR UPDATE OF v`,
+      [Number(id_vuelo)]
+    );
+    if (vueloRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Vuelo no encontrado" });
+    }
+    const vuelo = vueloRes.rows[0];
+
+    if (!vuelo.publicada) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "La semana de este vuelo aún no está publicada" });
+    }
+    if (["CANCELADO", "COMPLETADO"].includes(vuelo.estado)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: `No se puede editar un vuelo ${vuelo.estado.toLowerCase()}` });
+    }
+
+    const fin = vuelo.id_bloque_fin || vuelo.id_bloque;
+    const nuevoAlumno = Number(id_alumno);
+    const nuevoInstructor = Number(id_instructor);
+    const nuevaAeronave = Number(id_aeronave);
+    const alumnoCambio = nuevoAlumno !== vuelo.id_alumno;
+    const instructorCambio = nuevoInstructor !== vuelo.id_instructor;
+    const aeronaveCambio = nuevaAeronave !== vuelo.id_aeronave;
+
+    // Conflictos contra otros vuelos reales (mismo patrón que agendarVueloDirecto).
+    const conflicto = async (columna, valor, label, code) => {
+      const r = await client.query(
+        `SELECT 1 FROM vuelo
+          WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado <> 'CANCELADO' AND id_vuelo <> $6
+            AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`,
+        [vuelo.id_semana, vuelo.dia_semana, valor, vuelo.id_bloque, fin, vuelo.id_vuelo]
+      );
+      if (r.rows.length) throw Object.assign(new Error(label), { code });
+    };
+
+    if (aeronaveCambio) {
+      await conflicto("id_aeronave", nuevaAeronave, "Ese bloque y aeronave ya está ocupado", "23505");
+      const reservaOcup = await client.query(
+        `SELECT 1 FROM reserva_aeronave
+          WHERE id_aeronave = $1 AND fecha = (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($3::int - 1)
+            AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`,
+        [nuevaAeronave, vuelo.id_semana, vuelo.dia_semana, vuelo.id_bloque, fin]
+      );
+      if (reservaOcup.rows.length) throw Object.assign(new Error("Ese avión está reservado (uso especial) en ese horario"), { code: "23505" });
+    }
+    if (instructorCambio) await conflicto("id_instructor", nuevoInstructor, "El instructor ya tiene un vuelo en ese horario", "23507");
+    if (alumnoCambio) await conflicto("id_alumno", nuevoAlumno, "El alumno ya tiene un vuelo en ese horario", "23506");
+
+    if ((alumnoCambio || aeronaveCambio) && !vuelo.es_extracurricular) {
+      const alRes = await client.query(`SELECT id_licencia FROM alumno WHERE id_alumno=$1`, [nuevoAlumno]);
+      if (alRes.rows.length === 0) throw Object.assign(new Error("Alumno no encontrado"), { code: "VALIDATION" });
+      const permitida = await client.query(
+        `SELECT 1 FROM licencia_aeronave WHERE id_licencia=$1 AND id_aeronave=$2`,
+        [alRes.rows[0].id_licencia, nuevaAeronave]
+      );
+      if (permitida.rows.length === 0) {
+        throw Object.assign(new Error("Esa aeronave no está permitida para la licencia del alumno"), { code: "VALIDATION" });
+      }
+    }
+
+    await client.query(
+      `UPDATE vuelo SET id_alumno=$1, id_instructor=$2, id_aeronave=$3, almas_a_bordo=$4, pasajeros_extra=$5
+        WHERE id_vuelo=$6`,
+      [nuevoAlumno, nuevoInstructor, nuevaAeronave, almas, pasajeros, vuelo.id_vuelo]
+    );
+
+    await logAuditoria(client, {
+      accion: instructorCambio && !alumnoCambio && !aeronaveCambio ? "CAMBIAR_INSTRUCTOR_VUELO" : "OTRO",
+      entidad: "vuelo",
+      id_entidad: vuelo.id_vuelo,
+      id_semana: vuelo.id_semana,
+      actor: user,
+      req,
+      descripcion: `Turno editó tripulación del vuelo #${vuelo.id_vuelo}`,
+      before_data: { id_alumno: vuelo.id_alumno, id_instructor: vuelo.id_instructor, id_aeronave: vuelo.id_aeronave },
+      after_data: { id_alumno: nuevoAlumno, id_instructor: nuevoInstructor, id_aeronave: nuevaAeronave, almas_a_bordo: almas, pasajeros_extra: pasajeros },
+    });
+
+    // Avisar in-app a quienes quedan asignados Y a quienes fueron removidos.
+    const uidsAvisar = new Map();
+    if (alumnoCambio || instructorCambio || aeronaveCambio) {
+      const [nuevos, viejos] = await Promise.all([
+        client.query(
+          `SELECT a.id_usuario AS alumno_uid, i.id_usuario AS instructor_uid, ae.codigo AS aeronave
+             FROM alumno a, instructor i, aeronave ae
+            WHERE a.id_alumno=$1 AND i.id_instructor=$2 AND ae.id_aeronave=$3`,
+          [nuevoAlumno, nuevoInstructor, nuevaAeronave]
+        ),
+        client.query(
+          `SELECT a.id_usuario AS alumno_uid, i.id_usuario AS instructor_uid
+             FROM alumno a, instructor i WHERE a.id_alumno=$1 AND i.id_instructor=$2`,
+          [vuelo.id_alumno, vuelo.id_instructor]
+        ),
+      ]);
+      const info = nuevos.rows[0] || {};
+      const old = viejos.rows[0] || {};
+      const msgNuevo = `Turno actualizó la tripulación de tu vuelo (aeronave ${info.aeronave || ""}).`;
+      const msgViejo = `Ya no formás parte de un vuelo que tenías asignado — Turno reasignó la tripulación.`;
+      if (info.alumno_uid) uidsAvisar.set(info.alumno_uid, msgNuevo);
+      if (info.instructor_uid) uidsAvisar.set(info.instructor_uid, msgNuevo);
+      if (alumnoCambio && old.alumno_uid && !uidsAvisar.has(old.alumno_uid)) uidsAvisar.set(old.alumno_uid, msgViejo);
+      if (instructorCambio && old.instructor_uid && !uidsAvisar.has(old.instructor_uid)) uidsAvisar.set(old.instructor_uid, msgViejo);
+      for (const [uid, mensaje] of uidsAvisar) {
+        await notificarUsuario(client, uid, { tipo: "VUELO", mensaje, enlace: "/perfil" });
+      }
+    }
+
+    await client.query("COMMIT");
+
+    if (io) io.emit("vuelo_estado_changed", { id_vuelo: vuelo.id_vuelo });
+
+    notificarStaff({
+      title: "Tripulación actualizada",
+      body: `Vuelo #${vuelo.id_vuelo} — cambio hecho por Turno`,
+      url: "/turno", tag: "tripulacion",
+    }, { excluirUid: user?.id_usuario }).catch(() => {});
+
+    res.json({ message: "Tripulación actualizada", id_vuelo: vuelo.id_vuelo });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (["23505", "23506", "23507", "VALIDATION"].includes(e.code)) {
+      return res.status(e.code === "VALIDATION" ? 400 : 409).json({ message: e.message });
+    }
+    console.error("editarTripulacion:", e);
+    res.status(500).json({ message: "Error al editar tripulación" });
+  } finally {
+    client.release();
   }
 };
