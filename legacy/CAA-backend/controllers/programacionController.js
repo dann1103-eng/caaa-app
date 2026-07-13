@@ -427,8 +427,12 @@ exports.getEstadoFlota = async (req, res) => {
           AND ${mantenimientoCubreFechaSQL("CURRENT_DATE")}
         LIMIT 1
       ) m ON true
-      WHERE a.activa = true
-        AND a.tipo != 'SIMULADOR'
+      -- Sin filtro por a.activa: una aeronave en mantenimiento hoy tiene
+      -- activa=false (sincronizarEstadoFlota), pero el widget "Estado de la
+      -- flota" existe justamente para mostrar ESE estado (etiqueta roja
+      -- "Mantenimiento") — filtrar por activa la hacía desaparecer del todo
+      -- en vez de mostrarla como en mantenimiento.
+      WHERE a.tipo != 'SIMULADOR'
       ORDER BY
         CASE
           WHEN v.id_vuelo IS NOT NULL        THEN 1
