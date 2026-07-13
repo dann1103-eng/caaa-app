@@ -411,7 +411,11 @@ exports.getEstadoFlota = async (req, res) => {
         SELECT v2.id_vuelo
         FROM vuelo v2
         WHERE v2.id_aeronave = a.id_aeronave
-          AND v2.estado IN ('EN_VUELO', 'SALIDA_HANGAR', 'REGRESO_HANGAR')
+          -- EN_VUELO es el nombre viejo del estado (ver migración 009); el
+          -- código real avanza a EN_PROGRESO. Sin este valor, un vuelo
+          -- realmente en curso nunca coincidía y la aeronave se mostraba
+          -- "en tierra" en vez de "volando".
+          AND v2.estado IN ('EN_PROGRESO', 'EN_VUELO', 'SALIDA_HANGAR', 'REGRESO_HANGAR')
           AND EXISTS (
             SELECT 1 FROM semana_vuelo sw
             WHERE sw.id_semana = v2.id_semana
