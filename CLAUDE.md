@@ -875,3 +875,91 @@ licencia para ellos? ¿otro flujo?). No modelar/tocar Bimotor sin esa aclaració
 - **Informarse con la escuela sobre recurrentes** (ver subsección anterior) → brainstorm → diseño.
 - Fusionar rama + `railway up`; pruebas E2E de usuario en prod; sembrar inscripciones demo para el aula.
 - Configurar correo (Resend/Brevo) sigue pendiente de sesiones anteriores.
+
+---
+
+## 19. Sesión 2026-07-12/13 — Combobox alumno, aeronaves por licencia, mantenimiento date-aware, cambios en semana en curso, reloj UTC, Web Push
+
+**TODO DESPLEGADO en producción** (rama `claude/focused-lederberg-90ed0b` fusionada FF a `master`
+= `origin/master`; backend con `railway up`; migraciones aplicadas en Supabase hasta
+`20260713000001`). Commits clave: `8baf227` (combobox) · `50259fc`/`2b05a72` (licencia) ·
+`75fdc65`/`8d72cb6` (mantenimiento) · `5a2a6ac` (cambios semana en curso) · `54b2f9c` (reloj UTC + web push).
+
+### A. Combobox de búsqueda de alumno al agendar
+- `AgendarVueloModal.jsx`: se reemplazó el input-filtro + `<select>` nativo por un **combobox de búsqueda
+  activa** (aparecen opciones mientras se escribe, con navegación por teclado ↑/↓/Enter/Escape y
+  click-fuera-cierra). Estado `alumnoAbierto/alumnoHighlight/alumnoBoxRef`; lista filtrada `.slice(0,50)`.
+
+### B. Aeronaves por licencia (`licencia_aeronave`) — corregido; Bimotor pendiente
+- Migraciones `20260711000001` (distribución) y `20260711000002` (instructor). Distribución real:
+  Privado → YS-333-PE/YS-334-PE/SIM-1; Instrumentos → +YS-270-PE; Comercial → +YS-127-P (las 5);
+  **Instructor → las 5** ("los instructor vuelan todos"). **Bimotor queda sin aeronave A PROPÓSITO**
+  (vuelan en otra escuela; falta que Daniel aclare cómo manejarlo — ver §18).
+
+### C. Mantenimiento **date-aware** (un mant. futuro ya NO bloquea todas las fechas)
+- **Bug raíz:** `iniciarMantenimiento` ponía `aeronave.activa=false` incondicional → un mantenimiento
+  agendado para el lunes bloqueaba agendar vuelos de CUALQUIER fecha (p.ej. el sábado siguiente).
+- **Fix (nuevo `utils/mantenimientoUtils.js`):** `sincronizarEstadoFlota(conn, idAeronave?)` deriva
+  `aeronave.activa/estado` según si hay mantenimiento **cubriendo CURRENT_DATE**;
+  `mantenimientoCubreFechaSQL(fechaParam)` = condición reutilizable (no completado, no CANCELADO,
+  `fecha_inicio<=FECHA` y (`fecha_fin IS NULL` o `fecha_fin>=FECHA`)). **Job diario + al arrancar**
+  en `server.js`. La disponibilidad al agendar excluye aeronaves con mantenimiento **de esa fecha**.
+- **Extras** (`adminMantenimientoController.js`): `cancelarMantenimiento` (DELETE, para los metidos por
+  error) y `agregarBloquesMantenimiento` (el "Guardar cambios" del modal Gestionar daba **404**;
+  inserta bloques + extiende `fecha_fin` con LEAST/GREATEST + re-sync). Migración `20260712000001`
+  amplió el CHECK de `tipo` para incluir **25HR** (antes fallaba el guardado).
+
+### D. Cambios de vuelo durante la semana EN CURSO (publicada) — 5 huecos cerrados
+1. **Reserva de aeronave (uso especial sin alumno)** — migración `20260712000002`: tabla
+   `reserva_aeronave` (fecha, id_bloque, id_bloque_fin, motivo TRASLADO/PRUEBA/ADMINISTRATIVO/OTRO,
+   descripcion). `reservaAeronaveController.js` (listar por semana / crear con checks de conflicto vs
+   vuelo y vs reserva / eliminar). En `AgendarVueloModal` modo **"uso especial"** (`permiteReserva`,
+   oculta alumno/instructor, muestra motivo). Tarjeta rayada `.reserva-card` en la columna Locales del
+   `AdminCalendar` con botón de borrar. La disponibilidad de aeronaves excluye reservas por fecha.
+   ⚠️ **Pendiente opcional:** el selector de agenda de la PRÓXIMA semana del alumno aún NO descuenta
+   reservas (solo lo hacen el picker de programación y el chequeo de vuelo directo).
+2. **Rechazar vuelo publicado lo CANCELA de verdad**: `rechazarSolicitudIndividual` ahora también
+   `UPDATE vuelo SET estado='CANCELADO'` (antes solo tocaba la solicitud; el vuelo seguía "vivo").
+3. **Stand-by dispara oferta también en cancelación EN BLOQUE**: `cancelarSolicitud` captura
+   `RETURNING id_vuelo` y llama `dispararOfertaPorCancelacion` por cada vuelo cancelado.
+4. **Panel "Vuelos Cancelados" del dashboard Admin** ya no queda vacío: `getCalendario` devuelve
+   array `cancelados` y los dashboards (Admin/Programación/Turno) lo pintan.
+5. **Turno puede agregar un vuelo a la semana publicada**: `agendarVueloDirecto` permite TURNO
+   (`if (user.rol !== "TURNO" && !(await puedeProgramar(req)))`); botón "Agendar vuelo" en el
+   dashboard de Turno abre `AgendarVueloModal` en modo `pickSlot` (elige día+bloque; trae `id_semana`
+   de `getCalendarioAdmin('current')`).
+
+### E. Reloj UTC / Zulu en el dashboard de Proyección
+- `PaginaProgramacion.jsx`: bajo el reloj grande local se muestra una **línea UTC** (`pp__clock-utc`,
+  mono cian) — muy usada en aviación. El tick calcula ambos con `toLocaleTimeString(..., {timeZone:"UTC"})`.
+
+### F. **Web Push** (notificaciones del navegador) a todo el staff — acciones de Turno
+- **Qué es:** notificaciones nativas del sistema aunque la pestaña esté cerrada, vía Service Worker +
+  Web Push API + VAPID. Funciona en web app (Android Chrome + escritorio directo; **iOS 16.4+ requiere
+  "Agregar a inicio" / PWA**).
+- **Backend:** `utils/webpush.js` (config VAPID desde env; `notificarStaff(payload,{excluirUid})` envía
+  a todos los `usuario` activos con `rol<>'ALUMNO'` y limpia suscripciones muertas 404/410; **todo
+  best-effort, envuelto en try/catch — no puede tumbar la acción ni el server**). Tabla
+  `push_subscription` (migración `20260713000001`). Rutas `/api/push` (`vapid-public-key` sin auth,
+  `subscribe`/`unsubscribe` con authMiddleware). Dep **`web-push`** en package.json.
+- **Disparadores** (en `turnoController.js`, todos best-effort con `excluirUid`=actor): abrir/cerrar
+  operaciones (`setEstadoOperaciones`), avisos del ticker (`publicarTicker`), salidas/entradas al hangar
+  (`avanzarEstadoVuelo`: SALIDA_HANGAR/REGRESO_HANGAR, con lookup de aeronave+alumno).
+- **Frontend:** service worker `public/sw.js` (eventos `push` + `notificationclick`); `utils/push.js`
+  (registrar SW, pedir permiso, suscribir, POST a `/push/subscribe`); componente `PushToggle` en el
+  **Header solo para no-alumnos** (botón campana activar/desactivar **por dispositivo**).
+- **Llaves VAPID:** privada SECRETA en Railway env (`VAPID_PRIVATE_KEY`), pública servida por el backend
+  (`VAPID_PUBLIC_KEY`), `VAPID_SUBJECT=mailto:danielmancia111203@gmail.com`. **Nunca commitear la
+  privada** (vive solo en Railway + `.env` gitignored del worktree). Verificado en prod:
+  `/api/push/vapid-public-key` → `habilitado:true`; `/sw.js` servido en Vercel.
+- ⚠️ **Falta prueba real de entrega:** requiere un navegador con permiso concedido (el toggle en el
+  Header) y que Turno dispare una acción. La cañería (suscribir/guardar/limpiar/best-effort) sí está
+  verificada E2E contra Supabase.
+
+### Pendiente / próximo
+- **Probar el push de punta a punta** en un navegador real (activar campana con un usuario staff →
+  disparar acción de Turno → ver la notificación). En iPhone hay que "Agregar a inicio" primero.
+- (Opcional) Descontar **reservas** también en el selector de agenda del alumno para la semana próxima.
+- Sigue pendiente de sesiones previas: **Bimotor** e **instructores recurrentes** (esperar info de la
+  escuela — §18), correo transaccional (Resend/Brevo), sembrar inscripciones demo del aula, botones de
+  export faltantes en Reportes.
