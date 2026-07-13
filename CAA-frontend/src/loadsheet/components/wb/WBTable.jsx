@@ -119,6 +119,7 @@ export default function WBTable() {
                       <input
                         type="number"
                         min="0"
+                        max="500"
                         step="0.5"
                         value={state.fuelBurn}
                         onChange={e => dispatch({ type: 'SET_FUEL_BURN', payload: e.target.value })}

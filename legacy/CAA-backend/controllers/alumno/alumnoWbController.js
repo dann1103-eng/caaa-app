@@ -70,6 +70,17 @@ exports.guardarWB = catchAsync(async (req, res) => {
   if (!(await puedeAccederVuelo(req, res, id_vuelo))) return;
   const { pesos, tow, lw, cg, dentro_limite, galones, fuel_burn } = req.body;
 
+  // Sanity: ningún avión de la flota carga más de unos pocos cientos de
+  // galones ni quema eso por hora — sin este tope, un typo en el input libre
+  // de combustible revienta la columna NUMERIC con un "numeric field
+  // overflow" críptico en cada guardado (Guardar borrador y Guardar y enviar
+  // usan el mismo endpoint).
+  for (const [campo, val] of [["galones", galones], ["fuel_burn", fuel_burn]]) {
+    if (val != null && (isNaN(val) || Math.abs(Number(val)) > 500)) {
+      return res.status(400).json({ message: `El valor de "${campo}" parece incorrecto — revisá el dato de combustible.` });
+    }
+  }
+
   const vRes = await db.query(`
     SELECT ae.id_wb_plantilla 
     FROM vuelo v 

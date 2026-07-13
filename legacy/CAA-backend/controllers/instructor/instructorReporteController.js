@@ -2,6 +2,12 @@ const db = require("../../config/db");
 const { resolverIdInstructor } = require("../../utils/instructorHelpers");
 const { actualizarHorasAeronave } = require("../../utils/aeronaveUtils");
 
+// Los campos numéricos/tipo_vuelo del reporte son opcionales (hobbs y
+// combustible no siempre se llevan) — "" no es lo mismo que "sin dato" para
+// una columna NUMERIC/CHECK de Postgres ("" revienta con "invalid input
+// syntax for type numeric" o viola el CHECK). Normaliza "" -> null.
+const blankToNull = (v) => (v === "" || v === undefined ? null : v);
+
 exports.getReportesPendientes = async (req, res) => {
   try {
     const user = req.user;
@@ -136,16 +142,16 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
                        THEN reporte_vuelo.estado ELSE 'BORRADOR' END,
          actualizado_en=NOW()
        RETURNING *`,
-      [id, esInasistencia ? null : (tipo_vuelo ?? null),
-       esInasistencia ? null : (tacometro_salida ?? null),
-       esInasistencia ? null : (tacometro_llegada ?? null),
-       esInasistencia ? null : (hobbs_salida ?? null),
-       esInasistencia ? null : (hobbs_llegada ?? null),
-       esInasistencia ? null : (combustible_salida ?? null),
-       esInasistencia ? null : (combustible_llegada ?? null),
-       esInasistencia ? null : (cantidad_combustible ?? null),
+      [id, esInasistencia ? null : blankToNull(tipo_vuelo),
+       esInasistencia ? null : blankToNull(tacometro_salida),
+       esInasistencia ? null : blankToNull(tacometro_llegada),
+       esInasistencia ? null : blankToNull(hobbs_salida),
+       esInasistencia ? null : blankToNull(hobbs_llegada),
+       esInasistencia ? null : blankToNull(combustible_salida),
+       esInasistencia ? null : blankToNull(combustible_llegada),
+       esInasistencia ? null : blankToNull(cantidad_combustible),
        esInasistencia,
-       motivo_inasistencia ?? null]
+       blankToNull(motivo_inasistencia)]
     );
     res.json(result.rows[0]);
   } catch (e) {
@@ -221,15 +227,15 @@ exports.firmarReporteVuelo = async (req, res) => {
            actualizado_en=NOW()
          RETURNING *`,
         [id,
-         esInasistencia ? null : (tipo_vuelo ?? null),
-         esInasistencia ? null : (tacometro_salida ?? null),
-         esInasistencia ? null : (tacometro_llegada ?? null),
-         esInasistencia ? null : (hobbs_salida ?? null),
-         esInasistencia ? null : (hobbs_llegada ?? null),
-         esInasistencia ? null : (combustible_salida ?? null),
-         esInasistencia ? null : (combustible_llegada ?? null),
-         esInasistencia ? null : (cantidad_combustible ?? null),
-         firma_instructor, archivo_pdf ?? null, esInasistencia, motivo_inasistencia ?? null]
+         esInasistencia ? null : blankToNull(tipo_vuelo),
+         esInasistencia ? null : blankToNull(tacometro_salida),
+         esInasistencia ? null : blankToNull(tacometro_llegada),
+         esInasistencia ? null : blankToNull(hobbs_salida),
+         esInasistencia ? null : blankToNull(hobbs_llegada),
+         esInasistencia ? null : blankToNull(combustible_salida),
+         esInasistencia ? null : blankToNull(combustible_llegada),
+         esInasistencia ? null : blankToNull(cantidad_combustible),
+         firma_instructor, blankToNull(archivo_pdf), esInasistencia, blankToNull(motivo_inasistencia)]
       );
 
       // --- Lógica de Mantenimiento por TAC ---
