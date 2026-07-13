@@ -78,7 +78,7 @@ export default function MetarWidget() {
           <div className="mw__header">
             <div>
               <h3 className="mw__title">METAR Decodificado</h3>
-              <p className="mw__updated">{d?.estacion ?? "MSSS"} · {d.condicion}</p>
+              <p className="mw__updated">{d?.estacion ?? "MSSS"} · {d.condicion} · Actualizado {minutosDesde(data.fetchedAt)}</p>
             </div>
             {cond && <i className={`bi ${cond.icon} mw__cond-icon`} />}
           </div>

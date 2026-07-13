@@ -340,10 +340,14 @@ exports.enviarLoadsheetPDF = catchAsync(async (req, res) => {
     res.json({ ok: true, message: "Procesado correctamente", estado: "ENVIADO" });
 
     // --- BLOQUE 2: ENVÍO DE CORREO (best-effort, en segundo plano) ---
+    // Todos los loadsheets van a UNA casilla de recolección fija (NO al correo
+    // del instructor — el instructor los revisa en la plataforma, ver "Ver
+    // Loadsheet del alumno" en su dashboard). RECIPIENT_EMAIL es opcional; si no
+    // está seteada cae en la misma cuenta configurada como remitente (MAIL_FROM/
+    // MAIL_USER — los mismos nombres que ya usa utils/mailer.js).
     if (pdfBase64) {
-      const recipient = process.env.RECIPIENT_EMAIL || process.env.MAIL_FROM_ADDRESS;
+      const recipient = process.env.RECIPIENT_EMAIL || process.env.MAIL_FROM_ADDRESS || process.env.MAIL_FROM || process.env.MAIL_USER;
       transporter.sendMail({
-        from: `"CAAA Load Sheet" <${process.env.MAIL_USERNAME}>`,
         to: recipient,
         subject: `Load Sheet — ${student || 'Alumno'} — ${aircraft || ''} — ${date || ''}`,
         text: `Se adjunta el load sheet de ${student || 'el alumno'} para el vuelo del ${date || ''} en aeronave ${aircraft || ''}.`,
