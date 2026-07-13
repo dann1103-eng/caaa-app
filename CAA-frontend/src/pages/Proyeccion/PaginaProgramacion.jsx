@@ -41,23 +41,6 @@ const ESTADO_META = {
 
 const formatHora = (h) => h?.slice(0, 5) ?? "—";
 
-// Devuelve estructura segura {icon, text} en vez de HTML crudo. Así el render usa
-// elementos React (que escapan el texto) y evitamos XSS: el METAR viene de una API
-// externa (aviationweather.gov) y no debe inyectarse como HTML sin sanitizar.
-function formatMetarResumen(decoded) {
-  if (!decoded) return null;
-  const partes = [];
-  if (decoded.viento)      partes.push({ icon: "bi-wind", text: decoded.viento.texto });
-  if (decoded.visibilidad) partes.push({ icon: "bi-eye", text: decoded.visibilidad.texto });
-  if (decoded.temperatura !== null) partes.push({ icon: "bi-thermometer-half", text: `${decoded.temperatura}°C` });
-  if (decoded.qnh) {
-    // El Salvador usa el altímetro en pulgadas de mercurio (1 inHg = 33.8639 hPa)
-    const inHg = (Number(decoded.qnh.valor) / 33.8639).toFixed(2);
-    partes.push({ icon: "bi-arrow-down-circle", text: `${inHg} inHg` });
-  }
-  return partes;
-}
-
 // Devuelve el estado real de la BD. La proyección NO sobreescribe con el reloj:
 // solo el instructor/turno puede avanzar el estado manualmente.
 function getEstadoDinamico(v) {
@@ -259,15 +242,12 @@ export default function PaginaProgramacion() {
       <div className="pp">
         <div className="pp__topbar">
           <div className="pp__topbar-left">
-            <span className="pp__topbar-label">METAR MSSS</span>
+            <span className="pp__topbar-label">METAR</span>
             <div className="pp__topbar-metar-list">
-              {metar && metar.decoded ? (
-                formatMetarResumen(metar.decoded).map((p, idx) => (
-                  <span key={idx} className="pp__topbar-metar-item">
-                    <i className={`bi ${p.icon}`}></i> {p.text}
-                  </span>
-                ))
-              ) : metar ? <span className="pp__topbar-raw">{metar.raw}</span> : "Cargando…"}
+              {/* METAR codificado (crudo). El decodificado ya está en el widget del sidebar.
+                  Se recorta el prefijo METAR/SPECI que a veces trae el crudo para no
+                  duplicar la etiqueta de la izquierda. */}
+              {metar ? <span className="pp__topbar-raw">{metar.raw.replace(/^(METAR|SPECI)\s+/, "")}</span> : "Cargando…"}
               {metar?.decoded?.condicion && (
                 <span className={`pp__topbar-badge pp__topbar-badge--${String(metar.decoded.condicion).toLowerCase()}`}>
                   {metar.decoded.condicion}
