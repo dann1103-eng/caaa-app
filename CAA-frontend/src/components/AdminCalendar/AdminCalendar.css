@@ -704,3 +704,26 @@
   background: var(--c-brand-50);
   box-shadow: inset 0 0 0 1px var(--c-brand-700);
 }
+
+/* Reserva de aeronave (uso especial sin alumno) — se distingue de los vuelos */
+.reserva-card {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--c-warn-50, #fffbeb),
+    var(--c-warn-50, #fffbeb) 6px,
+    var(--c-surface-2, #f1f5f9) 6px,
+    var(--c-surface-2, #f1f5f9) 12px
+  );
+  border-left: 3px solid var(--c-warn-700, #b45309) !important;
+  color: var(--c-warn-700, #b45309);
+}
+.reserva-card__del {
+  border: none;
+  background: transparent;
+  color: var(--c-ink-3, #64748b);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.reserva-card__del:hover { color: var(--c-danger-700, #b91c1c); }

@@ -13,7 +13,7 @@ import {
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import StandbyModal from "../../components/StandbyModal/StandbyModal";
-import { getInstructoresActivos, cambiarInstructorVuelo } from "../../services/adminApi";
+import { getInstructoresActivos, cambiarInstructorVuelo, getReservasAeronave, eliminarReservaAeronave } from "../../services/adminApi";
 import "./Dashboard.css";
 
 // ── Modal reasignar aeronave ──────────────────────────────────────────────
@@ -113,6 +113,7 @@ export default function ProgramacionDashboard({ embedded = false }) {
   const [modalReasignar, setModalReasignar] = useState(null);
   const [instructores, setInstructores] = useState([]);
   const [agendarCell, setAgendarCell] = useState(null);
+  const [reservas, setReservas] = useState([]);
   const [esperaSlot, setEsperaSlot] = useState(null);
 
   const reload = async () => {
@@ -133,6 +134,9 @@ export default function ProgramacionDashboard({ embedded = false }) {
       setInstructores(Array.isArray(ins) ? ins : []);
       setPendingMoves([]);
       setDragging(null);
+      const idSemana = Array.isArray(cal) ? cal[0]?.id_semana : null;
+      if (idSemana) getReservasAeronave(idSemana).then(setReservas).catch(() => setReservas([]));
+      else setReservas([]);
     } catch (e) {
       toast.error("Error al cargar datos");
     } finally {
@@ -422,6 +426,11 @@ export default function ProgramacionDashboard({ embedded = false }) {
                 onGuardarCambio={onGuardarCambio}
                 onEmptyCellClick={(cell) => setAgendarCell(cell)}
                 onGestionarEspera={(slot) => setEsperaSlot(slot)}
+                reservas={reservas}
+                onEliminarReserva={async (id) => {
+                  try { await eliminarReservaAeronave(id); toast.success("Reserva eliminada"); reload(); }
+                  catch (e) { toast.error(e?.response?.data?.message || "Error al eliminar la reserva"); }
+                }}
               />
             )}
           </div>

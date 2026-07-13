@@ -4,6 +4,7 @@ const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
 const { horarioAlumnoEmail, horarioInstructorEmail } = require("../../utils/emailTemplates");
 const { getNextSemanaId, getCurrentSemanaId, crearSemanaFutura } = require("../../utils/adminHelpers");
+const { dispararOfertaPorCancelacion } = require("../../controllers/standbyController");
 
 exports.getSemanas = catchAsync(async (req, res) => {
   const result = await db.query(`
@@ -257,7 +258,24 @@ exports.getCalendario = catchAsync(async (req, res) => {
   `, [idSemana]);
 
   const semRes = await db.query("SELECT publicada FROM semana_vuelo WHERE id_semana = $1", [idSemana]);
-  res.json({ items: result.rows, publicada: semRes.rows[0]?.publicada || false });
+
+  // Vuelos CANCELADOS de la semana (para el panel "Vuelos cancelados" del
+  // dashboard, que antes se calculaba desde items — que ya los excluye — y por
+  // eso siempre salía vacío). Se devuelven aparte para no pintarlos en el grid.
+  const cancelRes = await db.query(`
+    SELECT v.id_vuelo, v.dia_semana, v.fecha_vuelo, v.fecha_cancelacion, v.tipo_cancelacion,
+           b.hora_inicio, b.hora_fin, ae.codigo AS aeronave_codigo,
+           u_al.nombre || ' ' || u_al.apellido AS alumno_nombre
+    FROM vuelo v
+    JOIN bloque_horario b ON b.id_bloque = v.id_bloque
+    JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
+    JOIN alumno al ON al.id_alumno = v.id_alumno
+    JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
+    WHERE v.id_semana = $1 AND v.estado = 'CANCELADO'
+    ORDER BY v.fecha_cancelacion DESC NULLS LAST, b.hora_inicio
+  `, [idSemana]);
+
+  res.json({ items: result.rows, publicada: semRes.rows[0]?.publicada || false, cancelados: cancelRes.rows });
 });
 
 // Antes de publicar: cuántos baskets vigentes hay y cuántos siguen en BORRADOR
@@ -469,6 +487,14 @@ exports.rechazarSolicitudIndividual = catchAsync(async (req, res) => {
     // NOTA: Asegurarse de haber ejecutado: ALTER TABLE solicitud_vuelo ADD COLUMN IF NOT EXISTS estado VARCHAR(50) DEFAULT 'ENVIADA';
     await client.query("UPDATE solicitud_vuelo SET estado = 'RECHAZADA' WHERE id_detalle = $1", [id_detalle]);
 
+    // Si la semana ya está publicada, existe la fila en `vuelo`: rechazar debe
+    // CANCELARLA de verdad (antes quedaba viva y seguía apareciendo para
+    // Turno/operaciones aunque desapareciera del calendario de programación).
+    await client.query(
+      "UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW() WHERE id_detalle = $1 AND estado <> 'CANCELADO'",
+      [id_detalle]
+    );
+
     await logAuditoria(client, {
       accion: "OTRO",
       entidad: "solicitud_vuelo",
@@ -502,9 +528,11 @@ exports.cancelarSolicitud = catchAsync(async (req, res) => {
     await client.query("UPDATE solicitud_semana SET estado = 'CANCELADA', fecha_actualizacion = now() WHERE id_solicitud = $1", [id_solicitud]);
 
     // Si la semana ya estaba publicada, cancelar los vuelos reales
-    await client.query(`
-      UPDATE vuelo SET estado = 'CANCELADO' 
+    const cancelados = await client.query(`
+      UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW()
       WHERE id_detalle IN (SELECT id_detalle FROM solicitud_vuelo WHERE id_solicitud = $1)
+        AND estado <> 'CANCELADO'
+      RETURNING id_vuelo
     `, [id_solicitud]);
 
     await logAuditoria(client, {
@@ -516,6 +544,15 @@ exports.cancelarSolicitud = catchAsync(async (req, res) => {
     });
 
     await client.query("COMMIT");
+
+    // Stand-by: por cada vuelo cancelado, ofrecer el slot al siguiente candidato
+    // (respeta el margen mínimo internamente). Best-effort: no aborta la respuesta.
+    const io = req.app.get("io");
+    for (const row of cancelados.rows) {
+      try { await dispararOfertaPorCancelacion(db, row.id_vuelo, io); }
+      catch (e) { console.error("stand-by tras cancelarSolicitud:", e.message); }
+    }
+
     res.json({ message: "Solicitud cancelada" });
   } catch (e) {
     await client.query("ROLLBACK");

@@ -9,6 +9,7 @@ const adminMantenimiento = require("../controllers/admin/adminMantenimientoContr
 const adminUsuario = require("../controllers/admin/adminUsuarioController");
 const adminAuditoria = require("../controllers/admin/adminAuditoriaController");
 const adminCancelacion = require("../controllers/admin/adminCancelacionController");
+const reservaAeronave = require("../controllers/admin/reservaAeronaveController");
 
 // Roles de operaciones, o un INSTRUCTOR activo con el toggle puede_programar
 // (capacidad PROGRAMAR = todo lo que hace el rol PROGRAMACION).
@@ -45,6 +46,11 @@ router.post("/aeronaves/:id/iniciar-mantenimiento", adminAccess, adminMantenimie
 router.post("/aeronaves/:id/completar-mantenimiento", adminAccess, adminMantenimiento.completarMantenimiento);
 router.delete("/mantenimiento/:id", adminAccess, adminMantenimiento.cancelarMantenimiento);
 router.post("/aeronaves/:id/agregar-bloques-mantenimiento", adminAccess, adminMantenimiento.agregarBloquesMantenimiento);
+
+// --- Reserva de aeronave (uso especial sin alumno: traslado/prueba/etc.) ---
+router.get("/reservas", adminAccess, reservaAeronave.listarReservas);
+router.post("/reservas", adminAccess, reservaAeronave.crearReserva);
+router.delete("/reservas/:id", adminAccess, reservaAeronave.eliminarReserva);
 router.get("/aeronaves/alertas-mantenimiento", adminAccess, adminMantenimiento.getAlertasMantenimiento);
 router.post("/aeronaves/:id/preview-mantenimiento", adminAccess, adminMantenimiento.previewMantenimiento);
 

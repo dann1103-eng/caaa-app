@@ -18,6 +18,8 @@ import {
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
+import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
+import { getCalendarioAdmin, getAeronavesActivasAdmin, getBloquesHorario } from "../../services/adminApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
 
@@ -229,6 +231,29 @@ export default function TurnoDashboard() {
   const hoyISO = new Date().toLocaleDateString("sv-SE", { timeZone: "America/El_Salvador" });
   const [reporteFecha, setReporteFecha] = useState(hoyISO);
   const [generandoReporte, setGenerandoReporte] = useState(false);
+  // Agendar un vuelo omitido en la semana en curso (modo pickSlot).
+  const [agendarCtx, setAgendarCtx] = useState(null); // { id_semana, bloques, aeronaves, dia }
+  const [abriendoAgendar, setAbriendoAgendar] = useState(false);
+
+  const handleAbrirAgendar = async () => {
+    setAbriendoAgendar(true);
+    try {
+      const [cal, aero, blqs] = await Promise.all([
+        getCalendarioAdmin("current"),
+        getAeronavesActivasAdmin(),
+        getBloquesHorario(),
+      ]);
+      const idSemana = cal?.items?.[0]?.id_semana;
+      if (!idSemana) { toast.error("No hay una semana en curso publicada para agendar"); return; }
+      const jsDay = new Date().getDay();           // 0=Dom..6=Sab
+      const isodow = jsDay === 0 ? 6 : jsDay;       // domingo → sábado
+      setAgendarCtx({ id_semana: idSemana, aeronaves: aero || [], bloques: blqs || [], dia: Math.min(isodow, 6) });
+    } catch {
+      toast.error("No se pudo abrir el agendado");
+    } finally {
+      setAbriendoAgendar(false);
+    }
+  };
 
   const handleReporteDia = async () => {
     setGenerandoReporte(true);
@@ -418,6 +443,15 @@ export default function TurnoDashboard() {
                 <i className="bi bi-file-earmark-pdf" style={{ marginRight: 6 }}></i>
                 {generandoReporte ? "Generando…" : "Reporte del día"}
               </button>
+              <button
+                className="trn__ops-btn"
+                disabled={abriendoAgendar}
+                onClick={handleAbrirAgendar}
+                title="Agregar un vuelo omitido en la semana en curso"
+              >
+                <i className="bi bi-calendar-plus" style={{ marginRight: 6 }}></i>
+                {abriendoAgendar ? "Abriendo…" : "Agendar vuelo"}
+              </button>
             </div>
           </div>
         </div>
@@ -506,6 +540,21 @@ export default function TurnoDashboard() {
         )}
 
       </div>
+
+      {agendarCtx && (
+        <AgendarVueloModal
+          pickSlot
+          week="current"
+          publicada={true}
+          id_semana={agendarCtx.id_semana}
+          dia_semana={agendarCtx.dia}
+          id_bloque={agendarCtx.bloques[0]?.id_bloque}
+          bloques={agendarCtx.bloques}
+          aeronaves={agendarCtx.aeronaves}
+          onClose={() => setAgendarCtx(null)}
+          onCreated={() => { setAgendarCtx(null); cargarVuelos(); }}
+        />
+      )}
     </>
   );
 }

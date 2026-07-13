@@ -14,6 +14,8 @@ import {
   getBloquesBloqueadosAdmin as getBloquesBloqueados,
   getInstructoresActivos,
   cambiarInstructorVuelo,
+  getReservasAeronave,
+  eliminarReservaAeronave,
 } from "../../services/adminApi";
 import "./Dashboard.css";
 
@@ -33,6 +35,8 @@ export default function AdminDashboard() {
   const [instructores, setInstructores] = useState([]);
   const [publicada, setPublicada] = useState(true);
   const [agendarCell, setAgendarCell] = useState(null); // { dia_semana, id_bloque }
+  const [reservas, setReservas] = useState([]);
+  const [cancelados, setCancelados] = useState([]);
   const [esperaSlot, setEsperaSlot] = useState(null);   // { id_semana, dia_semana, id_bloque, hora }
 
   const load = async (w = week) => {
@@ -51,8 +55,25 @@ export default function AdminDashboard() {
       setPublicada(cal.publicada);
       setBloqueos(blq);
       setPendingMoves([]);
+      setCancelados(Array.isArray(cal.cancelados) ? cal.cancelados : []);
+      const idSemana = cal.items?.[0]?.id_semana;
+      if (idSemana) {
+        getReservasAeronave(idSemana).then(setReservas).catch(() => setReservas([]));
+      } else {
+        setReservas([]);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const eliminarReserva = async (id) => {
+    try {
+      await eliminarReservaAeronave(id);
+      toast.success("Reserva eliminada");
+      load();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al eliminar la reserva");
     }
   };
 
@@ -348,7 +369,7 @@ export default function AdminDashboard() {
               <i className="bi bi-x-circle adm__stat-icon" style={{ color: 'var(--c-primary-500)' }}></i>
             </div>
             <span className="adm__stat-num" style={{ color: "var(--c-primary-500)" }}>
-              {items.filter(v => v.estado_vuelo === 'CANCELADO').length}
+              {cancelados.length}
             </span>
             <span className="adm__stat-sub">Esta semana</span>
           </div>
@@ -436,6 +457,8 @@ export default function AdminDashboard() {
               onConflictChange={setHasConflicts}
               onEmptyCellClick={(cell) => setAgendarCell(cell)}
               onGestionarEspera={(slot) => setEsperaSlot(slot)}
+              reservas={reservas}
+              onEliminarReserva={eliminarReserva}
             />
           )}
         </div>
@@ -459,7 +482,7 @@ export default function AdminDashboard() {
         )}
 
         {/* ── Cancelaciones Recientes ── */}
-        {items.some(v => v.estado_vuelo === 'CANCELADO') && (
+        {cancelados.length > 0 && (
           <div className="adm__section" style={{ marginTop: '24px' }}>
             <div className="adm__section-header">
               <div className="adm__section-info">
@@ -478,9 +501,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items
-                    .filter(v => v.estado_vuelo === 'CANCELADO')
-                    .sort((a, b) => new Date(b.fecha_cancelacion || 0) - new Date(a.fecha_cancelacion || 0))
+                  {cancelados
                     .slice(0, 5)
                     .map(v => (
                       <tr key={v.id_vuelo}>

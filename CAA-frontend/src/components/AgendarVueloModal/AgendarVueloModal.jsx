@@ -9,6 +9,7 @@ import {
   agendarSolicitudCalendario,
   agendarVueloDirectoCalendario,
 } from "../../services/programacionApi";
+import { crearReservaAeronave } from "../../services/adminApi";
 import "./AgendarVueloModal.css";
 
 /**
@@ -27,8 +28,14 @@ export default function AgendarVueloModal({
   week, publicada, id_semana, dia_semana, id_bloque,
   bloques = [], aeronaves = [], fixedInstructor = null, alumnosScope = null,
   createFn = null, // si se provee, se usa en vez de los endpoints de programación
+  pickSlot = false, // permite elegir día + bloque dentro del modal (p.ej. Turno)
   onClose, onCreated,
 }) {
+  // Día/bloque efectivos: vienen fijos de la celda, salvo en modo pickSlot.
+  const [diaSel, setDiaSel] = useState(Number(dia_semana) || 1);
+  const [bloqueSel, setBloqueSel] = useState(Number(id_bloque) || Number(bloques[0]?.id_bloque) || 1);
+  const diaEff = pickSlot ? diaSel : Number(dia_semana);
+  const bloqueEff = pickSlot ? bloqueSel : Number(id_bloque);
   const [alumnos, setAlumnos] = useState(alumnosScope || []);
   const [instructores, setInstructores] = useState([]);
   const [idAlumno, setIdAlumno] = useState("");
@@ -43,6 +50,11 @@ export default function AgendarVueloModal({
   const [extra, setExtra] = useState(false);
   const [permitidas, setPermitidas] = useState(null); // ids permitidas por licencia
   const [saving, setSaving] = useState(false);
+  // Modo "uso especial" (reserva de aeronave sin alumno): solo staff (no instructor).
+  const [esReserva, setEsReserva] = useState(false);
+  const [motivo, setMotivo] = useState("TRASLADO");
+  const [descReserva, setDescReserva] = useState("");
+  const permiteReserva = !createFn; // el instructor no reserva aviones
 
   useEffect(() => {
     (async () => {
@@ -110,19 +122,44 @@ export default function AgendarVueloModal({
     return !permitidas.includes(Number(idAeronave));
   }, [extra, idAeronave, permitidas]);
 
-  const rutaInvalida = tipoVuelo === "RUTA" && Number(bloqueFin) < Number(id_bloque);
-  const puedeGuardar = idAlumno && idAeronave && (!publicada || idInstructor) && !aeronaveNoPermitida && !rutaInvalida && !saving;
+  const rutaInvalida = tipoVuelo === "RUTA" && Number(bloqueFin) < bloqueEff;
+  const puedeGuardar = esReserva
+    ? (idAeronave && !rutaInvalida && !saving)
+    : (idAlumno && idAeronave && (!publicada || idInstructor) && !aeronaveNoPermitida && !rutaInvalida && !saving);
 
   const guardar = async () => {
     if (!puedeGuardar) return;
     setSaving(true);
+
+    // Modo reserva de uso especial (sin alumno).
+    if (esReserva) {
+      try {
+        await crearReservaAeronave({
+          id_aeronave: Number(idAeronave),
+          id_semana,
+          dia_semana: diaEff,
+          id_bloque: bloqueEff,
+          id_bloque_fin: tipoVuelo === "RUTA" ? Number(bloqueFin) : bloqueEff,
+          motivo,
+          descripcion: descReserva || null,
+        });
+        toast.success("Aeronave reservada");
+        onCreated?.();
+        onClose?.();
+      } catch (e) {
+        toast.error(e?.response?.data?.message || "No se pudo reservar la aeronave");
+        setSaving(false);
+      }
+      return;
+    }
+
     const payload = {
       id_semana,
       id_alumno: Number(idAlumno),
       id_instructor: idInstructor ? Number(idInstructor) : null,
-      dia_semana: Number(dia_semana),
-      id_bloque: Number(id_bloque),
-      id_bloque_fin: tipoVuelo === "RUTA" ? Number(bloqueFin) : Number(id_bloque),
+      dia_semana: diaEff,
+      id_bloque: bloqueEff,
+      id_bloque_fin: tipoVuelo === "RUTA" ? Number(bloqueFin) : bloqueEff,
       id_aeronave: Number(idAeronave),
       tipo_vuelo: tipoVuelo,
       es_extracurricular: extra,
@@ -147,21 +184,63 @@ export default function AgendarVueloModal({
     }
   };
 
-  const horaBloque = bloques.find(b => Number(b.id_bloque) === Number(id_bloque));
-  const horaTxt = horaBloque ? `${String(horaBloque.hora_inicio).slice(0,5)}` : `bloque ${id_bloque}`;
+  const horaBloque = bloques.find(b => Number(b.id_bloque) === bloqueEff);
+  const horaTxt = horaBloque ? `${String(horaBloque.hora_inicio).slice(0,5)}` : `bloque ${bloqueEff}`;
 
   return (
     <div className="avm-overlay" onClick={onClose}>
       <div className="avm-card" onClick={(e) => e.stopPropagation()}>
         <div className="avm-head">
           <div>
-            <div className="avm-eyebrow">{publicada ? "Agendar vuelo (semana publicada)" : "Agendar vuelo"}</div>
-            <h3 className="avm-title">{DIAS[Number(dia_semana)]} · {horaTxt}</h3>
+            <div className="avm-eyebrow">{esReserva ? "Reservar aeronave (uso especial)" : publicada ? "Agendar vuelo (semana publicada)" : "Agendar vuelo"}</div>
+            <h3 className="avm-title">{DIAS[diaEff]} · {horaTxt}</h3>
           </div>
           <button className="avm-close" onClick={onClose}>&times;</button>
         </div>
 
         <div className="avm-body">
+          {pickSlot && (
+            <div className="avm-row">
+              <div className="avm-field" style={{ flex: 1 }}>
+                <label>Día</label>
+                <select value={diaSel} onChange={(e) => setDiaSel(Number(e.target.value))}>
+                  {[1,2,3,4,5,6].map(d => <option key={d} value={d}>{DIAS[d]}</option>)}
+                </select>
+              </div>
+              <div className="avm-field" style={{ flex: 1 }}>
+                <label>Bloque</label>
+                <select value={bloqueSel} onChange={(e) => setBloqueSel(Number(e.target.value))}>
+                  {bloques.map(b => <option key={b.id_bloque} value={b.id_bloque}>{String(b.hora_inicio).slice(0,5)}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+          {permiteReserva && (
+            <label className="avm-check" style={{ marginBottom: 2 }}>
+              <input type="checkbox" checked={esReserva} onChange={(e) => setEsReserva(e.target.checked)} />
+              Uso especial del avión (sin alumno): traslado, prueba, administrativo…
+            </label>
+          )}
+
+          {esReserva && (
+            <>
+              <div className="avm-field">
+                <label>Motivo</label>
+                <select value={motivo} onChange={(e) => setMotivo(e.target.value)}>
+                  <option value="TRASLADO">Traslado</option>
+                  <option value="PRUEBA">Prueba</option>
+                  <option value="ADMINISTRATIVO">Administrativo</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              </div>
+              <div className="avm-field">
+                <label>Descripción (opcional)</label>
+                <input value={descReserva} onChange={(e) => setDescReserva(e.target.value)} placeholder="Ej.: traslado a Comalapa por revisión…" />
+              </div>
+            </>
+          )}
+
+          {!esReserva && (<>
           <div className="avm-field" ref={alumnoBoxRef}>
             <label>Alumno</label>
             <div className="avm-combo">
@@ -217,6 +296,7 @@ export default function AgendarVueloModal({
             )}
             <p className="avm-hint">Podés asignar cualquier instructor (no tiene que ser el de cabecera del alumno).</p>
           </div>
+          </>)}
 
           <div className="avm-field">
             <label>Aeronave</label>
@@ -240,7 +320,7 @@ export default function AgendarVueloModal({
               <div className="avm-field avm-field--inline">
                 <label>Hasta</label>
                 <select value={bloqueFin} onChange={(e) => setBloqueFin(e.target.value)} className={rutaInvalida ? "avm-error" : ""}>
-                  {bloques.filter(b => Number(b.id_bloque) >= Number(id_bloque)).map(b => (
+                  {bloques.filter(b => Number(b.id_bloque) >= bloqueEff).map(b => (
                     <option key={b.id_bloque} value={b.id_bloque}>{String(b.hora_fin).slice(0,5)}</option>
                   ))}
                 </select>
@@ -248,16 +328,18 @@ export default function AgendarVueloModal({
             )}
           </div>
 
-          <label className="avm-check">
-            <input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} />
-            Extracurricular (cualquier aeronave; no cuenta al límite semanal)
-          </label>
+          {!esReserva && (
+            <label className="avm-check">
+              <input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} />
+              Extracurricular (cualquier aeronave; no cuenta al límite semanal)
+            </label>
+          )}
         </div>
 
         <div className="avm-actions">
           <button className="avm-btn avm-btn--ghost" onClick={onClose}>Cancelar</button>
           <button className="avm-btn avm-btn--primary" onClick={guardar} disabled={!puedeGuardar}>
-            {saving ? "Guardando…" : (publicada ? "Agendar y publicar" : "Agendar")}
+            {saving ? "Guardando…" : esReserva ? "Reservar avión" : (publicada ? "Agendar y publicar" : "Agendar")}
           </button>
         </div>
       </div>

@@ -160,6 +160,22 @@ export const cancelarMantenimiento = async (id_mantenimiento) => {
   return res.data;
 };
 
+// ── Reservas de aeronave (uso especial sin alumno) ──────────────────────────
+export const getReservasAeronave = async (id_semana) => {
+  const res = await axios.get(`${API_URL}/admin/reservas`, { params: { id_semana } });
+  return res.data;
+};
+
+export const crearReservaAeronave = async (payload) => {
+  const res = await axios.post(`${API_URL}/admin/reservas`, payload);
+  return res.data;
+};
+
+export const eliminarReservaAeronave = async (id) => {
+  const res = await axios.delete(`${API_URL}/admin/reservas/${id}`);
+  return res.data;
+};
+
 export const registrarHorasManuales = async (datos) => {
   const res = await axios.post(`${API_URL}/admin/mantenimiento/horas-manuales`, datos);
   return res.data;

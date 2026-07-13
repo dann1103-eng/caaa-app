@@ -595,6 +595,12 @@ exports.getAeronavesDisponibles = async (req, res) => {
            WHERE m.id_aeronave = a.id_aeronave
              AND ${mantenimientoCubreFechaSQL(fechaSlot)}
          )
+         AND NOT EXISTS (
+           SELECT 1 FROM reserva_aeronave rv
+           WHERE rv.id_aeronave = a.id_aeronave
+             AND rv.fecha = ${fechaSlot}
+             AND $2::int BETWEEN rv.id_bloque AND COALESCE(rv.id_bloque_fin, rv.id_bloque)
+         )
        ORDER BY a.codigo`,
       [id_semana, id_bloque, dia_semana]
     );
@@ -659,10 +665,17 @@ exports.agendarSolicitud = async (req, res) => {
 
 // (B) Semana publicada / en curso → crea el vuelo directo (con solicitud_vuelo
 // de respaldo para que sea editable por id_detalle), notifica y avisa.
+// TURNO también puede (agregar un vuelo omitido durante el día en curso),
+// además de ADMIN/PROGRAMACION/instructor-con-toggle.
 exports.agendarVueloDirecto = async (req, res) => {
   const client = await db.connect();
   try {
-    const user = await requireProgramacion(req, res);
+    let user = req.user;
+    if (!user) { client.release(); return res.status(401).json({ message: "No autenticado" }); }
+    if (user.rol !== "TURNO" && !(await puedeProgramar(req))) {
+      client.release();
+      return res.status(403).json({ message: "Acceso denegado" });
+    }
     if (!user) return;
 
     const { id_semana, id_alumno, id_instructor, dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, es_extracurricular } = req.body;
@@ -698,6 +711,17 @@ exports.agendarVueloDirecto = async (req, res) => {
     await conflicto("aeronave", id_aeronave, "Ese bloque y aeronave ya está ocupado", "23505");
     await conflicto("alumno", id_alumno, "El alumno ya tiene un vuelo en ese horario", "23506");
     await conflicto("instructor", id_instructor, "El instructor ya tiene un vuelo en ese horario", "23507");
+
+    // Conflicto con una reserva de uso especial (traslado/prueba/etc.) del avión.
+    const reservaOcup = await client.query(
+      `SELECT 1 FROM reserva_aeronave rv
+        WHERE rv.id_aeronave = $3
+          AND rv.fecha = (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana = $1) + ($2::int - 1)
+          AND NOT ($5 < rv.id_bloque OR $4 > COALESCE(rv.id_bloque_fin, rv.id_bloque))
+        LIMIT 1`,
+      [id_semana, dia_semana, id_aeronave, id_bloque, fin]
+    );
+    if (reservaOcup.rows.length) throw Object.assign(new Error("Ese avión está reservado (uso especial) en ese horario"), { code: "23505" });
 
     // Basket + solicitud_vuelo de respaldo (id_detalle para editar en el calendario).
     const ss = await client.query(

@@ -71,6 +71,8 @@ export default function AdminCalendar({
   onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
   onGestionarEspera,         // (slot) => void: abrir gestor de lista de espera
   rechazarLabel = "Rechazar Vuelo",
+  reservas = [],             // reservas de uso especial (sin alumno) a pintar
+  onEliminarReserva,         // (id) => Promise: eliminar una reserva
 }) {
   const isEditable = true; // El Admin siempre puede editar, incluso post-publicación
   const puedeEditarItem = (item) => (typeof canEditItem === "function" ? !!canEditItem(item) : true);
@@ -133,6 +135,8 @@ export default function AdminCalendar({
 
   const safeItems = Array.isArray(items) ? items : [];
   const safeBloqueos = Array.isArray(bloqueos) ? bloqueos : [];
+  const safeReservas = Array.isArray(reservas) ? reservas : [];
+  const MOTIVO_LABEL = { TRASLADO: "Traslado", PRUEBA: "Prueba", ADMINISTRATIVO: "Administrativo", OTRO: "Uso especial" };
 
   const isBloqueado = (dia_semana, id_bloque) =>
     safeBloqueos.some((x) => Number(x.dia_semana) === Number(dia_semana) && Number(x.id_bloque) === Number(id_bloque));
@@ -564,11 +568,12 @@ export default function AdminCalendar({
             })
           ))}
 
-          {/* Locales Flights (Stacked Vertically per block) */}
+          {/* Locales Flights (Stacked Vertically per block) + Reservas de uso especial */}
           {bloques.map((b, rowIdx) => (
             dayConfigs.map((dc) => {
               const localesHere = dc.locales.filter(i => Number(i.id_bloque) === Number(b.id_bloque));
-              if (localesHere.length === 0) return null;
+              const reservasHere = safeReservas.filter(rv => Number(rv.dia_semana) === Number(dc.id) && Number(rv.id_bloque) === Number(b.id_bloque));
+              if (localesHere.length === 0 && reservasHere.length === 0) return null;
               return (
                 <div key={`locales-${dc.id}-${b.id_bloque}`} style={{
                   gridColumn: dc.startCol,
@@ -577,6 +582,22 @@ export default function AdminCalendar({
                   display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px',
                   pointerEvents: 'none'
                 }}>
+                  {reservasHere.map(rv => (
+                    <div key={`reserva-${rv.id}`} className="flight-card reserva-card" style={{ minHeight: '52px', pointerEvents: 'auto' }}
+                      title={`Reserva (${MOTIVO_LABEL[rv.motivo] || rv.motivo})${rv.descripcion ? ' — ' + rv.descripcion : ''}`}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.72rem' }}>
+                          <i className="bi bi-lock-fill" style={{ marginRight: 3 }} />{MOTIVO_LABEL[rv.motivo] || rv.motivo}
+                        </div>
+                        {onEliminarReserva && (
+                          <button className="reserva-card__del" title="Eliminar reserva"
+                            onClick={() => onEliminarReserva(rv.id)}>&times;</button>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--neutral-dark)' }}>{rv.aeronave_codigo}</div>
+                      {rv.descripcion && <div style={{ fontSize: '0.62rem', color: 'var(--c-ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rv.descripcion}</div>}
+                    </div>
+                  ))}
                   {localesHere.map(item => {
                     const modified = pendingMoves.some(m => Number(m.id_detalle) === Number(item?.id_detalle));
                     const isSelected = selectedForMove?.id_detalle === item.id_detalle;
