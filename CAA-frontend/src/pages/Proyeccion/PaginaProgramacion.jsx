@@ -74,6 +74,21 @@ const horaAMin = (h) => {
   return (hh || 0) * 60 + (mm || 0);
 };
 
+/* Código de color por aeronave, réplica del Excel de programación. Se empareja por
+   el número de matrícula (334/333/270/127) para que no importe el sufijo P/PE. */
+const AERONAVE_COLOR = [
+  { num: "334", color: "#f87171" }, // YS-334-PE — rojo
+  { num: "333", color: "#60a5fa" }, // YS-333-PE — azul
+  { num: "270", color: "#4ade80" }, // YS-270-P  — verde
+  { num: "127", color: "#38bdf8" }, // YS-127-P  — celeste
+];
+
+function colorAeronave(codigo) {
+  if (!codigo) return undefined;
+  const m = AERONAVE_COLOR.find(a => codigo.includes(a.num));
+  return m ? m.color : undefined;
+}
+
 /* ── component ────────────────────────────────────────────────────────────── */
 export default function PaginaProgramacion() {
   const modoProyeccion = new URLSearchParams(window.location.search).get("modo") === "proyeccion";
@@ -400,7 +415,9 @@ export default function PaginaProgramacion() {
                             </div>
                             <div className="pp__info-group">
                               <span className="pp__info-label">AERONAVE</span>
-                              <span className="pp__info-main">{v.aeronave_codigo} ({v.aeronave_modelo})</span>
+                              <span className="pp__info-main" style={{ color: colorAeronave(v.aeronave_codigo) }}>
+                                {v.aeronave_codigo} ({v.aeronave_modelo})
+                              </span>
                             </div>
                           </div>
                           <div className="pp__flight-status">
