@@ -19,10 +19,22 @@ function minutosDesde(iso) {
   return `hace ${diff} min`;
 }
 
+/* Hora zulú de emisión desde el grupo ddhhmmZ del METAR crudo (ej. 131545Z → 15:45Z) */
+function horaEmisionZ(raw) {
+  const m = raw?.match(/\b\d{2}(\d{2})(\d{2})Z\b/);
+  return m ? `${m[1]}:${m[2]}Z` : null;
+}
+
 export default function MetarWidget() {
   const [data,    setData]    = useState(null);
   const [error,   setError]   = useState(false);
   const [loading, setLoading] = useState(true);
+  const [, setMinuto]         = useState(0); // re-render por minuto para refrescar "hace X min"
+
+  useEffect(() => {
+    const t = setInterval(() => setMinuto((m) => m + 1), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const cargar = useCallback(async () => {
     try {
@@ -54,8 +66,9 @@ export default function MetarWidget() {
     );
   }
 
-  const d    = data.decoded;
-  const cond = d?.condicion ? CONDICION_CFG[d.condicion] : null;
+  const d       = data.decoded;
+  const cond    = d?.condicion ? CONDICION_CFG[d.condicion] : null;
+  const emision = horaEmisionZ(data.raw);
 
   return (
     <>
@@ -78,7 +91,11 @@ export default function MetarWidget() {
           <div className="mw__header">
             <div>
               <h3 className="mw__title">METAR Decodificado</h3>
-              <p className="mw__updated">{d?.estacion ?? "MSSS"} · {d.condicion} · Actualizado {minutosDesde(data.fetchedAt)}</p>
+              <p className="mw__updated">
+                {d?.estacion ?? "MSSS"} · {d.condicion}
+                {emision && <> · Emitido {emision}</>}
+              </p>
+              <p className="mw__updated">Actualizado {minutosDesde(data.fetchedAt)}</p>
             </div>
             {cond && <i className={`bi ${cond.icon} mw__cond-icon`} />}
           </div>

@@ -179,3 +179,18 @@
   gap: 1.5rem;
   margin-bottom: 2rem;
 }
+
+/* ── Windy (mapa satelital embebido) ── */
+.pw__windy-map {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--c-line-1);
+  line-height: 0; /* elimina el gap fantasma bajo el iframe */
+}
+
+.pw__windy-map iframe {
+  width: 100%;
+  height: 240px;
+  border: 0;
+  display: block;
+}
