@@ -11,6 +11,7 @@ import Footer from "../../components/Footer/Footer";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoFlotaWidget from "../../components/ProgWidgets/EstadoFlotaWidget";
 import MantenimientoResumenWidget from "../../components/ProgWidgets/MantenimientoResumenWidget";
+import WindyWidget from "../../components/ProgWidgets/WindyWidget";
 import TickerBar from "../../components/TickerBar/TickerBar";
 import OperacionesWidget from "../../components/OperacionesWidget/OperacionesWidget";
 import { SOCKET_URL } from "../../api/axiosConfig";
@@ -406,6 +407,7 @@ export default function PaginaProgramacion() {
 
             <aside className="pp__sidebar">
               <MetarWidget />
+              <WindyWidget />
               <EstadoFlotaWidget />
               <div className="pp__sb-card">
                 <div className="pp__sb-head">
