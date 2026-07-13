@@ -24,7 +24,8 @@ exports.getCalendarioPublico = async (req, res) => {
         ae.modelo  AS aeronave_modelo,
         COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
         COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
-        v.estado
+        v.estado,
+        vet_salida.registrado_en AS salida_real
       FROM vuelo v
       JOIN bloque_horario b   ON b.id_bloque   = v.id_bloque
       JOIN aeronave ae        ON ae.id_aeronave = v.id_aeronave
@@ -32,6 +33,13 @@ exports.getCalendarioPublico = async (req, res) => {
       LEFT JOIN usuario u_al       ON u_al.id_usuario = al.id_usuario
       LEFT JOIN instructor i       ON i.id_instructor = v.id_instructor
       LEFT JOIN usuario u_ins      ON u_ins.id_usuario = i.id_usuario
+      LEFT JOIN LATERAL (
+        SELECT registrado_en
+        FROM vuelo_estado_tiempo
+        WHERE id_vuelo = v.id_vuelo AND estado = 'SALIDA_HANGAR'
+        ORDER BY registrado_en DESC
+        LIMIT 1
+      ) vet_salida ON true
       WHERE v.id_semana = $1
       ORDER BY v.dia_semana, b.hora_inicio, ae.codigo
       `,
