@@ -75,6 +75,8 @@
 .pp .pw__flota-resumen { gap: 5px; }
 /* "Próximos vuelos" sigue oculto (redundante con la tabla de horario). */
 .pp .pp__sb-card { display: none; }
+/* Windy: más compacto en la proyección para no desplazar flota/mantenimiento */
+.pp .pw__windy-map iframe { height: 205px; }
 
 .pp__container {
   flex: 1;
@@ -158,8 +160,12 @@
 }
 
 .pp__topbar-raw {
-  font-size: 0.75rem;
-  opacity: 0.7;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--pp-text-main);
+  white-space: nowrap;
 }
 
 .pp__topbar-clock {

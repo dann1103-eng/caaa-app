@@ -11,6 +11,7 @@ import Footer from "../../components/Footer/Footer";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoFlotaWidget from "../../components/ProgWidgets/EstadoFlotaWidget";
 import MantenimientoResumenWidget from "../../components/ProgWidgets/MantenimientoResumenWidget";
+import WindyWidget from "../../components/ProgWidgets/WindyWidget";
 import TickerBar from "../../components/TickerBar/TickerBar";
 import OperacionesWidget from "../../components/OperacionesWidget/OperacionesWidget";
 import { SOCKET_URL } from "../../api/axiosConfig";
@@ -44,19 +45,6 @@ const formatHora = (h) => h?.slice(0, 5) ?? "—";
 const formatHoraReal = (iso) =>
   iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false }) : null;
 
-// Devuelve estructura segura {icon, text} en vez de HTML crudo. Así el render usa
-// elementos React (que escapan el texto) y evitamos XSS: el METAR viene de una API
-// externa (aviationweather.gov) y no debe inyectarse como HTML sin sanitizar.
-function formatMetarResumen(decoded) {
-  if (!decoded) return null;
-  const partes = [];
-  if (decoded.viento)      partes.push({ icon: "bi-wind", text: decoded.viento.texto });
-  if (decoded.visibilidad) partes.push({ icon: "bi-eye", text: decoded.visibilidad.texto });
-  if (decoded.temperatura !== null) partes.push({ icon: "bi-thermometer-half", text: `${decoded.temperatura}°C` });
-  if (decoded.qnh)         partes.push({ icon: "bi-arrow-down-circle", text: `${decoded.qnh.valor} ${decoded.qnh.unidad}` });
-  return partes;
-}
-
 // Devuelve el estado real de la BD. La proyección NO sobreescribe con el reloj:
 // solo el instructor/turno puede avanzar el estado manualmente.
 function getEstadoDinamico(v) {
@@ -78,7 +66,32 @@ const ESTADO_VUELO_META = {
   EN_PROGRESO:    { label: "EN PROGRESO",        cls: "pp__tbl-badge--envuelo"  },
   REGRESO_HANGAR: { label: "REGRESO HANGAR",  cls: "pp__tbl-badge--regreso"  },
   FINALIZANDO:    { label: "FINALIZANDO",     cls: "pp__tbl-badge--finaliz"  },
+  // Vuelo del bloque vigente que el instructor aún no marca como salida del hangar
+  PROGRAMADO:     { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
+  PUBLICADO:      { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
 };
+
+const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"];
+
+const horaAMin = (h) => {
+  const [hh, mm] = String(h ?? "").split(":").map(Number);
+  return (hh || 0) * 60 + (mm || 0);
+};
+
+/* Código de color por aeronave, réplica del Excel de programación. Se empareja por
+   el número de matrícula (334/333/270/127) para que no importe el sufijo P/PE. */
+const AERONAVE_COLOR = [
+  { num: "334", color: "#f87171" }, // YS-334-PE — rojo
+  { num: "333", color: "#60a5fa" }, // YS-333-PE — azul
+  { num: "270", color: "#4ade80" }, // YS-270-P  — verde
+  { num: "127", color: "#38bdf8" }, // YS-127-P  — celeste
+];
+
+function colorAeronave(codigo) {
+  if (!codigo) return undefined;
+  const m = AERONAVE_COLOR.find(a => codigo.includes(a.num));
+  return m ? m.color : undefined;
+}
 
 /* ── component ────────────────────────────────────────────────────────────── */
 export default function PaginaProgramacion() {
@@ -190,13 +203,29 @@ export default function PaginaProgramacion() {
     [vuelos]
   );
 
-  const vuelosEnCurso = useMemo(() =>
-    vuelosConEstado.filter(v =>
-      Number(v.dia_semana) === diaHoy &&
-      ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"].includes(v.estado)
-    ),
-    [vuelosConEstado, diaHoy]
-  );
+  // Minuto actual como dependencia: los memos de tiempo se recalculan al cambiar
+  // el minuto (el reloj ya re-renderiza cada segundo), no solo al llegar datos.
+  const minutoActual = clock.slice(0, 5);
+
+  const vuelosEnCurso = useMemo(() => {
+    const d = new Date();
+    const ahoraMin = d.getHours() * 60 + d.getMinutes();
+    return vuelosConEstado
+      .filter(v => {
+        if (Number(v.dia_semana) !== diaHoy) return false;
+        if (ESTADOS_VUELO_ACTIVO.includes(v.estado)) return true;
+        // Bloque vigente sin marcar por el instructor: se muestra en STANDBY
+        // para que el vuelo no desaparezca del tablero entre la hora programada
+        // y la salida real del hangar.
+        return (
+          ["PROGRAMADO", "PUBLICADO"].includes(v.estado) &&
+          horaAMin(v.hora_inicio) <= ahoraMin &&
+          ahoraMin < horaAMin(v.hora_fin)
+        );
+      })
+      .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vuelosConEstado, diaHoy, minutoActual]);
 
   const proximosVuelos = useMemo(() =>
     vuelosConEstado
@@ -225,7 +254,8 @@ export default function PaginaProgramacion() {
       bloque: siguiente,
       vuelos: vuelosHoy.filter(v => v.id_bloque === siguiente.id_bloque),
     };
-  }, [vuelosConEstado, diaHoy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vuelosConEstado, diaHoy, minutoActual]);
 
   const vuelosFiltrados = useMemo(() =>
     vuelosConEstado.filter(v => Number(v.dia_semana) === tabActivo),
@@ -237,15 +267,12 @@ export default function PaginaProgramacion() {
       <div className="pp">
         <div className="pp__topbar">
           <div className="pp__topbar-left">
-            <span className="pp__topbar-label">METAR MSSS</span>
+            <span className="pp__topbar-label">METAR</span>
             <div className="pp__topbar-metar-list">
-              {metar && metar.decoded ? (
-                formatMetarResumen(metar.decoded).map((p, idx) => (
-                  <span key={idx} className="pp__topbar-metar-item">
-                    <i className={`bi ${p.icon}`}></i> {p.text}
-                  </span>
-                ))
-              ) : metar ? <span className="pp__topbar-raw">{metar.raw}</span> : "Cargando…"}
+              {/* METAR codificado (crudo). El decodificado ya está en el widget del sidebar.
+                  Se recorta el prefijo METAR/SPECI que a veces trae el crudo para no
+                  duplicar la etiqueta de la izquierda. */}
+              {metar ? <span className="pp__topbar-raw">{metar.raw.replace(/^(METAR|SPECI)\s+/, "")}</span> : "Cargando…"}
               {metar?.decoded?.condicion && (
                 <span className={`pp__topbar-badge pp__topbar-badge--${String(metar.decoded.condicion).toLowerCase()}`}>
                   {metar.decoded.condicion}
@@ -398,7 +425,9 @@ export default function PaginaProgramacion() {
                             </div>
                             <div className="pp__info-group">
                               <span className="pp__info-label">AERONAVE</span>
-                              <span className="pp__info-main">{v.aeronave_codigo} ({v.aeronave_modelo})</span>
+                              <span className="pp__info-main" style={{ color: colorAeronave(v.aeronave_codigo) }}>
+                                {v.aeronave_codigo} ({v.aeronave_modelo})
+                              </span>
                             </div>
                           </div>
                           <div className="pp__flight-status">
@@ -416,6 +445,7 @@ export default function PaginaProgramacion() {
 
             <aside className="pp__sidebar">
               <MetarWidget />
+              <WindyWidget />
               <EstadoFlotaWidget />
               <div className="pp__sb-card">
                 <div className="pp__sb-head">
