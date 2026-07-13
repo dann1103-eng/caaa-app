@@ -75,6 +75,16 @@ const ESTADO_VUELO_META = {
   EN_PROGRESO:    { label: "EN PROGRESO",        cls: "pp__tbl-badge--envuelo"  },
   REGRESO_HANGAR: { label: "REGRESO HANGAR",  cls: "pp__tbl-badge--regreso"  },
   FINALIZANDO:    { label: "FINALIZANDO",     cls: "pp__tbl-badge--finaliz"  },
+  // Vuelo del bloque vigente que el instructor aún no marca como salida del hangar
+  PROGRAMADO:     { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
+  PUBLICADO:      { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
+};
+
+const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"];
+
+const horaAMin = (h) => {
+  const [hh, mm] = String(h ?? "").split(":").map(Number);
+  return (hh || 0) * 60 + (mm || 0);
 };
 
 /* ── component ────────────────────────────────────────────────────────────── */
@@ -181,13 +191,29 @@ export default function PaginaProgramacion() {
     [vuelos]
   );
 
-  const vuelosEnCurso = useMemo(() =>
-    vuelosConEstado.filter(v =>
-      Number(v.dia_semana) === diaHoy &&
-      ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"].includes(v.estado)
-    ),
-    [vuelosConEstado, diaHoy]
-  );
+  // Minuto actual como dependencia: los memos de tiempo se recalculan al cambiar
+  // el minuto (el reloj ya re-renderiza cada segundo), no solo al llegar datos.
+  const minutoActual = clock.slice(0, 5);
+
+  const vuelosEnCurso = useMemo(() => {
+    const d = new Date();
+    const ahoraMin = d.getHours() * 60 + d.getMinutes();
+    return vuelosConEstado
+      .filter(v => {
+        if (Number(v.dia_semana) !== diaHoy) return false;
+        if (ESTADOS_VUELO_ACTIVO.includes(v.estado)) return true;
+        // Bloque vigente sin marcar por el instructor: se muestra en STANDBY
+        // para que el vuelo no desaparezca del tablero entre la hora programada
+        // y la salida real del hangar.
+        return (
+          ["PROGRAMADO", "PUBLICADO"].includes(v.estado) &&
+          horaAMin(v.hora_inicio) <= ahoraMin &&
+          ahoraMin < horaAMin(v.hora_fin)
+        );
+      })
+      .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vuelosConEstado, diaHoy, minutoActual]);
 
   const proximosVuelos = useMemo(() =>
     vuelosConEstado
@@ -216,7 +242,8 @@ export default function PaginaProgramacion() {
       bloque: siguiente,
       vuelos: vuelosHoy.filter(v => v.id_bloque === siguiente.id_bloque),
     };
-  }, [vuelosConEstado, diaHoy]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vuelosConEstado, diaHoy, minutoActual]);
 
   const vuelosFiltrados = useMemo(() =>
     vuelosConEstado.filter(v => Number(v.dia_semana) === tabActivo),
