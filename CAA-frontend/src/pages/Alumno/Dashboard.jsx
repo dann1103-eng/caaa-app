@@ -174,6 +174,12 @@ export default function AlumnoDashboard() {
       <Header />
 
       <div className="dash">
+        {/* ── Estado de operaciones + avisos de turno (antes del botón de agendar) ── */}
+        <div className="dash__ops">
+          <EstadoOperacionesWidget />
+          <AvisosTurnoWidget />
+        </div>
+
         {/* ── Top ── */}
         <div className="dash__top">
           <div className="dash__top-left">
@@ -360,8 +366,6 @@ export default function AlumnoDashboard() {
               </div>
             )}
             <MetarWidget />
-            <EstadoOperacionesWidget />
-            <AvisosTurnoWidget />
           </aside>
         </div>
       </div>

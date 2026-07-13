@@ -10,6 +10,26 @@
   background: var(--c-surface-0);
 }
 
+/* ── Estado de operaciones + avisos de turno (banda superior) ── */
+.dash__ops {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+  align-items: start;
+}
+
+/* Los widgets ocupan todo el ancho de su celda */
+.dash__ops > * {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .dash__ops {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Header top ── */
 .dash__top {
   display: flex;
