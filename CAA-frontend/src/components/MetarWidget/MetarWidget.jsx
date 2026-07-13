@@ -25,6 +25,13 @@ function horaEmisionZ(raw) {
   return m ? `${m[1]}:${m[2]}Z` : null;
 }
 
+/* En El Salvador el reglaje altimétrico se usa en pulgadas de mercurio (inHg).
+   El backend entrega el QNH en hPa; convertimos (1 inHg = 33.8639 hPa). */
+function hpaToInHg(hpa) {
+  const n = Number(hpa);
+  return Number.isFinite(n) ? (n / 33.8639).toFixed(2) : null;
+}
+
 export default function MetarWidget() {
   const [data,    setData]    = useState(null);
   const [error,   setError]   = useState(false);
@@ -120,8 +127,8 @@ export default function MetarWidget() {
             )}
             {d.qnh && (
               <div className="mw__cell">
-                <span className="mw__cell-label"><i className="bi bi-arrow-down-circle" /> QNH</span>
-                <span className="mw__cell-value">{d.qnh.valor || d.qnh} {d.qnh.unidad || ""}</span>
+                <span className="mw__cell-label"><i className="bi bi-arrow-down-circle" /> Altímetro</span>
+                <span className="mw__cell-value">{hpaToInHg(d.qnh.valor ?? d.qnh)} inHg</span>
               </div>
             )}
           </div>

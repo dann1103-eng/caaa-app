@@ -50,7 +50,11 @@ function formatMetarResumen(decoded) {
   if (decoded.viento)      partes.push({ icon: "bi-wind", text: decoded.viento.texto });
   if (decoded.visibilidad) partes.push({ icon: "bi-eye", text: decoded.visibilidad.texto });
   if (decoded.temperatura !== null) partes.push({ icon: "bi-thermometer-half", text: `${decoded.temperatura}°C` });
-  if (decoded.qnh)         partes.push({ icon: "bi-arrow-down-circle", text: `${decoded.qnh.valor} ${decoded.qnh.unidad}` });
+  if (decoded.qnh) {
+    // El Salvador usa el altímetro en pulgadas de mercurio (1 inHg = 33.8639 hPa)
+    const inHg = (Number(decoded.qnh.valor) / 33.8639).toFixed(2);
+    partes.push({ icon: "bi-arrow-down-circle", text: `${inHg} inHg` });
+  }
   return partes;
 }
 
