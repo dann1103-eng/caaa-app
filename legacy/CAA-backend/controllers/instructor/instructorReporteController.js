@@ -170,8 +170,11 @@ exports.firmarReporteVuelo = async (req, res) => {
 
     const esInasistencia = es_inasistencia === true || es_inasistencia === 'true';
 
-    // Validar rangos numéricos solo si NO es inasistencia
+    // Validar tipo de vuelo y rangos numéricos solo si NO es inasistencia
     if (!esInasistencia) {
+      if (!tipo_vuelo) {
+        return res.status(400).json({ message: "Elegí el tipo de vuelo antes de firmar." });
+      }
       const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible];
       if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) < 0))) {
         return res.status(400).json({ message: "Los valores numéricos deben ser números válidos." });
@@ -238,6 +241,14 @@ exports.firmarReporteVuelo = async (req, res) => {
         if (isNaN(diff) || diff <= 0) {
           await client.query("ROLLBACK");
           return res.status(400).json({ message: "El Tacómetro de llegada debe ser mayor al de salida." });
+        }
+        // Tope de cordura: ningún vuelo dura más de 24h. Sin este chequeo, un
+        // error de tipeo en salida/llegada genera un "diff" enorme que revienta
+        // horas_vuelo_aeronave.horas_voladas (NUMERIC(5,2), máx 999.99) con un
+        // "numeric field overflow" críptico en vez de un mensaje claro.
+        if (diff > 24) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ message: "La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores." });
         }
 
         // Obtener datos del vuelo

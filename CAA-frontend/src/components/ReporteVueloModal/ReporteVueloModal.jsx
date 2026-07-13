@@ -135,8 +135,8 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         await guardarReporteVuelo(id_vuelo, { ...datos, es_inasistencia: esInasistencia, motivo_inasistencia: motivoInasistencia });
       }
       setEstado("BORRADOR");
-    } catch {
-      toast.error("Error al guardar el borrador.");
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al guardar el borrador.");
     } finally {
       setSaving(false);
     }
@@ -147,12 +147,20 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     if (esInasistencia) {
       // Inasistencia solo requiere motivo y firma
     } else {
+      if (!datos.tipo_vuelo) {
+        toast.warning("Elegí el tipo de vuelo antes de enviar.");
+        return;
+      }
       if (!datos.tacometro_salida || !datos.tacometro_llegada) {
         toast.warning("Los campos de Tacómetro Salida y Llegada son obligatorios.");
         return;
       }
       if (parseFloat(datos.tacometro_llegada) <= parseFloat(datos.tacometro_salida)) {
         toast.warning("El Tacómetro de llegada debe ser mayor al de salida.");
+        return;
+      }
+      if (parseFloat(datos.tacometro_llegada) - parseFloat(datos.tacometro_salida) > 24) {
+        toast.warning("La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores.");
         return;
       }
     }
@@ -172,8 +180,8 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
       });
       setFirmaInstructor(firma);
       setEstado("PENDIENTE_ALUMNO");
-    } catch {
-      toast.error("Error al enviar el reporte al alumno.");
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al enviar el reporte al alumno.");
     } finally {
       setGenerating(false);
     }
