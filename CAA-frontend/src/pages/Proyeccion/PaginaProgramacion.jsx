@@ -40,6 +40,10 @@ const ESTADO_META = {
 
 const formatHora = (h) => h?.slice(0, 5) ?? "—";
 
+// Hora real de "salida de hangar" (timestamp del botón, no el bloque programado).
+const formatHoraReal = (iso) =>
+  iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false }) : null;
+
 // Devuelve estructura segura {icon, text} en vez de HTML crudo. Así el render usa
 // elementos React (que escapan el texto) y evitamos XSS: el METAR viene de una API
 // externa (aviationweather.gov) y no debe inyectarse como HTML sin sanitizar.
@@ -157,7 +161,13 @@ export default function PaginaProgramacion() {
       setVuelos((prev) =>
         prev.map((v) =>
           v.id_vuelo === id_vuelo
-            ? { ...v, estado, estado_desde: registrado_en, ...(aeronave_codigo ? { aeronave_codigo } : {}) }
+            ? {
+                ...v, estado, estado_desde: registrado_en,
+                // Hora real de "salida de hangar": se fija una sola vez (no se
+                // pisa en transiciones posteriores del mismo vuelo).
+                ...(estado === "SALIDA_HANGAR" ? { salida_real: registrado_en } : {}),
+                ...(aeronave_codigo ? { aeronave_codigo } : {}),
+              }
             : v
         )
       );
@@ -304,7 +314,7 @@ export default function PaginaProgramacion() {
                                   <div className="pp__tbl-bar-wrap"><div className="pp__tbl-bar" style={{ width: `${pct}%` }} /></div>
                                 )}
                               </td>
-                              <td className="pp__tbl-hora">{formatHora(v.hora_inicio)}</td>
+                              <td className="pp__tbl-hora">{formatHoraReal(v.salida_real) ?? formatHora(v.hora_inicio)}</td>
                             </tr>
                           );
                         })
