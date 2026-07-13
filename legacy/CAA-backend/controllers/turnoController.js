@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { logAuditoria } = require("../utils/auditoria");
 const transporter = require("../utils/mailer");
+const { notificarStaff } = require("../utils/webpush");
 
 // Flujo unificado TURNO + INSTRUCTOR
 const NEXT_ESTADO = {
@@ -227,6 +228,29 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       io.emit("estado_operaciones_changed");
     }
 
+    // Push a todo el staff: salidas/entradas al hangar.
+    if (nuevoEstado === "SALIDA_HANGAR" || nuevoEstado === "REGRESO_HANGAR") {
+      (async () => {
+        try {
+          const info = await db.query(
+            `SELECT ae.codigo AS aeronave, u.nombre || ' ' || u.apellido AS alumno
+               FROM vuelo v
+               JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
+               LEFT JOIN alumno al ON al.id_alumno = v.id_alumno
+               LEFT JOIN usuario u ON u.id_usuario = al.id_usuario
+              WHERE v.id_vuelo = $1`, [id_vuelo]
+          );
+          const x = info.rows[0] || {};
+          const esSalida = nuevoEstado === "SALIDA_HANGAR";
+          await notificarStaff({
+            title: esSalida ? "🛫 Salida de hangar" : "🛬 Regreso a hangar",
+            body: `${x.aeronave || "Aeronave"}${x.alumno ? " · " + x.alumno : ""}`,
+            url: "/turno", tag: "hangar",
+          }, { excluirUid: user?.id_usuario });
+        } catch (e) { console.error("push hangar:", e.message); }
+      })();
+    }
+
     res.json({ id_vuelo: Number(id_vuelo), estado: nuevoEstado, registrado_en, duracion_estimada_min: duracionMin });
   } catch (e) {
     await client.query("ROLLBACK");
@@ -355,6 +379,13 @@ exports.publicarTicker = async (req, res) => {
     );
     const row = result.rows[0];
     if (io) io.emit("nuevo_ticker", row);
+
+    // Push a todo el staff: aviso del ticker.
+    notificarStaff(
+      { title: "📢 Aviso de Turno", body: mensaje.trim(), url: "/turno", tag: "ticker" },
+      { excluirUid: user?.id_usuario }
+    );
+
     res.json(row);
   } catch (e) {
     console.error("publicarTicker:", e);
@@ -546,6 +577,14 @@ exports.setEstadoOperaciones = async (req, res) => {
     };
 
     if (io) io.emit("estado_operaciones_changed", payload);
+
+    // Push a todo el staff (no alumnos): abrir/cerrar operaciones.
+    notificarStaff(
+      estado_general === "INACTIVO"
+        ? { title: "⛔ Operaciones suspendidas", body: `Motivo: ${motivo_inactivo || "—"}${explicacion_detallada ? " · " + explicacion_detallada : ""}`, url: "/turno", tag: "ops" }
+        : { title: "✅ Operaciones activas", body: "Las operaciones fueron reactivadas.", url: "/turno", tag: "ops" },
+      { excluirUid: user?.id_usuario }
+    );
 
     res.json(payload);
   } catch (e) {

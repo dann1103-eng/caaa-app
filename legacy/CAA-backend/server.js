@@ -22,6 +22,7 @@ const metarRoutes = require("./routes/metarRoutes");
 const administracionRoutes = require("./routes/administracionRoutes");
 const tallerRoutes = require("./routes/tallerRoutes");
 const notificacionRoutes = require("./routes/notificacionRoutes");
+const pushRoutes = require("./routes/pushRoutes");
 const { startMetarPoller } = require("./services/metarService");
 const { asegurarProximaSemanaDisponible } = require("./utils/adminHelpers");
 const globalErrorHandler = require("./middlewares/errorMiddleware");
@@ -107,6 +108,7 @@ app.use("/api/metar", metarRoutes);
 app.use("/api/administracion", administracionRoutes);
 app.use("/api/taller", tallerRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
+app.use("/api/push", pushRoutes);
 
 app.use(globalErrorHandler);
 

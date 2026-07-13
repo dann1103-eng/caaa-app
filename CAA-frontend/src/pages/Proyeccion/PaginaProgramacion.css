@@ -236,6 +236,22 @@
   text-transform: capitalize;
 }
 
+/* Reloj UTC / Zulu (aviación). Se muestra bajo el reloj local. */
+.pp__clock-utc {
+  margin-top: 3px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--pp-accent, #22d3ee);
+}
+.pp__clock-utc b {
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-left: 3px;
+  opacity: 0.85;
+}
+
 /* ── Dashboard Layout ───────────────────────────────────────────────────── */
 .pp__dashboard-grid {
   flex: 1;

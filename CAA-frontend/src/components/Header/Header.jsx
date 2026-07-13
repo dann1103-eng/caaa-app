@@ -2,6 +2,7 @@ import "./Header.css";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
+import PushToggle from "../PushToggle/PushToggle";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -85,6 +86,10 @@ export default function Header() {
                       <i className="bi bi-mortarboard header__action-icon" />
                       <span>Aula Virtual</span>
                     </Link>
+                  )}
+
+                  {user.rol !== "ALUMNO" && (
+                    <PushToggle className="header__action-link" onDone={closeMenu} />
                   )}
 
                   <Link to="/perfil" className="header__action-link" onClick={closeMenu}>

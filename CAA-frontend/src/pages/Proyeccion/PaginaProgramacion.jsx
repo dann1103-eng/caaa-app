@@ -87,14 +87,18 @@ export default function PaginaProgramacion() {
 
   const [metar,       setMetar]       = useState(null);
   const [clock,       setClock]       = useState("");
+  const [clockUTC,    setClockUTC]    = useState("");
 
   const diaHoy = jsDayToDb(new Date().getDay());
   const [tabActivo,       setTabActivo]       = useState(diaHoy ?? 1);
 
-  /* ── clock ── */
+  /* ── clock ── (local + UTC/Zulu, muy usado en aviación) */
   useEffect(() => {
-    const tick = () =>
-      setClock(new Date().toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }));
+    const tick = () => {
+      const d = new Date();
+      setClock(d.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }));
+      setClockUTC(d.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "UTC" }));
+    };
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
@@ -256,6 +260,7 @@ export default function PaginaProgramacion() {
               <div className="pp__hdr-clock-new">
                 <span className="pp__clock-time">{clock}</span>
                 <span className="pp__clock-date">{new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                <span className="pp__clock-utc">{clockUTC} <b>UTC</b></span>
               </div>
               <OperacionesWidget />
             </div>
