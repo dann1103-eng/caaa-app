@@ -259,22 +259,24 @@ exports.firmarReporteVuelo = async (req, res) => {
 
         // Obtener datos del vuelo
         const vueloRes = await client.query(
-          "SELECT id_aeronave, id_alumno, es_extracurricular, tipo_instruccion FROM vuelo WHERE id_vuelo = $1",
+          "SELECT id_aeronave, id_alumno, es_extracurricular, categoria FROM vuelo WHERE id_vuelo = $1",
           [id]
         );
         const id_aeronave = vueloRes.rows[0].id_aeronave;
-        const esNormal = (vueloRes.rows[0].tipo_instruccion || "NORMAL") === "NORMAL";
+        const categoriaVuelo = vueloRes.rows[0].categoria || "NORMAL";
+        // NORMAL y CHEQUEO cuentan horas de licencia como un vuelo real; DEMO
+        // (pasajero externo) y CHEQUEO_LINEA (ficha espejo del practicante) no.
+        const sumaHorasLicencia = categoriaVuelo === "NORMAL" || categoriaVuelo === "CHEQUEO";
 
         // Actualizar horas acumuladas de la aeronave y disparar mantenimiento/alertas.
-        // SIEMPRE se registran (chequeo/refresh también gastan motor/mantenimiento).
+        // SIEMPRE se registran (todas las categorías gastan motor/mantenimiento).
         const io = req.app.get("io");
         await actualizarHorasAeronave(client, id, id_aeronave, diff, io);
 
         // Horas de licencia del ALUMNO basadas en TAC (1.0 TAC = 1.0 Hora de vuelo).
-        // NO suman en vuelos extracurriculares ni en vuelos instructor-con-instructor
-        // (CHEQUEO/REFRESH usan una ficha espejo del practicante, sin avance de licencia).
+        // NO suman en vuelos extracurriculares, DEMO ni CHEQUEO_LINEA.
         const id_alumno = vueloRes.rows[0].id_alumno;
-        if (esNormal && !vueloRes.rows[0].es_extracurricular && id_alumno) {
+        if (sumaHorasLicencia && !vueloRes.rows[0].es_extracurricular && id_alumno) {
           await client.query(
             `UPDATE alumno SET horas_acumuladas = horas_acumuladas + $1 WHERE id_alumno = $2`,
             [diff, id_alumno]
@@ -304,16 +306,19 @@ exports.firmarReporteVuelo = async (req, res) => {
           const tacDiff = parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
           const vueloInfo = await client.query(`
             SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha_vuelo AS fecha,
-                   v.es_extracurricular, v.tipo_instruccion,
+                   v.es_extracurricular, v.categoria,
                    COALESCE(a.modelo, a.tipo, 'Cessna 152') AS modelo_aeronave
             FROM vuelo v
             LEFT JOIN aeronave a ON a.id_aeronave = v.id_aeronave
             WHERE v.id_vuelo = $1
           `, [id]);
-          // Vuelos instructor-con-instructor NO se auto-debitan: CHEQUEO lo paga la
-          // escuela (nadie se debita) y REFRESH se cobra MANUAL desde administración.
-          const esInstruccionEspecial = (vueloInfo.rows[0]?.tipo_instruccion || "NORMAL") !== "NORMAL";
-          if (!esInstruccionEspecial && vueloInfo.rows.length > 0 && vueloInfo.rows[0].id_alumno) {
+          // DEMO (pasajero externo, se factura manual) y CHEQUEO_LINEA
+          // (instructor-con-instructor: CHEQUEO lo paga la escuela, REFRESH se
+          // cobra MANUAL desde administración) NO se auto-debitan. NORMAL y
+          // CHEQUEO (alumno real) sí, igual que siempre.
+          const categoriaVuelo = vueloInfo.rows[0]?.categoria || "NORMAL";
+          const sinCobroAutomatico = categoriaVuelo === "DEMO" || categoriaVuelo === "CHEQUEO_LINEA";
+          if (!sinCobroAutomatico && vueloInfo.rows.length > 0 && vueloInfo.rows[0].id_alumno) {
             const info = vueloInfo.rows[0];
             cargoAutomatico = await cargarVueloACuentaDentroTx(client, {
               id_vuelo: info.id_vuelo,

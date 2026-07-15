@@ -393,6 +393,24 @@
 .pp__tbl-badge--hangar { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
 .pp__tbl-badge--regreso { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
 
+/* Tipo de vuelo (elegido al agendar): describe qué se va a volar. */
+.pp__tipo-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.pp__tipo--normal  { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; }
+.pp__tipo--demo    { background: rgba(56, 189, 248, 0.15);  color: #38bdf8; }
+.pp__tipo--chequeo { background: rgba(245, 158, 11, 0.15);  color: #fbbf24; }
+.pp__tipo--linea   { background: rgba(239, 68, 68, 0.15);   color: #f87171; }
+.pp__tipo--ruta    { background: rgba(139, 92, 246, 0.15);  color: #a78bfa; }
+
 .pp__tbl-bar-wrap {
   height: 4px;
   background: rgba(255, 255, 255, 0.05);

@@ -6,7 +6,7 @@ exports.getAlumnosListAdmin = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT a.id_alumno, a.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo
     FROM alumno a JOIN usuario u ON u.id_usuario = a.id_usuario
-    WHERE a.activo = true AND NOT COALESCE(a.es_practicante, false)
+    WHERE a.activo = true AND NOT COALESCE(a.es_practicante, false) AND NOT COALESCE(a.es_externo, false)
     ORDER BY u.apellido, u.nombre
   `);
   res.json(result.rows);
@@ -120,6 +120,20 @@ exports.listLicencias = catchAsync(async (req, res) => {
   res.json(r.rows);
 });
 
+// Aeronaves habilitadas por una licencia dada (no la del alumno) — usado por el
+// selector "licencia a chequear" del modal de agendar (categoría CHEQUEO).
+exports.getAeronavesPorLicencia = catchAsync(async (req, res) => {
+  const { id_licencia } = req.params;
+  const result = await db.query(`
+    SELECT a.id_aeronave, a.codigo, a.modelo, a.tipo
+    FROM licencia_aeronave la
+    JOIN aeronave a ON a.id_aeronave = la.id_aeronave
+    WHERE la.id_licencia = $1 AND a.activa = true
+    ORDER BY a.codigo
+  `, [id_licencia]);
+  res.json(result.rows);
+});
+
 exports.setSoleado = catchAsync(async (req, res) => {
   const { id_alumno } = req.params;
   const { soleado } = req.body;
@@ -146,7 +160,7 @@ exports.getAlumnosConLimite = catchAsync(async (req, res) => {
             WHERE i.id_instructor = a.id_instructor LIMIT 1) AS instructor_nombre
     FROM alumno a JOIN usuario u ON u.id_usuario = a.id_usuario
     LEFT JOIN solicitud_semana ss ON ss.id_alumno = a.id_alumno AND ss.id_semana = $1
-    WHERE a.activo = true AND NOT COALESCE(a.es_practicante, false)
+    WHERE a.activo = true AND NOT COALESCE(a.es_practicante, false) AND NOT COALESCE(a.es_externo, false)
     ORDER BY u.apellido, u.nombre
   `, [semanaRes.rows[0].id_semana]);
   res.json({ semana: semanaRes.rows[0], alumnos: result.rows });

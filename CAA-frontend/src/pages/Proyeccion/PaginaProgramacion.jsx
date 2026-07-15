@@ -73,6 +73,22 @@ const ESTADO_VUELO_META = {
 
 const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"];
 
+// Tipo de vuelo (elegido al agendar en Programación) — describe qué se va a
+// volar, más allá de a quién/qué avión. Ortogonal a RUTA (tipo_vuelo).
+const CATEGORIA_META = {
+  NORMAL:        { label: "Normal",         cls: "pp__tipo--normal" },
+  DEMO:          { label: "Demo",           cls: "pp__tipo--demo" },
+  CHEQUEO:       { label: "Chequeo",        cls: "pp__tipo--chequeo" },
+  CHEQUEO_LINEA: { label: "Chequeo línea",  cls: "pp__tipo--linea" },
+};
+function categoriaMeta(v) {
+  const meta = CATEGORIA_META[v?.categoria] || CATEGORIA_META.NORMAL;
+  if (v?.categoria === "CHEQUEO_LINEA" && v?.tipo_instruccion === "REFRESH") {
+    return { ...meta, label: "Refresh" };
+  }
+  return meta;
+}
+
 const horaAMin = (h) => {
   const [hh, mm] = String(h ?? "").split(":").map(Number);
   return (hh || 0) * 60 + (mm || 0);
@@ -317,17 +333,19 @@ export default function PaginaProgramacion() {
                       <tr>
                         <th>ESTUDIANTE / INSTRUCTOR</th>
                         <th>AERONAVE</th>
+                        <th>TIPO</th>
                         <th>ESTADO</th>
                         <th>SALIDA</th>
                       </tr>
                     </thead>
                     <tbody>
                       {vuelosEnCurso.length === 0 ? (
-                        <tr><td colSpan="4" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
+                        <tr><td colSpan="5" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
                       ) : (
                         vuelosEnCurso.map(v => {
                           const pct = calcProgreso(v);
                           const badge = ESTADO_VUELO_META[v.estado] || { label: v.estado, cls: "pp__tbl-badge--envuelo" };
+                          const tipo = categoriaMeta(v);
                           return (
                             <tr key={v.id_vuelo}>
                               <td>
@@ -335,6 +353,10 @@ export default function PaginaProgramacion() {
                                 <div className="pp__tbl-sub">Cap. {v.instructor_nombre}</div>
                               </td>
                               <td><span className="pp__tbl-aero">{v.aeronave_codigo}</span></td>
+                              <td>
+                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
+                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
+                              </td>
                               <td>
                                 <span className={`pp__tbl-badge ${badge.cls}`}>{badge.label}</span>
                                 {pct !== null && (
@@ -366,11 +388,14 @@ export default function PaginaProgramacion() {
                         <tr>
                           <th>ESTUDIANTE / INSTRUCTOR</th>
                           <th>AERONAVE</th>
+                          <th>TIPO</th>
                           <th>ESTADO</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {proximoBloque.vuelos.map(v => (
+                        {proximoBloque.vuelos.map(v => {
+                          const tipo = categoriaMeta(v);
+                          return (
                           <tr key={v.id_vuelo}>
                             <td>
                               <div className="pp__tbl-person">{v.alumno_nombre}</div>
@@ -378,12 +403,17 @@ export default function PaginaProgramacion() {
                             </td>
                             <td><span className="pp__tbl-aero">{v.aeronave_codigo}</span></td>
                             <td>
+                              <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
+                              {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
+                            </td>
+                            <td>
                               <span className="pp__tbl-badge pp__tbl-badge--programado">
                                 Programado
                               </span>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -409,6 +439,7 @@ export default function PaginaProgramacion() {
                   ) : (
                     vuelosFiltrados.map(v => {
                       const meta = ESTADO_META[v.estadoDinamico] || { label: v.estadoDinamico, cls: "" };
+                      const tipo = categoriaMeta(v);
                       return (
                         <div key={v.id_vuelo} className="pp__flight-card">
                           <div className="pp__flight-time">
@@ -427,6 +458,13 @@ export default function PaginaProgramacion() {
                               <span className="pp__info-label">AERONAVE</span>
                               <span className="pp__info-main" style={{ color: colorAeronave(v.aeronave_codigo) }}>
                                 {v.aeronave_codigo} ({v.aeronave_modelo})
+                              </span>
+                            </div>
+                            <div className="pp__info-group">
+                              <span className="pp__info-label">TIPO</span>
+                              <span className="pp__info-main">
+                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
+                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
                               </span>
                             </div>
                           </div>

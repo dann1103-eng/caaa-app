@@ -128,6 +128,16 @@ export const getAeronavesPermitidasAlumno = async (id_alumno) => {
   return res.data;
 };
 
+export const getLicencias = async () => {
+  const res = await axios.get(`${API_URL}/admin/licencias`);
+  return res.data;
+};
+
+export const getAeronavesPorLicencia = async (id_licencia) => {
+  const res = await axios.get(`${API_URL}/admin/licencias/${id_licencia}/aeronaves`);
+  return res.data;
+};
+
 export const setSoleado = async (id_alumno, soleado) => {
   const res = await axios.patch(`${API_URL}/admin/alumnos/${id_alumno}/soleado`, { soleado });
   return res.data;

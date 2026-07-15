@@ -4,6 +4,8 @@ import {
   getAlumnosListAdmin,
   getInstructoresActivos,
   getAeronavesPermitidasAlumno,
+  getLicencias,
+  getAeronavesPorLicencia,
 } from "../../services/adminApi";
 import {
   agendarSolicitudCalendario,
@@ -55,13 +57,27 @@ export default function AgendarVueloModal({
   const [motivo, setMotivo] = useState("TRASLADO");
   const [descReserva, setDescReserva] = useState("");
   const permiteReserva = !createFn; // el instructor no reserva aviones
-  // Modo "instructor-con-instructor" (CHEQUEO/REFRESH): el practicante (un
-  // instructor) ocupa el slot de estudiante y el PIC lo instruye. Solo staff y
-  // sobre semana publicada (vuelo directo).
-  const [esInstruccion, setEsInstruccion] = useState(false);
-  const [tipoInstruccion, setTipoInstruccion] = useState("CHEQUEO");
-  const [idPracticante, setIdPracticante] = useState(""); // id_usuario del practicante
-  const permiteInstruccion = !createFn && !!publicada;
+  // Tipo de vuelo (solo staff, no en el createFn del instructor): NORMAL (alumno
+  // real, su propia licencia), DEMO (pasajero externo no registrado), CHEQUEO
+  // (alumno real, pero se elige la licencia a chequear — filtra aeronaves) y
+  // CHEQUEO_LINEA (instructor-con-instructor: practicante + PIC).
+  const [categoria, setCategoria] = useState("NORMAL");
+  const [tipoInstruccion, setTipoInstruccion] = useState("CHEQUEO"); // sub-tipo de CHEQUEO_LINEA
+  const [idPracticante, setIdPracticante] = useState(""); // id_usuario del practicante (CHEQUEO_LINEA)
+  const [licencias, setLicencias] = useState([]);
+  const [idLicenciaChequeo, setIdLicenciaChequeo] = useState("");
+  const [aeronavesChequeo, setAeronavesChequeo] = useState(null); // ids permitidas por la licencia elegida (CHEQUEO)
+  const [nombreExterno, setNombreExterno] = useState(""); // referencia opcional del pasajero (DEMO)
+  const permiteTipoEspecial = !createFn;
+
+  const cambiarCategoria = (nueva) => {
+    setCategoria(nueva);
+    setIdAlumno(""); setBusqueda("");
+    setIdPracticante("");
+    setIdLicenciaChequeo(""); setAeronavesChequeo(null);
+    setNombreExterno("");
+    setExtra(false);
+  };
 
   useEffect(() => {
     (async () => {
@@ -74,9 +90,24 @@ export default function AgendarVueloModal({
           const ins = await getInstructoresActivos();
           setInstructores(Array.isArray(ins) ? ins : []);
         }
+        if (permiteTipoEspecial) {
+          const lic = await getLicencias();
+          setLicencias(Array.isArray(lic) ? lic : []);
+        }
       } catch { /* noop */ }
     })();
-  }, [alumnosScope, fixedInstructor]);
+  }, [alumnosScope, fixedInstructor, permiteTipoEspecial]);
+
+  // CHEQUEO: al elegir la licencia a chequear, cargar sus aeronaves permitidas.
+  useEffect(() => {
+    if (categoria !== "CHEQUEO" || !idLicenciaChequeo) { setAeronavesChequeo(null); return; }
+    (async () => {
+      try {
+        const p = await getAeronavesPorLicencia(idLicenciaChequeo);
+        setAeronavesChequeo(Array.isArray(p) ? p.map(x => Number(x.id_aeronave)) : []);
+      } catch { setAeronavesChequeo(null); }
+    })();
+  }, [categoria, idLicenciaChequeo]);
 
   // Al elegir alumno: instructor por defecto = su instructor de vuelo; y cargar
   // aeronaves permitidas por su licencia.
@@ -124,16 +155,26 @@ export default function AgendarVueloModal({
     else if (e.key === "Escape") { setAlumnoAbierto(false); }
   };
 
+  // Licencia efectiva a validar: CHEQUEO usa la elegida (si la hay), si no cae
+  // a la propia del alumno igual que NORMAL; DEMO/CHEQUEO_LINEA no aplica.
+  const permitidasEfectivas = useMemo(() => {
+    if (categoria === "CHEQUEO" && idLicenciaChequeo) return aeronavesChequeo;
+    if (categoria === "NORMAL" || categoria === "CHEQUEO") return permitidas;
+    return null;
+  }, [categoria, idLicenciaChequeo, aeronavesChequeo, permitidas]);
+
   const aeronaveNoPermitida = useMemo(() => {
-    if (extra || !idAeronave || permitidas === null) return false;
-    return !permitidas.includes(Number(idAeronave));
-  }, [extra, idAeronave, permitidas]);
+    if (extra || !idAeronave || permitidasEfectivas === null) return false;
+    return !permitidasEfectivas.includes(Number(idAeronave));
+  }, [extra, idAeronave, permitidasEfectivas]);
 
   const rutaInvalida = tipoVuelo === "RUTA" && Number(bloqueFin) < bloqueEff;
   const puedeGuardar = esReserva
     ? (idAeronave && !rutaInvalida && !saving)
-    : esInstruccion
+    : categoria === "CHEQUEO_LINEA"
     ? (idPracticante && idInstructor && idAeronave && !rutaInvalida && !saving)
+    : categoria === "DEMO"
+    ? (idInstructor && idAeronave && !rutaInvalida && !saving)
     : (idAlumno && idAeronave && (!publicada || idInstructor) && !aeronaveNoPermitida && !rutaInvalida && !saving);
 
   const guardar = async () => {
@@ -162,27 +203,36 @@ export default function AgendarVueloModal({
       return;
     }
 
-    const payload = esInstruccion ? {
+    const payloadBase = {
       id_semana,
-      id_usuario_practicante: Number(idPracticante),
-      tipo_instruccion: tipoInstruccion,
       id_instructor: idInstructor ? Number(idInstructor) : null,
       dia_semana: diaEff,
       id_bloque: bloqueEff,
       id_bloque_fin: tipoVuelo === "RUTA" ? Number(bloqueFin) : bloqueEff,
       id_aeronave: Number(idAeronave),
       tipo_vuelo: tipoVuelo,
-    } : {
-      id_semana,
-      id_alumno: Number(idAlumno),
-      id_instructor: idInstructor ? Number(idInstructor) : null,
-      dia_semana: diaEff,
-      id_bloque: bloqueEff,
-      id_bloque_fin: tipoVuelo === "RUTA" ? Number(bloqueFin) : bloqueEff,
-      id_aeronave: Number(idAeronave),
-      tipo_vuelo: tipoVuelo,
-      es_extracurricular: extra,
+      categoria,
     };
+    const payload =
+      categoria === "CHEQUEO_LINEA" ? {
+        ...payloadBase,
+        id_usuario_practicante: Number(idPracticante),
+        tipo_instruccion: tipoInstruccion,
+      } :
+      categoria === "DEMO" ? {
+        ...payloadBase,
+        nombre_externo: nombreExterno.trim() || null,
+      } :
+      categoria === "CHEQUEO" ? {
+        ...payloadBase,
+        id_alumno: Number(idAlumno),
+        id_licencia_chequeo: idLicenciaChequeo ? Number(idLicenciaChequeo) : null,
+        es_extracurricular: extra,
+      } : {
+        ...payloadBase,
+        id_alumno: Number(idAlumno),
+        es_extracurricular: extra,
+      };
     try {
       if (createFn) {
         await createFn(payload);
@@ -211,7 +261,13 @@ export default function AgendarVueloModal({
       <div className="avm-card" onClick={(e) => e.stopPropagation()}>
         <div className="avm-head">
           <div>
-            <div className="avm-eyebrow">{esReserva ? "Reservar aeronave (uso especial)" : esInstruccion ? "Vuelo instructor-con-instructor" : publicada ? "Agendar vuelo (semana publicada)" : "Agendar vuelo"}</div>
+            <div className="avm-eyebrow">
+              {esReserva ? "Reservar aeronave (uso especial)"
+                : categoria === "CHEQUEO_LINEA" ? "Chequeo de línea (instructor con instructor)"
+                : categoria === "DEMO" ? "Vuelo demo (pasajero externo)"
+                : categoria === "CHEQUEO" ? "Chequeo de licencia"
+                : publicada ? "Agendar vuelo (semana publicada)" : "Agendar vuelo"}
+            </div>
             <h3 className="avm-title">{DIAS[diaEff]} · {horaTxt}</h3>
           </div>
           <button className="avm-close" onClick={onClose}>&times;</button>
@@ -236,15 +292,21 @@ export default function AgendarVueloModal({
           )}
           {permiteReserva && (
             <label className="avm-check" style={{ marginBottom: 2 }}>
-              <input type="checkbox" checked={esReserva} onChange={(e) => { setEsReserva(e.target.checked); if (e.target.checked) setEsInstruccion(false); }} />
+              <input type="checkbox" checked={esReserva} onChange={(e) => { setEsReserva(e.target.checked); if (e.target.checked) cambiarCategoria("NORMAL"); }} />
               Uso especial del avión (sin alumno): traslado, prueba, administrativo…
             </label>
           )}
-          {permiteInstruccion && !esReserva && (
-            <label className="avm-check" style={{ marginBottom: 2 }}>
-              <input type="checkbox" checked={esInstruccion} onChange={(e) => { setEsInstruccion(e.target.checked); if (e.target.checked) setEsReserva(false); }} />
-              Vuelo instructor-con-instructor (chequeo / refresh)
-            </label>
+
+          {permiteTipoEspecial && !esReserva && (
+            <div className="avm-field">
+              <label>Tipo de vuelo</label>
+              <select value={categoria} onChange={(e) => cambiarCategoria(e.target.value)}>
+                <option value="NORMAL">Normal</option>
+                <option value="DEMO">Demo (pasajero externo)</option>
+                <option value="CHEQUEO">Chequeo (con licencia)</option>
+                <option value="CHEQUEO_LINEA">Chequeo de línea (instructor con instructor)</option>
+              </select>
+            </div>
           )}
 
           {esReserva && (
@@ -265,7 +327,7 @@ export default function AgendarVueloModal({
             </>
           )}
 
-          {!esReserva && esInstruccion && (<>
+          {!esReserva && categoria === "CHEQUEO_LINEA" && (<>
           <div className="avm-field">
             <label>Practicante (instructor que recibe instrucción) <span className="avm-req">*</span></label>
             <select value={idPracticante} onChange={(e) => setIdPracticante(e.target.value)}>
@@ -276,7 +338,7 @@ export default function AgendarVueloModal({
             </select>
           </div>
           <div className="avm-field">
-            <label>Tipo <span className="avm-req">*</span></label>
+            <label>Sub-tipo <span className="avm-req">*</span></label>
             <select value={tipoInstruccion} onChange={(e) => setTipoInstruccion(e.target.value)}>
               <option value="CHEQUEO">Chequeo — lo paga la escuela (no se debita a nadie)</option>
               <option value="REFRESH">Refresh — lo paga el practicante (cobro manual)</option>
@@ -284,7 +346,20 @@ export default function AgendarVueloModal({
           </div>
           </>)}
 
-          {!esReserva && !esInstruccion && (
+          {!esReserva && categoria === "DEMO" && (
+            <div className="avm-field">
+              <label>Nombre del pasajero (opcional)</label>
+              <input
+                value={nombreExterno}
+                onChange={(e) => setNombreExterno(e.target.value)}
+                placeholder="Referencia para facturar manualmente después…"
+                maxLength={120}
+              />
+              <p className="avm-hint">No se debita ningún saldo — se factura manual con estos datos.</p>
+            </div>
+          )}
+
+          {!esReserva && (categoria === "NORMAL" || categoria === "CHEQUEO") && (
           <div className="avm-field" ref={alumnoBoxRef}>
             <label>Alumno</label>
             <div className="avm-combo">
@@ -327,9 +402,22 @@ export default function AgendarVueloModal({
           </div>
           )}
 
+          {!esReserva && categoria === "CHEQUEO" && (
+            <div className="avm-field">
+              <label>Licencia a chequear</label>
+              <select value={idLicenciaChequeo} onChange={(e) => setIdLicenciaChequeo(e.target.value)}>
+                <option value="">— Usar la licencia propia del alumno —</option>
+                {licencias.map(l => (
+                  <option key={l.id_licencia} value={l.id_licencia}>{l.nombre}</option>
+                ))}
+              </select>
+              <p className="avm-hint">Filtra las aeronaves disponibles según esa licencia (no cambia la licencia real del alumno).</p>
+            </div>
+          )}
+
           {!esReserva && (
           <div className="avm-field">
-            <label>{esInstruccion ? "PIC (instructor que instruye)" : "Instructor"} {publicada && <span className="avm-req">*</span>}</label>
+            <label>{categoria === "CHEQUEO_LINEA" ? "PIC (instructor que instruye)" : "Instructor"} {(publicada || categoria === "DEMO" || categoria === "CHEQUEO_LINEA") && <span className="avm-req">*</span>}</label>
             {fixedInstructor ? (
               <input value={(instructores.find(i => Number(i.id_instructor) === Number(fixedInstructor))?.nombre_completo) || "Vos"} disabled />
             ) : (
@@ -340,7 +428,7 @@ export default function AgendarVueloModal({
                 ))}
               </select>
             )}
-            <p className="avm-hint">{esInstruccion ? "El PIC cobra la hora; debe ser distinto del practicante." : "Podés asignar cualquier instructor (no tiene que ser el de cabecera del alumno)."}</p>
+            <p className="avm-hint">{categoria === "CHEQUEO_LINEA" ? "El PIC cobra la hora; debe ser distinto del practicante." : "Podés asignar cualquier instructor (no tiene que ser el de cabecera del alumno)."}</p>
           </div>
           )}
 
@@ -353,7 +441,7 @@ export default function AgendarVueloModal({
               ))}
             </select>
             {aeronaveNoPermitida && (
-              <p className="avm-warn"><i className="bi bi-exclamation-triangle"></i> Esa aeronave no está en la licencia del alumno. Marcá "extracurricular" para permitirla.</p>
+              <p className="avm-warn"><i className="bi bi-exclamation-triangle"></i> Esa aeronave no está en {categoria === "CHEQUEO" ? "esa licencia" : "la licencia del alumno"}. Marcá "extracurricular" para permitirla.</p>
             )}
           </div>
 
@@ -374,7 +462,7 @@ export default function AgendarVueloModal({
             )}
           </div>
 
-          {!esReserva && !esInstruccion && (
+          {!esReserva && (categoria === "NORMAL" || categoria === "CHEQUEO") && (
             <label className="avm-check">
               <input type="checkbox" checked={extra} onChange={(e) => setExtra(e.target.checked)} />
               Extracurricular (cualquier aeronave; no cuenta al límite semanal)
