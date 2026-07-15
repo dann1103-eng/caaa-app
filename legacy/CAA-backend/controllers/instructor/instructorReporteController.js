@@ -291,7 +291,7 @@ exports.firmarReporteVuelo = async (req, res) => {
       const ts = await client.query(
         `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
          VALUES ($1, 'COMPLETADO', (SELECT id_usuario FROM instructor WHERE id_usuario = (SELECT id_usuario FROM instructor WHERE id_usuario = $2 LIMIT 1) LIMIT 1))
-         RETURNING registrado_en`,
+         RETURNING (registrado_en AT TIME ZONE 'America/El_Salvador') AS registrado_en`,
         [id, req.user.id_usuario]
       );
 

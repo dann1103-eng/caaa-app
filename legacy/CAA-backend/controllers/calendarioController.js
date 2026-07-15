@@ -25,7 +25,13 @@ exports.getCalendarioPublico = async (req, res) => {
         COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
         COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
         v.estado,
-        vet_salida.registrado_en AS salida_real
+        -- registrado_en es "timestamp without time zone": la conexión fija la sesión
+        -- en 'America/El_Salvador' (config/db.js), así que el valor guardado YA es
+        -- hora local (no UTC). Sin este AT TIME ZONE, el driver de Node lo reinterpreta
+        -- como si fuera UTC y, al convertir de vuelta a local en el navegador, la hora
+        -- queda adelantada/atrasada 6 horas. AT TIME ZONE aquí reinterpreta el valor
+        -- naive como local de El Salvador y lo pasa a timestamptz (instante correcto).
+        (vet_salida.registrado_en AT TIME ZONE 'America/El_Salvador') AS salida_real
       FROM vuelo v
       JOIN bloque_horario b   ON b.id_bloque   = v.id_bloque
       JOIN aeronave ae        ON ae.id_aeronave = v.id_aeronave

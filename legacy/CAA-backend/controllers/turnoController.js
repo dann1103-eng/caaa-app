@@ -213,7 +213,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     const tiempoRes = await client.query(
       `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
        VALUES ($1, $2, $3)
-       RETURNING registrado_en`,
+       RETURNING (registrado_en AT TIME ZONE 'America/El_Salvador') AS registrado_en`,
       [id_vuelo, nuevoEstado, user?.id_usuario ?? null]
     );
 
@@ -308,7 +308,7 @@ exports.registrarInasistencia = async (req, res) => {
     // 3. Registrar el tiempo de estado
     const ts = await client.query(
       `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
-       VALUES ($1, 'COMPLETADO', $2) RETURNING registrado_en`,
+       VALUES ($1, 'COMPLETADO', $2) RETURNING (registrado_en AT TIME ZONE 'America/El_Salvador') AS registrado_en`,
       [id_vuelo, user?.id_usuario ?? null]
     );
 

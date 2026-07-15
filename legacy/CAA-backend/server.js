@@ -206,7 +206,7 @@ setInterval(async () => {
 
       const ts = await db.query(
         `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
-         VALUES ($1, 'EN_PROGRESO', NULL) RETURNING registrado_en`,
+         VALUES ($1, 'EN_PROGRESO', NULL) RETURNING (registrado_en AT TIME ZONE 'America/El_Salvador') AS registrado_en`,
         [row.id_vuelo]
       );
 
