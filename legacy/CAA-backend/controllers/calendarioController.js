@@ -25,6 +25,10 @@ exports.getCalendarioPublico = async (req, res) => {
         COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
         COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
         v.estado,
+        v.categoria,
+        v.tipo_vuelo,
+        v.tipo_instruccion,
+        v.nombre_externo,
         -- registrado_en es "timestamp without time zone": la conexión fija la sesión
         -- en 'America/El_Salvador' (config/db.js), así que el valor guardado YA es
         -- hora local (no UTC). Sin este AT TIME ZONE, el driver de Node lo reinterpreta

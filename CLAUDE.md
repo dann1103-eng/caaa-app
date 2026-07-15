@@ -963,3 +963,263 @@ licencia para ellos? ¿otro flujo?). No modelar/tocar Bimotor sin esa aclaració
 - Sigue pendiente de sesiones previas: **Bimotor** e **instructores recurrentes** (esperar info de la
   escuela — §18), correo transaccional (Resend/Brevo), sembrar inscripciones demo del aula, botones de
   export faltantes en Reportes.
+
+---
+
+## 20. Sesión 2026-07-13 (continuación) — PWA instalable, rate-limit, tripulación/almas a bordo, y una tanda grande de bugs reales en producción
+
+**Rama `claude/focused-lederberg-90ed0b` (worktree), commits `460124d..c49f13d`.** TODO fusionado a
+`master` y desplegado (Vercel + `railway up`), incluido el commit de hora de salida real — hubo una
+caída de conectividad de red al final de la sesión (ver subsección G) que retrasó ese último deploy,
+pero la red se recuperó y se completó (`master` en `b97941d`, merge con cambios en paralelo de Samuel
+Flores — código de color por aeronave, avisos/estado-operaciones movidos arriba en el dashboard de
+Alumno). Nada pendiente de desplegar de esta sesión.
+
+### A. PWA instalable + hardening para más usuarios simultáneos
+- **Ícono al agregar a inicio**: antes en iOS solo salía una letra "C" (faltaba `apple-touch-icon`). Se
+  generaron íconos propios (`icon-192.png`, `icon-512.png`, `apple-touch-icon.png`, fondo navy `#1B365D`,
+  desde el isotipo fuente 1080×1080 en `Downloads`) + `manifest.json` + meta tags. El service worker
+  (`sw.js`, ya existía para push) ahora se registra desde el arranque (`main.jsx`), no solo al activar
+  push, para que Android instale en modo standalone real.
+- **Rate-limit de login**: 50→200 fallos/IP/15min (la defensa real es el bloqueo por-cuenta a los 5
+  fallos; el límite por IP solo frena spraying — con más alumnos entrando a la vez, 50 se agotaba con
+  typos normales). Límite global de API 600→1200 req/min/IP. **Login.jsx ya no muestra siempre
+  "Credenciales incorrectas"** para cualquier error — ahora distingue 429/403/401/red caída con mensajes
+  específicos (antes escondía que era un rate-limit o cuenta bloqueada).
+
+### B. Avisos de Turno visibles en dashboard de Alumno e Instructor
+- Nuevo `AvisosTurnoWidget` (reusa `turnoApi.getTicker()`, ya alcanzable con sesión normal — sin cambios
+  de backend). Se oculta solo si no hay avisos activos. En Alumno va en el sidebar existente; Instructor
+  no tenía sidebar, se agregó una fila compacta bajo el header (`.ins__avisos`).
+
+### C. Turno: editar tripulación de un vuelo + "almas a bordo"
+- Para cuando no hay nadie de programación disponible: `PATCH /turno/vuelos/:id/tripulacion` (rol
+  TURNO/ADMIN) permite reasignar alumno/instructor/aeronave de un vuelo de la semana publicada, con los
+  mismos chequeos de conflicto y licencia que el agendado directo, notifica in-app a los afectados
+  (viejos y nuevos) y push best-effort al staff. Nuevo modal `EditarTripulacionModal` (botón lápiz en la
+  tarjeta de Turno). Migración `20260713000002`: `vuelo.almas_a_bordo` (0-10) + `vuelo.pasajeros_extra`
+  (texto libre) para vuelos demo con gente que no está en el sistema.
+
+### D. Tanda grande de bugs reales (encontrados con logs de Railway, no adivinando)
+Patrón repetido varias veces: cuando el estado de vuelo se renombró de `EN_VUELO`→`EN_PROGRESO` (hace
+varias sesiones), varios lugares del código **nunca se actualizaron** y seguían esperando el nombre
+viejo. Cada vez que apareció, se diagnosticó leyendo `railway logs` (no por inspección de código sola) y
+se confirmó contra la BD real con `query.js` antes de arreglar.
+
+1. **`vuelo_estado_tiempo_estado_check` sin `EN_PROGRESO`** (migración `20260713000003`): cada transición
+   SALIDA_HANGAR→EN_PROGRESO (botón de Turno/Instructor, y el job de auto-avance en `server.js`) fallaba
+   con `violates check constraint` y hacía ROLLBACK de todo — el vuelo nunca avanzaba. Mismo patrón que
+   la migración 009 (que arregló `vuelo_estado_check` pero no esta tabla hermana).
+2. **TAC/HOBBS sin límite de dígitos** (pedido explícito del usuario): se quitó el tope de 4 dígitos
+   (cliente) y 9999.9 (servidor) en `ReporteVueloModal.jsx`/`instructorReporteController.js`.
+3. **Loadsheet: correo a casilla incorrecta + botón colgado**: `enviarLoadsheetPDF` usaba
+   `MAIL_USERNAME`/`RECIPIENT_EMAIL`/`MAIL_FROM_ADDRESS` — variables que **no existen** en Railway (las
+   reales son `MAIL_USER`/`MAIL_FROM`) → `to: undefined`. Además el envío de correo se `await`-eaba antes
+   de responder al alumno; con SMTP lento (timeouts reales de 30-60s por IPv6 a Gmail, confirmado en
+   logs) el botón "Guardar y enviar" se quedaba cargando todo ese tiempo. Fix: nombres de variable
+   correctos + correo en segundo plano (best-effort, no bloquea la respuesta) + fallback a `MAIL_FROM` si
+   no hay `RECIPIENT_EMAIL` dedicado. **El instructor NUNCA debe recibir el loadsheet por correo — lo
+   revisa en la plataforma ("Ver Loadsheet del alumno", ya funcionaba bien); el correo es solo una
+   casilla de recolección aparte.**
+4. **`firmarReporteVuelo` seguía fallando tras el fix de TAC/HOBBS** (2 causas distintas, encontradas con
+   logs frescos post-deploy):
+   - `tipo_vuelo=""` (el instructor podía firmar sin elegir tipo de vuelo) violaba su CHECK — ahora
+     validado en cliente y servidor.
+   - Campos opcionales en blanco (Hobbs, combustible) se mandaban como `""` directo a columnas
+     `NUMERIC` → `invalid input syntax for type numeric`. Fix: helper `blankToNull()`.
+5. **Loadsheet: "numeric field overflow"** en `weight_balance.galones_combustible`/`fuel_burn`
+   (`NUMERIC(6,2)`, máx 9999.99): el input de "consumo estimado" no tenía `max`. Migración
+   `20260713000004` ensancha a `NUMERIC(10,2)` + validación de cordura (máx 500) en servidor y cliente.
+6. **"Plan de Vuelo" (alumno) roto de origen, no algo de esta sesión**: el controller leía
+   `data.reglas`/`data.hora_salida`, pero el formulario manda `reglas_vuelo`/`hora_vuelo` — nunca
+   coincidieron. El `ON CONFLICT` del guardado solo tocaba `actualizado_en` (nunca actualizaba los datos
+   reales en un segundo guardado). La tabla tampoco tenía columnas para nombre/licencia/domicilio de los
+   2 pilotos, lugar de salida, fecha, colores, despacho, etc. que el formulario sí recolecta — se perdían
+   en silencio. Migración `20260713000005` agrega esas columnas + cambia `tiempo_ruta` de `INTERVAL` a
+   texto libre (el form lo trata como texto). Se reescribió `alumnoPlanVueloController.js` completo
+   (guardar Y leer, mapeo explícito en ambas direcciones).
+7. **Aeronave en mantenimiento desaparecía del widget "Estado de la flota" de Proyección** (reportado por
+   el usuario tras poner la YS-333-PE en mantenimiento): `getEstadoFlota` filtraba `WHERE a.activa =
+   true`, pero una aeronave en mantenimiento hoy tiene `activa=false` (`sincronizarEstadoFlota`) — se
+   excluía del todo en vez de mostrarse con la etiqueta roja "Mantenimiento". Se quitó el filtro (la
+   query ya calculaba bien `estado_actual`, solo que la fila nunca llegaba). **Ojo**: no tocar el mismo
+   filtro en `getMantenimientoResumen` (ahí sí es correcto excluir lo que ya está en mantenimiento de la
+   lista de "próximas revisiones") ni en `getAeronavesDisponibles` (agendado — correcto no ofrecer un
+   avión en mantenimiento).
+8. **Vuelos `EN_PROGRESO` se mostraban "en tierra" en el mismo widget**: el mismo patrón del punto D — la
+   detección de "volando" buscaba `estado IN ('EN_VUELO','SALIDA_HANGAR','REGRESO_HANGAR')`, sin
+   `EN_PROGRESO`. Agregado.
+
+### E. Migraciones aplicadas esta sesión
+Todas corridas en prod, autorizadas explícitamente por el usuario cuando el clasificador de auto-mode
+las bloqueó — es la norma para cambios de esquema no 100% aditivos:
+`20260713000002_vuelo_almas_a_bordo.sql` · `20260713000003_vuelo_estado_tiempo_en_progreso.sql` ·
+`20260713000004_weight_balance_precision.sql` · `20260713000005_plan_vuelo_campos_faltantes.sql`.
+
+### F. Hora de salida REAL en Proyección — DESPLEGADO
+El usuario pidió que la columna "SALIDA" de la tabla "Vuelos en Curso" (Proyección) muestre la hora real
+en que se tocó el botón "Salida de hangar" (timestamp de `vuelo_estado_tiempo`), no la hora programada
+del bloque. `getCalendarioPublico` (`calendarioController.js`) agrega `salida_real` vía el mismo patrón
+`LEFT JOIN LATERAL` a `vuelo_estado_tiempo` que ya usa `turnoController.js` para `estado_desde`.
+`PaginaProgramacion.jsx` usa `formatHoraReal(v.salida_real)` en vez de `formatHora(v.hora_inicio)`, con
+fallback a la hora programada si aún no hay timestamp real; el socket `vuelo_estado_changed` la fija al
+instante cuando `estado === "SALIDA_HANGAR"` (sin pisarla en transiciones posteriores del mismo vuelo).
+No requirió migración (usa datos que ya existían). Verificado con `query.js` contra la BD real antes de
+desplegar (sin vuelos activos en ese momento, pero la consulta corrió sin error) y desplegado en
+`master` `b97941d`.
+
+### G. ⚠️ Caída de conectividad a mitad de la sesión (se resolvió sola)
+Durante un tramo de la sesión, Railway/GitHub/Vercel quedaron inalcanzables desde la máquina (timeouts
+repetidos, DNS resolvía bien, Google sí respondía) — se pausó el deploy del punto F y se usó el tiempo
+para actualizar esta documentación. La red se recuperó ~20-30 min después y se completó el deploy
+normalmente. Si vuelve a pasar: probar `curl https://github.com` y
+`curl https://caaa-backend-production.up.railway.app/api/health` antes de asumir que es un bug de
+código — en este caso Google respondía bien mientras GitHub/Railway/Vercel no, así que no era un corte
+total de internet sino algo más específico (ruteo/ISP a esos hosts).
+
+### H. PDF de onboarding para alumnos — pausado a medio hacer
+Pedido: guía en PDF (cómo abrir la app, instalarla en el teléfono, primer login, recorrido de la
+plataforma como alumno) para hacer onboarding. **Enfoque elegido**: generarlo con `pdfkit` (ya es
+dependencia del backend, mismo patrón que facturas/recibos/planillas) con ilustraciones vectoriales
+propias (teléfono, ícono compartir, menú de puntitos, campana) en vez de screenshots reales — el
+`computer{action:"screenshot"}` del navegador de este entorno falló consistentemente (timeout) durante
+toda la sesión, no es viable depender de él.
+
+**Estado**: casi terminado, con un bug de paginación real detectado y corregido a medias.
+- El script vive en el **scratchpad de la sesión** (no en el repo — se sacó a propósito de un commit
+  donde se había colado sin querer): `gen_onboarding_pdf.js` — para retomar, copiarlo a
+  `legacy/CAA-backend/_gen_onboarding_pdf.js` (nombre con guion bajo = ignorar en git) y correr
+  `node _gen_onboarding_pdf.js` desde ahí (usa `assets/logo-caaa.png`/`logo-caaa-mark.png` del backend +
+  `CAA-frontend/public/iso-caaa-white.png` para la portada oscura).
+- **Contenido ya redactado y con buen diseño** (portada navy + índice + 8 secciones: abrir la app,
+  instalar Android, instalar iOS, primer login, dashboard, agendar vuelos, loadsheet, notificaciones,
+  perfil) con iconos vectoriales propios (check/star/warn/info dibujados a mano, sin depender de fuentes
+  con glifos Unicode — eso causó un error de "No display font for Symbol" en poppler la primera vez).
+- **Bug real encontrado y corregido**: el documento generaba 31 páginas en vez de ~11 porque
+  `doc.switchToPage()` combinado con un listener `pageAdded` personalizado interactúa mal con pdfkit
+  (termina agregando páginas fantasma con el texto del footer en tamaño de header). Se reescribió para
+  dibujar header **y** footer juntos dentro del mismo handler `pageAdded` (sin `switchToPage`, sin
+  `bufferPages`), usando un contador de página incremental en vez de numeración post-hoc. **Con este fix
+  el documento quedó en 11 páginas, todas revisadas visualmente (convertidas a PNG con `pdftoppm` de
+  poppler — instalado vía `scoop install poppler`, el `Read` tool nativo del PDF no detecta el poppler
+  recién instalado por un PATH cacheado, hay que renderizar a PNG a mano y leer las imágenes) y se veían
+  bien: portada, índice, las 8 secciones, iconos, callouts, todo correcto.**
+- **Lo que falta**: la sesión se interrumpió para atender bugs urgentes justo después de confirmar que
+  las 11 páginas se veían bien — no llegó a hacer un último `node _gen_onboarding_pdf.js` de confirmación
+  final ni a decidir dónde entregar el PDF final (¿commitear a `CAA-frontend/public/` para que se pueda
+  descargar desde la app? ¿solo generarlo y dárselo a Daniel directamente?). Retomar corriendo el script
+  una vez más para confirmar que sigue en 11 páginas limpias, y preguntarle a Daniel dónde quiere que
+  viva el PDF final.
+
+### Pendiente / próximo
+- **Terminar el PDF de onboarding** (ver sección H) — confirmar 11 páginas, decidir entrega. Es lo único
+  que quedó sin cerrar de esta sesión.
+- Sigue pendiente de sesiones previas: **Bimotor** e **instructores recurrentes** (esperar info de la
+  escuela — §18), correo transaccional (Resend/Brevo), sembrar inscripciones demo del aula, botones de
+  export faltantes en Reportes, rotar `SUPABASE_SERVICE_KEY`.
+
+---
+
+## 21. Sesión 2026-07-15 — Instructor-con-instructor (CHEQUEO/REFRESH), Turno adelanta vuelos, y selector "Tipo de vuelo" (NORMAL/DEMO/CHEQUEO/CHEQUEO_LINEA)
+
+Responde al brainstorm de §18 ("instructores que vuelan con instructores") una vez que Daniel explicó
+cómo funciona operativamente. Migraciones `20260713000006` y `20260714000001` aplicadas en Supabase.
+Backend desplegado (`railway up`, junto con 2 fixes de Samuel — íconos PWA + zona horaria de
+`vuelo_estado_tiempo`, ver más abajo). Frontend pendiente de `git push` (auto-deploy Vercel).
+
+### A. Vuelos instructor-con-instructor: CHEQUEO vs REFRESH (migración 20260713000006)
+- **Modelo:** el instructor que RECIBE instrucción (el "practicante") ocupa el slot de estudiante con una
+  **ficha espejo** (`alumno.es_practicante=true`, ligada a su MISMO usuario — `alumno` tiene
+  `UNIQUE(id_usuario)`, así que hay a lo sumo una por instructor). El PIC (quien instruye) va en
+  `vuelo.id_instructor` normal y **siempre cobra la hora en nómina**, sea CHEQUEO o REFRESH.
+- **CHEQUEO** = lo paga la escuela: no se debita ningún saldo (ni al practicante ni a nadie), pero SÍ se
+  registran TAC/HOBBS, horas de la aeronave y mantenimiento como cualquier vuelo real.
+- **REFRESH** = lo paga el practicante: tampoco se auto-debita (una ficha compartida no tiene saldo
+  individual con sentido) — el cobro es **manual** desde Administración.
+- `utils/practicanteHelper.js`: `asegurarFichaPracticante()` (crea/reutiliza la ficha espejo, licencia
+  "Instructor" → las 5 aeronaves), `normalizarTipoInstruccion()`. Validación: el PIC no puede ser el
+  mismo practicante. Fichas `es_practicante` se excluyen de los selectores de alumno/roster (Usuarios,
+  mis-alumnos) pero SÍ aparecen en Cuentas (se facturan individualmente si es REFRESH).
+- Instructor ve sus vuelos de práctica en **"Mis vuelos de práctica"** (dashboard, sección nueva) →
+  `GET /instructor/mis-vuelos-practica`; desde ahí abre el loadsheet en modo edición
+  (`/instructor/practica/loadsheet/:id_vuelo`, reusa `LoadsheetPage apiBase="alumno"`) y firma el reporte
+  post-vuelo como estudiante (`ReporteVueloModal mode="alumno"`, mismos endpoints `/alumno/*` que ya
+  admiten por pertenencia).
+
+### B. Turno puede adelantar vuelos (sin candado de hora)
+- **Problema:** si un alumno avisa de último minuto que no viene, Turno quería poder adelantar el vuelo
+  de otro alumno/instructor sin esperar la hora programada del bloque — la plataforma bloqueaba
+  "SALIDA_HANGAR" antes de la hora del bloque.
+- **Fix:** se quitó el candado de hora programada; en su lugar, la única restricción real es una
+  **guardia de avión ocupado**: no se puede dar "salida a hangar" de un vuelo si esa MISMA aeronave ya
+  está en uso (`SALIDA_HANGAR`/`EN_PROGRESO`/`REGRESO_HANGAR`) en otro vuelo — el mensaje de error dice
+  con quién está ocupada. Aplicado en `turnoController.avanzarEstadoVuelo` e
+  `instructorVueloController.avanzarEstadoVuelo` (mismo criterio en ambos paths). También se quitó el
+  candado de hora en `instructorVueloController.registrarInasistencia`: marcar la inasistencia de un
+  no-show ANTES de su hora es justo lo que libera el avión para adelantar el vuelo siguiente.
+- **Flujo real:** si se va a adelantar el vuelo de otro alumno usando el avión de quien no viene, primero
+  hay que marcar la inasistencia del que no viene (libera el avión) y recién ahí dar salida al adelantado.
+
+### C. Selector "Tipo de vuelo" en Programación + columna en Proyección (migración 20260714000001)
+Pedido explícito de Daniel: al agendar (además de alumno/instructor/avión) poder elegir el **tipo de
+vuelo**, con 4 opciones — y que ese tipo se vea en una columna nueva del dashboard de Proyección.
+- **`vuelo.categoria`** (NORMAL/DEMO/CHEQUEO/CHEQUEO_LINEA, default NORMAL) + `solicitud_vuelo.categoria`
+  (mismo CHECK). `vuelo.nombre_externo`/`solicitud_vuelo.nombre_externo` (texto libre, para DEMO).
+  `alumno.es_externo` marca una **ficha placeholder única y compartida** (`sistema.externo`, sembrada por
+  la migración, `activo=false` ⇒ nunca puede loguear) — a diferencia de `es_practicante` (una ficha POR
+  instructor, sí facturable), `es_externo` es UNA sola fila reusada por TODOS los vuelos DEMO y **nunca
+  se factura contra ella** (comisionaría saldos de personas distintas); se excluye de Usuarios, roster de
+  instructor y **también de Cuentas** (no es una cuenta real).
+- **NORMAL**: alumno real, precarga su propia licencia (como siempre).
+- **DEMO**: pasajero externo no registrado — usa la ficha placeholder, campo opcional "nombre del
+  pasajero" solo de referencia, **sin auto-cargo** (se factura manual con esos datos). Como la ficha es
+  compartida, se agregó `saltarConflictoAlumno` en `assertSlotLibre`/`conflicto()` para que DOS vuelos
+  DEMO simultáneos (aviones distintos) no choquen entre sí por "el alumno ya tiene un vuelo".
+- **CHEQUEO**: alumno real, pero se puede elegir una **licencia a chequear** (selector nuevo,
+  `GET /admin/licencias` + `GET /admin/licencias/:id/aeronaves`) que filtra las aeronaves disponibles —
+  no tiene que ser la licencia propia del alumno. Sin licencia elegida, cae a la licencia propia (mismo
+  comportamiento que NORMAL). Se factura y suma horas de licencia **igual que NORMAL**.
+- **CHEQUEO_LINEA**: es la categoría del punto A (instructor-con-instructor); el sub-tipo CHEQUEO/REFRESH
+  vive en `tipo_instruccion` como antes. Sin auto-cargo, sin horas de licencia.
+- **Resolver compartido** (`utils/practicanteHelper.js` → `resolverVueloEspecial()`): centraliza para las
+  4 categorías la resolución de `id_alumno` efectivo + si hay que saltar el chequeo de conflicto de
+  alumno, usado tanto por `solicitudService.insertarSolicitudVuelo` (semana NO publicada) como por
+  `programacionController.agendarVueloDirecto` (semana publicada) — **antes del punto 1 de limitaciones**
+  CHEQUEO_LINEA solo funcionaba en semana publicada; ahora funciona en ambos paths por igual.
+  `adminVueloController.publicarSemana` (el INSERT...SELECT que copia `solicitud_vuelo`→`vuelo` al
+  publicar) ahora también copia `categoria`/`nombre_externo`/`tipo_instruccion` — antes ni siquiera
+  copiaba `tipo_instruccion`, así que un CHEQUEO_LINEA armado en la semana no publicada perdía su tipo al
+  publicar.
+- **Facturación/horas** (`instructorReporteController.firmarReporteVuelo`): el gate de auto-cobro y de
+  suma de horas de licencia pasó de mirar `tipo_instruccion` a mirar `categoria`
+  (`DEMO`/`CHEQUEO_LINEA` → sin auto-cobro ni horas; `NORMAL`/`CHEQUEO` → igual que siempre).
+- **Proyección** (`PaginaProgramacion.jsx`): columna/badge "TIPO" en las tablas "Vuelos en Curso" /
+  "Próximo Bloque" y en las tarjetas del Schedule (`categoriaMeta()`, CSS `.pp__tipo-badge`), incluye
+  indicador "Ruta" aparte (`tipo_vuelo`, ortogonal a categoría). `getCalendarioPublico` agrega
+  `categoria`/`tipo_vuelo`/`tipo_instruccion`/`nombre_externo` al SELECT.
+- **Modal de agendar** (`AgendarVueloModal.jsx`): el viejo checkbox "instructor-con-instructor" se
+  reemplazó por un `<select>` "Tipo de vuelo" con las 4 opciones, disponible en semana publicada Y no
+  publicada (antes CHEQUEO_LINEA solo se ofrecía si `publicada`). Oculto para el instructor (`createFn`,
+  su propio calendario de solicitudes) — esas categorías especiales requieren criterio de staff.
+- **Verificado E2E** contra Supabase real con una semana "throwaway" muy lejos en el futuro (no
+  interfiere con la semana real que usan alumnos/staff): las 4 categorías, el no-choque de dos DEMO
+  simultáneos, el override/fallback de licencia en CHEQUEO, el rechazo PIC==practicante, la copia
+  correcta en `publicarSemana`, y la tabla de verdad del gating de facturación/horas — 10/10 checks,
+  limpieza total al terminar (semana y filas de prueba borradas).
+
+### D. Housekeeping de deploy — merge viejo a medias + 2 commits de Samuel
+Al retomar la sesión, el repo principal (`master`, fuera del worktree) tenía un **merge sin terminar**
+de una sesión anterior (conflictos ya resueltos, faltaba el `git commit`) — el commit que fusionaba
+(`3b350fd`) ya estaba contenido en `origin/master` de todos modos, así que abortarlo no perdió nada.
+Mientras tanto Samuel había pusheado 2 commits nuevos a `origin/master`: fix de íconos PWA (canal alfa) y
+**fix de zona horaria en `vuelo_estado_tiempo.registrado_en`** (salía con 6h de desfase en la columna
+SALIDA de Proyección — `timestamp without time zone` + `SET timezone='America/El_Salvador'` en la
+conexión). Se abortó el merge viejo, se hizo fast-forward de `master` a `origin/master`, y se corrió
+`railway up` desde ahí — **ya desplegado**.
+
+### Pendiente / próximo
+- `git push` del frontend de esta sesión (Vercel auto-deploy) + otro `railway up` del backend (incluye
+  todo lo de este §21: instructor-con-instructor + categoria).
+- Sigue pendiente de sesiones previas: **Bimotor** (§18), correo transaccional, sembrar inscripciones
+  demo del aula, botones de export en Reportes, rotar `SUPABASE_SERVICE_KEY`, terminar el PDF de
+  onboarding (§20.H).

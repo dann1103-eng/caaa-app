@@ -1,14 +1,25 @@
-// Ficha espejo del practicante (instructor que RECIBE instrucción en un vuelo
-// instructor-con-instructor). El practicante ocupa el slot de estudiante con una
-// fila `alumno` marcada es_practicante, ligada a su MISMO usuario. Como
-// `alumno` tiene UNIQUE(id_usuario), hay a lo sumo una ficha por instructor.
+// Fichas "espejo"/placeholder para vuelos que no tienen un alumno real de
+// cabecera en el slot de estudiante:
+//   - CHEQUEO_LINEA (instructor-con-instructor): ficha espejo POR INSTRUCTOR
+//     (es_practicante), ligada a su mismo usuario — se factura individualmente.
+//   - DEMO (pasajero externo no registrado): UNA ficha placeholder COMPARTIDA
+//     (es_externo) — nunca se factura contra ella (comisionaría saldos de
+//     personas distintas); el cobro del demo se hace manual con los datos que
+//     se anoten en `nombre_externo`.
 
 const TIPOS_INSTRUCCION = ["NORMAL", "CHEQUEO", "REFRESH"];
+const CATEGORIAS = ["NORMAL", "DEMO", "CHEQUEO", "CHEQUEO_LINEA"];
 
 // Normaliza el tipo de instrucción recibido del cliente.
 function normalizarTipoInstruccion(v) {
   const t = String(v || "NORMAL").toUpperCase().trim();
   return TIPOS_INSTRUCCION.includes(t) ? t : "NORMAL";
+}
+
+// Normaliza la categoría de vuelo recibida del cliente.
+function normalizarCategoria(v) {
+  const t = String(v || "NORMAL").toUpperCase().trim();
+  return CATEGORIAS.includes(t) ? t : "NORMAL";
 }
 
 // Devuelve el id_alumno de la ficha espejo del instructor cuyo usuario es
@@ -57,4 +68,91 @@ async function asegurarFichaPracticante(client, idUsuarioInstructor) {
   return created.rows[0].id_alumno;
 }
 
-module.exports = { asegurarFichaPracticante, normalizarTipoInstruccion, TIPOS_INSTRUCCION };
+// Devuelve el id_alumno de la ficha placeholder compartida "sistema.externo"
+// (sembrada por la migración 20260714000001). Si por algún motivo no existe
+// todavía, la crea sobre la marcha con el mismo criterio.
+async function asegurarFichaExterno(client) {
+  const existing = await client.query(
+    `SELECT a.id_alumno FROM alumno a JOIN usuario u ON u.id_usuario = a.id_usuario
+      WHERE u.username = 'sistema.externo' LIMIT 1`
+  );
+  if (existing.rows.length) return existing.rows[0].id_alumno;
+
+  const uRes = await client.query(
+    `INSERT INTO usuario (nombre, apellido, correo, password_hash, rol, activo, must_change_password, username, must_set_email)
+     VALUES ('Pasajero', 'Externo (Demo)', NULL, 'DISABLED_SYSTEM_ACCOUNT', 'ALUMNO', false, false, 'sistema.externo', false)
+     ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username
+     RETURNING id_usuario`
+  );
+  const uid = uRes.rows[0].id_usuario;
+
+  const licRes = await client.query(`SELECT id_licencia FROM licencia ORDER BY nivel DESC LIMIT 1`);
+  const insRes = await client.query(`SELECT id_instructor FROM instructor ORDER BY id_instructor LIMIT 1`);
+  if (licRes.rows.length === 0 || insRes.rows.length === 0) {
+    throw Object.assign(new Error("No se pudo preparar la ficha de pasajero externo"), { code: "VALIDATION" });
+  }
+
+  const aRes = await client.query(
+    `INSERT INTO alumno (id_usuario, id_instructor, id_licencia, es_externo, activo, horas_acumuladas)
+     VALUES ($1, $2, $3, true, true, 0)
+     RETURNING id_alumno`,
+    [uid, insRes.rows[0].id_instructor, licRes.rows[0].id_licencia]
+  );
+  return aRes.rows[0].id_alumno;
+}
+
+/**
+ * Resuelve el id_alumno efectivo para el slot de estudiante según la categoría
+ * del vuelo, dentro de una transacción ya abierta. Centraliza NORMAL/DEMO/
+ * CHEQUEO/CHEQUEO_LINEA para que ambos paths (semana publicada y no publicada)
+ * se comporten igual.
+ *
+ * Devuelve { categoria, id_alumno, saltarConflictoAlumno, nombre_externo,
+ * tipo_instruccion }. Lanza Error con code 'VALIDATION' en datos faltantes o
+ * inconsistentes (PIC == practicante, falta alumno, falta practicante).
+ */
+async function resolverVueloEspecial(client, {
+  categoria, id_alumno, id_instructor, id_usuario_practicante, tipo_instruccion, nombre_externo,
+}) {
+  const cat = normalizarCategoria(categoria);
+
+  if (cat === "NORMAL" || cat === "CHEQUEO") {
+    if (!id_alumno) {
+      throw Object.assign(new Error("Falta el alumno"), { code: "VALIDATION" });
+    }
+    return { categoria: cat, id_alumno: Number(id_alumno), saltarConflictoAlumno: false, nombre_externo: null, tipo_instruccion: null };
+  }
+
+  if (cat === "DEMO") {
+    const idAlumnoExterno = await asegurarFichaExterno(client);
+    const nombre = nombre_externo ? String(nombre_externo).trim().slice(0, 120) || null : null;
+    return { categoria: cat, id_alumno: idAlumnoExterno, saltarConflictoAlumno: true, nombre_externo: nombre, tipo_instruccion: null };
+  }
+
+  // CHEQUEO_LINEA (instructor-con-instructor)
+  if (!id_usuario_practicante) {
+    throw Object.assign(new Error("Falta el instructor practicante"), { code: "VALIDATION" });
+  }
+  const tipoInstruccion = normalizarTipoInstruccion(tipo_instruccion);
+  if (tipoInstruccion === "NORMAL") {
+    throw Object.assign(new Error("Elegí si el chequeo de línea es Chequeo o Refresh"), { code: "VALIDATION" });
+  }
+  if (id_instructor) {
+    const picRes = await client.query(`SELECT id_usuario FROM instructor WHERE id_instructor = $1`, [id_instructor]);
+    if (picRes.rows[0]?.id_usuario === Number(id_usuario_practicante)) {
+      throw Object.assign(new Error("El PIC y el practicante no pueden ser la misma persona"), { code: "VALIDATION" });
+    }
+  }
+  const idAlumnoEspejo = await asegurarFichaPracticante(client, id_usuario_practicante);
+  return { categoria: cat, id_alumno: idAlumnoEspejo, saltarConflictoAlumno: false, nombre_externo: null, tipo_instruccion: tipoInstruccion };
+}
+
+module.exports = {
+  asegurarFichaPracticante,
+  asegurarFichaExterno,
+  resolverVueloEspecial,
+  normalizarTipoInstruccion,
+  normalizarCategoria,
+  TIPOS_INSTRUCCION,
+  CATEGORIAS,
+};
