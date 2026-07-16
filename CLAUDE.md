@@ -10,7 +10,9 @@ App full-stack para una escuela de aviación (CAAA, Ilopango, El Salvador). Gest
 alumnos, instructores, programación de vuelos, mantenimiento de aeronaves, módulo de
 administración/contabilidad, y un **loadsheet (peso & balance)** integrado.
 
-Roles: `ADMIN`, `PROGRAMACION`, `TURNO`, `ALUMNO`, `INSTRUCTOR`, `ADMINISTRACION`.
+Roles: `ADMIN`, `PROGRAMACION`, `TURNO`, `ALUMNO`, `INSTRUCTOR`, `ADMINISTRACION`, `TALLER`
+(fuente única: `legacy/CAA-backend/middlewares/roleMiddleware.js` → `VALID_ROLES`). `ADMIN` es
+super-usuario: entra a Administración y a Taller además de Operaciones.
 
 ---
 
@@ -196,7 +198,22 @@ ejercitados aún (administración/contabilidad, aula virtual, nómina, etc.). Mi
 
 - El login acepta password en **texto plano** (`demo123`) y lo convierte a bcrypt al primer login (`authController.js`).
 - **⚠️ Robapantallas de primer login (desde sesión 2026-06-12, ver sección 15):** alumnos e instructores con `usuario.datos_confirmados = false` ven un modal bloqueante al entrar. Todas las cuentas demo de alumno/instructor (u4–u8 y los 104 reales) están **sin confirmar**, así que verás el modal. Para saltarlo en pruebas: `node query.js "UPDATE usuario SET datos_confirmados=true WHERE username='uX'"`. El viejo gate de documentos de vuelo del alumno se retiró del bloqueo (ahora es recordatorio en /perfil).
-- Aeronaves: id 1 YS-334-PE (PA-38), 2 YS-333-PE (C-152), 3 YS-270-P (PA-28), 4 YS-127-P (PA-28R), 5 SIM-1 (SIMULADOR, sin W&B).
+- **Flota (al 2026-07-16, verificada en BD)** — 7 aeronaves. Las 3 últimas **no tienen plantilla de
+  peso & balance** (`id_wb_plantilla NULL`) ⇒ el loadsheet digital avisa "no aplica/no disponible":
+
+  | id | código | modelo (BD) | W&B | licencias que la vuelan |
+  |---|---|---|---|---|
+  | 1 | YS-334-PE | `TOMAHAWK` (PA-38) | ✔ | Privado, Instrumentos, Comercial, Instructor |
+  | 2 | YS-333-PE | `CESSNA-152` | ✔ | Privado, Instrumentos, Comercial, Instructor |
+  | 3 | YS-270-PE | `CHEROKEE` (PA-28) | ✔ | Instrumentos, Comercial, Instructor |
+  | 4 | YS-127-P | `ARROW` (PA-28R) | ✔ | Comercial, Instructor |
+  | 5 | SIM-1 | `SIMULADOR` (BATD II) | — | Privado, Instrumentos, Comercial, Instructor |
+  | 6 | YS-155-PE | `CHEROKEE-140` | — | Instrumentos, Comercial, Instructor |
+  | 7 | YS-259-PE | `CESSNA-310` (bimotor) | — | **solo Bimotor** |
+
+  ⚠️ La matrícula correcta es **`YS-270-PE`** (no `YS-270-P`, error histórico ya corregido). `activa`
+  es **estado derivado**, no lo edites a mano: lo sincroniza `sincronizarEstadoFlota` según haya un
+  mantenimiento cubriendo HOY (§19.C).
 
 ---
 
@@ -925,8 +942,12 @@ cómo se manejará eso en el sistema** (¿aeronave externa registrada igual? ¿s
 licencia para ellos? ¿otro flujo?). No modelar/tocar Bimotor sin esa aclaración — mismo patrón que
 "instructores recurrentes": esperar información antes de diseñar.
 
+> ✅ **RESUELTO el 2026-07-16 — este párrafo quedó obsoleto, no actuar sobre él.** La escuela dio de
+> alta el **YS-259-PE (Cessna 310)** y la licencia Bimotor ahora sí tiene aeronave propia (es la única
+> que la vuela). Ya no hay que "esperar información": el caso dejó de existir. Ver §22.
+
 ### Pendiente / próximo
-- **Bimotor**: aclarar con Daniel cómo manejar alumnos que vuelan en otra escuela (ver arriba).
+- ~~**Bimotor**: aclarar cómo manejar alumnos que vuelan en otra escuela~~ → **resuelto** (§22).
 - **Informarse con la escuela sobre recurrentes** (ver subsección anterior) → brainstorm → diseño.
 - Fusionar rama + `railway up`; pruebas E2E de usuario en prod; sembrar inscripciones demo para el aula.
 - Configurar correo (Resend/Brevo) sigue pendiente de sesiones anteriores.
@@ -950,6 +971,10 @@ licencia para ellos? ¿otro flujo?). No modelar/tocar Bimotor sin esa aclaració
   Privado → YS-333-PE/YS-334-PE/SIM-1; Instrumentos → +YS-270-PE; Comercial → +YS-127-P (las 5);
   **Instructor → las 5** ("los instructor vuelan todos"). **Bimotor queda sin aeronave A PROPÓSITO**
   (vuelan en otra escuela; falta que Daniel aclare cómo manejarlo — ver §18).
+- ⚠️ **Desactualizado**: el 2026-07-16 entraron 2 aviones nuevos y **Bimotor ya tiene el YS-259-PE**.
+  La distribución vigente está en la tabla de la **§7** (esa es la que hay que mirar).
+- ⚠️ `20260711000002` hace `INSERT ... SELECT 6, id_aeronave FROM aeronave` (Instructor → **todas**).
+  **No re-ejecutarlo**: hoy le daría el bimotor a Instructor por error. Es un script de una sola vez.
 
 ### C. Mantenimiento **date-aware** (un mant. futuro ya NO bloquea todas las fechas)
 - **Bug raíz:** `iniciarMantenimiento` ponía `aeronave.activa=false` incondicional → un mantenimiento
@@ -1273,8 +1298,239 @@ conexión). Se abortó el merge viejo, se hizo fast-forward de `master` a `origi
 `railway up` desde ahí — **ya desplegado**.
 
 ### Pendiente / próximo
-- `git push` del frontend de esta sesión (Vercel auto-deploy) + otro `railway up` del backend (incluye
-  todo lo de este §21: instructor-con-instructor + categoria).
-- Sigue pendiente de sesiones previas: **Bimotor** (§18), correo transaccional, sembrar inscripciones
-  demo del aula, botones de export en Reportes, rotar `SUPABASE_SERVICE_KEY`, terminar el PDF de
-  onboarding (§20.H).
+- ~~`git push` del frontend + `railway up` del backend~~ → **ya desplegado** (durante la sesión del
+  2026-07-16; ver §22). Todo lo de este §21 está vivo en producción.
+- Los pendientes de sesiones previas se consolidaron en **§22 "Pendientes vigentes"** — mirar ahí,
+  no esta lista (aquí quedaba desactualizada).
+
+---
+
+## 22. Sesión 2026-07-16 — Vouchera "horas a cobrar", simulador operable, ciclo del día de Turno, módulo Aeronaves, 2 aviones nuevos (Bimotor resuelto)
+
+**✅ TODO DESPLEGADO Y VERIFICADO.** `master` = `origin/master` = **`a60a024`**; `railway up` corrió a las
+**14:59**, 8 min DESPUÉS del último commit (14:51) ⇒ el backend tiene todo. Migraciones `20260714000001`,
+`20260716000001` (×2), `20260716000002` y `20260716000003` **aplicadas en Supabase** (verificado con
+`node query.js` contra la BD real, no asumido). Sesión a 4 manos con **Samuel Flores** en paralelo.
+
+⚠️ **LO ÚNICO SIN COMMITEAR:** `supabase/migrations/20260716000003_tarifa_simulador_unificada.sql` está
+**aplicado en prod pero untracked en git** (§22.H). Commitearlo o el repo queda con un hueco en el historial.
+
+### A. Vouchera: "horas a cobrar" que digita el instructor (mig `20260716000002`)
+`reporte_vuelo.horas_cobradas NUMERIC(5,2)` **nullable** (aditiva). Antes el cobro salía del tacómetro, pero al
+alumno se le cobran estimaciones subjetivas que no coinciden con el TAC. **Decisión de Daniel — quién alimenta qué:**
+
+| Consumidor | Fuente | Por qué |
+|---|---|---|
+| Horas del **AVIÓN** (`aeronave.horas_acumuladas` → dispara mant. 50/100h) | **TAC** | el motor corrió lo que corrió |
+| Horas de **LICENCIA** del alumno (`alumno.horas_acumuladas`) | **`horas_cobradas`** | se le acredita lo que se le cobra |
+| **COBRO** al saldo | **`horas_cobradas`** | × `tarifa_hora_usd` |
+
+- `instructorReporteController.firmarReporteVuelo` (~línea 353): `horas_cobradas ?? (tac_llegada − tac_salida)`.
+  **Fallback a TAC si viene NULL** ⇒ ningún reporte viejo queda sin cobrar.
+- ⚠️ El valor se pasa a `cargarVueloACuentaDentroTx` en un parámetro **todavía llamado `tacometro`** (no se
+  renombró): adentro maneja `total`, `movimiento_cuenta.horas_vuelo` y el texto del cargo. **Ya no es el TAC.**
+- ⚠️ **Asimetría de validación:** el servidor exige `horas_cobradas` **solo si `SIMULADOR`**; para avión real
+  solo valida si viene (`<=0` → 400, `>24` → "¿te faltó el punto decimal?"). El cliente la exige en ambos ⇒ un
+  cliente que no sea la UI puede omitirla y caer al TAC en silencio. `es_inasistencia` la fuerza a NULL.
+
+### B. Simulador operable: Iniciar/Finalizar sesión (Samuel `043f2c5`)
+Antes CUALQUIER cambio de estado con `aeronave.tipo='SIMULADOR'` se rechazaba (400 "Los simuladores no permiten
+cambios de estado"). Ahora hay un **mapa de estados paralelo**: `NEXT_ESTADO_SIM = {PUBLICADO|PROGRAMADO →
+EN_PROGRESO, EN_PROGRESO → COMPLETADO}` (`turnoController.js`) y `NEXT_ESTADO_INSTRUCTOR_SIM`
+(`instructorVueloController.js`) — **se saltan** SALIDA_HANGAR / REGRESO_HANGAR / FINALIZANDO. La guardia de
+"avión ocupado" se amplió al arranque del sim (409 propio). El sim **no lleva** checklist post-vuelo, ni TAC, ni
+combustible, ni `tipo_vuelo` (NULL forzado), **ni suma horas de licencia ni de aeronave** — **solo cobra** (por
+eso `horas_cobradas` es obligatoria ahí). El PDF titula **"VOUCHERA DE SIMULADOR"** (`reporteVueloPdf.js`).
+
+### C. ⚠️ El merge `a60a024` — Daniel y Samuel construyeron el MISMO campo en paralelo
+Caso de estudio del trabajo simultáneo: `adc2549` (Daniel) creó `horas_cobradas NUMERIC(5,2)` para **toda** la
+flota; `043f2c5` (Samuel) creó `horas_cobrar NUMERIC(10,2)` **solo simulador**, con su propia migración
+`20260716000002_reporte_vuelo_horas_cobrar.sql`. Resolución: base de Samuel + decisiones de Daniel →
+**`horas_cobradas`** en los 4 archivos (0 referencias a `horas_cobrar`), **la migración de Samuel se borró** (su
+columna nunca llegó a la BD; la de Daniel sí), cobro por `horas_cobradas` para toda la flota con fallback a TAC.
+La UI quedó con el campo dentro del render loop de Samuel + TAC como `hint` inline (se descartaron la sección
+"Cobro" suelta y el botón "Usar 0.8" de Daniel).
+
+### D. Ciclo del día de TURNO (Samuel, mig `20260716000001_turno_dia.sql` — 3 tablas, aditiva)
+El ciclo **normal** del día, distinto de `estado_operaciones` (la suspensión extraordinaria por clima/NOTAM, que
+SÍ cancela vuelos). Tablas: **`turno_dia`** (1 fila/fecha, `estado ∈ ABIERTO|EN_PAUSA|CERRADO`), **`turno_evento`**
+(bitácora append-only: APERTURA/PAUSA/REANUDACION/CAMBIO_TURNO/CIERRE) y **`turno_asistencia`** (entrada/salida
+por instructor, `turno ∈ MANANA|TARDE`, `UNIQUE(fecha,turno,id_instructor)`). "Cambio de turno" **no es un
+estado**: es un evento que rota la asistencia MANANA→TARDE.
+- `controllers/turnoDiaController.js`; `GET /api/turno/dia` (proyeccionMiddleware) y
+  `POST /api/turno/dia/{abrir,pausa,reanudar,cambio,cerrar}` (TURNO/ADMIN). Transaccionales con `FOR UPDATE`,
+  409 si la transición no aplica. Fecha server-side (`AT TIME ZONE 'America/El_Salvador'`).
+- **Las dos máquinas se cruzan SOLO en presentación**: `turnoController.getEstadoOperaciones` deriva
+  `estado_efectivo` = `SUSPENDIDO` (si `estado_general='INACTIVO'`) → `PAUSA_TURNO` → `CERRADO_TURNO` → `ACTIVO`.
+- 🚨 **Gotcha de orden de deploy:** la consulta a `turno_dia` va en try/catch; si la tabla no existe,
+  `turno_estado=null` ⇒ `estado_efectivo = **CERRADO_TURNO**` (¡el fallback NO es ACTIVO!) y toda la UI dice
+  "OPERACIONES CERRADAS". La migración va **antes** del `railway up`. Igual cada mañana: sin fila del día,
+  Proyección dice "TURNO NO ABIERTO" hasta que Turno lo abra.
+- Front: `components/TurnoDiaWidget/` (dashboard de Turno), franja `pp__turno-strip` en Proyección (solo lectura
+  + chips "Cap. {nombre}"), `OperacionesWidget`/`EstadoOperacionesWidget` con 4 estados. `emitirCambio()` emite
+  `turno_dia_changed` **y** `estado_operaciones_changed` (payload null ⇒ fuerza re-fetch).
+
+### E. Mantenimiento imprevisto de aeronave desde Turno (Samuel `99f3e9d`)
+`controllers/turnoMantenimientoController.js` (TURNO/ADMIN), reusa el modelo del admin (sin tablas nuevas):
+`GET /api/turno/mantenimiento/flota`, `POST /api/turno/aeronaves/:id/preview-mantenimiento` (**dry-run**: lista
+qué vuelos se cancelarían), `POST .../mantenimiento`, `POST .../completar-mantenimiento`. Iniciar = transacción:
+inserta `mantenimiento_aeronave` CORRECTIVO/EN_CURSO + `mantenimiento_bloque` → `sincronizarEstadoFlota()` →
+**cancela los vuelos afectados** (hoy por bloques; futuros dentro de `fecha_fin`) → notifica in-app a alumno e
+instructor. Best-effort fuera de la tx: correo, ticker ("{codigo} FUERA DE SERVICIO POR MANTENIMIENTO...") y
+push. Completar **no re-agenda** los vuelos cancelados.
+
+### F. Módulo **Aeronaves** (CRUD real; antes solo se tocaba por SQL)
+- `controllers/admin/adminAeronaveController.js`, rutas bajo **`/admin/aeronaves/registro`** — el sub-prefijo
+  `registro` es a propósito: `GET /aeronaves/:id` le robaría la ruta a `/aeronaves/alertas-mantenimiento`.
+  Lectura ADMIN+TALLER, escritura **solo ADMIN**.
+- **Baja = lógica** (`activa=false, estado='ACTIVO'`), nunca DELETE físico (FKs por todos lados). **409** con
+  `vuelos_futuros` si tiene vuelos por venir, salvo `?forzar=true`. Normalizar `estado='ACTIVO'` es obligatorio:
+  si quedara en `MANTENIMIENTO`, `sincronizarEstadoFlota` la reactivaría al cerrar ese mantenimiento.
+- **No editables a propósito** (cada uno tiene otro dueño): `estado` (derivado), `horas_acumuladas` (cierre de
+  vuelo), `horas_*_revision` (Taller), `id_wb_plantilla` (editor de W&B, aún no existe).
+- Front: `pages/Admin/Aeronaves.jsx` (`/admin/aeronaves`) + `pages/Admin/AeronaveFicha.jsx`
+  (`/admin/aeronaves/:id`), sidebar sección **Taller**. **Página ADMIN-only** (`ProtectedAdmin`) aunque el
+  backend deje leer a TALLER. Tabs: **Datos** (+`LicenciasCard`+Foto), **Peso y balance** (solo estado),
+  **Documentos** (placeholder), **Loadsheets y vuelos** (lazy).
+- **Licencias por avión**: `PUT /admin/aeronaves/registro/:id/licencias` = **reemplazo del set completo**
+  (DELETE+INSERT en tx; valida todos los ids ANTES de borrar). Motivo real: como `licencia_aeronave` solo se
+  tocaba por SQL, el workaround era **cambiar la licencia del ALUMNO** — que además mueve sus horas y su avance
+  de curso (pasó con Roberto Flores, movido a Comercial solo para poder pedir el Arrow).
+- ⚠️ `EstadoTag` chequea `MANTENIMIENTO` **antes** que `activa=false`: `activa` = "disponible HOY", no "dada de
+  baja"; un avión en taller y uno retirado tienen ambos `activa=false` y se distinguen por `estado`.
+
+### G. 2 aviones nuevos (mig `20260714000001_alta_aeronaves_155_259`) → **Bimotor RESUELTO**
+`YS-155-PE` (Cherokee 140, id 6) → Instrumentos/Comercial/Instructor (**no** Privado).
+`YS-259-PE` (Cessna 310, id 7) → **solo Bimotor**; a propósito **NO** a Instructor (no todos tienen habilitación
+multimotor). **Esto cierra el pendiente "Bimotor sin aeronave" de §18/§19**: la licencia Bimotor ya tiene avión
+propio y el caso "vuelan en otra escuela" dejó de existir.
+- Ambos con **`id_wb_plantilla NULL`** a propósito (no hay datos de pesada): el avión es agendable/volable/
+  reportable ya, el loadsheet avisa que aún no está y se llena a mano. Se activa solo al linkear la plantilla.
+- `horas_proxima_revision=50 / '50HR'` **no NULL**: `/mantenimiento` hace `parseFloat(...).toFixed(1)` sin guarda
+  y mostraría **NaN**.
+- ⚠️ **PENDIENTE REAL: el Cherokee 140 NO tiene tarifa.** Al cerrar un vuelo suyo el cargo automático falla y
+  **el error se traga** (`instructorReporteController` ~línea 323): el reporte cierra bien pero **no se debita
+  nada**, y cargar la tarifa después **no cobra los vuelos ya cerrados**. Configurar en Contabilidad → Tarifas.
+- 🚨 **NO re-ejecutar `20260711000002_licencia_instructor_todas_aeronaves.sql`**: hace
+  `INSERT ... SELECT 6, id_aeronave FROM aeronave` ⇒ hoy le daría el **bimotor a Instructor** por error.
+
+### H. Tarifa del simulador unificada (mig `20260716000003`) — **APLICADA, SIN COMMITEAR**
+La vouchera de simulador **debitaba $0 en silencio**: había 3 tarifas "sin vincular" heredadas del seed
+(`BATD II` $90, `BATD II Bimotor` $105, `Bimotor` $600) que solo matcheaban **por texto de modelo**, y el modelo
+del SIM-1 es `SIMULADOR` ⇒ no matcheaba ninguna, y el `catch` del cargo se comía el error. **Decisión de Daniel:
+los dos BATD son el mismo simulador ⇒ una sola tarifa de $90** vinculada por `id_aeronave` (la dualidad de
+precios estudiante/especial se modela en otra sesión, no con 2 filas sueltas). El SQL decide solo: **retira**
+(`vigente_hasta=ayer`) las que ya se usaron en `factura_detalle` y **borra** las que nunca se usaron; deja
+intactas las históricas vencidas (el `BATD II` $85 de 2025). Verificado en BD: SIM-1 → `BATD II $90` (fila id 13)
+y **cero filas "sin vincular"**.
+
+### I. Agendar: el alumno ve las aeronaves en mantenimiento (`4446cab`) — 2 bugs que se tapaban
+| | Antes | Ahora |
+|---|---|---|
+| `getAeronavesPermitidas` (picker) | `AND a.activa = true` → bloqueaba **de más**: `activa`="disponible HOY", pero el alumno pide para la semana QUE VIENE ⇒ un avión en taller **desaparecía sin explicación** | `AND NOT (a.activa=false AND a.estado='ACTIVO')` → solo excluye los **dados de baja** |
+| `guardarSolicitud` | validaba **solo** licencia, **cero** chequeo de mantenimiento; el único freno era que el picker escondiera el avión | valida contra la **fecha pedida** (`mantenimientoCubreFechaSQL`) → **400** nombrando avión, fecha y regreso. **Este es ahora el gate real** |
+
+El picker devuelve `en_mantenimiento`, `mantenimiento_hasta`, `dias_bloqueados[]` (calculado en backend con el
+**mismo** criterio y semana que el gate, para que el front no rehaga fechas y derive). Los aviones en
+mantenimiento salen **atenuados** con "En mantenimiento hasta el X". Neto: **con** fecha de regreso → se puede
+pedir para después; **sin** fecha (`fecha_fin NULL`, caso YS-270-PE) → visible pero no pedible.
+⚠️ `mantenimientoCubreFechaSQL` (`utils/mantenimientoUtils.js:61`) **hardcodea el alias `m`** ⇒ la subquery debe
+llamarse `m` (por eso el LATERAL vecino se renombró `mact`; costó un `column m.completado does not exist`).
+
+### J. Otros (Samuel salvo indicado)
+- **Manual de usuario público** en `/manual` (`pages/Manual/Manual.jsx`, ~600 líneas, **sin login**, 100%
+  cliente, 9 páginas por hash: portada, ciclo de vida del vuelo, y 1 por rol) + `/manual/alumno`.
+  ⚠️ `/manual/alumno` es **filtro de UX, no de seguridad**: las 9 secciones se renderizan igual en el DOM y solo
+  se conmutan por CSS — pero como `/manual` completo ya es público, no oculta nada que no sea accesible.
+- **METAR sin fallback a MSLP** (`88f3d69`): si MSSS (Ilopango, la base) fallaba, caía **en silencio** a MSLP
+  (¡otro aeropuerto!) y pisaba el cache — se veía el clima de otro aeródromo creyendo que era el propio. Ahora
+  solo MSSS; si falla **se conserva el último válido** y el front marca **VENCIDO** (derivado de `fetchedAt`,
+  umbral **90 min**; el backend no emite flag). ⚠️ El umbral está **duplicado** en `MetarWidget.jsx` y
+  `PaginaProgramacion.jsx`.
+- **Proyección**: columna **LLEGADA** (espejo de SALIDA: timestamp real de `REGRESO_HANGAR` vía LEFT JOIN
+  LATERAL; **sin fallback**, muestra `—`), columna **ALMAS** (`vuelo.almas_a_bordo`, con **default de
+  presentación 2** en el front cuando es NULL — no está en la BD; `pasajeros_extra` de tooltip), siglas de
+  licencia en el badge Tipo (mig `20260716000001_licencia_chequeo`: `vuelo.id_licencia_chequeo`), código de color
+  por matrícula, sidebar proporcional.
+- **Fixes**: checklist post-vuelo **antes** del reporte (Daniel `e3e0780`) y **firmar sin marcar todos** los
+  ítems (`de8ec54`); Turno **edita día/bloque** desde "Editar tripulación" (`602721a`); `agendarVueloDirecto`
+  tronaba con **ReferenceError `id_licencia_chequeo`** (`21b06dd`); TAC/Hobbs con **2 decimales** conservando el
+  **cero inicial**.
+
+### 🧹 Deuda/inconsistencias detectadas (NO arregladas)
+- **Docstring desactualizado**: `adminAeronaveController.js:381` dice "El único filtro extra en ambos lados es
+  `aeronave.activa = true`" — cierto al escribirlo (13:33), invalidado 13 min después por `4446cab` (13:46) del
+  lado del alumno. Sigue siendo cierto del lado staff (`getAeronavesPermitidasAlumno`, `getAeronavesPorLicencia`).
+- **Copy desactualizado**: `AeronaveFicha.jsx:306` avisa "este avión no aparece al pedir horas porque hoy está
+  fuera de servicio (en mantenimiento / dado de baja)" — la mitad "en mantenimiento" ya **no** es cierta.
+- **`estado_desde`** (`turnoController.js`/`instructorVueloController.js`) lee `vuelo_estado_tiempo.registrado_en`
+  con el mismo patrón que causó el desfase de 6h y **no** se envolvió en `AT TIME ZONE` (sin bug confirmado; lo
+  declaró el propio Samuel en `aeab804`).
+- **Licencias 5 (Bimotor) y 6 (Instructor) NO están en los seeds** (`20260527000002_seeds_catalog.sql` solo
+  siembra 1/2/3): las creó `seed_alumnos_reales.js` (gitignored, §13). Una BD construida **solo** desde
+  migraciones reventaría con FK al insertar `licencia_aeronave` de esas dos. Deriva de esquema conocida (§6).
+- Prefijos de migración **duplicados**: dos `20260714000001_*` y dos `20260716000001_*` (nombres distintos, se
+  aplican igual, pero entre pares el orden es alfabético — tenerlo presente al crear el siguiente).
+
+---
+
+## 23. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
+
+### 🔜 Pedido por Daniel el 2026-07-16 (al cierre; NO implementado — investigado, listo para construir)
+1. **Scroll de la columna izquierda de Proyección.** ⚠️ **Ojo con los nombres**: lo que Daniel llama "widgets de
+   la izquierda" es en el DOM `.pp__main-col` (**columna 1**, la que tiene Vuelos en Curso + Próximo Bloque +
+   **"vuelos programados"**); el que ya scrollea es `aside.pp__sidebar` (**columna 2, derecha**, METAR/flota).
+   **Causa raíz** (`PaginaProgramacion.css`): `.pp{height:100vh;overflow:hidden}` + las 2 tarjetas de arriba con
+   `flex:0 0 auto; max-height:400px` (≈848px no encogibles) ⇒ `.pp__schedule-card{flex:1;min-height:0}` colapsa a
+   ~0 en pantallas bajas (1366×768) y su scroll interno queda inútil. El escape `@media(max-width:1200px)
+   {.pp{height:auto}}` está keyed a **ancho**, y este problema es de **alto** ⇒ no cubre el caso.
+   **Fix**: `.pp__main-col{overflow-y:auto;padding-right:8px}` (espejo de `.pp__sidebar:588`) **+ piso** en
+   `.pp__schedule-card{min-height:320px}` — solo el `overflow-y` no basta (seguiría encogiendo en vez de
+   desbordar). Sin cambios de JSX.
+2. **Toggles del instructor (vuelo/teoría/programación) al CREAR el usuario.** **El backend YA está listo**:
+   `usuariosController.crearPersonal:134` ya lee los 3 flags del body, `:144` valida "debe ser de vuelo, de
+   teoría o ambos" y `:167-182` los aplica con COALESCE tras `asegurarInstructorTx`. El servicio
+   (`administracionApi.js:119`) y el submit (`Usuarios.jsx:141`) ya pasan el form entero. **Faltan 2 ediciones de
+   frontend**: agregar los 3 keys a `EMPTY_PERSONAL` (`Usuarios.jsx:23-27`) y renderizar el bloque de
+   capacidades en el form de alta, **gateado por `personalForm.rol === 'INSTRUCTOR'`** (el modal de edición lo
+   gatea por `editP.id_instructor`, que al crear todavía no existe). Copiar el markup de `Usuarios.jsx:571-601`.
+   Hoy un instructor nuevo nace **solo-vuelo** (defaults de `016_instructor_capacidades.sql`: vuelo TRUE, teoría
+   FALSE, programar FALSE).
+3. **Alumnos que pueden volar más de 1 vez por día.** Hoy el tope es **la constante `1` hardcodeada**:
+   `agendarController.js:356` (`c > 1`, mensaje "Solo puedes agendar 1 avión por día") y su espejo en
+   `AgendarVuelo.jsx:170` (+ label :288, alerta :377, hint estático :430 "Máx. 1 avión por día"). **No existe
+   ninguna columna/config por día** (grep de `limite_vuelos_dia|por_dia` → 0 resultados). Solo cuenta **aviones**
+   (simuladores exentos) y los **extracurriculares están exentos** (`continue` en :338).
+   ⚠️ **La regla es asimétrica**: vive **solo** en el flujo del alumno; el path de staff/instructor
+   (`insertarVueloEnBasket` → `assertSlotLibre`) **no tiene tope por día** (`assertSlotLibre` es solape de
+   horario, no conteo diario) ⇒ programación **ya puede** poner 2 vuelos el mismo día hoy.
+   **Superficie** (espejo del patrón semanal ya existente): mig `alumno.limite_vuelos_dia integer DEFAULT 1`
+   (+ opcional `solicitud_semana.limite_vuelos_dia` para override de 1 semana, manteniendo la precedencia de 2
+   niveles `solicitud_semana → alumno → default`) · `agendarController` (select :220-232, COALESCE :284-295,
+   `c > lim_dia` :356, mensaje dinámico) · `instructorAlumnoController.actualizarLimitesAlumno:95-142` (valida
+   0..6, UPDATE :118, `after_data`, COALESCE :68) · `instructorApi.js:51-57` · **`AlumnoFila`**
+   (`Instructor/Dashboard.jsx:236+`, donde ya viven `limAvionStr`/`limSimStr`) · `AgendarVuelo.jsx`.
+   ❓ **A confirmar con Daniel**: ¿el tope por día debe aplicar también al path de staff, o queda solo del lado
+   del alumno como hoy?
+
+### 🧾 Higiene inmediata
+- **Commitear `supabase/migrations/20260716000003_tarifa_simulador_unificada.sql`** (aplicado en prod, untracked).
+- **Tarifa del YS-155-PE (Cherokee 140)**: sin ella los vuelos cierran sin cobrar y **en silencio** (§22.G).
+- Untracked viejos en el repo principal (superados por `20260624000004_semana_22jun_completa.sql`, evaluar borrar):
+  `seed_semana_22jun2026.js`, `20260624000001/2/3_*.sql`.
+
+### 📋 De sesiones previas (siguen abiertos)
+- **Correo transaccional** (Resend/Brevo) — `mailer.js` ya es SMTP genérico, `MAIL_ENABLED=false`. Falta que
+  Daniel dé el dominio y dónde administra el DNS (usar **subdominio dedicado** para no arriesgar el DNS de M365).
+- **Rotar `SUPABASE_SERVICE_KEY`** (se compartió en chat) → actualizar en Railway y redeployar.
+- **Sembrar inscripciones demo del Aula Virtual** (`inscripcion_curso` + `_avance` + `unidad_teorica`): hoy los
+  alumnos demo no están inscritos en ningún curso ⇒ el aula se ve vacía.
+- **Probar Web Push de punta a punta** en un navegador real (§19.F). En iPhone requiere "Agregar a inicio".
+- **3 botones de export** en Administración → Reportes siguen siendo placeholders (Excel Ingresos, Excel Egresos,
+  PDF Estado de cuentas).
+- **PDF de onboarding** (§20.H): 11 páginas ya revisadas, falta corrida final + decidir dónde entregarlo.
+- **Taller fases 2-3** (órdenes de trabajo + squawks + MEL; libros del avión firmados). La pantalla
+  `/mantenimiento` operativa sigue en `/api/admin` ⇒ un TALLER puro no la opera.
+- **Factura manual**: decidir si `emitirManual` deja de debitar el saldo (hoy sí, con `CARGO_OTRO`).
+- **Instructores externos** (p.ej. E.Roeder) siguen fuera del sistema.
+- (Opcional) Descontar **reservas de aeronave** también en el selector de agenda del alumno (§19.D.1).
