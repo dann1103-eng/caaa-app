@@ -40,7 +40,8 @@ exports.getCalendarioPublico = async (req, res) => {
         -- como si fuera UTC y, al convertir de vuelta a local en el navegador, la hora
         -- queda adelantada/atrasada 6 horas. AT TIME ZONE aquí reinterpreta el valor
         -- naive como local de El Salvador y lo pasa a timestamptz (instante correcto).
-        (vet_salida.registrado_en AT TIME ZONE 'America/El_Salvador') AS salida_real
+        (vet_salida.registrado_en AT TIME ZONE 'America/El_Salvador') AS salida_real,
+        (vet_llegada.registrado_en AT TIME ZONE 'America/El_Salvador') AS llegada_real
       FROM vuelo v
       JOIN bloque_horario b   ON b.id_bloque   = v.id_bloque
       JOIN aeronave ae        ON ae.id_aeronave = v.id_aeronave
@@ -57,6 +58,13 @@ exports.getCalendarioPublico = async (req, res) => {
         ORDER BY registrado_en DESC
         LIMIT 1
       ) vet_salida ON true
+      LEFT JOIN LATERAL (
+        SELECT registrado_en
+        FROM vuelo_estado_tiempo
+        WHERE id_vuelo = v.id_vuelo AND estado = 'REGRESO_HANGAR'
+        ORDER BY registrado_en DESC
+        LIMIT 1
+      ) vet_llegada ON true
       WHERE v.id_semana = $1
       ORDER BY v.dia_semana, b.hora_inicio, ae.codigo
       `,
