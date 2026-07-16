@@ -495,7 +495,7 @@ export default function PaginaProgramacion() {
                               <div className="pp__tbl-person">{v.alumno_nombre}</div>
                               <div className="pp__tbl-sub">Cap. {v.instructor_nombre}</div>
                             </td>
-                            <td><span className="pp__tbl-aero">{v.aeronave_codigo}</span></td>
+                            <td><span className="pp__tbl-aero" style={aeroBadgeStyle(v.aeronave_codigo)}>{v.aeronave_codigo}</span></td>
                             <td>
                               <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
                               {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
