@@ -67,12 +67,23 @@ export async function generarPdfReporteVuelo({
     return isNaN(n) ? val : n.toFixed(1);
   };
 
+  // Lecturas de medidor: el instrumento tiene 4 dígitos enteros, el cero
+  // inicial (ej. 0847.2) se conserva rellenando la parte entera a 4 dígitos.
+  const formatMedidor = (val) => {
+    if (val === null || val === undefined || val === "") return "—";
+    const s = String(val);
+    if (!/^\d+(\.\d+)?$/.test(s)) return s;
+    const [ent, dec = ""] = s.split(".");
+    const decLimpio = dec.replace(/0+$/, "") || "0";
+    return `${ent.padStart(4, "0")}.${decLimpio}`;
+  };
+
   // Filas de datos
   const dataRows = [
-    ["Tacómetro Salida",    formatNum(d.tacometro_salida)],
-    ["Tacómetro Llegada",   formatNum(d.tacometro_llegada)],
-    ["Hobbs Salida",        formatNum(d.hobbs_salida)],
-    ["Hobbs Llegada",       formatNum(d.hobbs_llegada)],
+    ["Tacómetro Salida",    formatMedidor(d.tacometro_salida)],
+    ["Tacómetro Llegada",   formatMedidor(d.tacometro_llegada)],
+    ["Hobbs Salida",        formatMedidor(d.hobbs_salida)],
+    ["Hobbs Llegada",       formatMedidor(d.hobbs_llegada)],
     ["Combustible Salida",  formatNum(d.combustible_salida)],
     ["Combustible Llegada", formatNum(d.combustible_llegada)],
     ["Cantidad agregada",   formatNum(d.cantidad_combustible)],
