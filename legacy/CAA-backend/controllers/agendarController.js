@@ -2,6 +2,7 @@ const db = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
 const { DateTime } = require("luxon");
 const { verificarSaldoSuficiente } = require("../utils/saldoHelper");
+const { mantenimientoCubreFechaSQL } = require("../utils/mantenimientoUtils");
 
 /**
  * Un alumno queda habilitado para vuelos extracurriculares solo cuando ya
@@ -60,17 +61,65 @@ exports.getAeronavesPermitidas = catchAsync(async (req, res) => {
 
   const idLicencia = licenciaRes.rows[0].id_licencia;
 
+  // Se devuelven TODAS las aeronaves de su licencia, incluidas las que hoy están en
+  // el taller, con el detalle de su mantenimiento. Antes se filtraba por
+  // `a.activa = true`, y eso mezclaba dos cosas distintas: `activa` significa
+  // "disponible HOY", pero el alumno pide horas para la SEMANA QUE VIENE. Un avión
+  // que vuelve el lunes desaparecía de su lista por completo, sin explicación — y
+  // el alumno ni sabía que su licencia lo habilitaba.
+  //
+  // Ahora la lista es informativa (qué aviones te corresponden y cuáles están fuera
+  // y hasta cuándo) y el freno real vive en guardarSolicitud, que valida contra la
+  // FECHA pedida. Los aviones dados de baja (activa=false con estado='ACTIVO') sí
+  // se excluyen: esos no vuelven.
+  // `dias_bloqueados` sale calculado del backend a propósito: es exactamente el
+  // mismo criterio (mantenimientoCubreFechaSQL) y la misma semana que va a usar
+  // guardarSolicitud para aceptar o rechazar. Si el front hiciera esa matemática de
+  // fechas por su cuenta, tarde o temprano se desincronizaría del gate real y le
+  // ofrecería al alumno un día que después le rebota.
   const aeronavesRes = await db.query(
     `
+    WITH sem AS (
+      SELECT fecha_inicio
+        FROM semana_vuelo
+       WHERE fecha_inicio > CURRENT_DATE
+       ORDER BY fecha_inicio
+       LIMIT 1
+    )
     SELECT
       a.id_aeronave,
       a.codigo,
       a.modelo,
-      a.tipo
+      a.tipo,
+      mact.id_mantenimiento IS NOT NULL                        AS en_mantenimiento,
+      COALESCE(mact.fecha_inicio::date, mact.fecha_programada) AS mantenimiento_desde,
+      mact.fecha_fin::date                                     AS mantenimiento_hasta,
+      mact.tipo                                                AS mantenimiento_tipo,
+      COALESCE((
+        SELECT array_agg(d ORDER BY d)
+          FROM generate_series(1, 6) AS d
+         WHERE EXISTS (
+           -- El alias TIENE que ser 'm': mantenimientoCubreFechaSQL lo hardcodea
+           -- (devuelve texto con "m.completado", "m.fecha_fin", etc.). Por eso el
+           -- LATERAL de acá abajo se llama 'mact' y no 'm'.
+           SELECT 1 FROM mantenimiento_aeronave m
+            WHERE m.id_aeronave = a.id_aeronave
+              AND ${mantenimientoCubreFechaSQL("((SELECT fecha_inicio FROM sem) + (d - 1))")}
+         )
+      ), '{}') AS dias_bloqueados
     FROM licencia_aeronave la
     JOIN aeronave a ON a.id_aeronave = la.id_aeronave
+    LEFT JOIN LATERAL (
+      SELECT m2.id_mantenimiento, m2.fecha_inicio, m2.fecha_programada, m2.fecha_fin, m2.tipo
+        FROM mantenimiento_aeronave m2
+       WHERE m2.id_aeronave = a.id_aeronave
+         AND m2.completado = false
+         AND COALESCE(m2.estado, '') <> 'CANCELADO'
+       ORDER BY m2.fecha_fin IS NULL DESC, m2.fecha_fin DESC
+       LIMIT 1
+    ) mact ON true
     WHERE la.id_licencia = $1
-      AND a.activa = true
+      AND NOT (a.activa = false AND a.estado = 'ACTIVO')
     ORDER BY a.codigo
     `,
     [idLicencia]
@@ -212,7 +261,7 @@ exports.guardarSolicitud = async (req, res) => {
     }
 
     const semanaRes = await client.query(`
-      SELECT id_semana, publicada
+      SELECT id_semana, publicada, fecha_inicio
       FROM semana_vuelo
       WHERE fecha_inicio > CURRENT_DATE
       ORDER BY fecha_inicio
@@ -223,7 +272,7 @@ exports.guardarSolicitud = async (req, res) => {
       return res.status(400).json({ message: "Semana no encontrada" });
     }
 
-    const { id_semana, publicada } = semanaRes.rows[0];
+    const { id_semana, publicada, fecha_inicio: fechaInicioSemana } = semanaRes.rows[0];
     if (publicada) {
       return res.status(403).json({ message: "Semana ya publicada" });
     }
@@ -326,6 +375,33 @@ exports.guardarSolicitud = async (req, res) => {
         if (permitida.rows.length === 0) throw new Error("Aeronave no permitida");
       }
 
+      // Mantenimiento, validado contra la FECHA PEDIDA (no contra hoy). Antes acá
+      // no había ningún chequeo de mantenimiento: el único freno era que el picker
+      // escondiera los aviones con activa=false, lo que bloqueaba de más (un avión
+      // que vuelve el lunes no se podía pedir para el martes) y a la vez de menos
+      // (nada impedía guardar un avión que estará en el taller justo ese día).
+      // Este es ahora el freno real, y es el mismo criterio date-aware que ya usa
+      // programacionController para el staff.
+      const mantRes = await client.query(
+        `SELECT a.codigo, ($1::date + ($2::int - 1)) AS fecha_slot,
+                (SELECT MIN(m.fecha_fin::date) FROM mantenimiento_aeronave m
+                  WHERE m.id_aeronave = a.id_aeronave
+                    AND ${mantenimientoCubreFechaSQL("($1::date + ($2::int - 1))")}) AS hasta
+           FROM aeronave a
+          WHERE a.id_aeronave = $3
+            AND EXISTS (SELECT 1 FROM mantenimiento_aeronave m
+                         WHERE m.id_aeronave = a.id_aeronave
+                           AND ${mantenimientoCubreFechaSQL("($1::date + ($2::int - 1))")})`,
+        [fechaInicioSemana, v.dia_semana, v.id_aeronave]
+      );
+      if (mantRes.rows.length > 0) {
+        const { codigo, fecha_slot, hasta } = mantRes.rows[0];
+        throw Object.assign(new Error("Aeronave en mantenimiento"), {
+          detalle: `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
+            (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía)."),
+        });
+      }
+
       await client.query(
         `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, es_extracurricular) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque, v.es_extracurricular === true]
@@ -343,6 +419,11 @@ exports.guardarSolicitud = async (req, res) => {
     if (e.message === "Aeronave no permitida") {
       return res.status(400).json({
         message: "Una de las aeronaves seleccionadas no está habilitada para tu licencia.",
+      });
+    }
+    if (e.message === "Aeronave en mantenimiento") {
+      return res.status(400).json({
+        message: e.detalle || "Una de las aeronaves seleccionadas está en mantenimiento ese día.",
       });
     }
     // 23505 = violación de índice único. Hoy dispara por uq_slot cuando dos
