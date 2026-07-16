@@ -13,6 +13,22 @@ import {
 
 import "./AgendarVuelo.css";
 
+// dd/mm para los avisos de mantenimiento. Las fechas llegan como 'YYYY-MM-DD';
+// se parten a mano en vez de usar new Date(), que las correría un día por zona
+// horaria (el backend está en America/El_Salvador, el navegador en la del alumno).
+function fmtFecha(d) {
+  if (!d) return "";
+  const [y, m, dd] = String(d).slice(0, 10).split("-");
+  return `${dd}/${m}/${y}`;
+}
+
+// Si el mantenimiento del avión cubre ese día de la semana pedida. `dias_bloqueados`
+// lo calcula el backend con el MISMO criterio que después usa para aceptar o
+// rechazar la solicitud, así que acá no se rehace ninguna matemática de fechas.
+function bloqueadoEseDia(a, dia) {
+  return Array.isArray(a?.dias_bloqueados) && a.dias_bloqueados.includes(Number(dia));
+}
+
 export default function AgendarVuelo() {
   const navigate = useNavigate();
 
@@ -381,11 +397,26 @@ export default function AgendarVuelo() {
           </div>
           <div className="ag__aeronaves-grid">
             {aeronaves.map((a) => (
-              <div key={a.id_aeronave} className="ag__aeronave-card">
-                <span className="ag__aeronave-icon"><i className={`bi ${a.tipo === 'SIMULADOR' ? 'bi-pc-display' : 'bi-airplane-fill'}`}></i></span>
+              // Las aeronaves en mantenimiento se MUESTRAN igual (para que sepas que
+              // tu licencia las habilita) pero atenuadas y con hasta cuándo están
+              // fuera. Antes desaparecían de la lista sin ninguna explicación.
+              <div key={a.id_aeronave} className="ag__aeronave-card"
+                style={a.en_mantenimiento ? { opacity: 0.6 } : undefined}>
+                <span className="ag__aeronave-icon">
+                  <i className={`bi ${a.en_mantenimiento ? 'bi-tools' : a.tipo === 'SIMULADOR' ? 'bi-pc-display' : 'bi-airplane-fill'}`}></i>
+                </span>
                 <div>
                   <strong>{a.codigo}</strong>
-                  <span>{a.modelo}</span>
+                  <span>
+                    {a.modelo}
+                    {a.en_mantenimiento && (
+                      <em style={{ display: 'block', fontStyle: 'normal', color: 'var(--c-warning-700, #92400e)', fontSize: 'var(--text-xs)', marginTop: 2 }}>
+                        {a.mantenimiento_hasta
+                          ? `En mantenimiento hasta el ${fmtFecha(a.mantenimiento_hasta)}`
+                          : 'En mantenimiento (sin fecha de regreso)'}
+                      </em>
+                    )}
+                  </span>
                 </div>
               </div>
             ))}
@@ -440,9 +471,19 @@ export default function AgendarVuelo() {
                   <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Aeronave</label>
                   <select value={rutaAeronave} onChange={e => setRutaAeronave(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
-                    {aeronaves.filter(a => a.tipo !== 'SIMULADOR').map(a => (
-                      <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} - {a.modelo}</option>
-                    ))}
+                    {aeronaves.filter(a => a.tipo !== 'SIMULADOR').map(a => {
+                      // Se deshabilita solo si el mantenimiento cubre el día elegido:
+                      // si tiene fecha de regreso y el día es posterior, se puede pedir.
+                      const noDisp = bloqueadoEseDia(a, rutaDia);
+                      return (
+                        <option key={a.id_aeronave} value={a.id_aeronave} disabled={noDisp}>
+                          {a.codigo} - {a.modelo}
+                          {noDisp && (a.mantenimiento_hasta
+                            ? ` — en mantenimiento hasta el ${fmtFecha(a.mantenimiento_hasta)}`
+                            : ' — en mantenimiento')}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
