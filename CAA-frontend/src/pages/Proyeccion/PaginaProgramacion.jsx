@@ -245,9 +245,10 @@ export default function PaginaProgramacion() {
           v.id_vuelo === id_vuelo
             ? {
                 ...v, estado, estado_desde: registrado_en,
-                // Hora real de "salida de hangar": se fija una sola vez (no se
-                // pisa en transiciones posteriores del mismo vuelo).
+                // Horas reales de "salida de hangar" y "regreso a hangar": se
+                // fijan una sola vez (no se pisan en transiciones posteriores).
                 ...(estado === "SALIDA_HANGAR" ? { salida_real: registrado_en } : {}),
+                ...(estado === "REGRESO_HANGAR" ? { llegada_real: registrado_en } : {}),
                 ...(aeronave_codigo ? { aeronave_codigo } : {}),
               }
             : v
@@ -416,11 +417,12 @@ export default function PaginaProgramacion() {
                         <th>TIPO</th>
                         <th>ESTADO</th>
                         <th>SALIDA</th>
+                        <th>LLEGADA</th>
                       </tr>
                     </thead>
                     <tbody>
                       {vuelosEnCurso.length === 0 ? (
-                        <tr><td colSpan="5" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
+                        <tr><td colSpan="6" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
                       ) : (
                         vuelosEnCurso.map(v => {
                           const pct = calcProgreso(v);
@@ -444,6 +446,8 @@ export default function PaginaProgramacion() {
                                 )}
                               </td>
                               <td className="pp__tbl-hora">{formatHoraReal(v.salida_real) ?? formatHora(v.hora_inicio)}</td>
+                              {/* Hora real del botón "Regreso a hangar"; vacío hasta entonces. */}
+                              <td className="pp__tbl-hora">{formatHoraReal(v.llegada_real) ?? "—"}</td>
                             </tr>
                           );
                         })
