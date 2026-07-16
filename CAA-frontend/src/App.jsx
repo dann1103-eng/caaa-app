@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { Toaster } from "sonner";
 
 import Login from "./pages/Login/Login";
+import Manual from "./pages/Manual/Manual";
 import DashboardAlumno from "./pages/Alumno/Dashboard";
 import ProtectedAlumno from "./components/routes/ProtectedAlumno";
 import ProtectedAdmin from "./components/routes/ProtectedAdmin";
@@ -110,6 +111,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/manual" element={<Manual />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route
             path="/proyeccion"
