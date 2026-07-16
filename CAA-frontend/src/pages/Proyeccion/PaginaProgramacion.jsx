@@ -124,6 +124,8 @@ const AERONAVE_COLOR = [
   { num: "333", color: "#60a5fa" }, // YS-333-PE — azul
   { num: "270", color: "#4ade80" }, // YS-270-P  — verde
   { num: "127", color: "#06b6d4" }, // YS-127-P  — cyan fuerte (se distingue del azul del 333)
+  { num: "155", color: "#a3e635" }, // YS-155-PE — verde lima fluorescente
+  { num: "259", color: "#a3e635" }, // YS-259-P  — verde lima fluorescente
 ];
 
 function colorAeronave(codigo) {
