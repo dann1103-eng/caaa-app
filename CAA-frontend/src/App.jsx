@@ -18,6 +18,8 @@ import PaginaProgramacion from "./pages/Proyeccion/PaginaProgramacion";
 import DashboardAdmin from "./pages/Admin/Dashboard";
 import AuditoriaAdmin from "./pages/Admin/Auditoria";
 import MantenimientoAdmin from "./pages/Admin/Mantenimiento";
+import AeronavesAdmin from "./pages/Admin/Aeronaves";
+import AeronaveFicha from "./pages/Admin/AeronaveFicha";
 import TurnoDashboard from "./pages/Turno/Dashboard";
 import ProtectedTurno from "./components/routes/ProtectedTurno";
 import InstructorDashboard from "./pages/Instructor/Dashboard";
@@ -212,6 +214,29 @@ function App() {
               <ProtectedAdmin>
                 <AdminLayout>
                   <MantenimientoAdmin />
+                </AdminLayout>
+              </ProtectedAdmin>
+            }
+          />
+          {/* Registro de la flota: datos, P&B, documentos y vuelos por aeronave.
+              Complementa a /admin/mantenimiento (estado y horas) y a
+              /taller/aeronavegabilidad (componentes e inspecciones). */}
+          <Route
+            path="/admin/aeronaves"
+            element={
+              <ProtectedAdmin>
+                <AdminLayout>
+                  <AeronavesAdmin />
+                </AdminLayout>
+              </ProtectedAdmin>
+            }
+          />
+          <Route
+            path="/admin/aeronaves/:id_aeronave"
+            element={
+              <ProtectedAdmin>
+                <AdminLayout>
+                  <AeronaveFicha />
                 </AdminLayout>
               </ProtectedAdmin>
             }

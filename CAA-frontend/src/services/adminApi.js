@@ -47,6 +47,35 @@ export const getAeronavesActivasAdmin = async () => {
   return res.data;
 };
 
+// ── Registro de aeronaves (módulo "Aeronaves") ────────────────────────────────
+// Van bajo /admin/aeronaves/registro para no chocar con /admin/aeronaves/:id/...
+// que ya existe (mantenimiento, foto, etc.).
+export const listarAeronaves = async () =>
+  (await axios.get(`${API_URL}/admin/aeronaves/registro`)).data;
+
+export const getAeronaveFicha = async (id) =>
+  (await axios.get(`${API_URL}/admin/aeronaves/registro/${id}`)).data;
+
+export const crearAeronave = async (datos) =>
+  (await axios.post(`${API_URL}/admin/aeronaves/registro`, datos)).data;
+
+export const actualizarAeronave = async (id, datos) =>
+  (await axios.put(`${API_URL}/admin/aeronaves/registro/${id}`, datos)).data;
+
+// forzar=true da de baja aunque el avión tenga vuelos agendados a futuro
+// (sin el flag, el backend responde 409 con la cantidad para poder confirmar).
+export const darDeBajaAeronave = async (id, forzar = false) =>
+  (await axios.delete(`${API_URL}/admin/aeronaves/registro/${id}`, { params: forzar ? { forzar: true } : {} })).data;
+
+export const reactivarAeronave = async (id) =>
+  (await axios.post(`${API_URL}/admin/aeronaves/registro/${id}/reactivar`)).data;
+
+export const getVuelosAeronave = async (id, limite) =>
+  (await axios.get(`${API_URL}/admin/aeronaves/registro/${id}/vuelos`, { params: { limite } })).data;
+
+export const setFotoAeronave = async (id, foto_url) =>
+  (await axios.put(`${API_URL}/admin/aeronaves/${id}/foto`, { foto_url })).data;
+
 export const iniciarMantenimiento = async (id, datos) => {
   const res = await axios.post(`${API_URL}/admin/aeronaves/${id}/iniciar-mantenimiento`, datos);
   return res.data;
