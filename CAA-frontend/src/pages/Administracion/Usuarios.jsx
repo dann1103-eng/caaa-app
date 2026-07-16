@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   getUsuariosAlumnos, crearUsuarioAlumno, editarUsuarioAlumno, reasignarAlumnoInstructor,
   getUsuariosPersonal, crearUsuarioPersonal, editarUsuarioPersonal,
-  resetPasswordPersonal, getInstructorCursos, setInstructorCursos,
+  resetPasswordPersonal, resetPasswordAlumno, getInstructorCursos, setInstructorCursos,
   getHistorialInstructor, getInstructoresDisponibles, getLicencias
 } from "../../services/administracionApi";
 
@@ -72,6 +72,7 @@ export default function Usuarios() {
   const [editP, setEditP] = useState(null);      // fila de personal en edición
   const [editPForm, setEditPForm] = useState({});
   const [pwNueva, setPwNueva] = useState("");
+  const [pwAlumnoNueva, setPwAlumnoNueva] = useState("");
   const [instrCursos, setInstrCursos] = useState([]); // [{id, nombre, asignado}]
   const [instrHist, setInstrHist] = useState(null);   // historial del instructor
   const [openSec, setOpenSec] = useState({});          // secciones colapsables abiertas
@@ -122,6 +123,7 @@ export default function Usuarios() {
   // ── Edición de la cuenta del alumno (usuario/correo/nombre/apellido) ──
   const openEditA = (a) => {
     setEditA(a);
+    setPwAlumnoNueva(""); // que no quede la contraseña tipeada para otro alumno
     setEditAForm({
       username: a.username || "",
       correo: a.correo || "",
@@ -207,6 +209,16 @@ export default function Usuarios() {
       await resetPasswordPersonal(editP.id_usuario, pwNueva);
       toast.success("Contraseña reseteada (debe cambiarla en su próximo ingreso)");
       setPwNueva("");
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
+  // Gemelo del de personal, para alumnos (entra por id_alumno).
+  const handleResetPwAlumno = async () => {
+    if (!pwAlumnoNueva.trim()) return toast.error("Escribe la nueva contraseña");
+    try {
+      await resetPasswordAlumno(editA.id_alumno, pwAlumnoNueva);
+      toast.success("Contraseña reseteada (el alumno debe cambiarla en su próximo ingreso)");
+      setPwAlumnoNueva("");
     } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
   };
 
@@ -367,6 +379,27 @@ export default function Usuarios() {
                       El usuario se guarda en minúsculas. Para licencia, seguros, límites y datos fiscales, usá la <strong>Ficha</strong>.
                     </p>
                   </form>
+
+                  {/* Resetear contraseña — fuera del <form> para que Enter no
+                      dispare el submit de la cuenta. Mismo flujo que personal. */}
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+                      <div className="adf-form-field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+                        <label><i className="bi bi-key me-1"></i>Nueva contraseña</label>
+                        <input
+                          value={pwAlumnoNueva}
+                          onChange={(e) => setPwAlumnoNueva(e.target.value)}
+                          placeholder="contraseña temporal"
+                        />
+                      </div>
+                      <button type="button" className="adf-btn secondary" onClick={handleResetPwAlumno}>
+                        Resetear contraseña
+                      </button>
+                    </div>
+                    <p style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginTop: 8, marginBottom: 0 }}>
+                      Se guarda cifrada y el alumno <strong>deberá cambiarla en su próximo ingreso</strong>.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

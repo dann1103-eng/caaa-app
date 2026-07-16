@@ -1474,11 +1474,24 @@ llamarse `m` (por eso el LATERAL vecino se renombró `mact`; costó un `column m
 
 ---
 
-## 23. Sesión 2026-07-16 (2ª tanda) — Scroll de Proyección, capacidades del instructor al crear, límite de vuelos POR DÍA, y fix del botón de solicitudes
+## 23. Sesión 2026-07-16 (2ª tanda) — Scroll de Proyección, capacidades del instructor al crear, límite de vuelos POR DÍA, fix del botón de solicitudes, y reset de contraseña de alumnos
 
-Tres pedidos de Daniel al cierre del día + un bug que le bloqueaba las pruebas. **Migración
-`20260716000004` YA APLICADA** (verificada en BD). **Falta desplegar**: `git push` (Vercel) + `railway up`
-(backend: `agendarController` + `instructorAlumnoController`) — en ese orden (§3).
+Pedidos de Daniel al cierre del día + un bug que le bloqueaba las pruebas. **Migración `20260716000004`
+aplicada**. **A/B/C/D desplegados y verificados en producción** (backend `railway up` + frontend Vercel);
+**E (reset de contraseña de alumno) queda SIN desplegar** — requiere `git push` + `railway up` (§3).
+
+> 🚨 **Vercel dejó de auto-desplegar el 2026-07-16 ~16:19.** Desplegó los commits de Samuel de 16:01/16:11/
+> 16:19 y después **nada**, pese a 2 pushes (sin builds fallidos ni encolados: no se dispara ninguno). La
+> integración Git existe (el deploy de 16:19 tiene el alias `caaa-app-git-master-caaa.vercel.app`, que Vercel
+> solo crea en deploys por Git) ⇒ es la entrega del webhook de su GitHub App, que **no se ve ni se arregla
+> desde el CLI**: hay que mirar el dashboard (Settings → Git). **Workaround usado: `vercel --prod --scope caaa`
+> manual.**
+>
+> ⚠️ **Y el deploy manual falla con `ECONNRESET` si no se acota el upload.** El CLI sube **archivos locales** y
+> lee `.vercelignore` (o `.gitignore` si no hay), **pero NO lee `.git/info/exclude`** — que es justo donde está
+> excluido `.claude/worktrees/`. Resultado: intenta subir **los 6 worktrees (~31 MB c/u)**. Fix: `.vercelignore`
+> temporal excluyendo `.claude legacy supabase design-mockups node_modules dist` (el Root Directory de Vercel es
+> `CAA-frontend`, no necesita nada más), desplegar, y **borrarlo** (no commitear).
 
 ### A. La columna izquierda de Proyección ahora scrollea
 ⚠️ **Nombres invertidos vs. el DOM** (importante para no tocar lo que no es): lo que se ve como "los widgets
@@ -1554,6 +1567,24 @@ entra a su panel, toca **"Solicitudes de mis alumnos"** y **no se abría nada**.
 - ⚠️ **Lección**: `navigate is not defined` en un `onClick` es **invisible en la consola de React**. Si un
   botón "no hace nada" y la consola está limpia, **no asumas que el handler no se disparó**: escuchá
   `window.onerror` (o envolvé el handler en try/catch) antes de buscar el bug en la ruta o el backend.
+
+### E. Resetear la contraseña de un ALUMNO desde Administración
+Antes solo se podía con el **personal** (`POST /administracion/usuarios/personal/:id_usuario/reset-password`);
+los alumnos no tenían equivalente. Se agregó el gemelo:
+- **`POST /administracion/usuarios/alumnos/:id_alumno/reset-password`** → `usuariosController.resetPasswordAlumno`
+  (`WRITE_ROLES` = ADMINISTRACION + ADMIN, el mismo acceso del módulo). Entra por **`id_alumno`** (que es lo
+  que maneja la lista de Alumnos) y resuelve el `id_usuario` con una subconsulta, así que es **un solo UPDATE
+  sin transacción**. Guarda **bcrypt** y pone `must_change_password = TRUE` ⇒ el alumno **debe cambiarla en su
+  próximo ingreso** (mismo comportamiento que el de personal). 400 sin contraseña · 404 si el alumno no existe.
+- Front: bloque "Nueva contraseña" + botón en el **modal "Editar cuenta"** de la pestaña Alumnos
+  (`Usuarios.jsx`), calcado del de personal. Va **fuera del `<form>`** para que Enter no dispare el submit de
+  la cuenta, y el campo se limpia al abrir el modal (que no quede la contraseña tipeada para otro alumno).
+  Servicio `resetPasswordAlumno` en `administracionApi.js`.
+- **Verificado E2E** contra Supabase real (backend local, 6/6): resetea → el alumno entra con la nueva →
+  **`must_change_password=true`** → la vieja da 401 → 404 con alumno inexistente → 400 sin contraseña.
+  Alumno de prueba (u5) **restaurado a `demo123`**.
+- ⚠️ **Ojo al testear el login**: la respuesta trae `must_complete_profile` **dentro de `user`**, no en la
+  raíz (`{ token, user: { ... } }`). Leerlo de la raíz da `undefined` y parece un bug que no existe.
 
 ---
 

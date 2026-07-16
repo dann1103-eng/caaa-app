@@ -120,6 +120,9 @@ export const crearUsuarioPersonal = async (payload) => (await axios.post(`${BASE
 export const editarUsuarioPersonal = async (id, payload) => (await axios.patch(`${BASE}/usuarios/personal/${id}`, payload)).data;
 export const resetPasswordPersonal = async (id, password) =>
   (await axios.post(`${BASE}/usuarios/personal/${id}/reset-password`, { password })).data;
+// Gemelo del de personal, pero por id_alumno (es lo que maneja la lista de Alumnos).
+export const resetPasswordAlumno = async (idAlumno, password) =>
+  (await axios.post(`${BASE}/usuarios/alumnos/${idAlumno}/reset-password`, { password })).data;
 export const getInstructorCursos  = async (idInstructor) => (await axios.get(`${BASE}/usuarios/instructores/${idInstructor}/cursos`)).data;
 export const setInstructorCursos  = async (idInstructor, ids) =>
   (await axios.put(`${BASE}/usuarios/instructores/${idInstructor}/cursos`, { ids })).data;

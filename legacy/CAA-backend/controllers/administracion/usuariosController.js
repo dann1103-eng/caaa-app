@@ -385,6 +385,33 @@ exports.resetPasswordPersonal = async (req, res) => {
   }
 };
 
+// ── Resetear contraseña de un ALUMNO ──────────────────────────────────
+// Gemelo de resetPasswordPersonal, pero entra por id_alumno (que es lo que
+// maneja la lista de Alumnos) y resuelve su id_usuario. Igual que el de
+// personal: guarda bcrypt y fuerza el cambio en el primer login.
+exports.resetPasswordAlumno = async (req, res) => {
+  try {
+    const { id_alumno } = req.params;
+    const { password } = req.body;
+    if (!password || !String(password).trim()) {
+      return res.status(400).json({ ok: false, message: "Contraseña requerida" });
+    }
+    const hash = await bcrypt.hash(String(password), 10);
+    // Un solo UPDATE con subconsulta: no hace falta transacción.
+    const r = await db.query(
+      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE
+        WHERE id_usuario = (SELECT id_usuario FROM alumno WHERE id_alumno = $1)
+        RETURNING id_usuario`,
+      [id_alumno, hash]
+    );
+    if (!r.rows.length) return res.status(404).json({ ok: false, message: "Alumno no encontrado" });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("resetPasswordAlumno:", e);
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 // ── Reasignar alumno a otro instructor ────────────────────────────────
 exports.reasignarAlumno = async (req, res) => {
   try {

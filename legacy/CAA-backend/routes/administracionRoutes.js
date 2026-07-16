@@ -114,6 +114,7 @@ router.get("/usuarios/alumnos",             roleMiddleware(READ_ROLES),  usuario
 router.post("/usuarios/alumnos",            roleMiddleware(WRITE_ROLES), usuarios.crearAlumno);
 router.patch("/usuarios/alumnos/:id_alumno/instructor", roleMiddleware(WRITE_ROLES), usuarios.reasignarAlumno);
 router.patch("/usuarios/alumnos/:id_alumno",            roleMiddleware(WRITE_ROLES), usuarios.editarAlumnoCuenta);
+router.post("/usuarios/alumnos/:id_alumno/reset-password", roleMiddleware(WRITE_ROLES), usuarios.resetPasswordAlumno);
 router.get("/usuarios/personal",            roleMiddleware(READ_ROLES),  usuarios.listPersonal);
 router.post("/usuarios/personal",           roleMiddleware(WRITE_ROLES), usuarios.crearPersonal);
 router.patch("/usuarios/personal/:id_usuario", roleMiddleware(WRITE_ROLES), usuarios.editarPersonal);
