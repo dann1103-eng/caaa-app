@@ -74,6 +74,16 @@ function formatHora(h) {
   return h?.slice(0, 5) ?? "";
 }
 
+// ¿La hora programada (bloque) todavía no llega? Se usa solo para decidir si
+// hay que pedir confirmación de salida anticipada — no bloquea nada.
+function esAntesDeHora(horaStr) {
+  if (!horaStr) return false;
+  const [h, m] = horaStr.split(":").map(Number);
+  const programado = new Date();
+  programado.setHours(h, m, 0, 0);
+  return new Date() < programado;
+}
+
 function VueloCard({ vuelo, onRefresh }) {
   const tagClass = ESTADO_COLOR[vuelo.estado] ?? "trn__tag--gris";
   const [advancing, setAdvancing] = useState(false);
@@ -81,9 +91,22 @@ function VueloCard({ vuelo, onRefresh }) {
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
 
   const handleAvanzar = async () => {
+    // Evento de "salida" (a hangar / inicio de sesión): si ocurre antes de la
+    // hora programada del bloque, se pide confirmación y se marca el vuelo
+    // como salida anticipada — sin tocar el bloque asignado ni el horario.
+    const esEventoSalida = vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO";
+    let salida_anticipada = false;
+    if (esEventoSalida && esAntesDeHora(vuelo.hora_inicio)) {
+      const ok = window.confirm(
+        `Este vuelo está programado para las ${formatHora(vuelo.hora_inicio)}. ¿Confirmás la salida anticipada?`
+      );
+      if (!ok) return;
+      salida_anticipada = true;
+    }
+
     setAdvancing(true);
     try {
-      await avanzarEstadoVuelo(vuelo.id_vuelo, {});
+      await avanzarEstadoVuelo(vuelo.id_vuelo, salida_anticipada ? { salida_anticipada: true } : {});
       const label = isSim ? NEXT_LABEL_SIM[vuelo.estado] : NEXT_LABEL[vuelo.estado];
       toast.success(`Vuelo ${vuelo.aeronave_codigo}: ${label}`);
       onRefresh();
@@ -127,6 +150,11 @@ function VueloCard({ vuelo, onRefresh }) {
           <div className="trn__card-info-left">
             <span className="trn__aeronave">{vuelo.aeronave_codigo}</span>
             <span className={`trn__tag ${tagClass}`}>{ESTADO_LABEL[vuelo.estado] ?? vuelo.estado}</span>
+            {vuelo.salida_anticipada && (
+              <span className="trn__tag trn__tag--anticipada" title="Este vuelo salió antes de la hora programada">
+                Salida anticipada
+              </span>
+            )}
           </div>
           <button
             className="trn__btn-editar"

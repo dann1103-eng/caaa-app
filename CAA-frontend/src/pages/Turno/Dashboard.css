@@ -443,6 +443,7 @@
 .trn__tag--morado   { background: var(--c-info-50); color: var(--c-info-700); }
 .trn__tag--amarillo { background: var(--c-warn-50); color: var(--c-warn-700); }
 .trn__tag--verde    { background: var(--c-success-50); color: var(--c-success-700); }
+.trn__tag--anticipada { background: var(--c-danger-50); color: var(--c-danger-700); }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {

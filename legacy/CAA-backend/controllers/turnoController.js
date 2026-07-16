@@ -56,6 +56,7 @@ exports.getVuelosHoy = async (req, res) => {
          v.duracion_estimada_min,
          v.almas_a_bordo,
          v.pasajeros_extra,
+         v.salida_anticipada,
          bh.hora_inicio,
          bh.hora_fin,
          a.codigo  AS aeronave_codigo,
@@ -99,7 +100,7 @@ exports.getVuelosHoy = async (req, res) => {
 
 exports.avanzarEstadoVuelo = async (req, res) => {
   const { id_vuelo } = req.params;
-  const { duracion_estimada_min: duracionBody, tiempo_vuelo_min } = req.body;
+  const { duracion_estimada_min: duracionBody, tiempo_vuelo_min, salida_anticipada } = req.body;
   const user = req.user;
   const io = req.app.get("io");
 
@@ -137,7 +138,9 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     // "iniciar sesión" (simulador) es que no esté ya físicamente en uso en otro
     // vuelo. Marcar la inasistencia del vuelo que la ocupa (lo deja COMPLETADO)
     // la libera y habilita usarla con el adelantado.
-    if (nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO")) {
+    const esEventoSalida = nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO");
+
+    if (esEventoSalida) {
       const ocup = await client.query(
         `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
            FROM vuelo v2
@@ -217,6 +220,13 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       );
     }
 
+    // Marca informativa: esta salida (a hangar / inicio de sesión) se pidió
+    // explícitamente como anticipada — no cambia bloque ni aeronave, solo
+    // queda registrado para reportes/trazabilidad.
+    if (esEventoSalida && salida_anticipada === true) {
+      await client.query("UPDATE vuelo SET salida_anticipada = true WHERE id_vuelo = $1", [id_vuelo]);
+    }
+
     const tiempoRes = await client.query(
       `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
        VALUES ($1, $2, $3)
@@ -246,6 +256,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
         estado: nuevoEstado,
         registrado_en,
         duracion_estimada_min: duracionMin,
+        salida_anticipada: esEventoSalida && salida_anticipada === true ? true : undefined,
       });
       io.emit("estado_operaciones_changed");
     }

@@ -36,6 +36,7 @@ exports.getVuelosHoy = async (req, res) => {
          v.estado,
          v.duracion_estimada_min,
          v.tiempo_vuelo_min,
+         v.salida_anticipada,
          bh.hora_inicio,
          bh.hora_fin,
          a.codigo  AS aeronave_codigo,
@@ -101,6 +102,7 @@ exports.getVuelosSemana = async (req, res) => {
          v.estado,
          v.duracion_estimada_min,
          v.tiempo_vuelo_min,
+         v.salida_anticipada,
          bh.hora_inicio,
          bh.hora_fin,
          a.codigo  AS aeronave_codigo,
@@ -174,7 +176,7 @@ exports.getMisVuelosPractica = async (req, res) => {
 
 exports.avanzarEstadoVuelo = async (req, res) => {
   const { id_vuelo } = req.params;
-  const { duracion_estimada_min: duracionBody, tiempo_vuelo_min } = req.body;
+  const { duracion_estimada_min: duracionBody, tiempo_vuelo_min, salida_anticipada } = req.body;
   const user = req.user;
   const io = req.app.get("io");
 
@@ -219,7 +221,9 @@ exports.avanzarEstadoVuelo = async (req, res) => {
 
     // GUARDIA DE AVIÓN/SIMULADOR OCUPADO: no sacar a hangar (o iniciar sesión de
     // simulador) si ya está en uso en otro vuelo (mismo criterio que Turno).
-    if (nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO")) {
+    const esEventoSalida = nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO");
+
+    if (esEventoSalida) {
       const ocup = await client.query(
         `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
            FROM vuelo v2
@@ -304,6 +308,13 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       );
     }
 
+    // Marca informativa: esta salida (a hangar / inicio de sesión) se pidió
+    // explícitamente como anticipada — no cambia bloque ni aeronave, solo
+    // queda registrado para reportes/trazabilidad.
+    if (esEventoSalida && salida_anticipada === true) {
+      await client.query("UPDATE vuelo SET salida_anticipada = true WHERE id_vuelo = $1", [id_vuelo]);
+    }
+
     const tiempoRes = await client.query(
       `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
        VALUES ($1, $2, $3) RETURNING (registrado_en AT TIME ZONE 'America/El_Salvador') AS registrado_en`,
@@ -331,6 +342,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
         duracion_estimada_min: duracionMin,
         tiempo_vuelo_min: tiempoVueloMinFinal,
         aeronave_codigo: vuelo.aeronave_codigo,
+        salida_anticipada: esEventoSalida && salida_anticipada === true ? true : undefined,
       });
       io.emit("estado_operaciones_changed");
       if (nuevoEstado === "COMPLETADO") {
@@ -347,6 +359,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       registrado_en,
       duracion_estimada_min: duracionMin,
       tiempo_vuelo_min: tiempoVueloMinFinal,
+      salida_anticipada: esEventoSalida && salida_anticipada === true ? true : undefined,
     });
   } catch (e) {
     await client.query("ROLLBACK");

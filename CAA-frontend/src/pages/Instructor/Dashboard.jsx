@@ -50,6 +50,16 @@ const BTN_LABEL_SIM = {
 
 function formatHora(h) { return h?.slice(0, 5) ?? ""; }
 
+// ¿La hora programada (bloque) todavía no llega? Se usa solo para decidir si
+// hay que pedir confirmación de salida anticipada — no bloquea nada.
+function esAntesDeHora(horaStr) {
+  if (!horaStr) return false;
+  const [h, m] = horaStr.split(":").map(Number);
+  const programado = new Date();
+  programado.setHours(h, m, 0, 0);
+  return new Date() < programado;
+}
+
 function calcProgreso(vuelo) {
   const { estado, estado_desde, duracion_estimada_min } = vuelo;
 
@@ -108,6 +118,18 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
   const btnLabel = isSim ? BTN_LABEL_SIM[vuelo.estado] : BTN_LABEL[vuelo.estado];
 
   const handleConfirmar = () => {
+    // Evento de "salida" (a hangar / inicio de sesión): si ocurre antes de la
+    // hora programada del bloque, se pide confirmación y se marca el vuelo
+    // como salida anticipada — sin tocar el bloque asignado ni el horario.
+    const esEventoSalida = vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO";
+    if (esEventoSalida && esAntesDeHora(vuelo.hora_inicio)) {
+      const ok = window.confirm(
+        `Este vuelo está programado para las ${formatHora(vuelo.hora_inicio)}. ¿Confirmás la salida anticipada?`
+      );
+      if (!ok) return;
+      onAvanzar(vuelo.id_vuelo, { tiempo_vuelo_min: 0, salida_anticipada: true });
+      return;
+    }
     onAvanzar(vuelo.id_vuelo, { tiempo_vuelo_min: 0 });
   };
 
@@ -139,7 +161,14 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
           <span className="ins__card-sep">·</span>
           <span className="ins__card-aeronave">{vuelo.aeronave_codigo}</span>
         </div>
-        <span className={`ins__tag ${tagInfo.cls}`}>{tagInfo.label}</span>
+        <div className="ins__card-tags">
+          <span className={`ins__tag ${tagInfo.cls}`}>{tagInfo.label}</span>
+          {vuelo.salida_anticipada && (
+            <span className="ins__tag ins__tag--anticipada" title="Este vuelo salió antes de la hora programada">
+              Salida anticipada
+            </span>
+          )}
+        </div>
       </div>
       <div className="ins__card-alumno">
         {vuelo.alumno_nombre} {vuelo.alumno_apellido}
@@ -438,7 +467,7 @@ export default function InstructorDashboard() {
       reconnectionAttempts: 5,
     });
 
-    socket.on("vuelo_estado_changed", ({ id_vuelo, estado, registrado_en, duracion_estimada_min, tiempo_vuelo_min, es_inasistencia }) => {
+    socket.on("vuelo_estado_changed", ({ id_vuelo, estado, registrado_en, duracion_estimada_min, tiempo_vuelo_min, es_inasistencia, salida_anticipada }) => {
       setVuelos((prev) =>
         prev.map((v) => {
           if (v.id_vuelo !== id_vuelo) return v;
@@ -446,6 +475,7 @@ export default function InstructorDashboard() {
           if (duracion_estimada_min != null) updated.duracion_estimada_min = duracion_estimada_min;
           if (tiempo_vuelo_min != null) updated.tiempo_vuelo_min = tiempo_vuelo_min;
           if (es_inasistencia != null) updated.es_inasistencia = es_inasistencia;
+          if (salida_anticipada != null) updated.salida_anticipada = salida_anticipada;
 
           // Al llegar a COMPLETADO, el checklist post-vuelo es obligatorio y va
           // PRIMERO — el backend rechaza firmar el reporte sin él (400). Antes
@@ -479,6 +509,7 @@ export default function InstructorDashboard() {
           const updated = { ...v, estado: resultado.estado, estado_desde: resultado.registrado_en };
           if (resultado.duracion_estimada_min != null) updated.duracion_estimada_min = resultado.duracion_estimada_min;
           if (resultado.tiempo_vuelo_min != null) updated.tiempo_vuelo_min = resultado.tiempo_vuelo_min;
+          if (resultado.salida_anticipada != null) updated.salida_anticipada = resultado.salida_anticipada;
           return updated;
         })
       );

@@ -222,6 +222,14 @@
   align-items: center;
 }
 
+.ins__card-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 6px);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .ins__card-meta {
   display: flex;
   align-items: center;
@@ -522,6 +530,7 @@
 .ins__tag--completado  { background: var(--c-surface-2);  color: var(--c-ink-2); }
 .ins__tag--cancelado   { background: var(--c-danger-50);  color: var(--c-danger-700); }
 .ins__tag--gris        { background: var(--c-surface-2);  color: var(--c-ink-2); }
+.ins__tag--anticipada  { background: var(--c-danger-50);  color: var(--c-danger-700); }
 
 /* ── Tablas ──────────────────────────────────────────────────────────────── */
 .ins__table-wrap {
