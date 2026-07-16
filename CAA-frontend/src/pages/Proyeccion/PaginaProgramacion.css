@@ -270,8 +270,10 @@
 .pp__dashboard-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 24px;
+  /* El sidebar de widgets crece con la pantalla (antes 340px fijos que en
+     monitores grandes lo dejaban minúsculo frente a las tablas). */
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 24vw, 460px);
+  gap: 18px;
   min-height: 0;
   margin-top: 8px;
   height: calc(100vh - var(--pp-header-h) - 86px); /* topbar + ticker + márgenes */
