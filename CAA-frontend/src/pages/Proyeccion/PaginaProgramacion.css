@@ -448,6 +448,14 @@
   color: var(--pp-text-bright);
 }
 
+.pp__tbl-almas {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pp-text-bright);
+  white-space: nowrap;
+}
+.pp__tbl-almas i { color: var(--pp-text-muted); margin-right: 4px; }
+
 /* ── Schedule Column ───────────────────────────────────────────────────── */
 .pp__schedule-card {
   flex: 1;

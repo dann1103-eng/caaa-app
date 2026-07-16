@@ -420,13 +420,14 @@ export default function PaginaProgramacion() {
                         <th>AERONAVE</th>
                         <th>TIPO</th>
                         <th>ESTADO</th>
+                        <th>ALMAS</th>
                         <th>SALIDA</th>
                         <th>LLEGADA</th>
                       </tr>
                     </thead>
                     <tbody>
                       {vuelosEnCurso.length === 0 ? (
-                        <tr><td colSpan="6" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
+                        <tr><td colSpan="7" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
                       ) : (
                         vuelosEnCurso.map(v => {
                           const pct = calcProgreso(v);
@@ -448,6 +449,11 @@ export default function PaginaProgramacion() {
                                 {pct !== null && (
                                   <div className="pp__tbl-bar-wrap"><div className="pp__tbl-bar" style={{ width: `${pct}%` }} /></div>
                                 )}
+                              </td>
+                              {/* Un vuelo normal lleva alumno+instructor (2 almas) salvo que Turno
+                                  marque otro número al editar la tripulación (pasajeros extra, etc.). */}
+                              <td className="pp__tbl-almas" title={v.pasajeros_extra || ""}>
+                                <i className="bi bi-people-fill" /> {v.almas_a_bordo ?? 2}
                               </td>
                               <td className="pp__tbl-hora">{formatHoraReal(v.salida_real) ?? formatHora(v.hora_inicio)}</td>
                               {/* Hora real del botón "Regreso a hangar"; vacío hasta entonces. */}

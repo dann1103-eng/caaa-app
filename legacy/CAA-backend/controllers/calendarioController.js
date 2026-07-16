@@ -29,6 +29,8 @@ exports.getCalendarioPublico = async (req, res) => {
         v.tipo_vuelo,
         v.tipo_instruccion,
         v.nombre_externo,
+        v.almas_a_bordo,
+        v.pasajeros_extra,
         -- Licencia para el badge "Tipo" de Proyección: la propia del alumno
         -- (vuelos NORMAL → sigla PPL/IR/CPL/ME) y la efectivamente chequeada
         -- (vuelos CHEQUEO → "SIGLA/CHECK").
