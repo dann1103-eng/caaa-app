@@ -68,10 +68,16 @@ export default function Header() {
                   </Link>
 
                   {(["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) || user.puede_programar) && (
-                    <a href="/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
-                      <i className="bi bi-easel header__action-icon" />
-                      <span>Proyección</span>
-                    </a>
+                    <>
+                      <a href="/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
+                        <i className="bi bi-easel header__action-icon" />
+                        <span>Proyección</span>
+                      </a>
+                      <a href="/proyeccion/tracking?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
+                        <i className="bi bi-broadcast header__action-icon" />
+                        <span>Flight Tracking</span>
+                      </a>
+                    </>
                   )}
 
                   {user.rol === "INSTRUCTOR" && user.puede_programar && (
