@@ -701,7 +701,7 @@ exports.agendarVueloDirecto = async (req, res) => {
 
     const {
       id_semana, id_alumno: idAlumnoBody, id_instructor, dia_semana, id_bloque, id_bloque_fin,
-      id_aeronave, tipo_vuelo, es_extracurricular, id_usuario_practicante,
+      id_aeronave, tipo_vuelo, es_extracurricular, id_usuario_practicante, id_licencia_chequeo,
       tipo_instruccion: tipoInstruccionBody, categoria: categoriaBody, nombre_externo: nombreExternoBody,
     } = req.body;
     const categoria = normalizarCategoria(categoriaBody);
