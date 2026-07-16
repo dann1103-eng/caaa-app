@@ -1300,7 +1300,7 @@ conexión). Se abortó el merge viejo, se hizo fast-forward de `master` a `origi
 ### Pendiente / próximo
 - ~~`git push` del frontend + `railway up` del backend~~ → **ya desplegado** (durante la sesión del
   2026-07-16; ver §22). Todo lo de este §21 está vivo en producción.
-- Los pendientes de sesiones previas se consolidaron en **§22 "Pendientes vigentes"** — mirar ahí,
+- Los pendientes de sesiones previas se consolidaron en **§24 "Pendientes vigentes"** — mirar ahí,
   no esta lista (aquí quedaba desactualizada).
 
 ---
@@ -1474,47 +1474,92 @@ llamarse `m` (por eso el LATERAL vecino se renombró `mact`; costó un `column m
 
 ---
 
-## 23. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
+## 23. Sesión 2026-07-16 (2ª tanda) — Scroll de Proyección, capacidades del instructor al crear, límite de vuelos POR DÍA, y fix del botón de solicitudes
 
-### 🔜 Pedido por Daniel el 2026-07-16 (al cierre; NO implementado — investigado, listo para construir)
-1. **Scroll de la columna izquierda de Proyección.** ⚠️ **Ojo con los nombres**: lo que Daniel llama "widgets de
-   la izquierda" es en el DOM `.pp__main-col` (**columna 1**, la que tiene Vuelos en Curso + Próximo Bloque +
-   **"vuelos programados"**); el que ya scrollea es `aside.pp__sidebar` (**columna 2, derecha**, METAR/flota).
-   **Causa raíz** (`PaginaProgramacion.css`): `.pp{height:100vh;overflow:hidden}` + las 2 tarjetas de arriba con
-   `flex:0 0 auto; max-height:400px` (≈848px no encogibles) ⇒ `.pp__schedule-card{flex:1;min-height:0}` colapsa a
-   ~0 en pantallas bajas (1366×768) y su scroll interno queda inútil. El escape `@media(max-width:1200px)
-   {.pp{height:auto}}` está keyed a **ancho**, y este problema es de **alto** ⇒ no cubre el caso.
-   **Fix**: `.pp__main-col{overflow-y:auto;padding-right:8px}` (espejo de `.pp__sidebar:588`) **+ piso** en
-   `.pp__schedule-card{min-height:320px}` — solo el `overflow-y` no basta (seguiría encogiendo en vez de
-   desbordar). Sin cambios de JSX.
-2. **Toggles del instructor (vuelo/teoría/programación) al CREAR el usuario.** **El backend YA está listo**:
-   `usuariosController.crearPersonal:134` ya lee los 3 flags del body, `:144` valida "debe ser de vuelo, de
-   teoría o ambos" y `:167-182` los aplica con COALESCE tras `asegurarInstructorTx`. El servicio
-   (`administracionApi.js:119`) y el submit (`Usuarios.jsx:141`) ya pasan el form entero. **Faltan 2 ediciones de
-   frontend**: agregar los 3 keys a `EMPTY_PERSONAL` (`Usuarios.jsx:23-27`) y renderizar el bloque de
-   capacidades en el form de alta, **gateado por `personalForm.rol === 'INSTRUCTOR'`** (el modal de edición lo
-   gatea por `editP.id_instructor`, que al crear todavía no existe). Copiar el markup de `Usuarios.jsx:571-601`.
-   Hoy un instructor nuevo nace **solo-vuelo** (defaults de `016_instructor_capacidades.sql`: vuelo TRUE, teoría
-   FALSE, programar FALSE).
-3. **Alumnos que pueden volar más de 1 vez por día.** Hoy el tope es **la constante `1` hardcodeada**:
-   `agendarController.js:356` (`c > 1`, mensaje "Solo puedes agendar 1 avión por día") y su espejo en
-   `AgendarVuelo.jsx:170` (+ label :288, alerta :377, hint estático :430 "Máx. 1 avión por día"). **No existe
-   ninguna columna/config por día** (grep de `limite_vuelos_dia|por_dia` → 0 resultados). Solo cuenta **aviones**
-   (simuladores exentos) y los **extracurriculares están exentos** (`continue` en :338).
-   ⚠️ **La regla es asimétrica**: vive **solo** en el flujo del alumno; el path de staff/instructor
-   (`insertarVueloEnBasket` → `assertSlotLibre`) **no tiene tope por día** (`assertSlotLibre` es solape de
-   horario, no conteo diario) ⇒ programación **ya puede** poner 2 vuelos el mismo día hoy.
-   **Superficie** (espejo del patrón semanal ya existente): mig `alumno.limite_vuelos_dia integer DEFAULT 1`
-   (+ opcional `solicitud_semana.limite_vuelos_dia` para override de 1 semana, manteniendo la precedencia de 2
-   niveles `solicitud_semana → alumno → default`) · `agendarController` (select :220-232, COALESCE :284-295,
-   `c > lim_dia` :356, mensaje dinámico) · `instructorAlumnoController.actualizarLimitesAlumno:95-142` (valida
-   0..6, UPDATE :118, `after_data`, COALESCE :68) · `instructorApi.js:51-57` · **`AlumnoFila`**
-   (`Instructor/Dashboard.jsx:236+`, donde ya viven `limAvionStr`/`limSimStr`) · `AgendarVuelo.jsx`.
-   ❓ **A confirmar con Daniel**: ¿el tope por día debe aplicar también al path de staff, o queda solo del lado
-   del alumno como hoy?
+Tres pedidos de Daniel al cierre del día + un bug que le bloqueaba las pruebas. **Migración
+`20260716000004` YA APLICADA** (verificada en BD). **Falta desplegar**: `git push` (Vercel) + `railway up`
+(backend: `agendarController` + `instructorAlumnoController`) — en ese orden (§3).
+
+### A. La columna izquierda de Proyección ahora scrollea
+⚠️ **Nombres invertidos vs. el DOM** (importante para no tocar lo que no es): lo que se ve como "los widgets
+de la izquierda" es `.pp__main-col` = **columna 1** (Vuelos en Curso + Próximo Bloque + **"vuelos
+programados"**). El que YA scrolleaba es `aside.pp__sidebar` = **columna 2, derecha** (METAR/flota).
+- **Causa raíz**: `.pp{height:100vh;overflow:hidden}` + las 2 tarjetas de arriba con `flex:0 0 auto;
+  max-height:400px` (≈848px **no encogibles**) ⇒ `.pp__schedule-card` era **el único `flex:1`** y absorbía
+  TODA la compresión, colapsando a ~0 en pantallas bajas (1366×768). Su scroll interno quedaba inútil (un
+  scroller dentro de una caja aplastada) y el resto lo recortaba el `overflow:hidden` del padre.
+  El escape `@media(max-width:1200px){.pp{height:auto}}` va por **ancho** y el problema es de **alto** ⇒ no
+  cubría el caso.
+- **Fix** (solo CSS, sin tocar JSX): `.pp__main-col{overflow-y:auto;padding-right:8px}` + scrollbar espejo del
+  sidebar · `.pp__schedule-card{flex:0 0 auto; min-height:420px}` (toma altura natural, deja de colapsar) ·
+  `.pp__flights-list{flex:0 0 auto; overflow-y:visible}` (el dueño del scroll pasa a ser la columna; si no,
+  quedaban 2 scrollbars anidados).
+- **Verificado en navegador** a 1366×768: con 18 vuelos la columna scrollea (`scrollHeight` 1243 vs
+  `clientHeight` 628) y **la última fila queda alcanzable** — que era justo lo que no se podía. Sin datos,
+  `.pp__schedule-card` se queda en su piso de 418px y no rompe nada.
+
+### B. Capacidades del instructor al CREAR el usuario (antes solo al editar)
+**El backend ya estaba listo** — era un gap de frontend: `crearPersonal` ya leía los 3 flags del body, ya
+validaba "de vuelo, de teoría o ambos" y ya los aplicaba con COALESCE tras `asegurarInstructorTx`.
+- `Usuarios.jsx`: 3 keys nuevas en `EMPTY_PERSONAL` (defaults = los de la BD: **vuelo TRUE**, teoría FALSE,
+  programar FALSE ⇒ antes todo instructor nuevo nacía **solo-vuelo**) + bloque "CAPACIDADES DEL INSTRUCTOR" en
+  el form de alta, **gateado por `personalForm.rol === "INSTRUCTOR"`** (el modal de edición gatea por
+  `editP.id_instructor`, que al crear todavía no existe) + botón deshabilitado si no marcó ninguna.
+- ⚠️ `handleCrearPersonal` ahora **solo manda los flags si el rol es INSTRUCTOR**: el guard del backend se
+  evalúa **sin mirar el rol**, así que mandarlos apagados para un rol administrativo daba un 400 espurio.
+
+### C. Límite de vuelos POR DÍA configurable por alumno (mig `20260716000004`)
+Daniel: *"hay alumnos a los que sí se les permite volar más de una vez por día"*. Antes el tope era **la
+constante `1` hardcodeada** en `agendarController.js` y su espejo en `AgendarVuelo.jsx`.
+- **`alumno.limite_vuelos_dia integer DEFAULT 1`** (aditiva). **DEFAULT 1 = la conducta actual exacta**: nadie
+  cambia de comportamiento al migrar, solo se vuelve configurable lo que era constante.
+- Semántica heredada del tope semanal: cuenta **solo aviones** (simuladores exentos) y los
+  **extracurriculares están exentos**. Fallback `?? 1` en backend y front.
+- **Sin override por semana** (los semanales sí lo tienen vía `habilitarVueloExtra`): Daniel pidió que el
+  instructor lo gestione "como los vuelos por semana", o sea el límite **base** del alumno. Agregar
+  `solicitud_semana.limite_vuelos_dia` después es trivial con el mismo patrón de precedencia.
+- **Rango 1..6** (no 0..6 como los semanales): un tope por día de 0 bloquearía todos los días y se pisaría con
+  el semanal — es un footgun, así que se rechaza con 400.
+- Lo edita el instructor en **`AlumnoFila`** (`Instructor/Dashboard.jsx`), junto a Avión/Sim.; la píldora
+  "N/día" solo se muestra cuando es >1 para no ensuciar la fila del caso normal.
+- **Compat**: `limite_vuelos_dia` es **opcional** en `PATCH /instructor/alumnos/:id/limites` — si un cliente
+  viejo no lo manda, `COALESCE($3::int, limite_vuelos_dia)` **conserva** el valor en vez de pisarlo.
+- ⚠️ **La regla sigue siendo asimétrica, a propósito**: el tope vive **solo** en el flujo del ALUMNO. El path
+  de staff/programación (`insertarVueloEnBasket` → `assertSlotLibre`, que es solape de horario y no conteo
+  diario) **nunca tuvo tope por día** ⇒ programación ya podía poner 2 vuelos el mismo día, y se dejó así
+  (Daniel pidió "que los alumnos **soliciten** más de un vuelo el mismo día"; el staff decide por criterio).
+  ❓ Si alguna vez se quiere capar también al staff, hay que agregarlo explícitamente ahí.
+- **Verificado E2E** con backend local (PORT=5099) contra Supabase real: sube a 2 (200) · rechaza 0 y 7 (400) ·
+  **cliente viejo sin el campo conserva el valor** · `mis-alumnos` expone el campo · el alumno lo ve en
+  `GET /agendar/mis-solicitudes?week=next`. Estado del alumno de prueba **restaurado a 1** al terminar.
+
+### D. 🐛 FIX: el botón "Solicitudes de mis alumnos" no hacía NADA (bloqueaba las pruebas)
+Reportado por Daniel mientras probaba el flujo *alumno pide horas → instructor las revisa*: el instructor
+entra a su panel, toca **"Solicitudes de mis alumnos"** y **no se abría nada**.
+- **Causa raíz** (`pages/Instructor/Dashboard.jsx`): el archivo tiene **2 componentes** — `VueloCard`
+  (líneas 82-233) e `InstructorDashboard` (367-795). `const navigate = useNavigate()` estaba declarado
+  **solo dentro de `VueloCard`** (línea 83), pero el botón vive en `InstructorDashboard` (línea ~588) ⇒ ahí
+  `navigate` **no existía** y el onClick tiraba **`Uncaught ReferenceError: navigate is not defined`**. El
+  click moría en silencio: nada de navegación, nada visible.
+- **Por qué nadie lo vio antes**: un throw dentro de un handler de React va a **`window.onerror`, NO a
+  `console.error`** ⇒ el panel de consola del navegador (y `read_console_messages`) **no mostraba nada**.
+  Se reprodujo instalando un listener de `error` y disparando el click. La ruta, el `ProtectedInstructor`
+  y la página `Solicitudes.jsx` **siempre estuvieron bien** (navegando a `/instructor/solicitudes` a mano
+  la página carga perfecto) — el bug era 100% del botón.
+- **Fix**: declarar `const navigate = useNavigate()` dentro de `InstructorDashboard`.
+- **Verificado en navegador** (u6 → panel → click): navega a `/instructor/solicitudes`, **0 errores**, y la
+  página lista las solicitudes reales en BORRADOR de los alumnos.
+- **Barrido**: se escaneó todo `CAA-frontend/src` buscando el mismo patrón (un componente que usa
+  `navigate()` sin declararlo, con la declaración en otro componente del mismo archivo) ⇒ **no hay más casos**.
+- ⚠️ **Lección**: `navigate is not defined` en un `onClick` es **invisible en la consola de React**. Si un
+  botón "no hace nada" y la consola está limpia, **no asumas que el handler no se disparó**: escuchá
+  `window.onerror` (o envolvé el handler en try/catch) antes de buscar el bug en la ruta o el backend.
+
+---
+
+## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
 ### 🧾 Higiene inmediata
-- **Commitear `supabase/migrations/20260716000003_tarifa_simulador_unificada.sql`** (aplicado en prod, untracked).
 - **Tarifa del YS-155-PE (Cherokee 140)**: sin ella los vuelos cierran sin cobrar y **en silencio** (§22.G).
 - Untracked viejos en el repo principal (superados por `20260624000004_semana_22jun_completa.sql`, evaluar borrar):
   `seed_semana_22jun2026.js`, `20260624000001/2/3_*.sql`.

@@ -138,13 +138,15 @@ exports.getMisSolicitudes = async (req, res) => {
     }
 
     const alumnoRes = await db.query(
-      "SELECT id_alumno, limite_vuelos_avion, limite_vuelos_simulador FROM alumno WHERE id_usuario = $1",
+      "SELECT id_alumno, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia FROM alumno WHERE id_usuario = $1",
       [user.id_usuario]
     );
     if (alumnoRes.rows.length === 0) return res.json(null);
 
     const defLimAvion = alumnoRes.rows[0].limite_vuelos_avion ?? 3;
     const defLimSim = alumnoRes.rows[0].limite_vuelos_simulador ?? 3;
+    // Sin override por semana: el tope por día es siempre el del alumno.
+    const limDia = alumnoRes.rows[0].limite_vuelos_dia ?? 1;
     const idAlumno = alumnoRes.rows[0].id_alumno;
 
     const semanaRes = await db.query(`
@@ -174,6 +176,7 @@ exports.getMisSolicitudes = async (req, res) => {
         estado: "BORRADOR",
         limite_vuelos_avion: defLimAvion,
         limite_vuelos_simulador: defLimSim,
+        limite_vuelos_dia: limDia,
         comentario_alumno: "",
         vuelos: []
       });
@@ -190,7 +193,7 @@ exports.getMisSolicitudes = async (req, res) => {
       [id_solicitud]
     );
 
-    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, comentario_alumno: comentario_alumno || "", vuelos: vuelosRes.rows });
+    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia: limDia, comentario_alumno: comentario_alumno || "", vuelos: vuelosRes.rows });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error obtener solicitudes" });
@@ -217,7 +220,8 @@ exports.guardarSolicitud = async (req, res) => {
     }
 
     const alumnoRes = await client.query(
-      `SELECT a.id_alumno, a.id_licencia, l.dia_apertura_agenda, a.limite_vuelos_avion, a.limite_vuelos_simulador
+      `SELECT a.id_alumno, a.id_licencia, l.dia_apertura_agenda, a.limite_vuelos_avion, a.limite_vuelos_simulador,
+              a.limite_vuelos_dia
        FROM alumno a
        LEFT JOIN licencia l ON l.id_licencia = a.id_licencia
        WHERE a.id_usuario = $1`,
@@ -230,6 +234,8 @@ exports.guardarSolicitud = async (req, res) => {
     const { id_alumno, id_licencia, dia_apertura_agenda } = alumnoRes.rows[0];
     const defLimAvion = alumnoRes.rows[0].limite_vuelos_avion ?? 3;
     const defLimSim = alumnoRes.rows[0].limite_vuelos_simulador ?? 3;
+    // Tope de aviones por día. Era la constante 1; ahora es por alumno.
+    const limDia = alumnoRes.rows[0].limite_vuelos_dia ?? 1;
 
     // --- Validación de Saldo (Módulo Administración) ---
     // Si el módulo de Administración está activo, bloqueamos solicitudes
@@ -334,7 +340,7 @@ exports.guardarSolicitud = async (req, res) => {
     const avionesPorDia = {};
 
     for (const v of vuelos) {
-      // Los extracurriculares no cuentan al límite semanal ni a la regla 1/día.
+      // Los extracurriculares no cuentan al límite semanal ni al tope por día.
       if (v.es_extracurricular) continue;
       if (tipoMap[v.id_aeronave] === 'SIMULADOR') {
         countSim++;
@@ -353,12 +359,13 @@ exports.guardarSolicitud = async (req, res) => {
       return res.status(400).json({ message: `Límite de simuladores excedido: tu límite es ${lim_sim} y seleccionaste ${countSim}.` });
     }
 
-    const conflictoDia = Object.entries(avionesPorDia).find(([, c]) => c > 1);
+    const conflictoDia = Object.entries(avionesPorDia).find(([, c]) => c > limDia);
     if (conflictoDia) {
       await client.query("ROLLBACK");
       const dNombres = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+      const plural = limDia === 1 ? "1 avión" : `${limDia} aviones`;
       return res.status(400).json({
-        message: `Solo puedes agendar 1 avión por día. El ${dNombres[Number(conflictoDia[0])]} tienes ${conflictoDia[1]} aviones seleccionados.`
+        message: `Solo puedes agendar ${plural} por día. El ${dNombres[Number(conflictoDia[0])]} tienes ${conflictoDia[1]} aviones seleccionados.`
       });
     }
 

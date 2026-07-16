@@ -48,10 +48,10 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   return res.data;
 };
 
-export const actualizarLimitesAlumno = async (id_alumno, limite_vuelos_avion, limite_vuelos_simulador) => {
+export const actualizarLimitesAlumno = async (id_alumno, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia) => {
   const res = await axios.patch(
     `${API_URL}/instructor/alumnos/${id_alumno}/limites`,
-    { limite_vuelos_avion, limite_vuelos_simulador }
+    { limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia }
   );
   return res.data;
 };
