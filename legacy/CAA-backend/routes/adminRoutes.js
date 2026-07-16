@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middlewares/authMiddleware");
+const roleMiddleware = require("../middlewares/roleMiddleware");
 const { requireCapacidad } = require("../utils/capacidades");
 
 const adminVuelo = require("../controllers/admin/adminVueloController");
@@ -14,6 +15,14 @@ const reservaAeronave = require("../controllers/admin/reservaAeronaveController"
 // Roles de operaciones, o un INSTRUCTOR activo con el toggle puede_programar
 // (capacidad PROGRAMAR = todo lo que hace el rol PROGRAMACION).
 const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", "TURNO"], "PROGRAMAR")];
+
+// El registro de aeronaves (módulo "Aeronaves") es más restrictivo que adminAccess:
+// dar de alta o de baja un avión no es algo que deba poder hacer Turno ni
+// Programación. Lectura para ADMIN + TALLER (el taller necesita ver la ficha);
+// escritura solo ADMIN — además audit_actor_rol no admite 'TALLER', así que un
+// actor de taller rompería el log de auditoría.
+const aeronaveLectura = [authMiddleware, roleMiddleware(["ADMIN", "TALLER"])];
+const aeronaveEscritura = [authMiddleware, roleMiddleware(["ADMIN"])];
 
 // --- Semanas y Calendario ---
 router.get("/semanas", adminAccess, adminVuelo.getSemanas);
@@ -38,6 +47,18 @@ router.get("/aeronaves", adminAccess, adminAeronave.getAeronavesActivas);
 router.get("/aeronaves/:id/vuelos-futuros-count", adminAccess, adminAeronave.getVuelosFuturosAeronave);
 router.put("/aeronaves/:id/foto", adminAccess, adminAeronave.setFotoAeronave);
 router.post("/mantenimiento/horas-manuales", adminAccess, adminAeronave.registrarHorasManuales);
+
+// --- Registro de aeronaves (módulo "Aeronaves": alta/baja/edición + ficha) ---
+// Van bajo el sub-prefijo /aeronaves/registro a propósito: un GET /aeronaves/:id
+// registrado acá se comería a /aeronaves/alertas-mantenimiento (más abajo en este
+// mismo archivo), que matchearía con id = "alertas-mantenimiento".
+router.get("/aeronaves/registro", aeronaveLectura, adminAeronave.listarAeronaves);
+router.post("/aeronaves/registro", aeronaveEscritura, adminAeronave.crearAeronave);
+router.get("/aeronaves/registro/:id", aeronaveLectura, adminAeronave.getAeronave);
+router.put("/aeronaves/registro/:id", aeronaveEscritura, adminAeronave.actualizarAeronave);
+router.delete("/aeronaves/registro/:id", aeronaveEscritura, adminAeronave.darDeBajaAeronave);
+router.post("/aeronaves/registro/:id/reactivar", aeronaveEscritura, adminAeronave.reactivarAeronave);
+router.get("/aeronaves/registro/:id/vuelos", aeronaveLectura, adminAeronave.getVuelosAeronave);
 
 // --- Mantenimiento ---
 router.get("/mantenimiento", adminAccess, adminMantenimiento.getMantenimientoAeronaves);

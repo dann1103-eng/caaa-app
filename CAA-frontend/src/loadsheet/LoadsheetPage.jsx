@@ -83,7 +83,7 @@ export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) 
         const acKey = findAircraftKey(data.aeronave_codigo);
         if (!acKey) {
           if (!cancel) setError(
-            `La aeronave "${data.aeronave_codigo || "—"}" no tiene plantilla de peso y balance (¿es un simulador?). El loadsheet no aplica para este vuelo.`
+            `La aeronave "${data.aeronave_codigo || "—"}" todavía no tiene cargada su plantilla de peso y balance, así que el loadsheet digital no está disponible para este vuelo. Por ahora se completa a mano. (Los simuladores no requieren loadsheet.)`
           );
           return;
         }
