@@ -54,7 +54,12 @@ async function registrarEvento(client, tipo, user, detalle = null) {
 
 function emitirCambio(req) {
   const io = req.app.get("io");
-  if (io) io.emit("turno_dia_changed");
+  if (io) {
+    io.emit("turno_dia_changed");
+    // Sin payload: los widgets de estado de operaciones re-consultan y así
+    // reflejan la pausa de almuerzo / cierre del turno (estado_efectivo).
+    io.emit("estado_operaciones_changed", null);
+  }
 }
 
 // ── GET /turno/dia — estado del día (Proyección entra con la llave) ─────────

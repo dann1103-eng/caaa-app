@@ -439,10 +439,31 @@ exports.getEstadoOperaciones = async (req, res) => {
     const r = await db.query(
       "SELECT estado_general, motivo_inactivo, temperatura, explicacion_detallada, bloques_suspendidos FROM estado_operaciones LIMIT 1"
     );
-    if (r.rows.length === 0) {
-      return res.json({ estado_general: "ACTIVO", motivo_inactivo: null });
+    const ops = r.rows[0] || { estado_general: "ACTIVO", motivo_inactivo: null };
+
+    // Estado del ciclo del turno (apertura/pausa almuerzo/cierre) para que las
+    // tarjetas de estado lo reflejen. Prioridad del estado EFECTIVO:
+    // SUSPENDIDO (clima/NOTAM, cancela vuelos) > PAUSA_TURNO (almuerzo) >
+    // CERRADO_TURNO (cierre del día, o turno aún no abierto) > ACTIVO.
+    // Es solo presentación: NO toca la maquinaria de suspensión.
+    let turno_estado = null;
+    try {
+      const t = await db.query(
+        `SELECT estado FROM turno_dia WHERE fecha = (NOW() AT TIME ZONE 'America/El_Salvador')::date`
+      );
+      turno_estado = t.rows[0]?.estado ?? null;
+    } catch (e) {
+      // La tabla puede no existir aún (migración pendiente): degradar sin turno.
+      console.error("getEstadoOperaciones/turno_dia:", e.message);
     }
-    res.json(r.rows[0]);
+
+    const estado_efectivo =
+      ops.estado_general === "INACTIVO" ? "SUSPENDIDO"
+      : turno_estado === "EN_PAUSA" ? "PAUSA_TURNO"
+      : turno_estado === "CERRADO" || turno_estado === null ? "CERRADO_TURNO"
+      : "ACTIVO";
+
+    res.json({ ...ops, turno_estado, estado_efectivo });
   } catch (e) {
     console.error("getEstadoOperaciones:", e);
     res.status(500).json({ message: "Error al obtener estado de operaciones" });

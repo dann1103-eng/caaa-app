@@ -189,10 +189,15 @@
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
 .pp__page-hdr {
-  height: var(--pp-header-h);
+  /* min-height (no height fija): en pantallas angostas el contenido de la
+     derecha envuelve hacia abajo en vez de desbordarse sobre la franja del
+     turno que viene después. */
+  min-height: var(--pp-header-h);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   margin-top: 6px;
   z-index: 5;
 }
@@ -220,7 +225,9 @@
 .pp__hdr-right {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 2rem;
 }
 
 .pp__hdr-clock-new {

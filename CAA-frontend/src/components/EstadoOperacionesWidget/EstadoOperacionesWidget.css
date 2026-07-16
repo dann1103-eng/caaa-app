@@ -35,6 +35,8 @@
 
 .eow__badge--activo   { background: var(--c-success-50); color: var(--c-success-700); }
 .eow__badge--inactivo { background: var(--c-danger-50);  color: var(--c-danger-700); }
+.eow__badge--pausa    { background: var(--c-warn-50);    color: var(--c-warn-700); }
+.eow__badge--cerrado  { background: var(--c-surface-2);  color: var(--c-ink-3); }
 
 .eow__body {
   padding: 14px 18px;
@@ -61,14 +63,24 @@
   margin-top: 3px;
 }
 
-.eow__indicator--on .eow__dot {
+.eow__indicator--on .eow__dot,
+.eow__indicator--activo .eow__dot {
   background: var(--c-success-500);
   box-shadow: 0 0 0 3px oklch(55% 0.150 155 / 0.2);
   animation: eow-pulse 2.5s ease-in-out infinite;
 }
 
-.eow__indicator--off .eow__dot {
+.eow__indicator--off .eow__dot,
+.eow__indicator--inactivo .eow__dot {
   background: var(--c-primary-500);
+}
+
+.eow__indicator--pausa .eow__dot {
+  background: var(--c-warn-700);
+}
+
+.eow__indicator--cerrado .eow__dot {
+  background: var(--c-ink-3);
 }
 
 @keyframes eow-pulse {

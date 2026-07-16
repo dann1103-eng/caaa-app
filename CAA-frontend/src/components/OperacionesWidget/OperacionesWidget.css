@@ -76,3 +76,25 @@
   70%  { box-shadow: 0 0 0 10px oklch(54% 0.205 25 / 0); }
   100% { box-shadow: 0 0 0 0 oklch(54% 0.205 25 / 0); }
 }
+
+/* Pausa de almuerzo del turno (ámbar) */
+.op-widget--pausa {
+  background: var(--c-warn-50);
+  color: var(--c-warn-700);
+  border-color: var(--c-warn-300, var(--c-warn-700));
+}
+
+.op-widget--pausa .op-widget__icon {
+  color: var(--c-warn-700);
+}
+
+/* Turno cerrado / aún no abierto (gris neutro, sin alarma) */
+.op-widget--cerrado {
+  background: var(--c-surface-2);
+  color: var(--c-ink-2);
+  border-color: var(--c-line-2);
+}
+
+.op-widget--cerrado .op-widget__icon {
+  color: var(--c-ink-3);
+}
