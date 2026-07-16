@@ -14,6 +14,16 @@ const NEXT_ESTADO = {
   FINALIZANDO:    "COMPLETADO",
 };
 
+// Los simuladores no salen/regresan de un hangar físico: la sesión pasa
+// directo de programada a en curso, y de en curso a completada (donde el
+// instructor llena la vouchera de simulador). Se saltan SALIDA_HANGAR /
+// REGRESO_HANGAR / FINALIZANDO, que no aplican.
+const NEXT_ESTADO_SIM = {
+  PUBLICADO:   "EN_PROGRESO",
+  PROGRAMADO:  "EN_PROGRESO",
+  EN_PROGRESO: "COMPLETADO",
+};
+
 async function registrarHorasVuelo(client, id_vuelo, id_aeronave, username) {
   // NOTA: Las horas de la aeronave y mantenimiento ya no se actualizan aquí por minutos de reloj,
   // sino en el reporte de vuelo mediante el Tacómetro (TAC).
@@ -114,25 +124,20 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     const aeroRes = await client.query("SELECT tipo FROM aeronave WHERE id_aeronave = $1", [vuelo.id_aeronave]);
     const esSimulador = aeroRes.rows[0]?.tipo === 'SIMULADOR';
 
-    if (esSimulador) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Los simuladores no permiten cambios de estado" });
-    }
-
-    let nuevoEstado = NEXT_ESTADO[vuelo.estado];
+    let nuevoEstado = (esSimulador ? NEXT_ESTADO_SIM : NEXT_ESTADO)[vuelo.estado];
 
     if (!nuevoEstado) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: "El vuelo no puede avanzar de estado" });
     }
 
-    // GUARDIA DE AVIÓN OCUPADO (reemplaza el viejo candado de "hora programada").
-    // Ahora Turno/instructor pueden ADELANTAR vuelos en cualquier momento; la
-    // única restricción al dar "salida a hangar" es que la aeronave no esté ya
-    // físicamente en uso en otro vuelo (en el aire o en salida/regreso al hangar).
-    // Marcar la inasistencia del vuelo que ocupa el avión (lo deja COMPLETADO) lo
-    // libera y habilita volar con el adelantado.
-    if (nuevoEstado === "SALIDA_HANGAR") {
+    // GUARDIA DE AVIÓN/SIMULADOR OCUPADO (reemplaza el viejo candado de "hora
+    // programada"). Ahora Turno/instructor pueden ADELANTAR vuelos en cualquier
+    // momento; la única restricción al dar "salida a hangar" (aeronave real) o
+    // "iniciar sesión" (simulador) es que no esté ya físicamente en uso en otro
+    // vuelo. Marcar la inasistencia del vuelo que la ocupa (lo deja COMPLETADO)
+    // la libera y habilita usarla con el adelantado.
+    if (nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO")) {
       const ocup = await client.query(
         `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
            FROM vuelo v2
@@ -147,9 +152,10 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       if (ocup.rows.length > 0) {
         await client.query("ROLLBACK");
         const q = ocup.rows[0].quien;
-        return res.status(409).json({
-          message: `Esta aeronave aún está en vuelo${q ? ` con ${q}` : ""} — no se puede sacar hasta que regrese al hangar.`,
-        });
+        const msg = esSimulador
+          ? `El simulador aún está en sesión${q ? ` con ${q}` : ""} — no se puede iniciar hasta que finalice.`
+          : `Esta aeronave aún está en vuelo${q ? ` con ${q}` : ""} — no se puede sacar hasta que regrese al hangar.`;
+        return res.status(409).json({ message: msg });
       }
     }
 

@@ -41,13 +41,13 @@ exports.getReporteVueloInstructor = async (req, res) => {
     const result = await db.query(
       `SELECT v.id_vuelo, v.fecha_vuelo, v.estado AS vuelo_estado,
               b.hora_inicio, b.hora_fin,
-              a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo,
+              a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo, a.tipo AS aeronave_tipo,
               u.nombre AS alumno_nombre, u.apellido AS alumno_apellido,
               al.numero_licencia AS alumno_licencia,
               u2.nombre AS instructor_nombre, u2.apellido AS instructor_apellido,
               rv.id_reporte, rv.tipo_vuelo, rv.tacometro_salida, rv.tacometro_llegada,
               rv.hobbs_salida, rv.hobbs_llegada, rv.combustible_salida, rv.combustible_llegada,
-              rv.cantidad_combustible, rv.firma_alumno, rv.firma_instructor,
+              rv.cantidad_combustible, rv.horas_cobrar, rv.firma_alumno, rv.firma_instructor,
               rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia
        FROM vuelo v
        JOIN aeronave a ON a.id_aeronave = v.id_aeronave
@@ -70,6 +70,7 @@ exports.getReporteVueloInstructor = async (req, res) => {
       hora_fin: row.hora_fin,
       aeronave_codigo: row.aeronave_codigo,
       aeronave_modelo: row.aeronave_modelo,
+      aeronave_tipo: row.aeronave_tipo,
       alumno_nombre: row.alumno_nombre,
       alumno_apellido: row.alumno_apellido,
       alumno_licencia: row.alumno_licencia,
@@ -87,6 +88,7 @@ exports.getReporteVueloInstructor = async (req, res) => {
       combustible_salida: row.combustible_salida,
       combustible_llegada: row.combustible_llegada,
       cantidad_combustible: row.cantidad_combustible,
+      horas_cobrar: row.horas_cobrar,
       firma_alumno: row.firma_alumno,
       firma_instructor: row.firma_instructor,
       archivo_pdf: row.archivo_pdf,
@@ -106,7 +108,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
     const {
       tipo_vuelo, tacometro_salida, tacometro_llegada,
       hobbs_salida, hobbs_llegada, combustible_salida,
-      combustible_llegada, cantidad_combustible,
+      combustible_llegada, cantidad_combustible, horas_cobrar,
       es_inasistencia, motivo_inasistencia,
     } = req.body;
 
@@ -114,7 +116,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
 
     // Validar rangos numéricos solo si NO es inasistencia
     if (!esInasistencia) {
-      const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible];
+      const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible, horas_cobrar];
       if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) < 0))) {
         return res.status(400).json({ message: "Los valores numéricos deben ser números válidos." });
       }
@@ -124,9 +126,9 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
       `INSERT INTO reporte_vuelo (
          id_vuelo, tipo_vuelo, tacometro_salida, tacometro_llegada,
          hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada,
-         cantidad_combustible, estado, es_inasistencia, motivo_inasistencia
+         cantidad_combustible, horas_cobrar, estado, es_inasistencia, motivo_inasistencia
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'BORRADOR',$10,$11)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'BORRADOR',$11,$12)
        ON CONFLICT (id_vuelo) DO UPDATE SET
          tipo_vuelo=EXCLUDED.tipo_vuelo,
          tacometro_salida=EXCLUDED.tacometro_salida,
@@ -136,6 +138,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
          combustible_salida=EXCLUDED.combustible_salida,
          combustible_llegada=EXCLUDED.combustible_llegada,
          cantidad_combustible=EXCLUDED.cantidad_combustible,
+         horas_cobrar=EXCLUDED.horas_cobrar,
          es_inasistencia=EXCLUDED.es_inasistencia,
          motivo_inasistencia=EXCLUDED.motivo_inasistencia,
          estado = CASE WHEN reporte_vuelo.estado IN ('PENDIENTE_ALUMNO', 'COMPLETADO')
@@ -150,6 +153,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
        esInasistencia ? null : blankToNull(combustible_salida),
        esInasistencia ? null : blankToNull(combustible_llegada),
        esInasistencia ? null : blankToNull(cantidad_combustible),
+       esInasistencia ? null : blankToNull(horas_cobrar),
        esInasistencia,
        blankToNull(motivo_inasistencia)]
     );
@@ -167,7 +171,7 @@ exports.firmarReporteVuelo = async (req, res) => {
       firma_instructor, archivo_pdf,
       tipo_vuelo, tacometro_salida, tacometro_llegada,
       hobbs_salida, hobbs_llegada, combustible_salida,
-      combustible_llegada, cantidad_combustible,
+      combustible_llegada, cantidad_combustible, horas_cobrar,
       es_inasistencia, motivo_inasistencia,
     } = req.body;
     if (!firma_instructor) {
@@ -176,12 +180,26 @@ exports.firmarReporteVuelo = async (req, res) => {
 
     const esInasistencia = es_inasistencia === true || es_inasistencia === 'true';
 
-    // Validar tipo de vuelo y rangos numéricos solo si NO es inasistencia
+    // Simulador: sesión sin aeronave física — se factura por horas_cobrar
+    // (independiente del Hobbs) en vez del diferencial de tacómetro.
+    const aeroTipoRes = await db.query(
+      `SELECT a.tipo FROM vuelo v JOIN aeronave a ON a.id_aeronave = v.id_aeronave WHERE v.id_vuelo = $1`,
+      [id]
+    );
+    const esSimulador = aeroTipoRes.rows[0]?.tipo === 'SIMULADOR';
+
+    // Validar rangos numéricos / campos requeridos solo si NO es inasistencia
     if (!esInasistencia) {
-      if (!tipo_vuelo) {
-        return res.status(400).json({ message: "Elegí el tipo de vuelo antes de firmar." });
+      if (esSimulador) {
+        if (!horas_cobrar || isNaN(horas_cobrar) || parseFloat(horas_cobrar) <= 0) {
+          return res.status(400).json({ message: "Ingresá las horas a cobrar de la sesión de simulador." });
+        }
+      } else {
+        if (!tipo_vuelo) {
+          return res.status(400).json({ message: "Elegí el tipo de vuelo antes de firmar." });
+        }
       }
-      const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible];
+      const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible, horas_cobrar];
       if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) < 0))) {
         return res.status(400).json({ message: "Los valores numéricos deben ser números válidos." });
       }
@@ -191,8 +209,9 @@ exports.firmarReporteVuelo = async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // Validar checklist solo si NO es inasistencia
-      if (!esInasistencia) {
+      // Validar checklist solo si NO es inasistencia y NO es simulador (el
+      // checklist post-vuelo es de aeronave física — frenos, hélice, etc.).
+      if (!esInasistencia && !esSimulador) {
         const checklistRes = await client.query(
           'SELECT id_vuelo FROM checklist_postvuelo WHERE id_vuelo = $1',
           [id]
@@ -207,9 +226,9 @@ exports.firmarReporteVuelo = async (req, res) => {
         `INSERT INTO reporte_vuelo (
            id_vuelo, tipo_vuelo, tacometro_salida, tacometro_llegada,
            hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada,
-           cantidad_combustible, firma_instructor, archivo_pdf, estado, es_inasistencia, motivo_inasistencia
+           cantidad_combustible, horas_cobrar, firma_instructor, archivo_pdf, estado, es_inasistencia, motivo_inasistencia
          )
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDIENTE_ALUMNO',$12,$13)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDIENTE_ALUMNO',$13,$14)
          ON CONFLICT (id_vuelo) DO UPDATE SET
            tipo_vuelo=EXCLUDED.tipo_vuelo,
            tacometro_salida=EXCLUDED.tacometro_salida,
@@ -219,6 +238,7 @@ exports.firmarReporteVuelo = async (req, res) => {
            combustible_salida=EXCLUDED.combustible_salida,
            combustible_llegada=EXCLUDED.combustible_llegada,
            cantidad_combustible=EXCLUDED.cantidad_combustible,
+           horas_cobrar=EXCLUDED.horas_cobrar,
            firma_instructor=EXCLUDED.firma_instructor,
            archivo_pdf=EXCLUDED.archivo_pdf,
            es_inasistencia=EXCLUDED.es_inasistencia,
@@ -227,19 +247,22 @@ exports.firmarReporteVuelo = async (req, res) => {
            actualizado_en=NOW()
          RETURNING *`,
         [id,
-         esInasistencia ? null : blankToNull(tipo_vuelo),
-         esInasistencia ? null : blankToNull(tacometro_salida),
-         esInasistencia ? null : blankToNull(tacometro_llegada),
+         (esInasistencia || esSimulador) ? null : blankToNull(tipo_vuelo),
+         (esInasistencia || esSimulador) ? null : blankToNull(tacometro_salida),
+         (esInasistencia || esSimulador) ? null : blankToNull(tacometro_llegada),
          esInasistencia ? null : blankToNull(hobbs_salida),
          esInasistencia ? null : blankToNull(hobbs_llegada),
          esInasistencia ? null : blankToNull(combustible_salida),
          esInasistencia ? null : blankToNull(combustible_llegada),
          esInasistencia ? null : blankToNull(cantidad_combustible),
+         esInasistencia ? null : blankToNull(horas_cobrar),
          firma_instructor, blankToNull(archivo_pdf), esInasistencia, blankToNull(motivo_inasistencia)]
       );
 
-      // --- Lógica de Mantenimiento por TAC ---
-      if (!esInasistencia) {
+      // --- Lógica de Mantenimiento por TAC (no aplica a simuladores: no
+      // tienen motor/hélice que desgastar ni horas de licencia por Tacómetro;
+      // su cargo se factura más abajo directo por horas_cobrar) ---
+      if (!esInasistencia && !esSimulador) {
         const tacSalida = parseFloat(tacometro_salida);
         const tacLlegada = parseFloat(tacometro_llegada);
         const diff = tacLlegada - tacSalida;
@@ -303,7 +326,10 @@ exports.firmarReporteVuelo = async (req, res) => {
       if (!esInasistencia) {
         try {
           const { cargarVueloACuentaDentroTx } = require("../administracion/facturasController");
-          const tacDiff = parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
+          // Simulador: se factura por horas_cobrar (manual), no por Tacómetro.
+          const tacDiff = esSimulador
+            ? parseFloat(horas_cobrar)
+            : parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
           const vueloInfo = await client.query(`
             SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha_vuelo AS fecha,
                    v.es_extracurricular, v.categoria,

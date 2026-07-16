@@ -60,6 +60,14 @@ const NEXT_LABEL = {
   FINALIZANDO:    "→ Completar vuelo",
 };
 
+// El simulador no sale/regresa de un hangar físico: solo Iniciar/Finalizar sesión.
+const ESTADOS_AVANZABLES_SIM = new Set(["PUBLICADO", "PROGRAMADO", "EN_PROGRESO"]);
+const NEXT_LABEL_SIM = {
+  PUBLICADO:   "→ Iniciar sesión",
+  PROGRAMADO:  "→ Iniciar sesión",
+  EN_PROGRESO: "→ Finalizar sesión",
+};
+
 const MOTIVOS = ["CLIMA", "VIENTO", "VISIBILIDAD", "REVISION_PISTA", "NOTAM", "TEMPERATURA"];
 
 function formatHora(h) {
@@ -75,12 +83,14 @@ function VueloCard({ vuelo, onRefresh }) {
   const tagClass = ESTADO_COLOR[vuelo.estado] ?? "trn__tag--gris";
   const [advancing, setAdvancing] = useState(false);
   const [editando, setEditando] = useState(false);
+  const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
 
   const handleAvanzar = async () => {
     setAdvancing(true);
     try {
       await avanzarEstadoVuelo(vuelo.id_vuelo, {});
-      toast.success(`Vuelo ${vuelo.aeronave_codigo}: ${NEXT_LABEL[vuelo.estado]}`);
+      const label = isSim ? NEXT_LABEL_SIM[vuelo.estado] : NEXT_LABEL[vuelo.estado];
+      toast.success(`Vuelo ${vuelo.aeronave_codigo}: ${label}`);
       onRefresh();
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudo avanzar el estado");
@@ -104,12 +114,14 @@ function VueloCard({ vuelo, onRefresh }) {
     }
   };
 
-  const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
   const esSalidaHangar = vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO";
   const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
   const bloqueHabilitado = !esSalidaHangar || ahoraMin >= hhmmToMin(vuelo.hora_inicio);
   
-  const canAdvance = !isSim && ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO';
+  const canAdvance = isSim
+    ? ESTADOS_AVANZABLES_SIM.has(vuelo.estado)
+    : (ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO');
+  const nextLabel = isSim ? NEXT_LABEL_SIM[vuelo.estado] : NEXT_LABEL[vuelo.estado];
   const btnDisabled = advancing || !bloqueHabilitado;
 
   return (
@@ -151,7 +163,7 @@ function VueloCard({ vuelo, onRefresh }) {
             onClick={handleAvanzar}
             title={!bloqueHabilitado ? "No se puede iniciar el vuelo antes de la hora programada" : ""}
           >
-            {advancing ? "Procesando…" : (NEXT_LABEL[vuelo.estado] ?? "Avanzar")}
+            {advancing ? "Procesando…" : (nextLabel ?? "Avanzar")}
           </button>
         )}
       </div>

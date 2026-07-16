@@ -11,6 +11,15 @@ const NEXT_ESTADO_INSTRUCTOR = {
   FINALIZANDO:    "COMPLETADO",
 };
 
+// Los simuladores no salen/regresan de un hangar físico: la sesión pasa
+// directo de programada a en curso, y de en curso a completada (donde el
+// instructor llena la vouchera de simulador). Ver también turnoController.js.
+const NEXT_ESTADO_INSTRUCTOR_SIM = {
+  PUBLICADO:   "EN_PROGRESO",
+  PROGRAMADO:  "EN_PROGRESO",
+  EN_PROGRESO: "COMPLETADO",
+};
+
 exports.getVuelosHoy = async (req, res) => {
   try {
     const id_instructor = await resolverIdInstructor(req.user.id_usuario);
@@ -201,21 +210,16 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     const aeroRes = await client.query("SELECT tipo FROM aeronave WHERE id_aeronave = $1", [vuelo.id_aeronave]);
     const esSimulador = aeroRes.rows[0]?.tipo === 'SIMULADOR';
 
-    if (esSimulador) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Los simuladores no permiten cambios de estado" });
-    }
-
-    let nuevoEstado = NEXT_ESTADO_INSTRUCTOR[vuelo.estado];
+    let nuevoEstado = (esSimulador ? NEXT_ESTADO_INSTRUCTOR_SIM : NEXT_ESTADO_INSTRUCTOR)[vuelo.estado];
 
     if (!nuevoEstado) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: "El vuelo no puede avanzar de estado" });
     }
 
-    // GUARDIA DE AVIÓN OCUPADO: no sacar a hangar si esa aeronave ya está en uso
-    // en otro vuelo (mismo criterio que el flujo de Turno, ver turnoController).
-    if (nuevoEstado === "SALIDA_HANGAR") {
+    // GUARDIA DE AVIÓN/SIMULADOR OCUPADO: no sacar a hangar (o iniciar sesión de
+    // simulador) si ya está en uso en otro vuelo (mismo criterio que Turno).
+    if (nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO")) {
       const ocup = await client.query(
         `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
            FROM vuelo v2
@@ -230,9 +234,10 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       if (ocup.rows.length > 0) {
         await client.query("ROLLBACK");
         const q = ocup.rows[0].quien;
-        return res.status(409).json({
-          message: `Esta aeronave aún está en vuelo${q ? ` con ${q}` : ""} — no se puede sacar hasta que regrese al hangar.`,
-        });
+        const msg = esSimulador
+          ? `El simulador aún está en sesión${q ? ` con ${q}` : ""} — no se puede iniciar hasta que finalice.`
+          : `Esta aeronave aún está en vuelo${q ? ` con ${q}` : ""} — no se puede sacar hasta que regrese al hangar.`;
+        return res.status(409).json({ message: msg });
       }
     }
 

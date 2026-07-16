@@ -41,6 +41,13 @@ const BTN_LABEL = {
   FINALIZANDO:    "Finalizar Vuelo",
 };
 
+// El simulador no sale/regresa de un hangar físico: solo Iniciar/Finalizar sesión.
+const BTN_LABEL_SIM = {
+  PUBLICADO:   "Iniciar Sesión",
+  PROGRAMADO:  "Iniciar Sesión",
+  EN_PROGRESO: "Finalizar Sesión",
+};
+
 function formatHora(h) { return h?.slice(0, 5) ?? ""; }
 
 function hhmmToMin(hhmm) {
@@ -104,9 +111,7 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
   
   const canOperate = isToday && !esSemanaProxima;
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
-  const btnLabel = isSim && (vuelo.estado === 'PUBLICADO' || vuelo.estado === 'PROGRAMADO')
-    ? "Iniciar Sesión"
-    : BTN_LABEL[vuelo.estado];
+  const btnLabel = isSim ? BTN_LABEL_SIM[vuelo.estado] : BTN_LABEL[vuelo.estado];
 
   const handleConfirmar = () => {
     onAvanzar(vuelo.id_vuelo, { tiempo_vuelo_min: 0 });
@@ -123,7 +128,9 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
   const inasistenciaDisabled = isAdvancing || !bloqueHabilitado;
 
   const handleAccionPrincipal = () => {
-    if (vuelo.checklist_completado || vuelo.es_inasistencia) {
+    // El simulador no tiene checklist post-vuelo (es de aeronave física) — va
+    // directo a la vouchera de simulador.
+    if (vuelo.checklist_completado || vuelo.es_inasistencia || isSim) {
       onAbrirReporte(vuelo);
     } else {
       onCompletarVuelo(vuelo, isFinalizando ? tiempoMin : null);
@@ -196,12 +203,14 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
         {isCompletado && (
           <div className="ins__report-actions">
             <button className="ins__btn-reporte" onClick={handleAccionPrincipal}>
-              {vuelo.es_inasistencia 
-                ? "Ver Inasistencia" 
-                : (vuelo.checklist_completado ? "Ver Reporte de Vuelo" : "Completar Checklist")}
+              {vuelo.es_inasistencia
+                ? "Ver Inasistencia"
+                : (isSim
+                    ? "Ver Vouchera de Simulador"
+                    : (vuelo.checklist_completado ? "Ver Reporte de Vuelo" : "Completar Checklist"))}
             </button>
-            
-            {vuelo.checklist_completado && (
+
+            {vuelo.checklist_completado && !isSim && (
               <button className="ins__btn-revisar-checklist" onClick={() => onCompletarVuelo(vuelo)}>
                 <i className="bi bi-card-checklist"></i> Revisar Checklist Post-Vuelo
               </button>
@@ -417,7 +426,8 @@ export default function InstructorDashboard() {
           // checklist si el instructor completaba el vuelo con el botón
           // "Finalizar Vuelo" en vez de por el flujo del checklist.
           if (estado === "COMPLETADO" && v.estado !== "COMPLETADO") {
-            if (updated.es_inasistencia || updated.checklist_completado) {
+            // El simulador no tiene checklist post-vuelo — va directo a la vouchera.
+            if (updated.es_inasistencia || updated.checklist_completado || updated.aeronave_tipo === "SIMULADOR") {
               setReporteModal(updated);
             } else {
               setChecklistModal({ vuelo: updated, tiempoMin: parseInt(updated.tiempo_vuelo_min, 10) || 0 });

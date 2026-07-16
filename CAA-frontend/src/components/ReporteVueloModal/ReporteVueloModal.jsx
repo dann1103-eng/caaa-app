@@ -39,6 +39,7 @@ const DATOS_INICIALES = {
   combustible_salida: "",
   combustible_llegada: "",
   cantidad_combustible: "",
+  horas_cobrar: "",
 };
 
 function badge(estado) {
@@ -75,6 +76,10 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   const firmaAlumnoRef = useRef(null);
   const firmaInstructorRef = useRef(null);
 
+  // El simulador no tiene tacómetro/combustible/checklist de aeronave física —
+  // la vouchera solo pide Hobbs inicio/cierre y las horas a cobrar.
+  const isSim = vueloInfo?.aeronave_tipo === "SIMULADOR";
+
   // Instructor fills form (editable when null or BORRADOR); alumno never edits data
   const isReadonly = mode === "instructor"
     ? (estado === "PENDIENTE_ALUMNO" || estado === "COMPLETADO")
@@ -106,6 +111,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             combustible_salida: r.combustible_salida ?? "",
             combustible_llegada: r.combustible_llegada ?? "",
             cantidad_combustible: r.cantidad_combustible ?? "",
+            horas_cobrar: r.horas_cobrar ?? "",
           });
           if (r.firma_alumno) setFirmaAlumno(r.firma_alumno);
           if (r.firma_instructor) setFirmaInstructor(r.firma_instructor);
@@ -123,7 +129,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
       "tacometro_salida", "tacometro_llegada",
       "hobbs_salida", "hobbs_llegada",
       "combustible_salida", "combustible_llegada",
-      "cantidad_combustible"
+      "cantidad_combustible", "horas_cobrar"
     ];
 
     if (numericFields.includes(key)) {
@@ -160,6 +166,11 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   async function handleFirmarInstructor() {
     if (esInasistencia) {
       // Inasistencia solo requiere motivo y firma
+    } else if (isSim) {
+      if (!datos.horas_cobrar || parseFloat(datos.horas_cobrar) <= 0) {
+        toast.warning("Ingresá las horas a cobrar de la sesión.");
+        return;
+      }
     } else {
       if (!datos.tipo_vuelo) {
         toast.warning("Elegí el tipo de vuelo antes de enviar.");
@@ -292,7 +303,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         <div className="rv-header">
           <div className="rv-header-left">
             <h2>
-              Reporte de Vuelo
+              {isSim ? "Vouchera de Simulador" : "Reporte de Vuelo"}
               {badge(estado)}
               {esInasistencia && (
                 <span className="rv-badge rv-badge--inasistencia">INASISTENCIA</span>
@@ -369,38 +380,47 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             </div>
           )}
 
-          {/* Tipo de vuelo */}
-          <div className="rv-section">
-            <div className="rv-section-title">Tipo de vuelo</div>
-            <select
-              className="rv-input rv-select"
-              value={datos.tipo_vuelo}
-              onChange={(e) => setField("tipo_vuelo", e.target.value)}
-              disabled={isReadonly || esInasistencia}
-            >
-              <option value="">Seleccione…</option>
-              {TIPO_VUELO_OPTS.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
+          {/* Tipo de vuelo — no aplica a simulador (PASAJERO/CARGA/FERRY son de aeronave real) */}
+          {!isSim && (
+            <div className="rv-section">
+              <div className="rv-section-title">Tipo de vuelo</div>
+              <select
+                className="rv-input rv-select"
+                value={datos.tipo_vuelo}
+                onChange={(e) => setField("tipo_vuelo", e.target.value)}
+                disabled={isReadonly || esInasistencia}
+              >
+                <option value="">Seleccione…</option>
+                {TIPO_VUELO_OPTS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Datos tacómetro / hobbs / combustible */}
+          {/* Datos: tacómetro/hobbs/combustible (vuelo real) o Hobbs + horas a cobrar (simulador) */}
           <div className="rv-section">
-            <div className="rv-section-title">Tacómetro, Hobbs y Combustible</div>
+            <div className="rv-section-title">{isSim ? "Hobbs y horas a cobrar" : "Tacómetro, Hobbs y Combustible"}</div>
             {esInasistencia ? (
               <p className="rv-inasistencia-omit">Lecturas omitidas por inasistencia.</p>
             ) : (
             <div className="rv-data-grid">
-              {[
-                { key: "tacometro_salida", label: "Tacómetro Salida", medidor: true },
-                { key: "tacometro_llegada", label: "Tacómetro Llegada", medidor: true },
-                { key: "hobbs_salida", label: "Hobbs Salida", medidor: true },
-                { key: "hobbs_llegada", label: "Hobbs Llegada", medidor: true },
-                { key: "combustible_salida", label: "Combustible Salida" },
-                { key: "combustible_llegada", label: "Combustible Llegada" },
-                { key: "cantidad_combustible", label: "Cantidad agregada" },
-              ].map(({ key, label, medidor }) => (
+              {(isSim
+                ? [
+                    { key: "hobbs_salida", label: "Hobbs Inicio", medidor: true },
+                    { key: "hobbs_llegada", label: "Hobbs Cierre", medidor: true },
+                    { key: "horas_cobrar", label: "Horas a cobrar" },
+                  ]
+                : [
+                    { key: "tacometro_salida", label: "Tacómetro Salida", medidor: true },
+                    { key: "tacometro_llegada", label: "Tacómetro Llegada", medidor: true },
+                    { key: "hobbs_salida", label: "Hobbs Salida", medidor: true },
+                    { key: "hobbs_llegada", label: "Hobbs Llegada", medidor: true },
+                    { key: "combustible_salida", label: "Combustible Salida" },
+                    { key: "combustible_llegada", label: "Combustible Llegada" },
+                    { key: "cantidad_combustible", label: "Cantidad agregada" },
+                  ]
+              ).map(({ key, label, medidor }) => (
                 <div key={key} className="rv-data-field">
                   <span className="rv-label">{label}</span>
                   {isReadonly ? (
