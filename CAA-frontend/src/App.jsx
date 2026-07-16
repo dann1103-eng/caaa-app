@@ -112,6 +112,8 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
           <Route path="/manual" element={<Manual />} />
+          {/* Enlace para alumnos: solo su manual, sin ver el resto de roles */}
+          <Route path="/manual/alumno" element={<Manual solo="alumno" />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route
             path="/proyeccion"

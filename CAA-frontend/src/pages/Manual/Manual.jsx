@@ -69,19 +69,29 @@ function LoginCTA() {
   );
 }
 
-export default function Manual() {
-  const [active, setActive] = useState("portada");
+// `solo`: restringe el manual a UNA sola página (ej. /manual/alumno con
+// solo="alumno") — los alumnos reciben ese enlace y no ven los manuales del
+// resto de roles. Sin `solo`, es el manual completo de siempre (/manual).
+export default function Manual({ solo = null }) {
+  const isAllowed = (id) => !solo || id === solo;
+  const [active, setActive] = useState(solo || "portada");
 
   useEffect(() => {
     const h = (window.location.hash || "").replace("#", "");
-    if (h) setActive(h);
+    if (h && isAllowed(h)) setActive(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const go = (id) => {
+    if (!isAllowed(id)) return;
     setActive(id);
     window.scrollTo(0, 0);
     try { history.replaceState(null, "", "#" + id); } catch { /* noop */ }
   };
+
+  const nav = solo
+    ? NAV.map((g) => ({ ...g, items: g.items.filter((it) => isAllowed(it.id)) })).filter((g) => g.items.length > 0)
+    : NAV;
 
   return (
     <div className="man__shell">
@@ -90,11 +100,11 @@ export default function Manual() {
           <div className="man__brand-mark"><img src="/iso-caaa-white.png" alt="CAAA" /></div>
           <div>
             <div className="man__brand-title">CAAA</div>
-            <div className="man__brand-sub">Manual de usuario</div>
+            <div className="man__brand-sub">{solo === "alumno" ? "Manual del alumno" : "Manual de usuario"}</div>
           </div>
         </div>
 
-        {NAV.map((g) => (
+        {nav.map((g) => (
           <div key={g.group}>
             <div className="man__rail-label">{g.group}</div>
             {g.items.map((it) => (
