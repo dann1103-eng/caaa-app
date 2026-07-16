@@ -6,6 +6,7 @@ import {
   getBloquesPublicos,
 } from "../../services/programacionApi";
 import { getMetar } from "../../services/metarApi";
+import { getTurnoDia } from "../../services/turnoApi";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
@@ -160,6 +161,7 @@ export default function PaginaProgramacion() {
   const [metar,       setMetar]       = useState(null);
   const [clock,       setClock]       = useState("");
   const [clockUTC,    setClockUTC]    = useState("");
+  const [turnoDia,    setTurnoDia]    = useState(null);
 
   const diaHoy = jsDayToDb(new Date().getDay());
   const [tabActivo,       setTabActivo]       = useState(diaHoy ?? 1);
@@ -185,6 +187,16 @@ export default function PaginaProgramacion() {
     const t = setInterval(cargarMetar, 20 * 60 * 1000);
     return () => clearInterval(t);
   }, [cargarMetar]);
+
+  /* ── turno del día (apertura/pausa/cierre + instructores en turno) ── */
+  const cargarTurnoDia = useCallback(async () => {
+    try { setTurnoDia(await getTurnoDia()); } catch { /* silencioso */ }
+  }, []);
+  useEffect(() => {
+    cargarTurnoDia();
+    const t = setInterval(cargarTurnoDia, 60000);
+    return () => clearInterval(t);
+  }, [cargarTurnoDia]);
 
   /* ── data ── */
   const cargarDatos = useCallback(async () => {
@@ -248,9 +260,10 @@ export default function PaginaProgramacion() {
     });
 
     socket.on("bloque_iniciado", cargarDatos);
+    socket.on("turno_dia_changed", cargarTurnoDia);
 
     return () => socket.disconnect();
-  }, [cargarDatos]);
+  }, [cargarDatos, cargarTurnoDia]);
 
   /* ── derived ── */
   const vuelosConEstado = useMemo(() =>
@@ -357,6 +370,32 @@ export default function PaginaProgramacion() {
               <OperacionesWidget />
             </div>
           </div>
+
+          {/* ── Turno del día: estado + instructores en turno ── */}
+          {turnoDia?.dia && (() => {
+            const est = turnoDia.dia.estado;
+            const presentes = (turnoDia.asistencias || []).filter((a) => !a.salida_en);
+            const meta = {
+              ABIERTO:  { label: "TURNO ABIERTO",              cls: "pp__turno--abierto",  icon: "bi-sunrise" },
+              EN_PAUSA: { label: "TURNO EN PAUSA · ALMUERZO",  cls: "pp__turno--pausa",    icon: "bi-cup-hot" },
+              CERRADO:  { label: "TURNO CERRADO",              cls: "pp__turno--cerrado",  icon: "bi-sunset" },
+            }[est];
+            if (!meta) return null;
+            return (
+              <div className={`pp__turno-strip ${meta.cls}`}>
+                <span className="pp__turno-estado"><i className={`bi ${meta.icon}`} /> {meta.label}</span>
+                {presentes.length > 0 && (
+                  <span className="pp__turno-instructores">
+                    {presentes.map((a) => (
+                      <span key={a.id_asistencia} className="pp__turno-chip">
+                        <i className="bi bi-person-badge" /> Cap. {a.nombre_completo}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="pp__dashboard-grid">
             <div className="pp__main-col">

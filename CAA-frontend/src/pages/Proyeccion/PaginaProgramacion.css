@@ -650,3 +650,54 @@
   .pp__time-val { font-size: 1.8rem; }
   .pp__info-main { font-size: 1.1rem; }
 }
+/* ── Franja "Turno del día" (estado + instructores en turno) ─────────────── */
+.pp__turno-strip {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--pp-line, rgba(148, 163, 184, .18));
+  background: var(--pp-surface-2, rgba(148, 163, 184, .06));
+}
+
+.pp__turno-estado {
+  font-weight: 900;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.pp__turno--abierto .pp__turno-estado { color: #4ade80; }
+.pp__turno--pausa   .pp__turno-estado { color: #fbbf24; }
+.pp__turno--cerrado .pp__turno-estado { color: var(--pp-accent, #ef4444); }
+
+.pp__turno--abierto { border-color: rgba(74, 222, 128, .35); }
+.pp__turno--pausa   { border-color: rgba(251, 191, 36, .35); }
+.pp__turno--cerrado { border-color: rgba(239, 68, 68, .35); }
+
+.pp__turno-instructores {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pp__turno-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .12);
+  color: var(--pp-text-bright, #f1f5f9);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pp__turno-chip i { opacity: 0.7; }

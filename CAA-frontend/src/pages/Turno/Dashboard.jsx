@@ -20,6 +20,7 @@ import {
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
+import TurnoDiaWidget from "../../components/TurnoDiaWidget/TurnoDiaWidget";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
@@ -573,6 +574,9 @@ export default function TurnoDashboard() {
 
         {/* ── METAR ─────────────────────────────────────────────────── */}
         <MetarWidget />
+
+        {/* ── Turno del día (apertura/pausa/cambio/cierre + asistencia) ── */}
+        <TurnoDiaWidget />
 
         {/* ── Estado de operaciones ─────────────────────────────────── */}
         {ops && <OpsWidget ops={ops} onSet={handleSetOps} vuelosHoy={vuelos} />}
