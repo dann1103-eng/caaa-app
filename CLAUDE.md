@@ -60,12 +60,22 @@ Consecuencia: si corrés `railway up` con tu local **atrasado** respecto a `orig
 **borrás de producción el backend que otro ya había desplegado**. No falla nada ni avisa:
 el código simplemente desaparece del servidor.
 
-**Regla, sin excepciones — antes de CUALQUIER `railway up`:**
+**Regla, sin excepciones — `railway up` va SIEMPRE AL FINAL, después del `git push`:**
 ```powershell
 cd "C:\Users\Daniel\Desktop\CAAA modulo op+admin"
-git fetch origin; git merge origin/master     # ← primero esto, siempre
-cd legacy\CAA-backend; railway up --detach
+git fetch origin; git merge origin/master
+git push origin master                        # ← 1º pushear...
+cd legacy\CAA-backend; railway up --detach    # ← 2º recién ahora desplegar
 ```
+
+**Por qué el push va primero (y no alcanza con "hacer fetch antes"):** el `git push` es la
+única garantía de que tu local == `origin/master`. Si estás atrasado, **el push se rechaza**
+("fetch first") y te obliga a mergear; cuando pasa, lo que tenés en disco es exactamente lo
+que está en GitHub, y ahí `railway up` es seguro. Si desplegás ANTES de pushear, el otro
+puede pushear backend en esa ventana de segundos y tu deploy lo pisa igual — **pasó el
+2026-07-16 mientras se documentaba esta misma regla**: se hizo el fetch, se desplegó, y
+Samuel pusheó `calendarioController.js` entre el deploy y el push → hubo que re-desplegar.
+Si por lo que sea desplegás y después mergeás algo de backend, **volvé a correr `railway up`**.
 
 **Cómo se ve el síntoma** (pasó el 2026-07-16, con Samuel trabajando en paralelo): Samuel
 pusheó el ciclo de turno (`turnoDiaController.js` + rutas + `TurnoDiaWidget`). Vercel compiló
@@ -86,8 +96,12 @@ Y si ese merge trajo backend, **volvé a correr `railway up`**.
 1. **`git fetch origin; git merge origin/master`** (traer lo del otro ANTES de nada).
 2. Editar código.
 3. `cd CAA-frontend; $env:VITE_API_URL="https://caaa-backend-production.up.railway.app"; npm run build` (verificar que compila).
-4. Si tocaste backend **o el merge del paso 1 trajo backend**: `railway up --detach` desde `legacy/CAA-backend`.
-5. `git add ... && git commit -F <archivo-msg> && git push origin master` (frontend se auto-despliega).
+4. Si hay migración: `node run-sql.js "..."` (**siempre antes** del deploy, si el código nuevo ya lee las columnas).
+5. `git add ... && git commit -F <archivo-msg> && git push origin master` (esto dispara Vercel **y** confirma que estás sincronizado).
+6. **Al final**, si el paso 5 metió backend (tuyo o traído en el merge): `railway up --detach` desde `legacy/CAA-backend`.
+
+⚠️ **Los pasos 5 y 6 no se invierten.** Ver el recuadro de arriba: desplegar antes de pushear
+deja una ventana en la que el otro puede pushear backend y tu deploy se lo lleva puesto.
 
 ### CLI
 - Vercel CLI logueado como `danielmancia111203-2224`. Equipo de deploy: `--scope caaa`.
