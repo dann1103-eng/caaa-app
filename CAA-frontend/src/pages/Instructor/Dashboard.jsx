@@ -50,11 +50,6 @@ const BTN_LABEL_SIM = {
 
 function formatHora(h) { return h?.slice(0, 5) ?? ""; }
 
-function hhmmToMin(hhmm) {
-  const [h, m] = (hhmm || "0:0").split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
 function calcProgreso(vuelo) {
   const { estado, estado_desde, duracion_estimada_min } = vuelo;
 
@@ -103,12 +98,11 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
   const isCompletado  = vuelo.estado === "COMPLETADO";
   const isAdvancing   = advancing === vuelo.id_vuelo;
 
-  // Bloquear acciones si no es hoy o es semana próxima
+  // Bloquear acciones si no es hoy o es semana próxima. Ya NO hay candado por
+  // hora programada: el instructor puede adelantar la salida de un vuelo del
+  // siguiente bloque si en la práctica despega antes de lo previsto — la
+  // única restricción real la aplica el backend (guardia de "avión ocupado").
   const esSemanaProxima = weekMode === "next";
-  const esSalidaHangar = vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO";
-  const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
-  const bloqueHabilitado = !esSalidaHangar || ahoraMin >= hhmmToMin(vuelo.hora_inicio);
-  
   const canOperate = isToday && !esSemanaProxima;
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
   const btnLabel = isSim ? BTN_LABEL_SIM[vuelo.estado] : BTN_LABEL[vuelo.estado];
@@ -122,10 +116,10 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
     onInasistencia(vuelo);
   };
 
-  const btnDisabled = isAdvancing || !bloqueHabilitado;
+  const btnDisabled = isAdvancing;
 
   const canMarkInasistencia = !isSim && (vuelo.estado === 'PROGRAMADO' || vuelo.estado === 'PUBLICADO' || vuelo.estado === 'SALIDA_HANGAR');
-  const inasistenciaDisabled = isAdvancing || !bloqueHabilitado;
+  const inasistenciaDisabled = isAdvancing;
 
   const handleAccionPrincipal = () => {
     // El simulador no tiene checklist post-vuelo (es de aeronave física) — va
@@ -187,11 +181,10 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
                 {isAdvancing ? "Procesando…" : btnLabel}
               </button>
               {canMarkInasistencia && (
-                <button 
-                  className="ins__btn-inasistencia" 
+                <button
+                  className="ins__btn-inasistencia"
                   onClick={handleInasistencia}
                   disabled={inasistenciaDisabled}
-                  title={!bloqueHabilitado ? "No se puede registrar inasistencia antes de la hora programada" : ""}
                 >
                   Inasistencia
                 </button>

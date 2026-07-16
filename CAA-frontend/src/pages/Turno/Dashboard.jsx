@@ -74,11 +74,6 @@ function formatHora(h) {
   return h?.slice(0, 5) ?? "";
 }
 
-function hhmmToMin(hhmm) {
-  const [h, m] = (hhmm || "0:0").split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
-}
-
 function VueloCard({ vuelo, onRefresh }) {
   const tagClass = ESTADO_COLOR[vuelo.estado] ?? "trn__tag--gris";
   const [advancing, setAdvancing] = useState(false);
@@ -114,15 +109,16 @@ function VueloCard({ vuelo, onRefresh }) {
     }
   };
 
-  const esSalidaHangar = vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO";
-  const ahoraMin = new Date().getHours() * 60 + new Date().getMinutes();
-  const bloqueHabilitado = !esSalidaHangar || ahoraMin >= hhmmToMin(vuelo.hora_inicio);
-  
+  // Sin candado de hora programada: Turno puede adelantar la salida de un
+  // vuelo del siguiente bloque si en la práctica despega antes de lo previsto
+  // (ej. el alumno anterior no llegó o el vuelo salió temprano). La única
+  // restricción real la aplica el backend: que la aeronave no esté ya en uso
+  // en otro vuelo (guardia de "avión ocupado").
   const canAdvance = isSim
     ? ESTADOS_AVANZABLES_SIM.has(vuelo.estado)
     : (ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO');
   const nextLabel = isSim ? NEXT_LABEL_SIM[vuelo.estado] : NEXT_LABEL[vuelo.estado];
-  const btnDisabled = advancing || !bloqueHabilitado;
+  const btnDisabled = advancing;
 
   return (
     <div className="trn__card">
@@ -161,7 +157,6 @@ function VueloCard({ vuelo, onRefresh }) {
             className="trn__btn-avanzar"
             disabled={btnDisabled}
             onClick={handleAvanzar}
-            title={!bloqueHabilitado ? "No se puede iniciar el vuelo antes de la hora programada" : ""}
           >
             {advancing ? "Procesando…" : (nextLabel ?? "Avanzar")}
           </button>
