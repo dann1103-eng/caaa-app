@@ -4,6 +4,7 @@ const roleMiddleware = require("../middlewares/roleMiddleware");
 const router = express.Router();
 
 const turnoController = require("../controllers/turnoController");
+const turnoMantenimiento = require("../controllers/turnoMantenimientoController");
 
 const proyeccionMiddleware = require("../middlewares/proyeccionMiddleware");
 
@@ -25,5 +26,14 @@ router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.re
 // Reporte de cierre del día (vuelos por avión, PDF). Lo usa TURNO; ADMIN como
 // super-usuario y ADMINISTRACION (es su insumo para debitar saldos).
 router.get("/reporte-vuelos-dia", authMiddleware, roleMiddleware(["TURNO", "ADMIN", "ADMINISTRACION"]), turnoController.getReporteVuelosDia);
+
+// Mantenimiento imprevisto de una aeronave (falla detectada en pre-vuelo):
+// Turno la saca de servicio, cancela y notifica sus vuelos, y la reactiva
+// cuando taller termina. Mutaciones sensibles → gate de rol explícito.
+const turnoMantAccess = roleMiddleware(["TURNO", "ADMIN"]);
+router.get("/mantenimiento/flota", authMiddleware, turnoMantAccess, turnoMantenimiento.getFlotaMantenimiento);
+router.post("/aeronaves/:id/preview-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.previewMantenimientoAeronave);
+router.post("/aeronaves/:id/mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.iniciarMantenimientoAeronave);
+router.post("/aeronaves/:id/completar-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.completarMantenimientoAeronave);
 
 module.exports = router;

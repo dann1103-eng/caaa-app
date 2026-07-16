@@ -71,3 +71,24 @@ export const abrirReporteVuelosDia = async (fecha) => {
   const url = window.URL.createObjectURL(blob);
   window.open(url, "_blank", "noopener,noreferrer");
 };
+
+// ── Mantenimiento imprevisto de aeronave (falla detectada en pre-vuelo) ──────
+export const getFlotaMantenimiento = async () => {
+  const res = await axios.get(`${API_URL}/turno/mantenimiento/flota`);
+  return res.data;
+};
+
+export const previewMantenimientoAeronave = async (id_aeronave, { bloques = [], fecha_fin = null } = {}) => {
+  const res = await axios.post(`${API_URL}/turno/aeronaves/${id_aeronave}/preview-mantenimiento`, { bloques, fecha_fin });
+  return res.data;
+};
+
+export const iniciarMantenimientoAeronave = async (id_aeronave, { descripcion, bloques = [], fecha_fin = null }) => {
+  const res = await axios.post(`${API_URL}/turno/aeronaves/${id_aeronave}/mantenimiento`, { descripcion, bloques, fecha_fin });
+  return res.data;
+};
+
+export const completarMantenimientoAeronave = async (id_aeronave) => {
+  const res = await axios.post(`${API_URL}/turno/aeronaves/${id_aeronave}/completar-mantenimiento`);
+  return res.data;
+};

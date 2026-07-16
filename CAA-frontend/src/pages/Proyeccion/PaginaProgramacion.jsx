@@ -350,9 +350,9 @@ export default function PaginaProgramacion() {
             </div>
             <div className="pp__hdr-right">
               <div className="pp__hdr-clock-new">
-                <span className="pp__clock-time">{clock}</span>
-                <span className="pp__clock-date">{new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                 <span className="pp__clock-utc">{clockUTC} <b>UTC</b></span>
+                <span className="pp__clock-time">{clock} <b>LOCAL</b></span>
+                <span className="pp__clock-date">{new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
               </div>
               <OperacionesWidget />
             </div>

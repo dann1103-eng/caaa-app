@@ -576,3 +576,93 @@
   color: var(--c-ink-3);
   margin-left: var(--sp-2);
 }
+
+/* ── Flota / mantenimiento imprevisto ─────────────────────────────────────── */
+.trn__flota {
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
+  padding: var(--sp-6);
+  margin-bottom: var(--sp-10);
+  box-shadow: var(--shadow-sm);
+}
+
+.trn__flota-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+
+.trn__flota-title {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--c-ink-1);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.trn__flota-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.trn__flota-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-line-1);
+  font-size: var(--text-sm);
+}
+
+.trn__flota-chip--ok {
+  background: var(--c-success-50);
+  border-color: var(--c-success-100);
+}
+
+.trn__flota-chip--mant {
+  background: var(--c-danger-50);
+  border-color: var(--c-danger-100);
+}
+
+.trn__flota-codigo {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--c-ink-1);
+}
+
+.trn__flota-estado {
+  color: var(--c-ink-3);
+  font-weight: 600;
+}
+
+.trn__flota-chip--mant .trn__flota-estado {
+  color: var(--c-danger-700);
+}
+
+.trn__flota-reactivar {
+  background: var(--c-brand-700);
+  color: var(--c-surface-0);
+  border: none;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 30px;
+}
+
+.trn__flota-reactivar:hover {
+  background: var(--c-brand-900);
+}
+
+.trn__flota-reactivar:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

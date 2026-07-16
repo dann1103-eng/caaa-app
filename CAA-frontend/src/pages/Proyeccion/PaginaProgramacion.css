@@ -229,33 +229,41 @@
   flex-direction: column;
 }
 
-.pp__clock-time {
-  font-size: 1.5rem;
+/* Reloj UTC / Zulu (aviación): es la hora de trabajo, va grande y arriba. */
+.pp__clock-utc {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.7rem;
   font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--pp-accent, #22d3ee);
+  line-height: 1;
+}
+.pp__clock-utc b {
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-left: 3px;
+  opacity: 0.85;
+}
+
+/* Hora local, secundaria bajo la UTC. */
+.pp__clock-time {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--pp-text-bright);
   line-height: 1;
+}
+.pp__clock-time b {
+  font-size: 0.68rem;
+  font-weight: 800;
+  margin-left: 3px;
+  opacity: 0.7;
 }
 
 .pp__clock-date {
   font-size: 0.8rem;
   color: var(--pp-text-muted);
   text-transform: capitalize;
-}
-
-/* Reloj UTC / Zulu (aviación). Se muestra bajo el reloj local. */
-.pp__clock-utc {
-  margin-top: 3px;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--pp-accent, #22d3ee);
-}
-.pp__clock-utc b {
-  font-size: 0.72rem;
-  font-weight: 800;
-  margin-left: 3px;
-  opacity: 0.85;
 }
 
 /* ── Dashboard Layout ───────────────────────────────────────────────────── */
