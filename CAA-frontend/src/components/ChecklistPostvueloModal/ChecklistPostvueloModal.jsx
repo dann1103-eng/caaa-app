@@ -98,10 +98,6 @@ export default function ChecklistPostvueloModal({ id_vuelo, vueloInfo, tiempoVue
       onClose();
       return;
     }
-    if (!allChecked) {
-      setError("Debe marcar todos los ítems del checklist.");
-      return;
-    }
     if (firmaRef.current?.isEmpty()) {
       setError("Debe dibujar su firma.");
       return;
@@ -228,7 +224,7 @@ export default function ChecklistPostvueloModal({ id_vuelo, vueloInfo, tiempoVue
         {/* ── Footer ── */}
         <div className="cpv-footer">
           {!loading && !allChecked && !isReadOnly && (
-            <span className="cpv-hint">Marque todos los ítems para continuar</span>
+            <span className="cpv-hint">Puede firmar y guardar aunque falten ítems por marcar</span>
           )}
           <button
             className="cpv-btn"
@@ -239,7 +235,7 @@ export default function ChecklistPostvueloModal({ id_vuelo, vueloInfo, tiempoVue
           </button>
           {!isReadOnly && (
             <button
-              className={`cpv-btn cpv-btn--success ${!allChecked ? "cpv-btn--disabled-look" : ""}`}
+              className="cpv-btn cpv-btn--success"
               onClick={handleCompletar}
               disabled={saving || deleting || loading}
             >
