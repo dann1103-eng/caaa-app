@@ -229,8 +229,10 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
 function AlumnoFila({ alumno, onGuardado }) {
   const baseAvion = String(alumno.limite_vuelos_avion ?? 3);
   const baseSim = String(alumno.limite_vuelos_simulador ?? 3);
+  const baseDia = String(alumno.limite_vuelos_dia ?? 1);
   const [limAvionStr, setLimAvionStr] = useState(baseAvion);
   const [limSimStr, setLimSimStr] = useState(baseSim);
+  const [limDiaStr, setLimDiaStr] = useState(baseDia);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -238,13 +240,15 @@ function AlumnoFila({ alumno, onGuardado }) {
   useEffect(() => {
     setLimAvionStr(String(alumno.limite_vuelos_avion ?? 3));
     setLimSimStr(String(alumno.limite_vuelos_simulador ?? 3));
-  }, [alumno.limite_vuelos_avion, alumno.limite_vuelos_simulador]);
+    setLimDiaStr(String(alumno.limite_vuelos_dia ?? 1));
+  }, [alumno.limite_vuelos_avion, alumno.limite_vuelos_simulador, alumno.limite_vuelos_dia]);
 
-  const cambiado = limAvionStr !== baseAvion || limSimStr !== baseSim;
+  const cambiado = limAvionStr !== baseAvion || limSimStr !== baseSim || limDiaStr !== baseDia;
 
   const handleGuardar = async () => {
     const limAvion = Number(limAvionStr);
     const limSim = Number(limSimStr);
+    const limDia = Number(limDiaStr);
 
     if (limAvionStr.trim() === "" || limSimStr.trim() === "" ||
         isNaN(limAvion) || limAvion < 0 || limAvion > 6 ||
@@ -252,12 +256,17 @@ function AlumnoFila({ alumno, onGuardado }) {
       setError("Valores entre 0 y 6");
       return;
     }
+    // El tope por día arranca en 1: un 0 bloquearía todos los días.
+    if (limDiaStr.trim() === "" || isNaN(limDia) || limDia < 1 || limDia > 6) {
+      setError("Vuelos por día: entre 1 y 6");
+      return;
+    }
 
     setError("");
     setSaving(true);
     try {
-      await actualizarLimitesAlumno(alumno.id_alumno, limAvion, limSim);
-      onGuardado(alumno.id_alumno, limAvion, limSim);
+      await actualizarLimitesAlumno(alumno.id_alumno, limAvion, limSim, limDia);
+      onGuardado(alumno.id_alumno, limAvion, limSim, limDia);
       toast.success("Límites actualizados");
     } catch (e) {
       setError(e.response?.data?.message || "Error al guardar");
@@ -285,9 +294,17 @@ function AlumnoFila({ alumno, onGuardado }) {
       </td>
       <td className="ins__td ins__td--center">
         <div className="ins__limite-display">
-          <span title="Límite Avión"><i className="bi bi-airplane"></i> {alumno.limite_vuelos_avion ?? 3}</span>
+          <span title="Límite Avión por semana"><i className="bi bi-airplane"></i> {alumno.limite_vuelos_avion ?? 3}</span>
           <span className="ins__limite-sep">·</span>
-          <span title="Límite Simulador"><i className="bi bi-pc-display"></i> {alumno.limite_vuelos_simulador ?? 3}</span>
+          <span title="Límite Simulador por semana"><i className="bi bi-pc-display"></i> {alumno.limite_vuelos_simulador ?? 3}</span>
+          {(alumno.limite_vuelos_dia ?? 1) > 1 && (
+            <>
+              <span className="ins__limite-sep">·</span>
+              <span title={`Puede volar hasta ${alumno.limite_vuelos_dia} aviones el mismo día`}>
+                <i className="bi bi-calendar-day"></i> {alumno.limite_vuelos_dia}/día
+              </span>
+            </>
+          )}
         </div>
       </td>
       <td className="ins__td">
@@ -314,6 +331,17 @@ function AlumnoFila({ alumno, onGuardado }) {
               onChange={(e) => { setLimSimStr(e.target.value); setError(""); }}
             />
           </div>
+          <div className="ins__limite-field">
+            <label title="Cuántos aviones puede pedir el alumno en un mismo día">Por día</label>
+            <input
+              className="ins__limite-input"
+              type="number"
+              min={1}
+              max={6}
+              value={limDiaStr}
+              onChange={(e) => { setLimDiaStr(e.target.value); setError(""); }}
+            />
+          </div>
           <button
             className="ins__limite-btn"
             disabled={saving || !cambiado}
@@ -330,6 +358,12 @@ function AlumnoFila({ alumno, onGuardado }) {
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
 export default function InstructorDashboard() {
+  // Lo usa el botón "Solicitudes de mis alumnos". Estaba declarado solo dentro de
+  // VueloCard, así que acá `navigate` no existía: el onClick tiraba
+  // "ReferenceError: navigate is not defined" y el botón no hacía nada. El error
+  // no salía en la consola de React porque un throw dentro de un handler va a
+  // window.onerror, no a console.error.
+  const navigate = useNavigate();
   const [weekMode, setWeekMode] = useState("current");
 
   const [vuelos, setVuelos]               = useState([]);
@@ -487,9 +521,11 @@ export default function InstructorDashboard() {
     cargarReportesPendientes();
   };
 
-  const handleGuardado = (id_alumno, limAvion, limSim) => {
+  const handleGuardado = (id_alumno, limAvion, limSim, limDia) => {
     setAlumnos((prev) =>
-      prev.map((a) => a.id_alumno === id_alumno ? { ...a, limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim } : a)
+      prev.map((a) => a.id_alumno === id_alumno
+        ? { ...a, limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim, limite_vuelos_dia: limDia }
+        : a)
     );
   };
 

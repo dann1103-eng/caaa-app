@@ -38,6 +38,9 @@ export default function AgendarVuelo() {
   const [estadoSolicitud, setEstadoSolicitud] = useState("BORRADOR");
   const [limiteAvion, setLimiteAvion] = useState(3);
   const [limiteSimulador, setLimiteSimulador] = useState(3);
+  // Aviones que este alumno puede pedir en un mismo día (lo configura su
+  // instructor). Default 1 = la regla histórica.
+  const [limiteDia, setLimiteDia] = useState(1);
   const [yaGuardado, setYaGuardado] = useState(false);
   const [initialSelecciones, setInitialSelecciones] = useState([]);
   const [comentario, setComentario] = useState("");
@@ -107,6 +110,7 @@ export default function AgendarVuelo() {
           const limSim = solicitud.limite_vuelos_simulador ?? 3;
           setLimiteAvion(limAvion);
           setLimiteSimulador(limSim);
+          setLimiteDia(solicitud.limite_vuelos_dia ?? 1);
           const vuelos = solicitud.vuelos || [];
           setSelecciones(vuelos);
           setInitialSelecciones(JSON.parse(JSON.stringify(vuelos))); // Guardar copia inicial para detectar cambios
@@ -167,7 +171,7 @@ export default function AgendarVuelo() {
         avionesPorDia[dia] = (avionesPorDia[dia] || 0) + 1;
       }
     }
-    return Object.values(avionesPorDia).some(c => c > 1);
+    return Object.values(avionesPorDia).some(c => c > limiteDia);
   })();
 
   const calendarBloqueado = bloqueadoPorEstado || agendaBloqueada;
@@ -377,7 +381,7 @@ export default function AgendarVuelo() {
         {tieneConflictoAvionDia && (
           <div className="ag__alert ag__alert--warn">
             <span className="ag__alert-icon"><i className="bi bi-exclamation-triangle-fill"></i></span>
-            <strong>Conflicto:</strong> Tenés más de 1 avión seleccionado en el mismo día. Desmarcá el exceso para poder guardar.
+            <strong>Conflicto:</strong> Tenés más de {limiteDia === 1 ? "1 avión" : `${limiteDia} aviones`} seleccionado{limiteDia === 1 ? "" : "s"} en el mismo día. Desmarcá el exceso para poder guardar.
           </div>
         )}
 
@@ -427,7 +431,7 @@ export default function AgendarVuelo() {
           <div className="ag__section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3 className="ag__section-title">Seleccioná tus vuelos</h3>
-              <p className="ag__section-hint">Máx. 1 avión por día · lunes a sábado</p>
+              <p className="ag__section-hint">Máx. {limiteDia === 1 ? "1 avión" : `${limiteDia} aviones`} por día · lunes a sábado</p>
             </div>
             <div className="ag__mode-toggle" style={{ display: 'flex', gap: '10px', background: 'var(--c-surface-2)', padding: '6px', borderRadius: 'var(--radius-sm)' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '6px 12px', background: modoReserva === 'LOCAL' ? 'var(--c-surface-0)' : 'transparent', borderRadius: 'var(--radius-xs)', border: modoReserva === 'LOCAL' ? '1px solid var(--c-line-1)' : '1px solid transparent', fontWeight: modoReserva === 'LOCAL' ? '600' : '400', color: modoReserva === 'LOCAL' ? 'var(--c-ink-1)' : 'var(--c-ink-3)' }}>

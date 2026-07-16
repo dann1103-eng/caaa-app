@@ -23,7 +23,11 @@ const EMPTY_ALUMNO = {
 const EMPTY_PERSONAL = {
   username: "", password: "", nombre: "", apellido: "", correo: "",
   rol: "ADMINISTRACION", cargo: "", sueldo_base: "",
-  es_servicios_profesionales: false, dui: "", nit: "", isss_num: "", afp_num: ""
+  es_servicios_profesionales: false, dui: "", nit: "", isss_num: "", afp_num: "",
+  // Capacidades del instructor, configurables desde el alta (antes solo se
+  // podían tocar reabriendo la edición). Los defaults replican los de la
+  // columna en BD (migración 016): nace solo-vuelo.
+  es_instructor_vuelo: true, es_instructor_teoria: false, puede_programar: false
 };
 
 // Sección colapsable (acordeón) reutilizable.
@@ -138,7 +142,15 @@ export default function Usuarios() {
   const handleCrearPersonal = async (e) => {
     e.preventDefault();
     try {
-      await crearUsuarioPersonal({ ...personalForm, sueldo_base: Number(personalForm.sueldo_base || 0) });
+      const { es_instructor_vuelo, es_instructor_teoria, puede_programar, ...base } = personalForm;
+      // Las capacidades solo viajan si el rol es INSTRUCTOR: el guard del backend
+      // ("debe ser de vuelo, de teoría o ambos") se evalúa sin mirar el rol, así
+      // que mandar los flags apagados para un rol administrativo daría un 400.
+      const payload = { ...base, sueldo_base: Number(personalForm.sueldo_base || 0) };
+      if (personalForm.rol === "INSTRUCTOR") {
+        Object.assign(payload, { es_instructor_vuelo, es_instructor_teoria, puede_programar });
+      }
+      await crearUsuarioPersonal(payload);
       toast.success("Personal creado con su cuenta de acceso");
       setShowPersonalForm(false);
       setPersonalForm(EMPTY_PERSONAL);
@@ -486,8 +498,44 @@ export default function Usuarios() {
                   </label>
                 </div>
 
+                {/* Capacidades del instructor, ya en el alta. Se gatea por el ROL elegido
+                    (no por id_instructor como el modal de edición: al crear todavía no
+                    existe la ficha). Es la misma condición que usa crearPersonal. */}
+                {personalForm.rol === "INSTRUCTOR" && (
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
+                      CAPACIDADES DEL INSTRUCTOR
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!personalForm.es_instructor_vuelo}
+                          onChange={(e) => setPersonalForm({...personalForm, es_instructor_vuelo: e.target.checked})} />
+                        <span><strong>Instructor de vuelo</strong> — gestiona los vuelos y solicitudes de sus alumnos.</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!personalForm.es_instructor_teoria}
+                          onChange={(e) => setPersonalForm({...personalForm, es_instructor_teoria: e.target.checked})} />
+                        <span><strong>Instructor de teoría</strong> — gestiona el Aula Virtual (clases, notas, material).</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!personalForm.puede_programar}
+                          onChange={(e) => setPersonalForm({...personalForm, puede_programar: e.target.checked})} />
+                        <span><strong>Programación</strong> — ve el calendario completo de la escuela, mueve vuelos y publica la semana.</span>
+                      </label>
+                    </div>
+                    {!personalForm.es_instructor_vuelo && !personalForm.es_instructor_teoria && (
+                      <p style={{ fontSize: "0.8rem", color: "var(--c-danger-700, #b42318)", marginTop: 8, marginBottom: 0 }}>
+                        <i className="bi bi-exclamation-triangle me-1"></i>Debe ser de vuelo, de teoría o ambos.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-                  <button type="submit" className="adf-btn"><i className="bi bi-check"></i>Crear personal</button>
+                  <button type="submit" className="adf-btn"
+                    disabled={personalForm.rol === "INSTRUCTOR" && !personalForm.es_instructor_vuelo && !personalForm.es_instructor_teoria}>
+                    <i className="bi bi-check"></i>Crear personal
+                  </button>
                   <button type="button" className="adf-btn secondary" onClick={() => setShowPersonalForm(false)}>Cancelar</button>
                 </div>
                 <p style={{ fontSize: "0.78rem", color: "var(--c-ink-3)", marginTop: 10 }}>

@@ -303,12 +303,25 @@
   height: calc(100vh - var(--pp-header-h) - 86px); /* topbar + ticker + márgenes */
 }
 
+/* La columna izquierda scrollea igual que .pp__sidebar (derecha).
+   Sin esto, en pantallas BAJAS (1366x768) las dos tarjetas de arriba ocupan
+   ~848px no encogibles (flex:0 0 auto + max-height:400px) y .pp__schedule-card
+   —que era la única flex:1— se aplastaba a ~0: los "vuelos programados" de
+   hasta abajo quedaban inalcanzables porque .pp tiene overflow:hidden.
+   El escape @media(max-width:1200px) no cubre este caso: va por ANCHO y el
+   problema es de ALTO. */
 .pp__main-col {
   display: flex;
   flex-direction: column;
   gap: 24px;
   min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
 }
+
+.pp__main-col::-webkit-scrollbar { width: 4px; }
+.pp__main-col::-webkit-scrollbar-track { background: transparent; }
+.pp__main-col::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 .pp__card {
@@ -473,9 +486,13 @@
 .pp__tbl-almas i { color: var(--pp-text-muted); margin-right: 4px; }
 
 /* ── Schedule Column ───────────────────────────────────────────────────── */
+/* flex:0 0 auto (antes flex:1): era el único hijo encogible de .pp__main-col,
+   así que absorbía TODA la compresión y colapsaba. Ahora toma su altura natural
+   y el scroll lo maneja .pp__main-col. El min-height es el piso para cuando hay
+   pocos vuelos. */
 .pp__schedule-card {
-  flex: 1;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: 420px;
   display: flex;
   flex-direction: column;
 }
@@ -509,9 +526,12 @@
   color: var(--pp-primary);
 }
 
+/* Sin scroll propio: el dueño del scroll es .pp__main-col. Un scroller anidado
+   acá era inútil (vivía dentro de una tarjeta colapsada) y ahora sería un
+   segundo scrollbar confuso. */
 .pp__flights-list {
-  flex: 1;
-  overflow-y: auto;
+  flex: 0 0 auto;
+  overflow-y: visible;
   padding: 0;
 }
 

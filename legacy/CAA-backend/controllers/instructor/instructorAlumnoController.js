@@ -67,6 +67,8 @@ exports.getMisAlumnos = async (req, res) => {
          a.numero_licencia,
          COALESCE(ss.limite_vuelos_avion, a.limite_vuelos_avion, 3) AS limite_vuelos_avion,
          COALESCE(ss.limite_vuelos_simulador, a.limite_vuelos_simulador, 3) AS limite_vuelos_simulador,
+         -- El tope por día no tiene override por semana: sale siempre del alumno.
+         COALESCE(a.limite_vuelos_dia, 1) AS limite_vuelos_dia,
          ss.id_solicitud
        FROM alumno a
        JOIN usuario u ON u.id_usuario = a.id_usuario
@@ -96,18 +98,29 @@ exports.actualizarLimitesAlumno = async (req, res) => {
   const { id_alumno } = req.params;
   const limAvion = parseInt(req.body.limite_vuelos_avion, 10);
   const limSim = parseInt(req.body.limite_vuelos_simulador, 10);
+  // Tope de aviones por día: OPCIONAL. Si el cliente no lo manda (versión vieja
+  // del front), se conserva el valor que ya tenía el alumno en vez de pisarlo.
+  const limDiaRaw = req.body.limite_vuelos_dia;
+  const limDia = (limDiaRaw === undefined || limDiaRaw === null || limDiaRaw === "")
+    ? null
+    : parseInt(limDiaRaw, 10);
 
   const client = await db.connect();
   try {
     if (isNaN(limAvion) || limAvion < 0 || limAvion > 6 || isNaN(limSim) || limSim < 0 || limSim > 6) {
       return res.status(400).json({ message: "Los límites deben estar entre 0 y 6" });
     }
+    // Mínimo 1: a diferencia de los semanales, un tope por día de 0 no significa
+    // nada útil (bloquearía todos los días) y se pisaría con el límite semanal.
+    if (limDia !== null && (isNaN(limDia) || limDia < 1 || limDia > 6)) {
+      return res.status(400).json({ message: "El límite de vuelos por día debe estar entre 1 y 6" });
+    }
 
     const id_instructor = await resolverIdInstructor(req.user.id_usuario);
     if (!id_instructor) return res.status(403).json({ message: "No sos instructor activo" });
 
     const perteneceRes = await client.query(
-      "SELECT limite_vuelos_avion, limite_vuelos_simulador FROM alumno WHERE id_alumno = $1 AND id_instructor = $2",
+      "SELECT limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia FROM alumno WHERE id_alumno = $1 AND id_instructor = $2",
       [id_alumno, id_instructor]
     );
     if (perteneceRes.rows.length === 0) {
@@ -115,23 +128,34 @@ exports.actualizarLimitesAlumno = async (req, res) => {
     }
 
     await client.query("BEGIN");
-    await client.query(
-      "UPDATE alumno SET limite_vuelos_avion = $1, limite_vuelos_simulador = $2 WHERE id_alumno = $3",
-      [limAvion, limSim, id_alumno]
+    const updRes = await client.query(
+      `UPDATE alumno
+          SET limite_vuelos_avion = $1,
+              limite_vuelos_simulador = $2,
+              limite_vuelos_dia = COALESCE($3::int, limite_vuelos_dia)
+        WHERE id_alumno = $4
+        RETURNING COALESCE(limite_vuelos_dia, 1) AS limite_vuelos_dia`,
+      [limAvion, limSim, limDia, id_alumno]
     );
+    const limDiaFinal = updRes.rows[0].limite_vuelos_dia;
 
     await logAuditoria(client, {
       actor: req.user,
       accion: "OTRO",
       entidad: "alumno",
       id_entidad: Number(id_alumno),
-      descripcion: `Instructor ajustó límite base de vuelos alumno #${id_alumno}: Avion ${limAvion}, Sim ${limSim}`,
+      descripcion: `Instructor ajustó límite base de vuelos alumno #${id_alumno}: Avion ${limAvion}, Sim ${limSim}, Día ${limDiaFinal}`,
       before_data: perteneceRes.rows[0],
-      after_data: { limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim },
+      after_data: { limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim, limite_vuelos_dia: limDiaFinal },
     });
 
     await client.query("COMMIT");
-    res.json({ message: "Límites actualizados", limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim });
+    res.json({
+      message: "Límites actualizados",
+      limite_vuelos_avion: limAvion,
+      limite_vuelos_simulador: limSim,
+      limite_vuelos_dia: limDiaFinal
+    });
   } catch (e) {
     await client.query("ROLLBACK");
     console.error("actualizarLimitesAlumno instructor:", e);
