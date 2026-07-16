@@ -248,6 +248,23 @@ function OpsWidget({ ops, onSet, vuelosHoy = [] }) {
   );
 }
 
+// Reloj UTC (principal, rojo — como en Proyección) + hora local CST.
+function RelojTurno() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const fmt = (tz) =>
+    now.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, ...(tz ? { timeZone: tz } : {}) });
+  return (
+    <div className="trn__clock">
+      <span className="trn__clock-utc">{fmt("UTC")} <b>UTC</b></span>
+      <span className="trn__clock-local">{fmt()} <b>CST</b></span>
+    </div>
+  );
+}
+
 // Estado de la flota: chips por aeronave (operativa / en mantenimiento) con
 // acciones de mantenimiento imprevisto. Caso: falla detectada en pre-vuelo.
 function FlotaWidget({ flota, onIniciar, onReactivar }) {
@@ -535,6 +552,7 @@ export default function TurnoDashboard() {
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+            <RelojTurno />
             <div className="trn__counter">
               <i className="bi bi-airplane-engines" style={{ marginRight: '10px' }}></i>
               {!loading && (
