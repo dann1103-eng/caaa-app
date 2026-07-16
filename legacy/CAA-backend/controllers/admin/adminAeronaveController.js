@@ -285,8 +285,14 @@ exports.darDeBajaAeronave = catchAsync(async (req, res) => {
       });
     }
 
+    // La convención de "dada de baja" es activa=false CON estado='ACTIVO', y no es
+    // arbitraria: sincronizarEstadoFlota solo reactiva aviones cuyo estado sea
+    // 'MANTENIMIENTO' (rama `WHEN a.estado='MANTENIMIENTO' THEN true`), y todo lo
+    // demás lo preserva con `ELSE a.activa`. Si la baja dejara estado en
+    // 'MANTENIMIENTO', al cerrarse ese mantenimiento el job pondría activa=true y
+    // la baja se desharía sola. Por eso se normaliza el estado acá.
     const r = await client.query(
-      `UPDATE aeronave SET activa = false WHERE id_aeronave = $1 RETURNING *`,
+      `UPDATE aeronave SET activa = false, estado = 'ACTIVO' WHERE id_aeronave = $1 RETURNING *`,
       [id]
     );
 

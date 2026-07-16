@@ -75,6 +75,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
       titulo: "Taller",
       items: [
         { label: "Dashboard", path: "/taller/dashboard", icon: "bi-speedometer2" },
+        { label: "Aeronaves", path: "/admin/aeronaves", icon: "bi-airplane" },
         { label: "Aeronavegabilidad", path: "/taller/aeronavegabilidad", icon: "bi-clipboard2-check" },
         { label: "Mantenimiento", path: "/admin/mantenimiento", icon: "bi-tools" },
         { label: "Inventario", path: "/taller/inventario", icon: "bi-box-seam" },
