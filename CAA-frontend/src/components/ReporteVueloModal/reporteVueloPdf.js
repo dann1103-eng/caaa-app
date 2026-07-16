@@ -78,16 +78,24 @@ export async function generarPdfReporteVuelo({
     return `${ent.padStart(4, "0")}.${decLimpio}`;
   };
 
-  // Filas de datos
-  const dataRows = [
-    ["Tacómetro Salida",    formatMedidor(d.tacometro_salida)],
-    ["Tacómetro Llegada",   formatMedidor(d.tacometro_llegada)],
-    ["Hobbs Salida",        formatMedidor(d.hobbs_salida)],
-    ["Hobbs Llegada",       formatMedidor(d.hobbs_llegada)],
-    ["Combustible Salida",  formatNum(d.combustible_salida)],
-    ["Combustible Llegada", formatNum(d.combustible_llegada)],
-    ["Cantidad agregada",   formatNum(d.cantidad_combustible)],
-  ];
+  const isSim = v.aeronave_tipo === "SIMULADOR";
+
+  // Filas de datos: simulador solo Hobbs + horas a cobrar (sin tacómetro/combustible).
+  const dataRows = isSim
+    ? [
+        ["Hobbs Inicio",     formatMedidor(d.hobbs_salida)],
+        ["Hobbs Cierre",     formatMedidor(d.hobbs_llegada)],
+        ["Horas a cobrar",   formatNum(d.horas_cobradas)],
+      ]
+    : [
+        ["Tacómetro Salida",    formatMedidor(d.tacometro_salida)],
+        ["Tacómetro Llegada",   formatMedidor(d.tacometro_llegada)],
+        ["Hobbs Salida",        formatMedidor(d.hobbs_salida)],
+        ["Hobbs Llegada",       formatMedidor(d.hobbs_llegada)],
+        ["Combustible Salida",  formatNum(d.combustible_salida)],
+        ["Combustible Llegada", formatNum(d.combustible_llegada)],
+        ["Cantidad agregada",   formatNum(d.cantidad_combustible)],
+      ];
 
   const docDefinition = {
     pageSize: "A4",
@@ -105,7 +113,7 @@ export async function generarPdfReporteVuelo({
         margin: [0, 0, 0, 2],
       },
       {
-        text: "REPORTE DE VUELOS",
+        text: isSim ? "VOUCHERA DE SIMULADOR" : "REPORTE DE VUELOS",
         fontSize: 11,
         bold: true,
         alignment: "center",
@@ -172,8 +180,8 @@ export async function generarPdfReporteVuelo({
         margin: [0, 0, 0, 10],
       },
 
-      // ── Tipo de vuelo (omitido en inasistencia) ──
-      ...(!esInasistencia ? [{
+      // ── Tipo de vuelo (omitido en inasistencia y en simulador) ──
+      ...(!esInasistencia && !isSim ? [{
         table: {
           widths: ["auto", "*"],
           body: [

@@ -86,6 +86,14 @@
 .mw__badge--mvfr { background: var(--c-info-50);    color: var(--c-info-700); }
 .mw__badge--ifr  { background: var(--c-danger-50);  color: var(--c-danger-700); }
 .mw__badge--lifr { background: var(--c-warn-50);    color: var(--c-warn-700); }
+.mw__badge--vencido { background: var(--c-warn-50); color: var(--c-warn-700); border: 1px solid var(--c-warn-700); }
+
+.mw__badges {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
 
 /* Ícono condición (widget decoded) */
 .mw__cond-icon {

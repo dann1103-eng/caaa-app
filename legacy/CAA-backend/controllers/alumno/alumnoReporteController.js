@@ -6,11 +6,11 @@ exports.getReporteVuelo = catchAsync(async (req, res) => {
   const { id } = req.params;
   if (!(await puedeAccederVuelo(req, res, id))) return;
   const result = await db.query(`
-    SELECT 
-      v.*, b.hora_inicio, a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo,
+    SELECT
+      v.*, b.hora_inicio, a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo, a.tipo AS aeronave_tipo,
       rv.id_reporte, rv.tipo_vuelo, rv.tacometro_salida, rv.tacometro_llegada,
       rv.hobbs_salida, rv.hobbs_llegada, rv.combustible_salida, rv.combustible_llegada,
-      rv.cantidad_combustible, rv.firma_alumno, rv.firma_instructor,
+      rv.cantidad_combustible, rv.horas_cobradas, rv.firma_alumno, rv.firma_instructor,
       rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia
     FROM vuelo v
     JOIN aeronave a ON a.id_aeronave = v.id_aeronave
@@ -35,6 +35,7 @@ exports.getReporteVuelo = catchAsync(async (req, res) => {
     combustible_salida: row.combustible_salida,
     combustible_llegada: row.combustible_llegada,
     cantidad_combustible: row.cantidad_combustible,
+    horas_cobradas: row.horas_cobradas,
     firma_alumno: row.firma_alumno,
     firma_instructor: row.firma_instructor,
     estado: row.reporte_estado,

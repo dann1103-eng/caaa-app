@@ -176,26 +176,26 @@ async function fetchMetarForStation(icao) {
   return json[0];
 }
 
+// Solo MSSS (Ilopango, la base real). Antes había un fallback a MSLP (San
+// Salvador Intl. — un aeropuerto DISTINTO) cuando MSSS no tenía METAR vigente,
+// lo que mostraba condiciones de otro sitio sin avisar y generaba confusión.
+// Ahora, si MSSS no responde, se conserva el último METAR válido de MSSS en
+// `cached` (no se pisa) y el frontend lo marca como VENCIDO según su antigüedad.
 async function fetchMetar() {
-  for (const icao of ["MSSS", "MSLP"]) {
-    try {
-      const entry = await fetchMetarForStation(icao);
-      if (!entry) {
-        console.warn(`[METAR] ${icao} devolvió array vacío, probando siguiente.`);
-        continue;
-      }
-
-      const raw = entry.rawOb ?? entry.raw_text ?? "";
-      const decoded = decodeMetar(raw);
-      cached = { raw, decoded, fetchedAt: new Date().toISOString() };
-      console.log(`[METAR] Actualizado (${icao}): ${raw}`);
+  try {
+    const entry = await fetchMetarForStation("MSSS");
+    if (!entry) {
+      console.warn("[METAR] MSSS devolvió array vacío (sin METAR vigente) — se conserva el último dato en caché.");
       return;
-    } catch (e) {
-      console.warn(`[METAR] Fallo con ${icao}: ${e.message}`);
     }
-  }
 
-  console.error("[METAR] Ambas estaciones fallaron. Sin datos disponibles.");
+    const raw = entry.rawOb ?? entry.raw_text ?? "";
+    const decoded = decodeMetar(raw);
+    cached = { raw, decoded, fetchedAt: new Date().toISOString() };
+    console.log(`[METAR] Actualizado (MSSS): ${raw}`);
+  } catch (e) {
+    console.warn(`[METAR] Fallo con MSSS: ${e.message} — se conserva el último dato en caché.`);
+  }
 }
 
 function getCached() {
