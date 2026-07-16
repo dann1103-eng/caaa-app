@@ -131,6 +131,23 @@ function colorAeronave(codigo) {
   return m ? m.color : undefined;
 }
 
+function hexToRgba(hex, alpha) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Estilo del pill de matrícula en las tablas (Vuelos en Curso / Próximo
+// Bloque) — mismo código de color por aeronave que ya usa la lista de
+// Schedule más abajo, solo que aquí también tiñe fondo/borde del pill.
+function aeroBadgeStyle(codigo) {
+  const c = colorAeronave(codigo);
+  if (!c) return undefined;
+  return { color: c, background: hexToRgba(c, 0.1), borderColor: hexToRgba(c, 0.2) };
+}
+
 /* ── component ────────────────────────────────────────────────────────────── */
 export default function PaginaProgramacion() {
   const modoProyeccion = new URLSearchParams(window.location.search).get("modo") === "proyeccion";
@@ -374,7 +391,7 @@ export default function PaginaProgramacion() {
                                 <div className="pp__tbl-person">{v.alumno_nombre}</div>
                                 <div className="pp__tbl-sub">Cap. {v.instructor_nombre}</div>
                               </td>
-                              <td><span className="pp__tbl-aero">{v.aeronave_codigo}</span></td>
+                              <td><span className="pp__tbl-aero" style={aeroBadgeStyle(v.aeronave_codigo)}>{v.aeronave_codigo}</span></td>
                               <td>
                                 <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
                                 {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
