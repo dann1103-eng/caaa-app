@@ -122,7 +122,7 @@ const AERONAVE_COLOR = [
   { num: "334", color: "#f87171" }, // YS-334-PE — rojo
   { num: "333", color: "#60a5fa" }, // YS-333-PE — azul
   { num: "270", color: "#4ade80" }, // YS-270-P  — verde
-  { num: "127", color: "#38bdf8" }, // YS-127-P  — celeste
+  { num: "127", color: "#06b6d4" }, // YS-127-P  — cyan fuerte (se distingue del azul del 333)
 ];
 
 function colorAeronave(codigo) {
@@ -534,7 +534,7 @@ export default function PaginaProgramacion() {
                       <div key={v.id_vuelo} className="pp__prox-item">
                         <span className={`pp__prox-dot ${i === 0 ? "pp__prox-dot--active" : ""}`} />
                         <div className="pp__prox-info">
-                          <div className="pp__prox-hora">{formatHora(v.hora_inicio)} · <strong>{v.aeronave_codigo}</strong></div>
+                          <div className="pp__prox-hora">{formatHora(v.hora_inicio)} · <strong style={{ color: colorAeronave(v.aeronave_codigo) }}>{v.aeronave_codigo}</strong></div>
                           <div className="pp__prox-sub">{v.alumno_nombre}</div>
                         </div>
                       </div>
