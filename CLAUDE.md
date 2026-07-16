@@ -47,11 +47,47 @@ Usuario → VERCEL (frontend React) → RAILWAY (backend Express) → SUPABASE (
   ```
   (Requiere `railway login` previo — credenciales del usuario `danielmancia111203@gmail.com`.)
 
+### 🚨 `railway up` sube ARCHIVOS LOCALES — sincronizá SIEMPRE antes
+
+**La asimetría que hay que tener siempre en la cabeza:**
+
+| | De dónde toma el código |
+|---|---|
+| **Vercel** (frontend) | **GitHub** (`origin/master`) |
+| **Railway** (backend) | **Tu carpeta local**, tal como esté en ese momento |
+
+Consecuencia: si corrés `railway up` con tu local **atrasado** respecto a `origin/master`,
+**borrás de producción el backend que otro ya había desplegado**. No falla nada ni avisa:
+el código simplemente desaparece del servidor.
+
+**Regla, sin excepciones — antes de CUALQUIER `railway up`:**
+```powershell
+cd "C:\Users\Daniel\Desktop\CAAA modulo op+admin"
+git fetch origin; git merge origin/master     # ← primero esto, siempre
+cd legacy\CAA-backend; railway up --detach
+```
+
+**Cómo se ve el síntoma** (pasó el 2026-07-16, con Samuel trabajando en paralelo): Samuel
+pusheó el ciclo de turno (`turnoDiaController.js` + rutas + `TurnoDiaWidget`). Vercel compiló
+**su frontend** desde GitHub → el widget salió en vivo. Daniel, con un local que no tenía ese
+commit, corrió `railway up` para desplegar otro fix → **el controller de Samuel desapareció
+del backend**. Resultado: *"el cambio aparece en pantalla pero no funciona"* y
+`GET /api/turno/dia` → **404**. Se ve como un bug del feature, pero es un deploy pisado.
+
+**Diagnóstico rápido:** `curl https://caaa-backend-production.up.railway.app/api/<ruta>`
+→ **404** = la ruta no existe (backend pisado/atrasado) · **401** = existe y pide auth (está bien).
+
+**Trabajo en paralelo (Daniel + Samuel Flores):** ambos pushean a `master` seguido, así que
+`origin` se mueve mientras trabajás. Si un `git push` sale rechazado con *"fetch first"*, no es
+un error raro: es que el otro pusheó recién → `git fetch; git merge origin/master` y reintentá.
+Y si ese merge trajo backend, **volvé a correr `railway up`**.
+
 **Flujo normal para un cambio:**
-1. Editar código.
-2. `cd CAA-frontend; $env:VITE_API_URL="https://caaa-backend-production.up.railway.app"; npm run build` (verificar que compila).
-3. Si tocaste backend: `railway up --detach` desde `legacy/CAA-backend`.
-4. `git add ... && git commit -F <archivo-msg> && git push origin master` (frontend se auto-despliega).
+1. **`git fetch origin; git merge origin/master`** (traer lo del otro ANTES de nada).
+2. Editar código.
+3. `cd CAA-frontend; $env:VITE_API_URL="https://caaa-backend-production.up.railway.app"; npm run build` (verificar que compila).
+4. Si tocaste backend **o el merge del paso 1 trajo backend**: `railway up --detach` desde `legacy/CAA-backend`.
+5. `git add ... && git commit -F <archivo-msg> && git push origin master` (frontend se auto-despliega).
 
 ### CLI
 - Vercel CLI logueado como `danielmancia111203-2224`. Equipo de deploy: `--scope caaa`.
@@ -178,6 +214,11 @@ Antes era una app separada (`C:\Users\Daniel\Desktop\loadsheet_calculator`, corr
 
 ## 10. Gotchas / lecciones aprendidas
 
+- **🚨 `railway up` sube archivos LOCALES, no GitHub.** Si tu local está atrasado, **pisás el
+  backend que el otro ya desplegó** y desaparece de producción sin ningún error. Síntoma:
+  *"el cambio se ve en pantalla pero no funciona"* (Vercel sí compiló su frontend desde GitHub)
+  + rutas en 404. Pasó el 2026-07-16 con el ciclo de turno de Samuel. **Siempre
+  `git fetch; git merge origin/master` ANTES de `railway up`.** Detalle completo en la sección 3.
 - **Alias de Vercel:** con Root Directory bien configurado, `git push` auto-actualiza `caaa-app.vercel.app`. Si alguna vez sale 404 en todo, un deploy se apoderó del alias; restaurar con `vercel alias set <deploy-bueno> caaa-app.vercel.app --scope caaa`.
 - **BOM en config.js:** definir variables de entorno desde PowerShell puede colar un BOM. Ya blindado en `generate-config.mjs`. Si el login falla, revisar `https://caaa-app.vercel.app/config.js` (API_URL debe empezar con `h`, no con un char invisible).
 - **PowerShell here-strings (`@'...'@`) rompen `git commit -m`.** Usar `git commit -F <archivo>` (escribir el mensaje a un archivo temporal y commitear con `-F`).
