@@ -349,6 +349,10 @@ export default function PaginaProgramacion() {
                   {metar.decoded.condicion}
                 </span>
               )}
+              {/* MSSS sin reporte vigente: se muestra el último METAR válido, marcado. */}
+              {metar?.fetchedAt && (Date.now() - new Date(metar.fetchedAt).getTime()) / 60000 > 90 && (
+                <span className="pp__topbar-badge pp__topbar-badge--vencido" title="No se pudo renovar: último METAR válido de MSSS">VENCIDO</span>
+              )}
             </div>
           </div>
           <div className="pp__topbar-right">

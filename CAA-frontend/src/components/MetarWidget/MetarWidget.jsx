@@ -19,6 +19,15 @@ function minutosDesde(iso) {
   return `hace ${diff} min`;
 }
 
+// El METAR se reemite ~cada hora; si el backend no logró renovarlo (MSSS sin
+// reporte vigente) se sigue mostrando el último válido, marcado VENCIDO.
+// 90 min = ciclo normal (60') + margen de una corrida del poller (20').
+const VENCIDO_MIN = 90;
+function esVencido(iso) {
+  if (!iso) return false;
+  return (Date.now() - new Date(iso).getTime()) / 60000 > VENCIDO_MIN;
+}
+
 /* Hora zulú de emisión desde el grupo ddhhmmZ del METAR crudo (ej. 131545Z → 15:45Z) */
 function horaEmisionZ(raw) {
   const m = raw?.match(/\b\d{2}(\d{2})(\d{2})Z\b/);
@@ -76,6 +85,7 @@ export default function MetarWidget() {
   const d       = data.decoded;
   const cond    = d?.condicion ? CONDICION_CFG[d.condicion] : null;
   const emision = horaEmisionZ(data.raw);
+  const vencido = esVencido(data.fetchedAt);
 
   return (
     <>
@@ -86,7 +96,10 @@ export default function MetarWidget() {
             <h3 className="mw__title">{d?.estacion ?? "MSSS"} METAR</h3>
             <p className="mw__updated">Actualizado {minutosDesde(data.fetchedAt)}</p>
           </div>
-          {cond && <span className={`mw__badge ${cond.cls}`}>{cond.label}</span>}
+          <div className="mw__badges">
+            {vencido && <span className="mw__badge mw__badge--vencido" title="No se pudo renovar: se muestra el último METAR válido de MSSS">VENCIDO</span>}
+            {cond && <span className={`mw__badge ${cond.cls}`}>{cond.label}</span>}
+          </div>
         </div>
         <p className="mw__raw-label">METAR Codificado</p>
         <div className="mw__raw">{data.raw}</div>
@@ -104,7 +117,10 @@ export default function MetarWidget() {
               </p>
               <p className="mw__updated">Actualizado {minutosDesde(data.fetchedAt)}</p>
             </div>
-            {cond && <i className={`bi ${cond.icon} mw__cond-icon`} />}
+            <div className="mw__badges">
+              {vencido && <span className="mw__badge mw__badge--vencido" title="No se pudo renovar: se muestra el último METAR válido de MSSS">VENCIDO</span>}
+              {cond && <i className={`bi ${cond.icon} mw__cond-icon`} />}
+            </div>
           </div>
           <div className="mw__grid">
             {d.viento && (
