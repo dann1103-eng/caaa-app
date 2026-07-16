@@ -56,6 +56,19 @@ function Badge({ variant, children }) {
   return <span className={`man__chip-badge man__chip-badge--${variant}`}>{children}</span>;
 }
 
+function LoginCTA() {
+  return (
+    <a href="/login" className="man__login-cta">
+      <span className="man__login-cta-icon"><i className="bi bi-box-arrow-in-right" /></span>
+      <span className="man__login-cta-copy">
+        <span className="man__login-cta-title">Ir a iniciar sesión</span>
+        <span className="man__login-cta-sub">Entrá al sistema con tu usuario y contraseña</span>
+      </span>
+      <i className="bi bi-arrow-right man__login-cta-arrow" />
+    </a>
+  );
+}
+
 export default function Manual() {
   const [active, setActive] = useState("portada");
 
@@ -100,8 +113,11 @@ export default function Manual() {
         ))}
 
         <div className="man__rail-foot">
-          CAAA · Ilopango, El Salvador<br />
-          <a href="/login">Ir a iniciar sesión →</a>
+          <a href="/login" className="man__rail-login-btn">
+            <i className="bi bi-box-arrow-in-right" />
+            Iniciar sesión
+          </a>
+          <p>CAAA · Ilopango, El Salvador</p>
         </div>
       </nav>
 
@@ -154,6 +170,9 @@ export default function Manual() {
               <p className="man__step-text">Desde el ícono de perfil en la barra superior accedés a tus datos, documentos, cuenta corriente e historial — sin importar tu rol.</p>
             </Step>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── CICLO DE VIDA ───────── */}
@@ -206,6 +225,9 @@ export default function Manual() {
             <p>Antes de marcar la salida del hangar, tenés disponible el botón <Chip variant="danger">Inasistencia</Chip>.
             Te va a pedir el motivo y cierra el vuelo con 0 minutos de tiempo de vuelo — no aplica a sesiones de simulador.</p>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── ALUMNO ───────── */}
@@ -299,6 +321,9 @@ export default function Manual() {
               <p className="man__step-text">Material de estudio, exámenes y tu avance en el curso teórico. Al aprobar el examen final, un aviso te lo confirma.</p>
             </Step>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── INSTRUCTOR ───────── */}
@@ -371,6 +396,9 @@ export default function Manual() {
               <p className="man__step-text">Tres pestañas: <span className="man__tabs" style={{ display: "inline-flex", verticalAlign: "middle" }}><span className="on">Material</span><span>Evaluaciones</span><span>Asistencia</span></span>. Subís material por unidad, calificás exámenes alumno por alumno (botón <Chip variant="outline">Calificar</Chip>) y pasás lista de asistencia por sesión.</p>
             </Step>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── TURNO ───────── */}
@@ -422,6 +450,9 @@ export default function Manual() {
               <p className="man__step-text">Tocá <Chip variant="secondary">Agendar vuelo</Chip> junto al reporte — agrega un vuelo omitido sin tener que ir al módulo de Programación.</p>
             </Step>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── PROGRAMACIÓN ───────── */}
@@ -454,6 +485,9 @@ export default function Manual() {
               <p className="man__step-text">Elegí el alumno y el instructor, y seleccioná los horarios igual que en la grilla del alumno — pero sin pasar por la revisión: queda agendado directamente.</p>
             </Step>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── ADMINISTRACIÓN ───────── */}
@@ -502,6 +536,9 @@ export default function Manual() {
             <Step n={2} title="Cursos y Aula Virtual controlan el contenido teórico; Documentación y Médicos AAC llevan el expediente de cada alumno." />
             <Step n={3} title="Reportes reúne los informes generales: horas voladas, cursos completados, historial de planillas." />
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── TALLER ───────── */}
@@ -536,6 +573,9 @@ export default function Manual() {
               <p className="man__step-text">Tres tipos: <strong>Entrada (+)</strong>, <strong>Salida (−)</strong> y <strong>Ajuste</strong> (fija el stock a un número exacto). Una salida de repuesto genera automáticamente un egreso contable.</p>
             </Step>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
 
         {/* ───────── ADMIN ───────── */}
@@ -558,6 +598,9 @@ export default function Manual() {
               <p className="man__step-text">Vistas de solo consulta para revisar el estado general de la flota y la actividad del sistema.</p>
             </Step>
           </div>
+
+          <hr className="man__sep" />
+          <LoginCTA />
         </section>
       </main>
     </div>
