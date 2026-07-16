@@ -106,7 +106,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
     const {
       tipo_vuelo, tacometro_salida, tacometro_llegada,
       hobbs_salida, hobbs_llegada, combustible_salida,
-      combustible_llegada, cantidad_combustible,
+      combustible_llegada, cantidad_combustible, horas_cobradas,
       es_inasistencia, motivo_inasistencia,
     } = req.body;
 
@@ -124,9 +124,9 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
       `INSERT INTO reporte_vuelo (
          id_vuelo, tipo_vuelo, tacometro_salida, tacometro_llegada,
          hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada,
-         cantidad_combustible, estado, es_inasistencia, motivo_inasistencia
+         cantidad_combustible, horas_cobradas, estado, es_inasistencia, motivo_inasistencia
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'BORRADOR',$10,$11)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'BORRADOR',$11,$12)
        ON CONFLICT (id_vuelo) DO UPDATE SET
          tipo_vuelo=EXCLUDED.tipo_vuelo,
          tacometro_salida=EXCLUDED.tacometro_salida,
@@ -136,6 +136,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
          combustible_salida=EXCLUDED.combustible_salida,
          combustible_llegada=EXCLUDED.combustible_llegada,
          cantidad_combustible=EXCLUDED.cantidad_combustible,
+         horas_cobradas=EXCLUDED.horas_cobradas,
          es_inasistencia=EXCLUDED.es_inasistencia,
          motivo_inasistencia=EXCLUDED.motivo_inasistencia,
          estado = CASE WHEN reporte_vuelo.estado IN ('PENDIENTE_ALUMNO', 'COMPLETADO')
@@ -150,6 +151,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
        esInasistencia ? null : blankToNull(combustible_salida),
        esInasistencia ? null : blankToNull(combustible_llegada),
        esInasistencia ? null : blankToNull(cantidad_combustible),
+       esInasistencia ? null : blankToNull(horas_cobradas),
        esInasistencia,
        blankToNull(motivo_inasistencia)]
     );
@@ -167,7 +169,7 @@ exports.firmarReporteVuelo = async (req, res) => {
       firma_instructor, archivo_pdf,
       tipo_vuelo, tacometro_salida, tacometro_llegada,
       hobbs_salida, hobbs_llegada, combustible_salida,
-      combustible_llegada, cantidad_combustible,
+      combustible_llegada, cantidad_combustible, horas_cobradas,
       es_inasistencia, motivo_inasistencia,
     } = req.body;
     if (!firma_instructor) {
@@ -184,6 +186,20 @@ exports.firmarReporteVuelo = async (req, res) => {
       const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible];
       if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) < 0))) {
         return res.status(400).json({ message: "Los valores numéricos deben ser números válidos." });
+      }
+      // Horas a cobrar: es el campo que multiplica plata (horas x tarifa) y el que le
+      // suma horas de licencia al alumno, así que se valida fuerte. El tope de 24 es
+      // la misma red que la del tacómetro: ataja el punto decimal olvidado — un "8"
+      // en vez de "0.8" cobraría 10 veces de más, en silencio y sin que nadie lo note.
+      // Además la columna es NUMERIC(5,2): arriba de 999.99 reventaría con overflow.
+      if (blankToNull(horas_cobradas) != null) {
+        const h = parseFloat(horas_cobradas);
+        if (isNaN(h) || h <= 0) {
+          return res.status(400).json({ message: "Las horas a cobrar deben ser un número mayor que 0." });
+        }
+        if (h > 24) {
+          return res.status(400).json({ message: "Las horas a cobrar son mayores a 24 — ¿te faltó el punto decimal?" });
+        }
       }
     }
 
@@ -207,9 +223,10 @@ exports.firmarReporteVuelo = async (req, res) => {
         `INSERT INTO reporte_vuelo (
            id_vuelo, tipo_vuelo, tacometro_salida, tacometro_llegada,
            hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada,
-           cantidad_combustible, firma_instructor, archivo_pdf, estado, es_inasistencia, motivo_inasistencia
+           cantidad_combustible, horas_cobradas, firma_instructor, archivo_pdf, estado,
+           es_inasistencia, motivo_inasistencia
          )
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDIENTE_ALUMNO',$12,$13)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDIENTE_ALUMNO',$13,$14)
          ON CONFLICT (id_vuelo) DO UPDATE SET
            tipo_vuelo=EXCLUDED.tipo_vuelo,
            tacometro_salida=EXCLUDED.tacometro_salida,
@@ -219,6 +236,7 @@ exports.firmarReporteVuelo = async (req, res) => {
            combustible_salida=EXCLUDED.combustible_salida,
            combustible_llegada=EXCLUDED.combustible_llegada,
            cantidad_combustible=EXCLUDED.cantidad_combustible,
+           horas_cobradas=EXCLUDED.horas_cobradas,
            firma_instructor=EXCLUDED.firma_instructor,
            archivo_pdf=EXCLUDED.archivo_pdf,
            es_inasistencia=EXCLUDED.es_inasistencia,
@@ -235,6 +253,7 @@ exports.firmarReporteVuelo = async (req, res) => {
          esInasistencia ? null : blankToNull(combustible_salida),
          esInasistencia ? null : blankToNull(combustible_llegada),
          esInasistencia ? null : blankToNull(cantidad_combustible),
+         esInasistencia ? null : blankToNull(horas_cobradas),
          firma_instructor, blankToNull(archivo_pdf), esInasistencia, blankToNull(motivo_inasistencia)]
       );
 
@@ -268,18 +287,29 @@ exports.firmarReporteVuelo = async (req, res) => {
         // (pasajero externo) y CHEQUEO_LINEA (ficha espejo del practicante) no.
         const sumaHorasLicencia = categoriaVuelo === "NORMAL" || categoriaVuelo === "CHEQUEO";
 
-        // Actualizar horas acumuladas de la aeronave y disparar mantenimiento/alertas.
-        // SIEMPRE se registran (todas las categorías gastan motor/mantenimiento).
+        // Actualizar horas acumuladas de la AERONAVE y disparar mantenimiento/alertas.
+        // Esto SIEMPRE va por TAC, nunca por horas_cobradas: el motor corrió lo que
+        // corrió, y de acá salen los mantenimientos 50/100h. Cobrarle 1.0 a un vuelo
+        // de 0.8 no debe adelantar una inspección.
         const io = req.app.get("io");
         await actualizarHorasAeronave(client, id, id_aeronave, diff, io);
 
-        // Horas de licencia del ALUMNO basadas en TAC (1.0 TAC = 1.0 Hora de vuelo).
-        // NO suman en vuelos extracurriculares, DEMO ni CHEQUEO_LINEA.
+        // Horas que se le cobran al alumno. Las digita el instructor porque al cobrar
+        // se hacen estimaciones que no coinciden con el TAC. Si no vienen (reportes
+        // viejos, o clientes que todavía no mandan el campo) se cae al TAC, que es el
+        // comportamiento anterior: así ningún vuelo queda sin cobrar.
+        const horasCobradas = blankToNull(horas_cobradas) != null
+          ? parseFloat(horas_cobradas)
+          : diff;
+
+        // Horas de licencia del ALUMNO. Por decisión de Daniel (2026-07-16) siguen a
+        // las horas COBRADAS, no al TAC: al alumno se le acredita exactamente lo que
+        // se le cobra. NO suman en extracurriculares, DEMO ni CHEQUEO_LINEA.
         const id_alumno = vueloRes.rows[0].id_alumno;
         if (sumaHorasLicencia && !vueloRes.rows[0].es_extracurricular && id_alumno) {
           await client.query(
             `UPDATE alumno SET horas_acumuladas = horas_acumuladas + $1 WHERE id_alumno = $2`,
-            [diff, id_alumno]
+            [horasCobradas, id_alumno]
           );
         }
       }
@@ -303,7 +333,14 @@ exports.firmarReporteVuelo = async (req, res) => {
       if (!esInasistencia) {
         try {
           const { cargarVueloACuentaDentroTx } = require("../administracion/facturasController");
+          // Lo que se cobra son las horas que digitó el instructor, NO el tacómetro:
+          // al cobrar se hacen estimaciones que no coinciden con el TAC. Si el campo
+          // no viene (reportes viejos / clientes desactualizados) se cae al TAC, que
+          // es como funcionaba antes.
           const tacDiff = parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
+          const horasACobrar = blankToNull(horas_cobradas) != null
+            ? parseFloat(horas_cobradas)
+            : tacDiff;
           const vueloInfo = await client.query(`
             SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha_vuelo AS fecha,
                    v.es_extracurricular, v.categoria,
@@ -324,7 +361,7 @@ exports.firmarReporteVuelo = async (req, res) => {
               id_vuelo: info.id_vuelo,
               id_alumno: info.id_alumno,
               id_aeronave: info.id_aeronave,
-              tacometro: tacDiff,
+              tacometro: horasACobrar,
               modelo_aeronave: info.modelo_aeronave,
               fecha: info.fecha,
               emitida_por: req.user.id_usuario,

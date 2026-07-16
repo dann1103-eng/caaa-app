@@ -39,6 +39,11 @@ const DATOS_INICIALES = {
   combustible_salida: "",
   combustible_llegada: "",
   cantidad_combustible: "",
+  // Lo que se le cobra al alumno. A propósito NO se autocompleta con el tacómetro:
+  // existe justamente porque el cobro lleva criterio del instructor y no siempre
+  // coincide con lo que marcó el reloj. Se muestra el TAC al lado como referencia,
+  // con un botón para copiarlo cuando sí coinciden.
+  horas_cobradas: "",
 };
 
 function badge(estado) {
@@ -106,6 +111,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             combustible_salida: r.combustible_salida ?? "",
             combustible_llegada: r.combustible_llegada ?? "",
             cantidad_combustible: r.cantidad_combustible ?? "",
+            horas_cobradas: r.horas_cobradas ?? "",
           });
           if (r.firma_alumno) setFirmaAlumno(r.firma_alumno);
           if (r.firma_instructor) setFirmaInstructor(r.firma_instructor);
@@ -118,12 +124,18 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     })();
   }, [id_vuelo, mode]);
 
+  // Diferencia del tacómetro, solo como REFERENCIA para decidir cuánto cobrar.
+  // null mientras no haya dos lecturas válidas.
+  const tacSal = parseFloat(datos.tacometro_salida);
+  const tacLle = parseFloat(datos.tacometro_llegada);
+  const tacDiff = !isNaN(tacSal) && !isNaN(tacLle) && tacLle > tacSal ? tacLle - tacSal : null;
+
   function setField(key, val) {
     const numericFields = [
       "tacometro_salida", "tacometro_llegada",
       "hobbs_salida", "hobbs_llegada",
       "combustible_salida", "combustible_llegada",
-      "cantidad_combustible"
+      "cantidad_combustible", "horas_cobradas"
     ];
 
     if (numericFields.includes(key)) {
@@ -175,6 +187,22 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
       }
       if (parseFloat(datos.tacometro_llegada) - parseFloat(datos.tacometro_salida) > 24) {
         toast.warning("La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores.");
+        return;
+      }
+      // Horas a cobrar: es lo que debita el saldo del alumno, así que se exige y se
+      // valida acá también (el backend lo revalida). El tope de 24 ataja el punto
+      // decimal olvidado: un "8" en vez de "0.8" cobraría 10 veces de más.
+      if (!datos.horas_cobradas) {
+        toast.warning("Ingresá las horas a cobrar — es lo que se le debita al alumno.");
+        return;
+      }
+      const hc = parseFloat(datos.horas_cobradas);
+      if (isNaN(hc) || hc <= 0) {
+        toast.warning("Las horas a cobrar deben ser mayores que 0.");
+        return;
+      }
+      if (hc > 24) {
+        toast.warning("Las horas a cobrar son mayores a 24 — ¿te faltó el punto decimal?");
         return;
       }
     }
@@ -424,6 +452,59 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             </div>
             )}
           </div>
+
+          {/* Horas a cobrar — va aparte de las lecturas a propósito: no es un
+              medidor, es la decisión de cobro del instructor, y es lo que debita
+              el saldo del alumno y le suma horas de licencia. */}
+          {!esInasistencia && (
+            <div className="rv-section">
+              <div className="rv-section-title">Cobro</div>
+              <div className="rv-data-field" style={{ maxWidth: 420 }}>
+                <span className="rv-label">
+                  Horas a cobrar
+                  {tacDiff != null && (
+                    <span style={{ fontWeight: 400, color: "var(--c-ink-3)", marginLeft: 8 }}>
+                      · tacómetro: {tacDiff.toFixed(1)} h
+                    </span>
+                  )}
+                </span>
+                {isReadonly ? (
+                  <span className="rv-info-val">
+                    {datos.horas_cobradas !== "" && !isNaN(parseFloat(datos.horas_cobradas))
+                      ? `${parseFloat(datos.horas_cobradas).toFixed(1)} h`
+                      : "—"}
+                  </span>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.0"
+                        className="rv-input"
+                        value={datos.horas_cobradas}
+                        onChange={(e) => setField("horas_cobradas", e.target.value)}
+                      />
+                      {tacDiff != null && (
+                        <button
+                          type="button"
+                          className="rv-btn rv-btn--ghost"
+                          style={{ whiteSpace: "nowrap" }}
+                          onClick={() => setField("horas_cobradas", tacDiff.toFixed(1))}
+                        >
+                          Usar {tacDiff.toFixed(1)}
+                        </button>
+                      )}
+                    </div>
+                    <span style={{ fontSize: "0.75rem", color: "var(--c-ink-3)", marginTop: 6, display: "block" }}>
+                      Esto es lo que se le debita al alumno (horas × tarifa del avión) y lo que
+                      le suma a sus horas de licencia. No tiene que coincidir con el tacómetro.
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Firmas */}
           <div className="rv-section">
