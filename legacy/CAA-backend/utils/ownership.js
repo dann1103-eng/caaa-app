@@ -57,8 +57,13 @@ async function puedeAccederVuelo(req, res, idVuelo) {
   const { alumno_uid, instructor_uid } = r.rows[0];
   const uid = req.user?.id_usuario;
 
-  if (rol === "ALUMNO" && alumno_uid === uid) return true;
-  if (rol === "INSTRUCTOR" && instructor_uid === uid) return true;
+  // Acceso por PERTENENCIA al vuelo, no por rol global. Además del alumno/
+  // instructor normales, esto cubre al PRACTICANTE (instructor que recibe
+  // instrucción en un vuelo instructor-con-instructor): entra con su cuenta de
+  // instructor a operar el lado estudiante de su vuelo de práctica, cuya ficha
+  // espejo cuelga de su mismo usuario ⇒ alumno_uid === uid aunque rol !== ALUMNO.
+  if (alumno_uid === uid) return true;
+  if (instructor_uid === uid) return true;
 
   res.status(403).json({ message: "No tenés acceso a este vuelo" });
   return false;

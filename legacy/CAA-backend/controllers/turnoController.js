@@ -37,6 +37,7 @@ exports.getVuelosHoy = async (req, res) => {
       `SELECT
          v.id_vuelo,
          v.id_bloque,
+         v.id_bloque_fin,
          v.dia_semana,
          v.estado,
          v.id_aeronave,
@@ -118,26 +119,38 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       return res.status(400).json({ message: "Los simuladores no permiten cambios de estado" });
     }
 
-    // RESTRICCIÓN: No permitir SALIDA_HANGAR antes de la hora programada
-    if (vuelo.estado === "PUBLICADO" || vuelo.estado === "PROGRAMADO") {
-      const timeCheck = await client.query(
-        `SELECT (NOW() AT TIME ZONE 'America/El_Salvador')::time < bh.hora_inicio AS es_temprano
-         FROM vuelo v
-         JOIN bloque_horario bh ON bh.id_bloque = v.id_bloque
-         WHERE v.id_vuelo = $1`,
-        [id_vuelo]
-      );
-      if (timeCheck.rows.length > 0 && timeCheck.rows[0].es_temprano) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "No se puede iniciar el vuelo antes de la hora programada" });
-      }
-    }
-
     let nuevoEstado = NEXT_ESTADO[vuelo.estado];
 
     if (!nuevoEstado) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: "El vuelo no puede avanzar de estado" });
+    }
+
+    // GUARDIA DE AVIÓN OCUPADO (reemplaza el viejo candado de "hora programada").
+    // Ahora Turno/instructor pueden ADELANTAR vuelos en cualquier momento; la
+    // única restricción al dar "salida a hangar" es que la aeronave no esté ya
+    // físicamente en uso en otro vuelo (en el aire o en salida/regreso al hangar).
+    // Marcar la inasistencia del vuelo que ocupa el avión (lo deja COMPLETADO) lo
+    // libera y habilita volar con el adelantado.
+    if (nuevoEstado === "SALIDA_HANGAR") {
+      const ocup = await client.query(
+        `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
+           FROM vuelo v2
+           LEFT JOIN alumno al ON al.id_alumno = v2.id_alumno
+           LEFT JOIN usuario u ON u.id_usuario = al.id_usuario
+          WHERE v2.id_aeronave = $1
+            AND v2.id_vuelo <> $2
+            AND v2.estado IN ('SALIDA_HANGAR','EN_PROGRESO','REGRESO_HANGAR')
+          LIMIT 1`,
+        [vuelo.id_aeronave, Number(id_vuelo)]
+      );
+      if (ocup.rows.length > 0) {
+        await client.query("ROLLBACK");
+        const q = ocup.rows[0].quien;
+        return res.status(409).json({
+          message: `Esta aeronave aún está en vuelo${q ? ` con ${q}` : ""} — no se puede sacar hasta que regrese al hangar.`,
+        });
+      }
     }
 
     let duracionMin = null;
@@ -201,7 +214,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     const tiempoRes = await client.query(
       `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
        VALUES ($1, $2, $3)
-       RETURNING registrado_en`,
+       RETURNING (registrado_en AT TIME ZONE 'America/El_Salvador') AS registrado_en`,
       [id_vuelo, nuevoEstado, user?.id_usuario ?? null]
     );
 
@@ -296,7 +309,7 @@ exports.registrarInasistencia = async (req, res) => {
     // 3. Registrar el tiempo de estado
     const ts = await client.query(
       `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por)
-       VALUES ($1, 'COMPLETADO', $2) RETURNING registrado_en`,
+       VALUES ($1, 'COMPLETADO', $2) RETURNING (registrado_en AT TIME ZONE 'America/El_Salvador') AS registrado_en`,
       [id_vuelo, user?.id_usuario ?? null]
     );
 
@@ -769,12 +782,21 @@ exports.getReporteVuelosDia = async (req, res) => {
 // notas de pasajeros extra (vuelos demo con gente que no está en el sistema).
 exports.editarTripulacion = async (req, res) => {
   const { id_vuelo } = req.params;
-  const { id_alumno, id_instructor, id_aeronave, almas_a_bordo, pasajeros_extra } = req.body;
+  const {
+    id_alumno, id_instructor, id_aeronave, almas_a_bordo, pasajeros_extra,
+    dia_semana, id_bloque, id_bloque_fin,
+  } = req.body;
   const user = req.user;
   const io = req.app.get("io");
 
-  if (!id_alumno || !id_instructor || !id_aeronave) {
-    return res.status(400).json({ message: "Faltan datos (alumno, instructor, aeronave)" });
+  if (!id_alumno || !id_instructor || !id_aeronave || !dia_semana || !id_bloque) {
+    return res.status(400).json({ message: "Faltan datos (alumno, instructor, aeronave, día, bloque)" });
+  }
+  if (Number(dia_semana) < 1 || Number(dia_semana) > 6) {
+    return res.status(400).json({ message: "Día inválido (Lunes a Sábado)" });
+  }
+  if (id_bloque_fin != null && Number(id_bloque_fin) < Number(id_bloque)) {
+    return res.status(400).json({ message: "El bloque final no puede ser anterior al de inicio" });
   }
 
   let almas = null;
@@ -792,7 +814,7 @@ exports.editarTripulacion = async (req, res) => {
 
     const vueloRes = await client.query(
       `SELECT v.id_vuelo, v.id_semana, v.dia_semana, v.id_bloque, v.id_bloque_fin, v.estado,
-              v.id_alumno, v.id_instructor, v.id_aeronave, v.es_extracurricular, sw.publicada
+              v.id_alumno, v.id_instructor, v.id_aeronave, v.es_extracurricular, sw.publicada, sw.fecha_inicio
          FROM vuelo v
          JOIN semana_vuelo sw ON sw.id_semana = v.id_semana
         WHERE v.id_vuelo = $1 FOR UPDATE OF v`,
@@ -813,37 +835,54 @@ exports.editarTripulacion = async (req, res) => {
       return res.status(400).json({ message: `No se puede editar un vuelo ${vuelo.estado.toLowerCase()}` });
     }
 
-    const fin = vuelo.id_bloque_fin || vuelo.id_bloque;
+    const finActual = vuelo.id_bloque_fin || vuelo.id_bloque;
     const nuevoAlumno = Number(id_alumno);
     const nuevoInstructor = Number(id_instructor);
     const nuevaAeronave = Number(id_aeronave);
+    const nuevoDia = Number(dia_semana);
+    const nuevoBloque = Number(id_bloque);
+    const nuevoFin = Number(id_bloque_fin || id_bloque);
     const alumnoCambio = nuevoAlumno !== vuelo.id_alumno;
     const instructorCambio = nuevoInstructor !== vuelo.id_instructor;
     const aeronaveCambio = nuevaAeronave !== vuelo.id_aeronave;
+    const slotCambio = nuevoDia !== vuelo.dia_semana || nuevoBloque !== vuelo.id_bloque || nuevoFin !== finActual;
 
-    // Conflictos contra otros vuelos reales (mismo patrón que agendarVueloDirecto).
+    if (slotCambio) {
+      const bloquesRes = await client.query(
+        `SELECT id_bloque FROM bloque_horario WHERE id_bloque = ANY($1::int[])`,
+        [[...new Set([nuevoBloque, nuevoFin])]]
+      );
+      if (bloquesRes.rows.length !== new Set([nuevoBloque, nuevoFin]).size) {
+        throw Object.assign(new Error("Bloque horario inválido"), { code: "VALIDATION" });
+      }
+    }
+
+    // Conflictos contra otros vuelos reales (mismo patrón que agendarVueloDirecto),
+    // evaluados contra el bloque NUEVO. Se disparan también si solo cambió el
+    // horario (aunque la tripulación se mantenga) para no mover un vuelo a un
+    // slot donde esa aeronave/instructor/alumno ya está ocupado.
     const conflicto = async (columna, valor, label, code) => {
       const r = await client.query(
         `SELECT 1 FROM vuelo
           WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado <> 'CANCELADO' AND id_vuelo <> $6
             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`,
-        [vuelo.id_semana, vuelo.dia_semana, valor, vuelo.id_bloque, fin, vuelo.id_vuelo]
+        [vuelo.id_semana, nuevoDia, valor, nuevoBloque, nuevoFin, vuelo.id_vuelo]
       );
       if (r.rows.length) throw Object.assign(new Error(label), { code });
     };
 
-    if (aeronaveCambio) {
+    if (aeronaveCambio || slotCambio) {
       await conflicto("id_aeronave", nuevaAeronave, "Ese bloque y aeronave ya está ocupado", "23505");
       const reservaOcup = await client.query(
         `SELECT 1 FROM reserva_aeronave
-          WHERE id_aeronave = $1 AND fecha = (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($3::int - 1)
+          WHERE id_aeronave = $1 AND fecha = $2::date + ($3::int - 1)
             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`,
-        [nuevaAeronave, vuelo.id_semana, vuelo.dia_semana, vuelo.id_bloque, fin]
+        [nuevaAeronave, vuelo.fecha_inicio, nuevoDia, nuevoBloque, nuevoFin]
       );
       if (reservaOcup.rows.length) throw Object.assign(new Error("Ese avión está reservado (uso especial) en ese horario"), { code: "23505" });
     }
-    if (instructorCambio) await conflicto("id_instructor", nuevoInstructor, "El instructor ya tiene un vuelo en ese horario", "23507");
-    if (alumnoCambio) await conflicto("id_alumno", nuevoAlumno, "El alumno ya tiene un vuelo en ese horario", "23506");
+    if (instructorCambio || slotCambio) await conflicto("id_instructor", nuevoInstructor, "El instructor ya tiene un vuelo en ese horario", "23507");
+    if (alumnoCambio || slotCambio) await conflicto("id_alumno", nuevoAlumno, "El alumno ya tiene un vuelo en ese horario", "23506");
 
     if ((alumnoCambio || aeronaveCambio) && !vuelo.es_extracurricular) {
       const alRes = await client.query(`SELECT id_licencia FROM alumno WHERE id_alumno=$1`, [nuevoAlumno]);
@@ -858,9 +897,10 @@ exports.editarTripulacion = async (req, res) => {
     }
 
     await client.query(
-      `UPDATE vuelo SET id_alumno=$1, id_instructor=$2, id_aeronave=$3, almas_a_bordo=$4, pasajeros_extra=$5
-        WHERE id_vuelo=$6`,
-      [nuevoAlumno, nuevoInstructor, nuevaAeronave, almas, pasajeros, vuelo.id_vuelo]
+      `UPDATE vuelo SET id_alumno=$1, id_instructor=$2, id_aeronave=$3, almas_a_bordo=$4, pasajeros_extra=$5,
+              dia_semana=$6, id_bloque=$7, id_bloque_fin=$8, fecha_vuelo=$9::date + ($6 - 1)
+        WHERE id_vuelo=$10`,
+      [nuevoAlumno, nuevoInstructor, nuevaAeronave, almas, pasajeros, nuevoDia, nuevoBloque, nuevoFin, vuelo.fecha_inicio, vuelo.id_vuelo]
     );
 
     await logAuditoria(client, {
@@ -870,14 +910,14 @@ exports.editarTripulacion = async (req, res) => {
       id_semana: vuelo.id_semana,
       actor: user,
       req,
-      descripcion: `Turno editó tripulación del vuelo #${vuelo.id_vuelo}`,
-      before_data: { id_alumno: vuelo.id_alumno, id_instructor: vuelo.id_instructor, id_aeronave: vuelo.id_aeronave },
-      after_data: { id_alumno: nuevoAlumno, id_instructor: nuevoInstructor, id_aeronave: nuevaAeronave, almas_a_bordo: almas, pasajeros_extra: pasajeros },
+      descripcion: `Turno editó tripulación${slotCambio ? "/horario" : ""} del vuelo #${vuelo.id_vuelo}`,
+      before_data: { id_alumno: vuelo.id_alumno, id_instructor: vuelo.id_instructor, id_aeronave: vuelo.id_aeronave, dia_semana: vuelo.dia_semana, id_bloque: vuelo.id_bloque, id_bloque_fin: finActual },
+      after_data: { id_alumno: nuevoAlumno, id_instructor: nuevoInstructor, id_aeronave: nuevaAeronave, almas_a_bordo: almas, pasajeros_extra: pasajeros, dia_semana: nuevoDia, id_bloque: nuevoBloque, id_bloque_fin: nuevoFin },
     });
 
     // Avisar in-app a quienes quedan asignados Y a quienes fueron removidos.
     const uidsAvisar = new Map();
-    if (alumnoCambio || instructorCambio || aeronaveCambio) {
+    if (alumnoCambio || instructorCambio || aeronaveCambio || slotCambio) {
       const [nuevos, viejos] = await Promise.all([
         client.query(
           `SELECT a.id_usuario AS alumno_uid, i.id_usuario AS instructor_uid, ae.codigo AS aeronave
@@ -893,7 +933,9 @@ exports.editarTripulacion = async (req, res) => {
       ]);
       const info = nuevos.rows[0] || {};
       const old = viejos.rows[0] || {};
-      const msgNuevo = `Turno actualizó la tripulación de tu vuelo (aeronave ${info.aeronave || ""}).`;
+      const msgNuevo = slotCambio
+        ? `Turno cambió el horario de tu vuelo (aeronave ${info.aeronave || ""}).`
+        : `Turno actualizó la tripulación de tu vuelo (aeronave ${info.aeronave || ""}).`;
       const msgViejo = `Ya no formás parte de un vuelo que tenías asignado — Turno reasignó la tripulación.`;
       if (info.alumno_uid) uidsAvisar.set(info.alumno_uid, msgNuevo);
       if (info.instructor_uid) uidsAvisar.set(info.instructor_uid, msgNuevo);

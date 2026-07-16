@@ -110,8 +110,8 @@ exports.publicarSemana = catchAsync(async (req, res) => {
 
     await client.query("DELETE FROM vuelo WHERE id_semana = $1", [id_semana]);
     await client.query(`
-      INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, estado, creado_por, fecha_vuelo)
-      SELECT sv.id_detalle, sv.id_semana, ss.id_alumno, COALESCE(sv.id_instructor, al.id_instructor), sv.id_aeronave, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, COALESCE(sv.es_extracurricular, FALSE), 'PUBLICADO', 'ADMIN',
+      INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo)
+      SELECT sv.id_detalle, sv.id_semana, ss.id_alumno, COALESCE(sv.id_instructor, al.id_instructor), sv.id_aeronave, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, COALESCE(sv.es_extracurricular, FALSE), COALESCE(sv.tipo_instruccion, 'NORMAL'), COALESCE(sv.categoria, 'NORMAL'), sv.nombre_externo, sv.id_licencia_chequeo, 'PUBLICADO', 'ADMIN',
              sw.fecha_inicio + (sv.dia_semana - 1)
       FROM solicitud_vuelo sv
       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
@@ -406,7 +406,7 @@ exports.getInstructoresActivos = catchAsync(async (req, res) => {
   // se filtra aquí para que todos los selectores de agenda (modal + popover)
   // muestren únicamente a estos.
   const result = await db.query(`
-    SELECT i.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo,
+    SELECT i.id_instructor, u.id_usuario, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo,
            i.es_instructor_vuelo, i.es_instructor_teoria, i.puede_programar
     FROM instructor i JOIN usuario u ON u.id_usuario = i.id_usuario
     WHERE i.activo = true AND i.es_instructor_vuelo = true

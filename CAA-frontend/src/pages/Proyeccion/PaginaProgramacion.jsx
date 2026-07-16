@@ -6,6 +6,7 @@ import {
   getBloquesPublicos,
 } from "../../services/programacionApi";
 import { getMetar } from "../../services/metarApi";
+import { getTurnoDia } from "../../services/turnoApi";
 import Header from "../../components/Header/Header";
 import Footer from "../../components/Footer/Footer";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
@@ -73,6 +74,44 @@ const ESTADO_VUELO_META = {
 
 const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"];
 
+// Tipo de vuelo (elegido al agendar en Programación) — describe qué se va a
+// volar, más allá de a quién/qué avión. Ortogonal a RUTA (tipo_vuelo).
+// NORMAL/CHEQUEO muestran la sigla de la licencia (estándar de aviación) en
+// vez del nombre de la categoría — más compacto y más útil para el piso.
+const LICENCIA_SIGLAS = {
+  PRIVADO: "PPL",
+  COMERCIAL: "CPL",
+  INSTRUMENTOS: "IR",
+  BIMOTOR: "ME",
+  INSTRUCTOR: "CFI",
+};
+function siglaLicencia(nombre) {
+  if (!nombre) return null;
+  return LICENCIA_SIGLAS[nombre.trim().toUpperCase()] || nombre.toUpperCase();
+}
+
+const CATEGORIA_CLS = {
+  NORMAL: "pp__tipo--normal",
+  DEMO: "pp__tipo--demo",
+  CHEQUEO: "pp__tipo--chequeo",
+  CHEQUEO_LINEA: "pp__tipo--linea",
+};
+function categoriaMeta(v) {
+  const cat = v?.categoria || "NORMAL";
+  const cls = CATEGORIA_CLS[cat] || CATEGORIA_CLS.NORMAL;
+  if (cat === "NORMAL") {
+    return { label: siglaLicencia(v?.alumno_licencia_nombre) || "Normal", cls };
+  }
+  if (cat === "CHEQUEO") {
+    const sigla = siglaLicencia(v?.licencia_chequeo_nombre);
+    return { label: sigla ? `${sigla}/CHECK` : "Chequeo", cls };
+  }
+  if (cat === "CHEQUEO_LINEA") {
+    return { label: v?.tipo_instruccion === "REFRESH" ? "Refresh" : "Chequeo línea", cls };
+  }
+  return { label: "Demo", cls };
+}
+
 const horaAMin = (h) => {
   const [hh, mm] = String(h ?? "").split(":").map(Number);
   return (hh || 0) * 60 + (mm || 0);
@@ -84,13 +123,32 @@ const AERONAVE_COLOR = [
   { num: "334", color: "#f87171" }, // YS-334-PE — rojo
   { num: "333", color: "#60a5fa" }, // YS-333-PE — azul
   { num: "270", color: "#4ade80" }, // YS-270-P  — verde
-  { num: "127", color: "#38bdf8" }, // YS-127-P  — celeste
+  { num: "127", color: "#06b6d4" }, // YS-127-P  — cyan fuerte (se distingue del azul del 333)
+  { num: "155", color: "#a3e635" }, // YS-155-PE — verde lima fluorescente
+  { num: "259", color: "#a3e635" }, // YS-259-P  — verde lima fluorescente
 ];
 
 function colorAeronave(codigo) {
   if (!codigo) return undefined;
   const m = AERONAVE_COLOR.find(a => codigo.includes(a.num));
   return m ? m.color : undefined;
+}
+
+function hexToRgba(hex, alpha) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Estilo del pill de matrícula en las tablas (Vuelos en Curso / Próximo
+// Bloque) — mismo código de color por aeronave que ya usa la lista de
+// Schedule más abajo, solo que aquí también tiñe fondo/borde del pill.
+function aeroBadgeStyle(codigo) {
+  const c = colorAeronave(codigo);
+  if (!c) return undefined;
+  return { color: c, background: hexToRgba(c, 0.1), borderColor: hexToRgba(c, 0.2) };
 }
 
 /* ── component ────────────────────────────────────────────────────────────── */
@@ -105,6 +163,7 @@ export default function PaginaProgramacion() {
   const [metar,       setMetar]       = useState(null);
   const [clock,       setClock]       = useState("");
   const [clockUTC,    setClockUTC]    = useState("");
+  const [turnoDia,    setTurnoDia]    = useState(null);
 
   const diaHoy = jsDayToDb(new Date().getDay());
   const [tabActivo,       setTabActivo]       = useState(diaHoy ?? 1);
@@ -130,6 +189,16 @@ export default function PaginaProgramacion() {
     const t = setInterval(cargarMetar, 20 * 60 * 1000);
     return () => clearInterval(t);
   }, [cargarMetar]);
+
+  /* ── turno del día (apertura/pausa/cierre + instructores en turno) ── */
+  const cargarTurnoDia = useCallback(async () => {
+    try { setTurnoDia(await getTurnoDia()); } catch { /* silencioso */ }
+  }, []);
+  useEffect(() => {
+    cargarTurnoDia();
+    const t = setInterval(cargarTurnoDia, 60000);
+    return () => clearInterval(t);
+  }, [cargarTurnoDia]);
 
   /* ── data ── */
   const cargarDatos = useCallback(async () => {
@@ -193,9 +262,10 @@ export default function PaginaProgramacion() {
     });
 
     socket.on("bloque_iniciado", cargarDatos);
+    socket.on("turno_dia_changed", cargarTurnoDia);
 
     return () => socket.disconnect();
-  }, [cargarDatos]);
+  }, [cargarDatos, cargarTurnoDia]);
 
   /* ── derived ── */
   const vuelosConEstado = useMemo(() =>
@@ -295,13 +365,39 @@ export default function PaginaProgramacion() {
             </div>
             <div className="pp__hdr-right">
               <div className="pp__hdr-clock-new">
-                <span className="pp__clock-time">{clock}</span>
-                <span className="pp__clock-date">{new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                 <span className="pp__clock-utc">{clockUTC} <b>UTC</b></span>
+                <span className="pp__clock-time">{clock} <b>LOCAL</b></span>
+                <span className="pp__clock-date">{new Date().toLocaleDateString('es-SV', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
               </div>
               <OperacionesWidget />
             </div>
           </div>
+
+          {/* ── Turno del día: estado + instructores en turno ── */}
+          {turnoDia?.dia && (() => {
+            const est = turnoDia.dia.estado;
+            const presentes = (turnoDia.asistencias || []).filter((a) => !a.salida_en);
+            const meta = {
+              ABIERTO:  { label: "TURNO ABIERTO",              cls: "pp__turno--abierto",  icon: "bi-sunrise" },
+              EN_PAUSA: { label: "TURNO EN PAUSA · ALMUERZO",  cls: "pp__turno--pausa",    icon: "bi-cup-hot" },
+              CERRADO:  { label: "TURNO CERRADO",              cls: "pp__turno--cerrado",  icon: "bi-sunset" },
+            }[est];
+            if (!meta) return null;
+            return (
+              <div className={`pp__turno-strip ${meta.cls}`}>
+                <span className="pp__turno-estado"><i className={`bi ${meta.icon}`} /> {meta.label}</span>
+                {presentes.length > 0 && (
+                  <span className="pp__turno-instructores">
+                    {presentes.map((a) => (
+                      <span key={a.id_asistencia} className="pp__turno-chip">
+                        <i className="bi bi-person-badge" /> Cap. {a.nombre_completo}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           <div className="pp__dashboard-grid">
             <div className="pp__main-col">
@@ -317,24 +413,30 @@ export default function PaginaProgramacion() {
                       <tr>
                         <th>ESTUDIANTE / INSTRUCTOR</th>
                         <th>AERONAVE</th>
+                        <th>TIPO</th>
                         <th>ESTADO</th>
                         <th>SALIDA</th>
                       </tr>
                     </thead>
                     <tbody>
                       {vuelosEnCurso.length === 0 ? (
-                        <tr><td colSpan="4" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
+                        <tr><td colSpan="5" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
                       ) : (
                         vuelosEnCurso.map(v => {
                           const pct = calcProgreso(v);
                           const badge = ESTADO_VUELO_META[v.estado] || { label: v.estado, cls: "pp__tbl-badge--envuelo" };
+                          const tipo = categoriaMeta(v);
                           return (
                             <tr key={v.id_vuelo}>
                               <td>
                                 <div className="pp__tbl-person">{v.alumno_nombre}</div>
                                 <div className="pp__tbl-sub">Cap. {v.instructor_nombre}</div>
                               </td>
-                              <td><span className="pp__tbl-aero">{v.aeronave_codigo}</span></td>
+                              <td><span className="pp__tbl-aero" style={aeroBadgeStyle(v.aeronave_codigo)}>{v.aeronave_codigo}</span></td>
+                              <td>
+                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
+                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
+                              </td>
                               <td>
                                 <span className={`pp__tbl-badge ${badge.cls}`}>{badge.label}</span>
                                 {pct !== null && (
@@ -366,11 +468,14 @@ export default function PaginaProgramacion() {
                         <tr>
                           <th>ESTUDIANTE / INSTRUCTOR</th>
                           <th>AERONAVE</th>
+                          <th>TIPO</th>
                           <th>ESTADO</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {proximoBloque.vuelos.map(v => (
+                        {proximoBloque.vuelos.map(v => {
+                          const tipo = categoriaMeta(v);
+                          return (
                           <tr key={v.id_vuelo}>
                             <td>
                               <div className="pp__tbl-person">{v.alumno_nombre}</div>
@@ -378,12 +483,17 @@ export default function PaginaProgramacion() {
                             </td>
                             <td><span className="pp__tbl-aero">{v.aeronave_codigo}</span></td>
                             <td>
+                              <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
+                              {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
+                            </td>
+                            <td>
                               <span className="pp__tbl-badge pp__tbl-badge--programado">
                                 Programado
                               </span>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -409,6 +519,7 @@ export default function PaginaProgramacion() {
                   ) : (
                     vuelosFiltrados.map(v => {
                       const meta = ESTADO_META[v.estadoDinamico] || { label: v.estadoDinamico, cls: "" };
+                      const tipo = categoriaMeta(v);
                       return (
                         <div key={v.id_vuelo} className="pp__flight-card">
                           <div className="pp__flight-time">
@@ -421,7 +532,11 @@ export default function PaginaProgramacion() {
                             </div>
                             <div className="pp__info-group">
                               <span className="pp__info-label">INSTRUCTOR</span>
-                              <span className="pp__info-main">Cap. {v.instructor_nombre}</span>
+                              <span className="pp__info-main">
+                                Cap. {v.instructor_nombre}{" "}
+                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
+                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
+                              </span>
                             </div>
                             <div className="pp__info-group">
                               <span className="pp__info-label">AERONAVE</span>
@@ -460,7 +575,7 @@ export default function PaginaProgramacion() {
                       <div key={v.id_vuelo} className="pp__prox-item">
                         <span className={`pp__prox-dot ${i === 0 ? "pp__prox-dot--active" : ""}`} />
                         <div className="pp__prox-info">
-                          <div className="pp__prox-hora">{formatHora(v.hora_inicio)} · <strong>{v.aeronave_codigo}</strong></div>
+                          <div className="pp__prox-hora">{formatHora(v.hora_inicio)} · <strong style={{ color: colorAeronave(v.aeronave_codigo) }}>{v.aeronave_codigo}</strong></div>
                           <div className="pp__prox-sub">{v.alumno_nombre}</div>
                         </div>
                       </div>

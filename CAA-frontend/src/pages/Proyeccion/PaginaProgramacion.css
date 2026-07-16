@@ -229,33 +229,41 @@
   flex-direction: column;
 }
 
-.pp__clock-time {
-  font-size: 1.5rem;
+/* Reloj UTC / Zulu (aviación): es la hora de trabajo, va grande y arriba. */
+.pp__clock-utc {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.7rem;
   font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--pp-accent, #22d3ee);
+  line-height: 1;
+}
+.pp__clock-utc b {
+  font-size: 0.85rem;
+  font-weight: 800;
+  margin-left: 3px;
+  opacity: 0.85;
+}
+
+/* Hora local, secundaria bajo la UTC. */
+.pp__clock-time {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--pp-text-bright);
   line-height: 1;
+}
+.pp__clock-time b {
+  font-size: 0.68rem;
+  font-weight: 800;
+  margin-left: 3px;
+  opacity: 0.7;
 }
 
 .pp__clock-date {
   font-size: 0.8rem;
   color: var(--pp-text-muted);
   text-transform: capitalize;
-}
-
-/* Reloj UTC / Zulu (aviación). Se muestra bajo el reloj local. */
-.pp__clock-utc {
-  margin-top: 3px;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--pp-accent, #22d3ee);
-}
-.pp__clock-utc b {
-  font-size: 0.72rem;
-  font-weight: 800;
-  margin-left: 3px;
-  opacity: 0.85;
 }
 
 /* ── Dashboard Layout ───────────────────────────────────────────────────── */
@@ -392,6 +400,24 @@
 .pp__tbl-badge--envuelo { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
 .pp__tbl-badge--hangar { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
 .pp__tbl-badge--regreso { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+
+/* Tipo de vuelo (elegido al agendar): describe qué se va a volar. */
+.pp__tipo-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.pp__tipo--normal  { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; }
+.pp__tipo--demo    { background: rgba(56, 189, 248, 0.15);  color: #38bdf8; }
+.pp__tipo--chequeo { background: rgba(245, 158, 11, 0.15);  color: #fbbf24; }
+.pp__tipo--linea   { background: rgba(239, 68, 68, 0.15);   color: #f87171; }
+.pp__tipo--ruta    { background: rgba(139, 92, 246, 0.15);  color: #a78bfa; }
 
 .pp__tbl-bar-wrap {
   height: 4px;
@@ -624,3 +650,54 @@
   .pp__time-val { font-size: 1.8rem; }
   .pp__info-main { font-size: 1.1rem; }
 }
+/* ── Franja "Turno del día" (estado + instructores en turno) ─────────────── */
+.pp__turno-strip {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--pp-line, rgba(148, 163, 184, .18));
+  background: var(--pp-surface-2, rgba(148, 163, 184, .06));
+}
+
+.pp__turno-estado {
+  font-weight: 900;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.pp__turno--abierto .pp__turno-estado { color: #4ade80; }
+.pp__turno--pausa   .pp__turno-estado { color: #fbbf24; }
+.pp__turno--cerrado .pp__turno-estado { color: var(--pp-accent, #ef4444); }
+
+.pp__turno--abierto { border-color: rgba(74, 222, 128, .35); }
+.pp__turno--pausa   { border-color: rgba(251, 191, 36, .35); }
+.pp__turno--cerrado { border-color: rgba(239, 68, 68, .35); }
+
+.pp__turno-instructores {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pp__turno-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, .12);
+  color: var(--pp-text-bright, #f1f5f9);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.pp__turno-chip i { opacity: 0.7; }

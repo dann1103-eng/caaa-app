@@ -82,6 +82,8 @@ router.get("/alumnos/:id_alumno/aeronaves-permitidas", adminAccess, adminUsuario
 router.patch("/alumnos/:id_alumno/soleado", adminAccess, adminUsuario.setSoleado);
 router.get("/alumnos-limite", adminAccess, adminUsuario.getAlumnosConLimite);
 router.patch("/alumnos/:id_alumno/habilitar-vuelo-extra", adminAccess, adminUsuario.habilitarVueloExtra);
+router.get("/licencias", adminAccess, adminUsuario.listLicencias);
+router.get("/licencias/:id_licencia/aeronaves", adminAccess, adminUsuario.getAeronavesPorLicencia);
 
 // --- Auditoría ---
 router.get("/auditoria/acciones", adminAccess, adminAuditoria.getAccionesAuditoria);

@@ -12,6 +12,12 @@ export const getVuelosSemana = async (week = "current") => {
   return res.data;
 };
 
+// Vuelos donde ESTE instructor es el practicante (recibe instrucción).
+export const getMisVuelosPractica = async () => {
+  const res = await axios.get(`${API_URL}/instructor/mis-vuelos-practica`);
+  return res.data;
+};
+
 export const getMisAlumnos = async () => {
   const res = await axios.get(`${API_URL}/instructor/mis-alumnos`);
   return res.data;

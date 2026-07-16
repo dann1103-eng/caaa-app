@@ -25,7 +25,22 @@ exports.getCalendarioPublico = async (req, res) => {
         COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
         COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
         v.estado,
-        vet_salida.registrado_en AS salida_real
+        v.categoria,
+        v.tipo_vuelo,
+        v.tipo_instruccion,
+        v.nombre_externo,
+        -- Licencia para el badge "Tipo" de Proyección: la propia del alumno
+        -- (vuelos NORMAL → sigla PPL/IR/CPL/ME) y la efectivamente chequeada
+        -- (vuelos CHEQUEO → "SIGLA/CHECK").
+        lic_alumno.nombre AS alumno_licencia_nombre,
+        lic_chequeo.nombre AS licencia_chequeo_nombre,
+        -- registrado_en es "timestamp without time zone": la conexión fija la sesión
+        -- en 'America/El_Salvador' (config/db.js), así que el valor guardado YA es
+        -- hora local (no UTC). Sin este AT TIME ZONE, el driver de Node lo reinterpreta
+        -- como si fuera UTC y, al convertir de vuelta a local en el navegador, la hora
+        -- queda adelantada/atrasada 6 horas. AT TIME ZONE aquí reinterpreta el valor
+        -- naive como local de El Salvador y lo pasa a timestamptz (instante correcto).
+        (vet_salida.registrado_en AT TIME ZONE 'America/El_Salvador') AS salida_real
       FROM vuelo v
       JOIN bloque_horario b   ON b.id_bloque   = v.id_bloque
       JOIN aeronave ae        ON ae.id_aeronave = v.id_aeronave
@@ -33,6 +48,8 @@ exports.getCalendarioPublico = async (req, res) => {
       LEFT JOIN usuario u_al       ON u_al.id_usuario = al.id_usuario
       LEFT JOIN instructor i       ON i.id_instructor = v.id_instructor
       LEFT JOIN usuario u_ins      ON u_ins.id_usuario = i.id_usuario
+      LEFT JOIN licencia lic_alumno  ON lic_alumno.id_licencia  = al.id_licencia
+      LEFT JOIN licencia lic_chequeo ON lic_chequeo.id_licencia = v.id_licencia_chequeo
       LEFT JOIN LATERAL (
         SELECT registrado_en
         FROM vuelo_estado_tiempo

@@ -71,3 +71,60 @@ export const abrirReporteVuelosDia = async (fecha) => {
   const url = window.URL.createObjectURL(blob);
   window.open(url, "_blank", "noopener,noreferrer");
 };
+
+// ── Mantenimiento imprevisto de aeronave (falla detectada en pre-vuelo) ──────
+export const getFlotaMantenimiento = async () => {
+  const res = await axios.get(`${API_URL}/turno/mantenimiento/flota`);
+  return res.data;
+};
+
+export const previewMantenimientoAeronave = async (id_aeronave, { bloques = [], fecha_fin = null } = {}) => {
+  const res = await axios.post(`${API_URL}/turno/aeronaves/${id_aeronave}/preview-mantenimiento`, { bloques, fecha_fin });
+  return res.data;
+};
+
+export const iniciarMantenimientoAeronave = async (id_aeronave, { descripcion, bloques = [], fecha_fin = null }) => {
+  const res = await axios.post(`${API_URL}/turno/aeronaves/${id_aeronave}/mantenimiento`, { descripcion, bloques, fecha_fin });
+  return res.data;
+};
+
+export const completarMantenimientoAeronave = async (id_aeronave) => {
+  const res = await axios.post(`${API_URL}/turno/aeronaves/${id_aeronave}/completar-mantenimiento`);
+  return res.data;
+};
+
+// ── Ciclo del turno del día (apertura/pausa/cambio/cierre + asistencia) ─────
+export const getTurnoDia = async () => {
+  const res = await axios.get(`${API_URL}/turno/dia`);
+  return res.data;
+};
+
+export const getInstructoresTurno = async () => {
+  const res = await axios.get(`${API_URL}/turno/instructores`);
+  return res.data;
+};
+
+export const abrirTurnoDia = async (instructores) => {
+  const res = await axios.post(`${API_URL}/turno/dia/abrir`, { instructores });
+  return res.data;
+};
+
+export const pausarTurnoDia = async () => {
+  const res = await axios.post(`${API_URL}/turno/dia/pausa`);
+  return res.data;
+};
+
+export const reanudarTurnoDia = async () => {
+  const res = await axios.post(`${API_URL}/turno/dia/reanudar`);
+  return res.data;
+};
+
+export const cambioTurnoDia = async (instructores) => {
+  const res = await axios.post(`${API_URL}/turno/dia/cambio`, { instructores });
+  return res.data;
+};
+
+export const cerrarTurnoDia = async () => {
+  const res = await axios.post(`${API_URL}/turno/dia/cerrar`);
+  return res.data;
+};

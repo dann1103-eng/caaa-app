@@ -268,10 +268,6 @@
 
 .cpv-btn--success:hover:not(:disabled) { background: var(--c-success-700); border-color: var(--c-success-700); }
 
-.cpv-btn--disabled-look {
-  opacity: 0.55;
-}
-
 .cpv-error {
   background: var(--c-danger-50);
   color: var(--c-danger-700);

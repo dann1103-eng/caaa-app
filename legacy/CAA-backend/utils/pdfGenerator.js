@@ -376,6 +376,13 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
   let y = headerCompacto(doc, "VUELOS POR AVIÓN", `Desde ${fmtFecha} hasta ${fmtFecha}`, ancho);
 
   const horas = (n) => (n == null ? "" : Number(n).toFixed(2));
+  // Lecturas de medidor (tac/hobbs inicial-final): el instrumento tiene 4
+  // dígitos enteros, el cero inicial (ej. 0847.25) se conserva en el reporte.
+  const lectura = (n) => {
+    if (n == null) return "";
+    const [ent, dec = "00"] = Number(n).toFixed(2).split(".");
+    return `${ent.padStart(4, "0")}.${dec}`;
+  };
   // Columnas: [titulo, ancho, align]
   const cols = [
     ["Fecha", 52, "left"], ["Número", 46, "right"], ["Alumno", 150, "left"],
@@ -435,8 +442,8 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
       sMonto += Number(v.monto || 0);
       drawRow([
         fmtFecha, v.id_vuelo, v.alumno,
-        horas(v.tac_ini), horas(v.tac_fin), horas(tacH),
-        horas(v.hobbs_ini), horas(v.hobbs_fin), horas(hobH),
+        lectura(v.tac_ini), lectura(v.tac_fin), horas(tacH),
+        lectura(v.hobbs_ini), lectura(v.hobbs_fin), horas(hobH),
         money(v.monto), v.instructor || "—",
       ]);
       doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();

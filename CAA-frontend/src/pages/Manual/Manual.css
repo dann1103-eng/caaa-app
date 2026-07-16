@@ -1,0 +1,238 @@
+/* ── Manual de usuario — página pública, fuera del shell autenticado ───────
+   Reusa los tokens reales de tokens.css (colores, tipografía, radios) para
+   quedar visualmente idéntica al resto de la app. */
+
+.man__shell {
+  --m-purple: oklch(55% 0.14 300);
+  --m-purple-bg: oklch(93% 0.03 300);
+  display: grid;
+  grid-template-columns: 268px 1fr;
+  min-height: 100vh;
+  background: var(--c-surface-2);
+  color: var(--c-ink-1);
+  font-family: var(--font-sans);
+}
+
+@media (max-width: 860px) {
+  .man__shell { grid-template-columns: 1fr; }
+  .man__rail { position: static !important; height: auto !important; border-right: none !important; border-bottom: 1px solid var(--c-line-1); }
+}
+
+/* ── Rail ── */
+.man__rail {
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  background: var(--c-surface-0);
+  border-right: 1px solid var(--c-line-1);
+  padding: 22px 14px 24px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.man__brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 10px 18px; border-bottom: 1px solid var(--c-line-1); margin-bottom: 10px;
+}
+.man__brand-mark {
+  width: 34px; height: 34px; border-radius: var(--radius-md);
+  background: var(--c-brand-700); color: var(--c-surface-0);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.man__brand-mark img { width: 20px; height: 20px; object-fit: contain; }
+.man__brand-title { font-weight: 800; font-size: 0.98rem; }
+.man__brand-sub { font-size: var(--text-xs); color: var(--c-ink-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); font-weight: 600; }
+
+.man__rail-label {
+  font-size: 0.68rem; font-weight: 700; color: var(--c-ink-3);
+  text-transform: uppercase; letter-spacing: var(--tracking-wider);
+  padding: 14px 12px 6px;
+}
+.man__navbtn {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  background: transparent; border: none; border-left: 3px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 9px 10px 9px 9px; color: var(--c-ink-2); font-weight: 600; font-size: 0.87rem;
+  cursor: pointer; transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+.man__navbtn i { font-size: 0.95rem; opacity: .85; width: 16px; text-align: center; }
+.man__navbtn:hover { background: var(--c-surface-2); color: var(--c-ink-1); }
+.man__navbtn[aria-current="true"] { background: var(--c-surface-2); color: var(--c-ink-1); border-left-color: var(--c-primary-500); }
+.man__navbtn[aria-current="true"] i { opacity: 1; color: var(--c-primary-500); }
+.man__navbtn-idx { margin-left: auto; font-family: var(--font-mono); font-size: 0.66rem; color: var(--c-ink-3); font-weight: 600; }
+
+.man__rail-foot {
+  margin-top: auto; padding: 14px 10px 2px; border-top: 1px solid var(--c-line-1);
+}
+.man__rail-foot p { margin: 10px 2px 0; font-size: 0.72rem; color: var(--c-ink-3); line-height: 1.5; }
+.man__rail-login-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 44px; padding: 11px 14px; border-radius: var(--radius-md);
+  background: var(--c-brand-700); color: var(--c-surface-0);
+  font-weight: 700; font-size: 0.88rem; text-decoration: none;
+  transition: background .12s ease;
+}
+.man__rail-login-btn:hover { background: var(--c-brand-900); }
+.man__rail-login-btn i { font-size: 1rem; }
+
+/* ── Page column ── */
+.man__shell main { min-width: 0; }
+.man__page { display: none; padding: 46px clamp(20px, 5vw, 72px) 100px; max-width: 860px; }
+.man__page.active { display: block; }
+
+.man__kicker {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.74rem; font-weight: 700; color: var(--c-primary-700);
+  text-transform: uppercase; letter-spacing: var(--tracking-wider); margin-bottom: 10px;
+}
+.man__title { font-size: clamp(1.7rem, 3.2vw, 2.15rem); font-weight: 800; letter-spacing: var(--tracking-tight); margin: 0; text-wrap: balance; }
+.man__lede { margin-top: 12px; font-size: 1.02rem; color: var(--c-ink-2); max-width: 62ch; line-height: var(--leading-relax); }
+
+.man__sep { border: none; border-top: 1px solid var(--c-line-1); margin: 34px 0; }
+
+.man__section-head { margin: 44px 0 20px; }
+.man__section-head h2 { font-size: 1.28rem; font-weight: 800; display: flex; align-items: center; gap: 10px; margin: 0; }
+.man__section-head h2 i { color: var(--c-brand-700); font-size: 1.1rem; }
+.man__section-head p { margin: 6px 0 0; color: var(--c-ink-3); font-size: 0.92rem; max-width: 60ch; }
+
+/* ── Steps ── */
+.man__steps { display: flex; flex-direction: column; border-top: 1px solid var(--c-line-1); }
+.man__step { display: grid; grid-template-columns: 34px 1fr; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--c-line-1); }
+.man__step-num {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--c-brand-700); color: var(--c-surface-0);
+  font-family: var(--font-mono); font-weight: 700; font-size: 0.86rem;
+  display: flex; align-items: center; justify-content: center; margin-top: 1px;
+}
+.man__step-title { font-size: 1.02rem; font-weight: 700; margin-bottom: 6px; }
+.man__step-text { color: var(--c-ink-2); font-size: 0.93rem; max-width: 60ch; margin: 0; }
+.man__step-text strong { color: var(--c-ink-1); font-weight: 700; }
+.man__ui { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.man__note {
+  margin: 12px 0 0; padding: 9px 12px; border-radius: var(--radius-sm);
+  font-size: 0.85rem; display: flex; gap: 8px; align-items: flex-start; max-width: 58ch;
+}
+.man__note i { flex-shrink: 0; margin-top: 2px; }
+.man__note--warn { background: var(--c-warn-50); color: var(--c-warn-700); }
+.man__note--info { background: var(--c-info-50); color: var(--c-info-700); }
+.man__note--danger { background: var(--c-danger-50); color: var(--c-danger-700); }
+
+/* ── Chip mockups ── */
+.man__chip-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 700; font-size: 0.82rem; padding: 7px 13px;
+  border-radius: var(--radius-sm); border: 1.5px solid transparent; line-height: 1; white-space: nowrap;
+}
+.man__chip-btn--primary { background: var(--c-brand-700); color: var(--c-surface-0); }
+.man__chip-btn--outline { background: transparent; border-color: var(--c-brand-700); color: var(--c-brand-700); }
+.man__chip-btn--positive { background: transparent; border-color: var(--c-success-700); color: var(--c-success-700); }
+.man__chip-btn--positive-fill { background: var(--c-success-700); color: var(--c-surface-0); border-color: var(--c-success-700); }
+.man__chip-btn--danger { background: transparent; border-color: var(--c-danger-700); color: var(--c-danger-700); }
+.man__chip-btn--secondary { background: var(--c-surface-2); border-color: var(--c-line-2); color: var(--c-ink-1); }
+.man__chip-btn--ghost { background: transparent; border-color: var(--c-line-2); color: var(--c-ink-2); }
+
+.man__chip-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-weight: 700; font-size: 0.72rem;
+  padding: 3px 9px; border-radius: var(--radius-pill); letter-spacing: 0.02em;
+}
+.man__chip-badge--gris { background: var(--c-surface-2); color: var(--c-ink-3); }
+.man__chip-badge--naranja { background: var(--c-warn-50); color: var(--c-warn-700); }
+.man__chip-badge--azul { background: var(--c-info-50); color: var(--c-info-700); }
+.man__chip-badge--morado { background: var(--m-purple-bg); color: var(--m-purple); }
+.man__chip-badge--amarillo { background: var(--c-warn-50); color: var(--c-warn-700); }
+.man__chip-badge--verde { background: var(--c-success-50); color: var(--c-success-700); }
+.man__chip-badge--rojo { background: var(--c-danger-50); color: var(--c-danger-700); }
+
+.man__tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--c-surface-2); border-radius: var(--radius-sm); border: 1px solid var(--c-line-1); }
+.man__tabs span { font-size: 0.76rem; font-weight: 700; padding: 5px 11px; border-radius: 5px; color: var(--c-ink-3); }
+.man__tabs span.on { background: var(--c-brand-700); color: var(--c-surface-0); }
+
+.man__field { display: flex; flex-direction: column; gap: 4px; min-width: 220px; max-width: 100%; }
+.man__field label { font-size: 0.68rem; font-weight: 700; color: var(--c-ink-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+.man__field-fake { border: 1px solid var(--c-line-2); border-radius: var(--radius-sm); padding: 7px 10px; font-size: 0.82rem; color: var(--c-ink-3); background: var(--c-surface-0); }
+.man__field.req label::after { content: " *"; color: var(--c-primary-500); }
+
+.man__grid-mock { border: 1px solid var(--c-line-1); border-radius: var(--radius-sm); overflow: hidden; font-size: 0.72rem; display: inline-block; max-width: 100%; }
+.man__grid-mock table { border-collapse: collapse; }
+.man__grid-mock th { background: var(--c-surface-2); color: var(--c-ink-3); font-size: 0.66rem; text-transform: uppercase; letter-spacing: .05em; padding: 5px 9px; font-weight: 700; }
+.man__grid-mock td { padding: 5px 9px; border-top: 1px solid var(--c-line-1); text-align: center; min-width: 40px; }
+.man__grid-mock td.on { background: var(--c-success-50); }
+.man__grid-mock td.on::after { content: "✓"; color: var(--c-success-700); font-weight: 800; }
+
+.man__tacho { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; margin-top: 10px; max-width: 560px; }
+.man__tacho div { border: 1px solid var(--c-line-1); border-radius: var(--radius-sm); padding: 7px 10px; background: var(--c-surface-0); }
+.man__tacho .k { font-size: 0.63rem; text-transform: uppercase; letter-spacing: .05em; color: var(--c-ink-3); font-weight: 700; }
+.man__tacho .v { font-family: var(--font-mono); font-size: 0.85rem; color: var(--c-ink-2); margin-top: 2px; }
+
+/* ── Ciclo de vida ── */
+.man__states-rail { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 20px 0 8px; }
+.man__states-rail i { color: var(--c-ink-3); font-size: 0.8rem; }
+.man__states-rail .man__chip-badge { font-size: 0.78rem; padding: 6px 13px; }
+
+.man__legend-wrap { overflow-x: auto; }
+.man__legend { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 0.88rem; }
+.man__legend th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--c-ink-3); padding: 8px 10px; border-bottom: 1px solid var(--c-line-2); }
+.man__legend td { padding: 10px; border-bottom: 1px solid var(--c-line-1); vertical-align: top; color: var(--c-ink-2); }
+.man__legend td:first-child { white-space: nowrap; }
+
+/* ── Callout ── */
+.man__callout { background: var(--c-surface-0); border: 1px solid var(--c-line-1); border-left: 3px solid var(--c-brand-700); border-radius: var(--radius-sm); padding: 14px 16px; margin: 18px 0; max-width: 62ch; }
+.man__callout h4 { font-size: 0.85rem; font-weight: 800; display: flex; align-items: center; gap: 7px; margin: 0 0 5px; }
+.man__callout h4 i { color: var(--c-brand-700); }
+.man__callout p { font-size: 0.87rem; color: var(--c-ink-2); margin: 0; }
+.man__callout--accent { border-left-color: var(--c-primary-500); }
+.man__callout--accent h4 i { color: var(--c-primary-500); }
+
+/* ── Role cards (portada) ── */
+.man__roles-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 22px; }
+.man__role-card {
+  display: flex; flex-direction: column; gap: 8px; text-align: left;
+  background: var(--c-surface-0); border: 1px solid var(--c-line-1); border-radius: var(--radius-md);
+  padding: 15px 16px; cursor: pointer; transition: border-color .12s ease, transform .12s ease;
+  font-family: inherit;
+}
+.man__role-card:hover { border-color: var(--c-brand-700); transform: translateY(-1px); }
+.man__role-card-top { display: flex; align-items: center; gap: 9px; }
+.man__role-card-top i { color: var(--c-brand-700); font-size: 1.05rem; }
+.man__role-card-top span { font-weight: 800; font-size: 0.95rem; }
+.man__role-card p { font-size: 0.82rem; color: var(--c-ink-3); line-height: 1.5; margin: 0; }
+
+.man__strip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 18px; }
+.man__strip span {
+  font-family: var(--font-mono); font-size: 0.72rem; font-weight: 700;
+  background: var(--c-surface-2); color: var(--c-ink-2); padding: 5px 10px;
+  border-radius: var(--radius-pill); border: 1px solid var(--c-line-1);
+}
+
+/* ── CTA grande de fin de manual (link completo, gran zona táctil en móvil) ── */
+.man__login-cta {
+  display: flex; align-items: center; gap: 18px;
+  background: var(--c-brand-700); color: var(--c-surface-0);
+  border-radius: var(--radius-lg); padding: 22px 26px;
+  text-decoration: none; transition: background .15s ease, transform .15s ease;
+}
+.man__login-cta:hover { background: var(--c-brand-900); transform: translateY(-1px); }
+.man__login-cta:active { transform: translateY(0); }
+.man__login-cta-icon {
+  width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255, 255, 255, .14);
+  display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
+}
+.man__login-cta-copy { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.man__login-cta-title { font-size: 1.15rem; font-weight: 800; }
+.man__login-cta-sub { font-size: 0.86rem; color: rgba(255, 255, 255, .78); }
+.man__login-cta-arrow { font-size: 1.4rem; flex-shrink: 0; opacity: .85; transition: transform .15s ease; }
+.man__login-cta:hover .man__login-cta-arrow { transform: translateX(4px); }
+
+@media (max-width: 860px) {
+  .man__login-cta { padding: 20px; gap: 14px; }
+  .man__login-cta-icon { width: 46px; height: 46px; font-size: 1.2rem; }
+  .man__login-cta-title { font-size: 1.08rem; }
+}
+@media (max-width: 480px) {
+  .man__login-cta-arrow { display: none; }
+  .man__login-cta-sub { font-size: 0.82rem; }
+}
+
+@media print {
+  .man__rail { display: none; }
+  .man__shell { display: block; }
+  .man__page { display: block !important; padding: 0; max-width: none; }
+}

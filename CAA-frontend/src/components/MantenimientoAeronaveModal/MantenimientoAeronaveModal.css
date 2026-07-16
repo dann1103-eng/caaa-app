@@ -1,0 +1,27 @@
+/* Complementos del modal de mantenimiento imprevisto. La estructura base
+   reusa las clases ops-modal* de SuspenderOperacionesModal.css. */
+
+.mant-modal__textarea,
+.mant-modal__date {
+  padding: 10px 12px;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
+  color: var(--c-ink-1);
+  background: var(--c-surface-0);
+  font-family: inherit;
+  resize: vertical;
+}
+
+.mant-modal__textarea:focus,
+.mant-modal__date:focus {
+  outline: none;
+  border-color: var(--c-primary-500);
+  box-shadow: var(--shadow-focus);
+}
+
+.mant-modal__field-hint {
+  font-size: 0.78rem;
+  color: var(--c-ink-3);
+  line-height: 1.45;
+}

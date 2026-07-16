@@ -17,6 +17,19 @@ import "./ReporteVueloModal.css";
 
 const TIPO_VUELO_OPTS = ["PASAJERO", "CARGA", "SOLO", "DOBLE", "FERRY", "LOCAL"];
 
+// Lecturas de medidor (tacómetro/hobbs): el instrumento tiene 4 dígitos
+// enteros, así que una lectura como 0847.2 debe MOSTRARSE con su cero inicial
+// aunque la BD (NUMERIC) lo normalice a 847.2. Se rellena la parte entera a 4
+// dígitos y se conservan los decimales tal cual (mínimo 1, sin ceros de cola).
+function formatMedidor(val) {
+  if (val === null || val === undefined || val === "") return "";
+  const s = String(val);
+  if (!/^\d+(\.\d+)?$/.test(s)) return s;
+  const [ent, dec = ""] = s.split(".");
+  const decLimpio = dec.replace(/0+$/, "") || "0";
+  return `${ent.padStart(4, "0")}.${decLimpio}`;
+}
+
 const DATOS_INICIALES = {
   tipo_vuelo: "",
   tacometro_salida: "",
@@ -86,10 +99,10 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
           if (r.motivo_inasistencia) setMotivoInasistencia(r.motivo_inasistencia);
           setDatos({
             tipo_vuelo: r.tipo_vuelo ?? "",
-            tacometro_salida: r.tacometro_salida ?? "",
-            tacometro_llegada: r.tacometro_llegada ?? "",
-            hobbs_salida: r.hobbs_salida ?? "",
-            hobbs_llegada: r.hobbs_llegada ?? "",
+            tacometro_salida: formatMedidor(r.tacometro_salida),
+            tacometro_llegada: formatMedidor(r.tacometro_llegada),
+            hobbs_salida: formatMedidor(r.hobbs_salida),
+            hobbs_llegada: formatMedidor(r.hobbs_llegada),
             combustible_salida: r.combustible_salida ?? "",
             combustible_llegada: r.combustible_llegada ?? "",
             cantidad_combustible: r.cantidad_combustible ?? "",
@@ -114,8 +127,9 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     ];
 
     if (numericFields.includes(key)) {
-      // Permitir solo números y un punto decimal (sin límite de dígitos enteros)
-      const regex = /^\d*(\.\d{0,1})?$/;
+      // Permitir números con hasta 2 decimales (tacómetro/hobbs se leen en centésimas
+      // de hora, no solo décimas), sin límite de dígitos enteros
+      const regex = /^\d*(\.\d{0,2})?$/;
       if (val !== "" && !regex.test(val)) {
         return; // Ignorar cambio si no cumple el formato
       }
@@ -379,20 +393,20 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             ) : (
             <div className="rv-data-grid">
               {[
-                { key: "tacometro_salida", label: "Tacómetro Salida" },
-                { key: "tacometro_llegada", label: "Tacómetro Llegada" },
-                { key: "hobbs_salida", label: "Hobbs Salida" },
-                { key: "hobbs_llegada", label: "Hobbs Llegada" },
+                { key: "tacometro_salida", label: "Tacómetro Salida", medidor: true },
+                { key: "tacometro_llegada", label: "Tacómetro Llegada", medidor: true },
+                { key: "hobbs_salida", label: "Hobbs Salida", medidor: true },
+                { key: "hobbs_llegada", label: "Hobbs Llegada", medidor: true },
                 { key: "combustible_salida", label: "Combustible Salida" },
                 { key: "combustible_llegada", label: "Combustible Llegada" },
                 { key: "cantidad_combustible", label: "Cantidad agregada" },
-              ].map(({ key, label }) => (
+              ].map(({ key, label, medidor }) => (
                 <div key={key} className="rv-data-field">
                   <span className="rv-label">{label}</span>
                   {isReadonly ? (
                     <span className="rv-info-val">
                       {datos[key] !== "" && !isNaN(parseFloat(datos[key]))
-                        ? parseFloat(datos[key]).toFixed(1)
+                        ? (medidor ? formatMedidor(datos[key]) : parseFloat(datos[key]).toFixed(1))
                         : "—"}
                     </span>
                   ) : (

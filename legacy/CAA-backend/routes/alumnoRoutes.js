@@ -5,6 +5,7 @@ const multer = require("multer");
 const router = express.Router();
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const accesoEstudianteVuelo = require("../middlewares/accesoEstudianteVuelo");
 
 const alumnoVuelo = require("../controllers/alumno/alumnoVueloController");
 const alumnoCancelacion = require("../controllers/alumno/alumnoCancelacionController");
@@ -14,6 +15,9 @@ const alumnoReporte = require("../controllers/alumno/alumnoReporteController");
 const alumnoCuenta = require("../controllers/alumno/alumnoCuentaController");
 
 const alumnoAccess = [authMiddleware, roleMiddleware("ALUMNO")];
+// Igual que alumnoAccess pero además admite al practicante (instructor que
+// recibe instrucción) en las rutas por-vuelo del lado estudiante.
+const estudianteAccess = [authMiddleware, accesoEstudianteVuelo];
 
 const planesDir = path.join(__dirname, "..", "uploads", "planes-vuelo");
 if (!fs.existsSync(planesDir)) {
@@ -80,26 +84,26 @@ router.post("/vuelos/:id_vuelo/solicitar-cancelacion", alumnoAccess, alumnoCance
 router.delete("/solicitudes-cancelacion/:id_solicitud_cancelacion", alumnoAccess, alumnoCancelacion.quitarSolicitudCancelacion);
 router.get("/mis-solicitudes-cancelacion", alumnoAccess, alumnoCancelacion.getMisSolicitudesCancelacion);
 
-// --- Plan de Vuelo ---
-router.get("/vuelos/:id_vuelo/plan-vuelo", alumnoAccess, alumnoPlanVuelo.getPlanVuelo);
-router.put("/vuelos/:id_vuelo/plan-vuelo", alumnoAccess, alumnoPlanVuelo.guardarPlanVuelo);
-router.patch("/vuelos/:id_vuelo/plan-vuelo/completar", alumnoAccess, uploadPlan.single("pdf"), alumnoPlanVuelo.completarPlanVuelo);
+// --- Plan de Vuelo --- (por-vuelo: admite al practicante)
+router.get("/vuelos/:id_vuelo/plan-vuelo", estudianteAccess, alumnoPlanVuelo.getPlanVuelo);
+router.put("/vuelos/:id_vuelo/plan-vuelo", estudianteAccess, alumnoPlanVuelo.guardarPlanVuelo);
+router.patch("/vuelos/:id_vuelo/plan-vuelo/completar", estudianteAccess, uploadPlan.single("pdf"), alumnoPlanVuelo.completarPlanVuelo);
 
-// --- Weight & Balance ---
-router.get("/vuelos/:id_vuelo/weight-balance", alumnoAccess, alumnoWb.getWB);
-router.put("/vuelos/:id_vuelo/weight-balance", alumnoAccess, alumnoWb.guardarWB);
-router.patch("/vuelos/:id_vuelo/weight-balance/completar", alumnoAccess, alumnoWb.completarWB);
-router.get("/vuelos/:id_vuelo/loadsheet", alumnoAccess, alumnoWb.getLoadsheet);
-router.put("/vuelos/:id_vuelo/loadsheet", alumnoAccess, alumnoWb.guardarLoadsheet);
-router.post("/vuelos/:id_vuelo/send-loadsheet", alumnoAccess, alumnoWb.enviarLoadsheetPDF);
-router.patch("/vuelos/:id_vuelo/loadsheet/completar", alumnoAccess, uploadLoadsheet.single("pdf"), alumnoWb.completarLoadsheet);
+// --- Weight & Balance --- (por-vuelo: admite al practicante)
+router.get("/vuelos/:id_vuelo/weight-balance", estudianteAccess, alumnoWb.getWB);
+router.put("/vuelos/:id_vuelo/weight-balance", estudianteAccess, alumnoWb.guardarWB);
+router.patch("/vuelos/:id_vuelo/weight-balance/completar", estudianteAccess, alumnoWb.completarWB);
+router.get("/vuelos/:id_vuelo/loadsheet", estudianteAccess, alumnoWb.getLoadsheet);
+router.put("/vuelos/:id_vuelo/loadsheet", estudianteAccess, alumnoWb.guardarLoadsheet);
+router.post("/vuelos/:id_vuelo/send-loadsheet", estudianteAccess, alumnoWb.enviarLoadsheetPDF);
+router.patch("/vuelos/:id_vuelo/loadsheet/completar", estudianteAccess, uploadLoadsheet.single("pdf"), alumnoWb.completarLoadsheet);
 
 // --- Reportes de Vuelo ---
-router.get("/vuelos/:id/reporte-vuelo", alumnoAccess, alumnoReporte.getReporteVuelo);
-router.put("/vuelos/:id/reporte-vuelo", alumnoAccess, alumnoReporte.guardarReporteVuelo);
-router.patch("/vuelos/:id/reporte-vuelo/enviar", alumnoAccess, alumnoReporte.enviarReporteVuelo);
+router.get("/vuelos/:id/reporte-vuelo", estudianteAccess, alumnoReporte.getReporteVuelo);
+router.put("/vuelos/:id/reporte-vuelo", estudianteAccess, alumnoReporte.guardarReporteVuelo);
+router.patch("/vuelos/:id/reporte-vuelo/enviar", estudianteAccess, alumnoReporte.enviarReporteVuelo);
 router.get("/reportes-pendientes", alumnoAccess, alumnoReporte.getReportesPendientesAlumno);
 router.get("/reportes-completados", alumnoAccess, alumnoReporte.getReportesCompletadosAlumno);
-router.patch("/vuelos/:id/reporte-vuelo/firmar", alumnoAccess, alumnoReporte.firmarReporteVueloAlumno);
+router.patch("/vuelos/:id/reporte-vuelo/firmar", estudianteAccess, alumnoReporte.firmarReporteVueloAlumno);
 
 module.exports = router;

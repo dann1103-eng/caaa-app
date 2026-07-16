@@ -10,6 +10,7 @@ import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWid
 import {
   getVuelosSemana,
   getMisAlumnos,
+  getMisVuelosPractica,
   actualizarLimitesAlumno,
   avanzarEstadoVuelo,
   getReportesPendientes,
@@ -346,6 +347,15 @@ export default function InstructorDashboard() {
   const [reportesPendientes, setReportesPendientes]   = useState([]);
   const [loadingReportes, setLoadingReportes]         = useState(true);
   const [reporteModal, setReporteModal]               = useState(null); // vuelo
+  const [vuelosPractica, setVuelosPractica]           = useState([]);   // vuelos donde ESTE instructor es el practicante
+  const [practicaReporte, setPracticaReporte]         = useState(null); // vuelo de práctica a firmar como estudiante
+
+  const cargarVuelosPractica = useCallback(async () => {
+    try {
+      const data = await getMisVuelosPractica();
+      setVuelosPractica(Array.isArray(data) ? data : []);
+    } catch { /* silencioso */ }
+  }, []);
 
   const fetchVuelos = useCallback(async () => {
     try {
@@ -374,7 +384,8 @@ export default function InstructorDashboard() {
       .catch(() => {})
       .finally(() => setLoadingAlumnos(false));
     cargarReportesPendientes().finally(() => setLoadingReportes(false));
-  }, [fetchVuelos, cargarReportesPendientes]);
+    cargarVuelosPractica();
+  }, [fetchVuelos, cargarReportesPendientes, cargarVuelosPractica]);
 
   // Polling 30 s (solo semana actual)
   useEffect(() => {
@@ -399,12 +410,20 @@ export default function InstructorDashboard() {
           if (duracion_estimada_min != null) updated.duracion_estimada_min = duracion_estimada_min;
           if (tiempo_vuelo_min != null) updated.tiempo_vuelo_min = tiempo_vuelo_min;
           if (es_inasistencia != null) updated.es_inasistencia = es_inasistencia;
-          
-          // Si el estado cambió a COMPLETADO, abrimos automáticamente el reporte
+
+          // Al llegar a COMPLETADO, el checklist post-vuelo es obligatorio y va
+          // PRIMERO — el backend rechaza firmar el reporte sin él (400). Antes
+          // esto abría directo el reporte (la "vouchera"), saltándose el
+          // checklist si el instructor completaba el vuelo con el botón
+          // "Finalizar Vuelo" en vez de por el flujo del checklist.
           if (estado === "COMPLETADO" && v.estado !== "COMPLETADO") {
-            setReporteModal(updated);
+            if (updated.es_inasistencia || updated.checklist_completado) {
+              setReporteModal(updated);
+            } else {
+              setChecklistModal({ vuelo: updated, tiempoMin: parseInt(updated.tiempo_vuelo_min, 10) || 0 });
+            }
           }
-          
+
           return updated;
         })
       );
@@ -500,11 +519,20 @@ export default function InstructorDashboard() {
         <ReporteVueloModal
           id_vuelo={reporteModal.id_vuelo}
           mode="instructor"
-          onClose={() => { 
-            setReporteModal(null); 
-            cargarReportesPendientes(); 
-            fetchVuelos(); 
+          onClose={() => {
+            setReporteModal(null);
+            cargarReportesPendientes();
+            fetchVuelos();
           }}
+        />
+      )}
+
+      {/* Reporte de un vuelo de práctica: el practicante firma como estudiante. */}
+      {practicaReporte && (
+        <ReporteVueloModal
+          id_vuelo={practicaReporte.id_vuelo}
+          mode="alumno"
+          onClose={() => { setPracticaReporte(null); cargarVuelosPractica(); }}
         />
       )}
 
@@ -541,6 +569,51 @@ export default function InstructorDashboard() {
         <div className="ins__avisos">
           <AvisosTurnoWidget />
         </div>
+
+        {vuelosPractica.length > 0 && (
+          <div className="ins__section">
+            <h3 className="ins__section-title">
+              <i className="bi bi-mortarboard" style={{ color: 'var(--c-brand-700)' }}></i>
+              Mis vuelos de práctica (recibo instrucción)
+            </h3>
+            <div className="ins__practica-grid">
+              {vuelosPractica.map((v) => (
+                <div key={v.id_vuelo} className="ins__practica-card">
+                  <div className="ins__practica-head">
+                    <span className={`ins__practica-tag ins__practica-tag--${(v.tipo_instruccion || '').toLowerCase()}`}>
+                      {v.tipo_instruccion === "REFRESH" ? "Refresh" : "Chequeo"}
+                    </span>
+                    <strong>{v.aeronave_codigo}</strong>
+                  </div>
+                  <div className="ins__practica-meta">
+                    {v.fecha_vuelo ? new Date(v.fecha_vuelo).toLocaleDateString("es-SV", { weekday: "short", day: "2-digit", month: "2-digit" }) : DIAS[v.dia_semana]}
+                    {" · "}{String(v.hora_inicio || "").slice(0,5)}
+                    {" · PIC: "}{v.pic_nombre} {v.pic_apellido}
+                  </div>
+                  <div className="ins__practica-actions">
+                    {v.aeronave_tipo !== "SIMULADOR" && (
+                      <button
+                        className="ins__btn-practica"
+                        onClick={() => navigate(`/instructor/practica/loadsheet/${v.id_vuelo}`)}
+                      >
+                        <i className="bi bi-calculator"></i> Loadsheet
+                        {v.loadsheet_estado ? ` · ${v.loadsheet_estado.toLowerCase()}` : ""}
+                      </button>
+                    )}
+                    {(v.estado === "COMPLETADO" || v.reporte_estado === "PENDIENTE_ALUMNO") && (
+                      <button
+                        className="ins__btn-practica"
+                        onClick={() => setPracticaReporte(v)}
+                      >
+                        <i className="bi bi-pen"></i> {v.reporte_estado === "COMPLETADO" ? "Ver reporte" : "Firmar reporte"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="ins__section">
           {loadingVuelos ? (

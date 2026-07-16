@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { resolverVueloEspecial } = require("../utils/practicanteHelper");
 
 /**
  * Lógica compartida de solicitudes de vuelo (semana próxima, no publicada).
@@ -44,6 +45,7 @@ async function getCurrentSemana(conn = db) {
 async function assertSlotLibre(client, {
   id_semana, dia_semana, id_bloque, id_bloque_fin,
   id_aeronave, id_alumno, id_instructor, excluir = [],
+  saltarConflictoAlumno = false,
 }) {
   const fin = id_bloque_fin || id_bloque;
   const excl = excluir.length ? excluir : [-1];
@@ -63,7 +65,10 @@ async function assertSlotLibre(client, {
     throw Object.assign(new Error("Ese bloque y aeronave ya está ocupado"), { code: "23505" });
   }
 
-  if (id_alumno) {
+  // Vuelos DEMO comparten una ficha placeholder única (no representa a una
+  // persona real que pueda estar "ocupada"), así que dos DEMO en el mismo
+  // horario (aviones distintos) no deben chocar entre sí por este chequeo.
+  if (id_alumno && !saltarConflictoAlumno) {
     const al = await client.query(
       `SELECT 1 FROM solicitud_vuelo sv
         JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
@@ -203,59 +208,85 @@ async function aplicarMovimientos(client, { id_semana, movimientos, assertOwners
  * Inserta UN solo vuelo aditivamente en el basket del alumno (crea el basket si
  * no existe, sin pisar los vuelos ya guardados ni cambiar su estado). Valida
  * licencia (salvo extracurricular) y conflictos. Devuelve {id_solicitud, id_detalle}.
+ *
+ * `categoria` (NORMAL/DEMO/CHEQUEO/CHEQUEO_LINEA) resuelve el id_alumno real del
+ * slot vía `resolverVueloEspecial` — para DEMO/CHEQUEO_LINEA el `id_alumno`
+ * recibido se ignora y se usa la ficha placeholder/espejo correspondiente.
+ * `id_licencia_chequeo` (solo CHEQUEO) filtra la validación de aeronave contra
+ * esa licencia en vez de la propia del alumno.
  */
 async function insertarSolicitudVuelo(client, {
   id_alumno, id_semana, dia_semana, id_bloque, id_bloque_fin,
   id_aeronave, tipo_vuelo, id_instructor, es_extracurricular,
   validarLicencia = true,
+  categoria, id_licencia_chequeo, id_usuario_practicante, tipo_instruccion, nombre_externo,
 }) {
+  const resuelto = await resolverVueloEspecial(client, {
+    categoria, id_alumno, id_instructor, id_usuario_practicante, tipo_instruccion, nombre_externo,
+    id_licencia_chequeo,
+  });
+  const idAlumnoEfectivo = resuelto.id_alumno;
+
   const ssRes = await client.query(
     `INSERT INTO solicitud_semana (id_semana, id_alumno, estado)
      VALUES ($1, $2, 'BORRADOR')
      ON CONFLICT (id_semana, id_alumno)
      DO UPDATE SET fecha_actualizacion = now()
      RETURNING id_solicitud`,
-    [id_semana, id_alumno]
+    [id_semana, idAlumnoEfectivo]
   );
   const id_solicitud = ssRes.rows[0].id_solicitud;
 
-  if (!es_extracurricular && validarLicencia) {
-    const lic = await client.query(
-      `SELECT 1 FROM alumno a
-         JOIN licencia_aeronave la ON la.id_licencia = a.id_licencia AND la.id_aeronave = $2
-        WHERE a.id_alumno = $1`,
-      [id_alumno, id_aeronave]
-    );
+  // Validación de licencia/aeronave: NORMAL siempre contra la del alumno;
+  // CHEQUEO contra la licencia elegida (o la del alumno si no se especificó
+  // ninguna); DEMO/CHEQUEO_LINEA no aplica (no hay una licencia "propia").
+  if (!es_extracurricular && validarLicencia && (resuelto.categoria === "NORMAL" || resuelto.categoria === "CHEQUEO")) {
+    const idLicenciaCheck = resuelto.categoria === "CHEQUEO" && id_licencia_chequeo ? Number(id_licencia_chequeo) : null;
+    const lic = idLicenciaCheck
+      ? await client.query(
+          `SELECT 1 FROM licencia_aeronave WHERE id_licencia = $1 AND id_aeronave = $2`,
+          [idLicenciaCheck, id_aeronave]
+        )
+      : await client.query(
+          `SELECT 1 FROM alumno a
+             JOIN licencia_aeronave la ON la.id_licencia = a.id_licencia AND la.id_aeronave = $2
+            WHERE a.id_alumno = $1`,
+          [idAlumnoEfectivo, id_aeronave]
+        );
     if (lic.rows.length === 0) {
-      throw Object.assign(new Error("La aeronave no está habilitada para la licencia del alumno"), { status: 400 });
+      throw Object.assign(new Error("La aeronave no está habilitada para esa licencia"), { status: 400 });
     }
   }
 
   // Instructor efectivo para el chequeo de conflicto (override explícito o el de
-  // vuelo por defecto del alumno).
+  // vuelo por defecto del alumno). En DEMO/CHEQUEO_LINEA el id_instructor viene
+  // siempre explícito (PIC) — no hay "instructor de cabecera" de un placeholder.
   let instrEff = id_instructor;
-  if (!instrEff) {
-    const a = await client.query(`SELECT id_instructor FROM alumno WHERE id_alumno = $1`, [id_alumno]);
+  if (!instrEff && resuelto.categoria !== "DEMO" && resuelto.categoria !== "CHEQUEO_LINEA") {
+    const a = await client.query(`SELECT id_instructor FROM alumno WHERE id_alumno = $1`, [idAlumnoEfectivo]);
     instrEff = a.rows[0]?.id_instructor || null;
   }
 
   await assertSlotLibre(client, {
     id_semana, dia_semana, id_bloque, id_bloque_fin, id_aeronave,
-    id_alumno, id_instructor: instrEff, excluir: [],
+    id_alumno: idAlumnoEfectivo, id_instructor: instrEff, excluir: [],
+    saltarConflictoAlumno: resuelto.saltarConflictoAlumno,
   });
 
   const ins = await client.query(
     `INSERT INTO solicitud_vuelo
-       (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, categoria, tipo_instruccion, nombre_externo, id_licencia_chequeo)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING id_detalle`,
     [
       id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave,
       tipo_vuelo || "LOCAL", id_bloque_fin || id_bloque,
       id_instructor || null, es_extracurricular === true,
+      resuelto.categoria, resuelto.tipo_instruccion || "NORMAL", resuelto.nombre_externo,
+      resuelto.id_licencia_chequeo,
     ]
   );
-  return { id_solicitud, id_detalle: ins.rows[0].id_detalle };
+  return { id_solicitud, id_detalle: ins.rows[0].id_detalle, id_alumno: idAlumnoEfectivo };
 }
 
 module.exports = {

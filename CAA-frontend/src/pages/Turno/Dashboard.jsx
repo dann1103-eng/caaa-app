@@ -15,8 +15,12 @@ import {
   getTicker,
   avanzarEstadoVuelo,
   abrirReporteVuelosDia,
+  getFlotaMantenimiento,
+  completarMantenimientoAeronave,
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
+import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
+import TurnoDiaWidget from "../../components/TurnoDiaWidget/TurnoDiaWidget";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
@@ -244,6 +248,81 @@ function OpsWidget({ ops, onSet, vuelosHoy = [] }) {
   );
 }
 
+// Reloj UTC (principal, rojo — como en Proyección) + hora local CST.
+function RelojTurno() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const fmt = (tz) =>
+    now.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, ...(tz ? { timeZone: tz } : {}) });
+  return (
+    <div className="trn__clock">
+      <span className="trn__clock-utc">{fmt("UTC")} <b>UTC</b></span>
+      <span className="trn__clock-local">{fmt()} <b>CST</b></span>
+    </div>
+  );
+}
+
+// Estado de la flota: chips por aeronave (operativa / en mantenimiento) con
+// acciones de mantenimiento imprevisto. Caso: falla detectada en pre-vuelo.
+function FlotaWidget({ flota, onIniciar, onReactivar }) {
+  const [reactivando, setReactivando] = useState(null);
+
+  const handleReactivar = async (a) => {
+    if (!window.confirm(`¿Marcar el mantenimiento de ${a.codigo} como efectuado? La aeronave vuelve al servicio.`)) return;
+    setReactivando(a.id_aeronave);
+    try {
+      await onReactivar(a);
+    } finally {
+      setReactivando(null);
+    }
+  };
+
+  return (
+    <div className="trn__flota">
+      <div className="trn__flota-head">
+        <span className="trn__flota-title">
+          <i className="bi bi-tools" style={{ color: "var(--c-primary-500)" }}></i>
+          Estado de la flota
+        </span>
+        <button className="trn__ops-btn" onClick={onIniciar}>
+          <i className="bi bi-wrench-adjustable" style={{ marginRight: 6 }}></i>
+          Aeronave a mantenimiento
+        </button>
+      </div>
+      <div className="trn__flota-chips">
+        {flota.map((a) => {
+          const enMant = !!a.id_mantenimiento;
+          return (
+            <div key={a.id_aeronave} className={`trn__flota-chip ${enMant ? "trn__flota-chip--mant" : "trn__flota-chip--ok"}`}>
+              <span className="trn__flota-codigo">{a.codigo}</span>
+              {enMant ? (
+                <>
+                  <span className="trn__flota-estado" title={a.mant_descripcion || ""}>
+                    Mantenimiento{a.mant_hasta ? ` · est. ${new Date(a.mant_hasta).toLocaleDateString("es-SV", { timeZone: "UTC", day: "2-digit", month: "2-digit" })}` : ""}
+                  </span>
+                  <button
+                    className="trn__flota-reactivar"
+                    disabled={reactivando === a.id_aeronave}
+                    onClick={() => handleReactivar(a)}
+                    title="Mantenimiento efectuado: la aeronave vuelve al servicio"
+                  >
+                    {reactivando === a.id_aeronave ? "…" : "Marcar operativa"}
+                  </button>
+                </>
+              ) : (
+                <span className="trn__flota-estado">Operativa</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function TurnoDashboard() {
   const [vuelos, setVuelos] = useState([]);
   const [ops, setOps] = useState(null);
@@ -258,6 +337,9 @@ export default function TurnoDashboard() {
   // Agendar un vuelo omitido en la semana en curso (modo pickSlot).
   const [agendarCtx, setAgendarCtx] = useState(null); // { id_semana, bloques, aeronaves, dia }
   const [abriendoAgendar, setAbriendoAgendar] = useState(false);
+  // Mantenimiento imprevisto de aeronave.
+  const [flota, setFlota] = useState([]);
+  const [showMantenimiento, setShowMantenimiento] = useState(false);
 
   const handleAbrirAgendar = async () => {
     setAbriendoAgendar(true);
@@ -317,10 +399,19 @@ export default function TurnoDashboard() {
     }
   }, []);
 
+  const cargarFlota = useCallback(async () => {
+    try {
+      const data = await getFlotaMantenimiento();
+      setFlota(Array.isArray(data) ? data : []);
+    } catch {
+      /* silencioso */
+    }
+  }, []);
+
   // Carga inicial
   useEffect(() => {
-    Promise.all([cargarVuelos(), cargarOps(), cargarTicker()]).finally(() => setLoading(false));
-  }, [cargarVuelos, cargarOps, cargarTicker]);
+    Promise.all([cargarVuelos(), cargarOps(), cargarTicker(), cargarFlota()]).finally(() => setLoading(false));
+  }, [cargarVuelos, cargarOps, cargarTicker, cargarFlota]);
 
   // Polling 30 s
   useEffect(() => {
@@ -411,6 +502,24 @@ export default function TurnoDashboard() {
     }
   };
 
+  const handleMantenimientoConfirmado = () => {
+    setShowMantenimiento(false);
+    cargarFlota();
+    cargarVuelos();
+    cargarTicker();
+  };
+
+  const handleReactivarAeronave = async (a) => {
+    try {
+      await completarMantenimientoAeronave(a.id_aeronave);
+      toast.success(`${a.codigo} operativa nuevamente`);
+      cargarFlota();
+      cargarTicker();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "No se pudo completar el mantenimiento");
+    }
+  };
+
   // Agrupar por bloque
   const bloques = [];
   const porBloque = {};
@@ -443,6 +552,7 @@ export default function TurnoDashboard() {
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+            <RelojTurno />
             <div className="trn__counter">
               <i className="bi bi-airplane-engines" style={{ marginRight: '10px' }}></i>
               {!loading && (
@@ -483,8 +593,20 @@ export default function TurnoDashboard() {
         {/* ── METAR ─────────────────────────────────────────────────── */}
         <MetarWidget />
 
+        {/* ── Turno del día (apertura/pausa/cambio/cierre + asistencia) ── */}
+        <TurnoDiaWidget />
+
         {/* ── Estado de operaciones ─────────────────────────────────── */}
         {ops && <OpsWidget ops={ops} onSet={handleSetOps} vuelosHoy={vuelos} />}
+
+        {/* ── Flota / mantenimiento imprevisto ──────────────────────── */}
+        {flota.length > 0 && (
+          <FlotaWidget
+            flota={flota}
+            onIniciar={() => setShowMantenimiento(true)}
+            onReactivar={handleReactivarAeronave}
+          />
+        )}
 
         {/* ── Publicar aviso (ticker) ───────────────────────────────── */}
         <div className="trn__ticker-form">
@@ -564,6 +686,14 @@ export default function TurnoDashboard() {
         )}
 
       </div>
+
+      {showMantenimiento && (
+        <MantenimientoAeronaveModal
+          aeronaves={flota}
+          onClose={() => setShowMantenimiento(false)}
+          onConfirm={handleMantenimientoConfirmado}
+        />
+      )}
 
       {agendarCtx && (
         <AgendarVueloModal

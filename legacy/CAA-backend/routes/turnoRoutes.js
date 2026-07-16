@@ -4,6 +4,8 @@ const roleMiddleware = require("../middlewares/roleMiddleware");
 const router = express.Router();
 
 const turnoController = require("../controllers/turnoController");
+const turnoMantenimiento = require("../controllers/turnoMantenimientoController");
+const turnoDia = require("../controllers/turnoDiaController");
 
 const proyeccionMiddleware = require("../middlewares/proyeccionMiddleware");
 
@@ -25,5 +27,25 @@ router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.re
 // Reporte de cierre del día (vuelos por avión, PDF). Lo usa TURNO; ADMIN como
 // super-usuario y ADMINISTRACION (es su insumo para debitar saldos).
 router.get("/reporte-vuelos-dia", authMiddleware, roleMiddleware(["TURNO", "ADMIN", "ADMINISTRACION"]), turnoController.getReporteVuelosDia);
+
+// Mantenimiento imprevisto de una aeronave (falla detectada en pre-vuelo):
+// Turno la saca de servicio, cancela y notifica sus vuelos, y la reactiva
+// cuando taller termina. Mutaciones sensibles → gate de rol explícito.
+const turnoMantAccess = roleMiddleware(["TURNO", "ADMIN"]);
+router.get("/mantenimiento/flota", authMiddleware, turnoMantAccess, turnoMantenimiento.getFlotaMantenimiento);
+router.post("/aeronaves/:id/preview-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.previewMantenimientoAeronave);
+router.post("/aeronaves/:id/mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.iniciarMantenimientoAeronave);
+router.post("/aeronaves/:id/completar-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.completarMantenimientoAeronave);
+
+// Ciclo del turno del día (apertura / pausa almuerzo / cambio de turno /
+// cierre) + asistencia de instructores. El GET usa proyeccionMiddleware para
+// que la pantalla de Proyección lo lea con su llave.
+router.get("/dia", proyeccionMiddleware, turnoDia.getTurnoDia);
+router.get("/instructores", authMiddleware, turnoMantAccess, turnoDia.getInstructoresParaTurno);
+router.post("/dia/abrir", authMiddleware, turnoMantAccess, turnoDia.abrirTurno);
+router.post("/dia/pausa", authMiddleware, turnoMantAccess, turnoDia.pausarTurno);
+router.post("/dia/reanudar", authMiddleware, turnoMantAccess, turnoDia.reanudarTurno);
+router.post("/dia/cambio", authMiddleware, turnoMantAccess, turnoDia.cambioTurno);
+router.post("/dia/cerrar", authMiddleware, turnoMantAccess, turnoDia.cerrarTurno);
 
 module.exports = router;
