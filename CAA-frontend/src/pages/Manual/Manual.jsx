@@ -74,7 +74,7 @@ export default function Manual() {
     <div className="man__shell">
       <nav className="man__rail" aria-label="Manuales por rol">
         <div className="man__brand">
-          <div className="man__brand-mark"><i className="bi bi-airplane-engines" /></div>
+          <div className="man__brand-mark"><img src="/iso-caaa-white.png" alt="CAAA" /></div>
           <div>
             <div className="man__brand-title">CAAA</div>
             <div className="man__brand-sub">Manual de usuario</div>

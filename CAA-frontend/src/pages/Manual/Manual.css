@@ -33,8 +33,9 @@
 .man__brand-mark {
   width: 34px; height: 34px; border-radius: var(--radius-md);
   background: var(--c-brand-700); color: var(--c-surface-0);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.05rem;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
+.man__brand-mark img { width: 20px; height: 20px; object-fit: contain; }
 .man__brand-title { font-weight: 800; font-size: 0.98rem; }
 .man__brand-sub { font-size: var(--text-xs); color: var(--c-ink-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); font-weight: 600; }
 
