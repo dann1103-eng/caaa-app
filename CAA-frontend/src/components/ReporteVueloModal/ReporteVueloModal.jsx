@@ -114,8 +114,9 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     ];
 
     if (numericFields.includes(key)) {
-      // Permitir solo números y un punto decimal (sin límite de dígitos enteros)
-      const regex = /^\d*(\.\d{0,1})?$/;
+      // Permitir números con hasta 2 decimales (tacómetro/hobbs se leen en centésimas
+      // de hora, no solo décimas), sin límite de dígitos enteros
+      const regex = /^\d*(\.\d{0,2})?$/;
       if (val !== "" && !regex.test(val)) {
         return; // Ignorar cambio si no cumple el formato
       }
