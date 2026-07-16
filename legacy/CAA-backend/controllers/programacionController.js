@@ -746,11 +746,12 @@ exports.agendarVueloDirecto = async (req, res) => {
 
     const resuelto = await resolverVueloEspecial(client, {
       categoria, id_alumno: idAlumnoBody, id_instructor, id_usuario_practicante,
-      tipo_instruccion: tipoInstruccionBody, nombre_externo: nombreExternoBody,
+      tipo_instruccion: tipoInstruccionBody, nombre_externo: nombreExternoBody, id_licencia_chequeo,
     });
     const id_alumno = resuelto.id_alumno;
     const tipoInstruccion = resuelto.tipo_instruccion || "NORMAL";
     const nombreExterno = resuelto.nombre_externo;
+    const idLicenciaChequeoEfectiva = resuelto.id_licencia_chequeo;
 
     await conflicto("aeronave", id_aeronave, "Ese bloque y aeronave ya está ocupado", "23505");
     if (!resuelto.saltarConflictoAlumno) {
@@ -780,18 +781,18 @@ exports.agendarVueloDirecto = async (req, res) => {
     const id_solicitud = ss.rows[0].id_solicitud;
 
     const sv = await client.query(
-      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, tipo_instruccion, categoria, nombre_externo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id_detalle`,
-      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno]
+      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id_detalle`,
+      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
     );
     const id_detalle = sv.rows[0].id_detalle;
 
     const vue = await client.query(
-      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, estado, creado_por, fecha_vuelo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'PUBLICADO','PROGRAMACION',
+      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PUBLICADO','PROGRAMACION',
                (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1))
        RETURNING id_vuelo`,
-      [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno]
+      [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
     );
     const id_vuelo = vue.rows[0].id_vuelo;
 

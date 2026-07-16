@@ -108,11 +108,13 @@ async function asegurarFichaExterno(client) {
  * se comporten igual.
  *
  * Devuelve { categoria, id_alumno, saltarConflictoAlumno, nombre_externo,
- * tipo_instruccion }. Lanza Error con code 'VALIDATION' en datos faltantes o
- * inconsistentes (PIC == practicante, falta alumno, falta practicante).
+ * tipo_instruccion, id_licencia_chequeo }. Lanza Error con code 'VALIDATION' en
+ * datos faltantes o inconsistentes (PIC == practicante, falta alumno, falta
+ * practicante).
  */
 async function resolverVueloEspecial(client, {
   categoria, id_alumno, id_instructor, id_usuario_practicante, tipo_instruccion, nombre_externo,
+  id_licencia_chequeo,
 }) {
   const cat = normalizarCategoria(categoria);
 
@@ -120,13 +122,28 @@ async function resolverVueloEspecial(client, {
     if (!id_alumno) {
       throw Object.assign(new Error("Falta el alumno"), { code: "VALIDATION" });
     }
-    return { categoria: cat, id_alumno: Number(id_alumno), saltarConflictoAlumno: false, nombre_externo: null, tipo_instruccion: null };
+    // Para CHEQUEO, persistimos la licencia EFECTIVAMENTE chequeada (el
+    // override elegido, o si no se eligió ninguna, la propia del alumno —
+    // así la Proyección siempre tiene un dato para mostrar "SIGLA/CHECK").
+    let idLicenciaChequeoEfectiva = null;
+    if (cat === "CHEQUEO") {
+      if (id_licencia_chequeo) {
+        idLicenciaChequeoEfectiva = Number(id_licencia_chequeo);
+      } else {
+        const a = await client.query(`SELECT id_licencia FROM alumno WHERE id_alumno = $1`, [id_alumno]);
+        idLicenciaChequeoEfectiva = a.rows[0]?.id_licencia ?? null;
+      }
+    }
+    return {
+      categoria: cat, id_alumno: Number(id_alumno), saltarConflictoAlumno: false,
+      nombre_externo: null, tipo_instruccion: null, id_licencia_chequeo: idLicenciaChequeoEfectiva,
+    };
   }
 
   if (cat === "DEMO") {
     const idAlumnoExterno = await asegurarFichaExterno(client);
     const nombre = nombre_externo ? String(nombre_externo).trim().slice(0, 120) || null : null;
-    return { categoria: cat, id_alumno: idAlumnoExterno, saltarConflictoAlumno: true, nombre_externo: nombre, tipo_instruccion: null };
+    return { categoria: cat, id_alumno: idAlumnoExterno, saltarConflictoAlumno: true, nombre_externo: nombre, tipo_instruccion: null, id_licencia_chequeo: null };
   }
 
   // CHEQUEO_LINEA (instructor-con-instructor)
@@ -144,7 +161,7 @@ async function resolverVueloEspecial(client, {
     }
   }
   const idAlumnoEspejo = await asegurarFichaPracticante(client, id_usuario_practicante);
-  return { categoria: cat, id_alumno: idAlumnoEspejo, saltarConflictoAlumno: false, nombre_externo: null, tipo_instruccion: tipoInstruccion };
+  return { categoria: cat, id_alumno: idAlumnoEspejo, saltarConflictoAlumno: false, nombre_externo: null, tipo_instruccion: tipoInstruccion, id_licencia_chequeo: null };
 }
 
 module.exports = {

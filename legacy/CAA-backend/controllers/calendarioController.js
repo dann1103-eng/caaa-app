@@ -29,6 +29,11 @@ exports.getCalendarioPublico = async (req, res) => {
         v.tipo_vuelo,
         v.tipo_instruccion,
         v.nombre_externo,
+        -- Licencia para el badge "Tipo" de Proyección: la propia del alumno
+        -- (vuelos NORMAL → sigla PPL/IR/CPL/ME) y la efectivamente chequeada
+        -- (vuelos CHEQUEO → "SIGLA/CHECK").
+        lic_alumno.nombre AS alumno_licencia_nombre,
+        lic_chequeo.nombre AS licencia_chequeo_nombre,
         -- registrado_en es "timestamp without time zone": la conexión fija la sesión
         -- en 'America/El_Salvador' (config/db.js), así que el valor guardado YA es
         -- hora local (no UTC). Sin este AT TIME ZONE, el driver de Node lo reinterpreta
@@ -43,6 +48,8 @@ exports.getCalendarioPublico = async (req, res) => {
       LEFT JOIN usuario u_al       ON u_al.id_usuario = al.id_usuario
       LEFT JOIN instructor i       ON i.id_instructor = v.id_instructor
       LEFT JOIN usuario u_ins      ON u_ins.id_usuario = i.id_usuario
+      LEFT JOIN licencia lic_alumno  ON lic_alumno.id_licencia  = al.id_licencia
+      LEFT JOIN licencia lic_chequeo ON lic_chequeo.id_licencia = v.id_licencia_chequeo
       LEFT JOIN LATERAL (
         SELECT registrado_en
         FROM vuelo_estado_tiempo

@@ -223,6 +223,7 @@ async function insertarSolicitudVuelo(client, {
 }) {
   const resuelto = await resolverVueloEspecial(client, {
     categoria, id_alumno, id_instructor, id_usuario_practicante, tipo_instruccion, nombre_externo,
+    id_licencia_chequeo,
   });
   const idAlumnoEfectivo = resuelto.id_alumno;
 
@@ -274,14 +275,15 @@ async function insertarSolicitudVuelo(client, {
 
   const ins = await client.query(
     `INSERT INTO solicitud_vuelo
-       (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, categoria, tipo_instruccion, nombre_externo)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, categoria, tipo_instruccion, nombre_externo, id_licencia_chequeo)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING id_detalle`,
     [
       id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave,
       tipo_vuelo || "LOCAL", id_bloque_fin || id_bloque,
       id_instructor || null, es_extracurricular === true,
       resuelto.categoria, resuelto.tipo_instruccion || "NORMAL", resuelto.nombre_externo,
+      resuelto.id_licencia_chequeo,
     ]
   );
   return { id_solicitud, id_detalle: ins.rows[0].id_detalle, id_alumno: idAlumnoEfectivo };

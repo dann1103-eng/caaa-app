@@ -75,18 +75,40 @@ const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRE
 
 // Tipo de vuelo (elegido al agendar en Programación) — describe qué se va a
 // volar, más allá de a quién/qué avión. Ortogonal a RUTA (tipo_vuelo).
-const CATEGORIA_META = {
-  NORMAL:        { label: "Normal",         cls: "pp__tipo--normal" },
-  DEMO:          { label: "Demo",           cls: "pp__tipo--demo" },
-  CHEQUEO:       { label: "Chequeo",        cls: "pp__tipo--chequeo" },
-  CHEQUEO_LINEA: { label: "Chequeo línea",  cls: "pp__tipo--linea" },
+// NORMAL/CHEQUEO muestran la sigla de la licencia (estándar de aviación) en
+// vez del nombre de la categoría — más compacto y más útil para el piso.
+const LICENCIA_SIGLAS = {
+  PRIVADO: "PPL",
+  COMERCIAL: "CPL",
+  INSTRUMENTOS: "IR",
+  BIMOTOR: "ME",
+  INSTRUCTOR: "CFI",
+};
+function siglaLicencia(nombre) {
+  if (!nombre) return null;
+  return LICENCIA_SIGLAS[nombre.trim().toUpperCase()] || nombre.toUpperCase();
+}
+
+const CATEGORIA_CLS = {
+  NORMAL: "pp__tipo--normal",
+  DEMO: "pp__tipo--demo",
+  CHEQUEO: "pp__tipo--chequeo",
+  CHEQUEO_LINEA: "pp__tipo--linea",
 };
 function categoriaMeta(v) {
-  const meta = CATEGORIA_META[v?.categoria] || CATEGORIA_META.NORMAL;
-  if (v?.categoria === "CHEQUEO_LINEA" && v?.tipo_instruccion === "REFRESH") {
-    return { ...meta, label: "Refresh" };
+  const cat = v?.categoria || "NORMAL";
+  const cls = CATEGORIA_CLS[cat] || CATEGORIA_CLS.NORMAL;
+  if (cat === "NORMAL") {
+    return { label: siglaLicencia(v?.alumno_licencia_nombre) || "Normal", cls };
   }
-  return meta;
+  if (cat === "CHEQUEO") {
+    const sigla = siglaLicencia(v?.licencia_chequeo_nombre);
+    return { label: sigla ? `${sigla}/CHECK` : "Chequeo", cls };
+  }
+  if (cat === "CHEQUEO_LINEA") {
+    return { label: v?.tipo_instruccion === "REFRESH" ? "Refresh" : "Chequeo línea", cls };
+  }
+  return { label: "Demo", cls };
 }
 
 const horaAMin = (h) => {
@@ -452,19 +474,16 @@ export default function PaginaProgramacion() {
                             </div>
                             <div className="pp__info-group">
                               <span className="pp__info-label">INSTRUCTOR</span>
-                              <span className="pp__info-main">Cap. {v.instructor_nombre}</span>
+                              <span className="pp__info-main">
+                                Cap. {v.instructor_nombre}{" "}
+                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
+                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
+                              </span>
                             </div>
                             <div className="pp__info-group">
                               <span className="pp__info-label">AERONAVE</span>
                               <span className="pp__info-main" style={{ color: colorAeronave(v.aeronave_codigo) }}>
                                 {v.aeronave_codigo} ({v.aeronave_modelo})
-                              </span>
-                            </div>
-                            <div className="pp__info-group">
-                              <span className="pp__info-label">TIPO</span>
-                              <span className="pp__info-main">
-                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
-                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
                               </span>
                             </div>
                           </div>
