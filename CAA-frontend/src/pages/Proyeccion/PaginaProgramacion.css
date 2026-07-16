@@ -175,6 +175,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+.pp__topbar-tracking-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pp-text-main);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 5px 12px;
+  border: 1px solid var(--pp-card-border);
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+.pp__topbar-tracking-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .pp__topbar-badge {
   padding: 2px 8px;
   border-radius: 4px;

@@ -356,6 +356,9 @@ export default function PaginaProgramacion() {
             </div>
           </div>
           <div className="pp__topbar-right">
+            <a className="pp__topbar-tracking-link" href={`/proyeccion/tracking${window.location.search}`}>
+              <i className="bi bi-broadcast" /> Flight Tracking
+            </a>
             <span className="pp__topbar-clock">{clock} CST</span>
           </div>
         </div>

@@ -1,0 +1,90 @@
+/* ── Flight Tracking (ADS-B), grid tipo CCTV ─────────────────────────────── */
+
+.pt__topbar-sub {
+  font-size: 0.8rem;
+  color: var(--pp-text-muted);
+  font-family: var(--font-mono, monospace);
+}
+
+.pt__volver {
+  color: var(--pp-text-main);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 6px 14px;
+  border: 1px solid var(--pp-card-border);
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+.pt__volver:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pt__container {
+  flex: 1;
+  padding: 20px 24px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.pt__empty {
+  color: var(--pp-text-muted);
+  text-align: center;
+  margin-top: 60px;
+  font-size: 1rem;
+}
+
+.pt__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.pt__tile {
+  background: var(--pp-card-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--pp-card-border);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pt__tile-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--pp-card-border);
+}
+
+.pt__tile-codigo {
+  font-family: var(--font-mono, monospace);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--pp-text-bright);
+  letter-spacing: 0.02em;
+}
+
+.pt__tile-modelo {
+  font-size: 0.78rem;
+  color: var(--pp-text-muted);
+}
+
+.pt__tile-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #0b0f19;
+}
+
+.pt__tile-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+@media (max-width: 700px) {
+  .pt__grid { grid-template-columns: 1fr; }
+}

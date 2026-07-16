@@ -15,6 +15,7 @@ import LoadsheetPage from "./loadsheet/LoadsheetPage";
 import DashboardProgramacion from "./pages/Programacion/Dashboard";
 import AgendarVueloProgramacion from "./pages/Programacion/AgendarVuelo";
 import PaginaProgramacion from "./pages/Proyeccion/PaginaProgramacion";
+import PaginaTracking from "./pages/Proyeccion/PaginaTracking";
 import DashboardAdmin from "./pages/Admin/Dashboard";
 import AuditoriaAdmin from "./pages/Admin/Auditoria";
 import MantenimientoAdmin from "./pages/Admin/Mantenimiento";
@@ -122,6 +123,16 @@ function App() {
             element={
               <ProtectedProgramacionPage>
                 <PaginaProgramacion />
+              </ProtectedProgramacionPage>
+            }
+          />
+          {/* Proyección alterna: grilla de flight tracking (ADS-B) por matrícula,
+              mismo acceso (llave de proyección incluida) que /proyeccion. */}
+          <Route
+            path="/proyeccion/tracking"
+            element={
+              <ProtectedProgramacionPage>
+                <PaginaTracking />
               </ProtectedProgramacionPage>
             }
           />
