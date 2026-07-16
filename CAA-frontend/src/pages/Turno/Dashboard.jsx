@@ -20,6 +20,7 @@ import {
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
+import TurnoDiaWidget from "../../components/TurnoDiaWidget/TurnoDiaWidget";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
@@ -243,6 +244,23 @@ function OpsWidget({ ops, onSet, vuelosHoy = [] }) {
           onConfirm={handleGestionar}
         />
       )}
+    </div>
+  );
+}
+
+// Reloj UTC (principal, rojo — como en Proyección) + hora local CST.
+function RelojTurno() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const fmt = (tz) =>
+    now.toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, ...(tz ? { timeZone: tz } : {}) });
+  return (
+    <div className="trn__clock">
+      <span className="trn__clock-utc">{fmt("UTC")} <b>UTC</b></span>
+      <span className="trn__clock-local">{fmt()} <b>CST</b></span>
     </div>
   );
 }
@@ -534,6 +552,7 @@ export default function TurnoDashboard() {
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+            <RelojTurno />
             <div className="trn__counter">
               <i className="bi bi-airplane-engines" style={{ marginRight: '10px' }}></i>
               {!loading && (
@@ -573,6 +592,9 @@ export default function TurnoDashboard() {
 
         {/* ── METAR ─────────────────────────────────────────────────── */}
         <MetarWidget />
+
+        {/* ── Turno del día (apertura/pausa/cambio/cierre + asistencia) ── */}
+        <TurnoDiaWidget />
 
         {/* ── Estado de operaciones ─────────────────────────────────── */}
         {ops && <OpsWidget ops={ops} onSet={handleSetOps} vuelosHoy={vuelos} />}

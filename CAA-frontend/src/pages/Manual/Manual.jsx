@@ -20,7 +20,7 @@ const NAV = [
 const ROLE_CARDS = [
   { id: "alumno", icon: "bi-mortarboard", title: "Alumno", text: "Agendar vuelos, llenar el loadsheet, revisar tu cuenta y tu avance en el aula virtual." },
   { id: "instructor", icon: "bi-headset", title: "Instructor", text: "Marcar las etapas de cada vuelo, llenar el reporte de vuelo y calificar en el aula virtual." },
-  { id: "turno", icon: "bi-megaphone", title: "Turno", text: "Monitorear los vuelos del día, publicar avisos y generar el reporte de cierre." },
+  { id: "turno", icon: "bi-megaphone", title: "Turno", text: "Abrir y cerrar el turno, monitorear los vuelos del día, publicar avisos y generar el reporte de cierre." },
   { id: "programacion", icon: "bi-grid-3x3-gap", title: "Programación", text: "Organizar el calendario semanal, asignar aeronaves y resolver conflictos de horario." },
   { id: "administracion", icon: "bi-cash-coin", title: "Administración", text: "Cuentas corrientes, contabilidad, usuarios, cursos y documentación de alumnos." },
   { id: "taller", icon: "bi-tools", title: "Taller", text: "Aeronavegabilidad, mantenimientos programados e inventario de repuestos." },
@@ -405,8 +405,25 @@ export default function Manual() {
         <section className={`man__page ${active === "turno" ? "active" : ""}`}>
           <div className="man__kicker"><i className="bi bi-megaphone" />Manual 03</div>
           <h1 className="man__title">Turno</h1>
-          <p className="man__lede">Sos el respaldo operativo del día: seguís el estado de todos los vuelos, mantenés informados a todos por el ticker, y cerrás el día con el reporte de vuelos por avión.</p>
-          <div className="man__strip"><span>Vuelos del día</span><span>Operaciones</span><span>Ticker</span><span>Reporte del día</span></div>
+          <p className="man__lede">Sos el respaldo operativo del día: abrís y cerrás el turno, seguís el estado de todos los vuelos, mantenés informados a todos por el ticker, y cerrás el día con el reporte de vuelos por avión.</p>
+          <div className="man__strip"><span>Abrir / cerrar turno</span><span>Vuelos del día</span><span>Operaciones</span><span>Mantenimiento</span><span>Ticker</span><span>Reporte del día</span></div>
+
+          <SectionHead icon="bi-sunrise" hint="Cada acción queda registrada con su hora exacta y quién la marcó — es la bitácora oficial de la jornada.">El ciclo del turno: apertura, almuerzo, cambio y cierre</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title={<>Al iniciar el día: tocá <Chip>Abrir turno</Chip> y marcá a los instructores presentes</>}>
+              <p className="man__step-text">En la barra <strong>Turno del día</strong>, arriba de tu dashboard. Seleccionás de la lista a los instructores del turno de la mañana (usualmente dos) — se registra la hora de apertura y la <strong>entrada</strong> de cada uno. La proyección pasa a mostrar <Badge variant="verde">TURNO ABIERTO</Badge> con sus nombres.</p>
+            </Step>
+            <Step n={2} title={<>A mediodía: <Chip variant="secondary">Pausa almuerzo</Chip> y luego <Chip>Reanudar</Chip></>}>
+              <p className="man__step-text">La pausa (usualmente de 12:00 a 1:30 pm) <strong>no finaliza el turno</strong> — solo lo marca en pausa con su hora real. En la proyección se ve "TURNO EN PAUSA · ALMUERZO".</p>
+            </Step>
+            <Step n={3} title={<>Cuando entra la tarde: <Chip variant="secondary">Cambio de turno</Chip></>}>
+              <p className="man__step-text">Marca automáticamente la <strong>salida</strong> de los instructores de la mañana y te pide seleccionar a los de la tarde, que quedan con su <strong>entrada</strong> registrada. En la barra ves a ambos grupos con sus horarios (los que ya salieron aparecen atenuados).</p>
+            </Step>
+            <Step n={4} title={<>Al final del día: <Chip>Cerrar turno</Chip></>}>
+              <p className="man__step-text">Registra la hora de cierre y la salida de todos los que sigan presentes. Si se cerró por error, <Chip variant="ghost">Reabrir turno</Chip> lo reactiva sin perder los registros.</p>
+              <p className="man__note man__note--info"><i className="bi bi-info-circle" />Esto es independiente de "Suspender operaciones" (que es para clima o emergencias y cancela vuelos). Abrir o cerrar el turno <strong>no cancela ningún vuelo</strong>.</p>
+            </Step>
+          </div>
 
           <SectionHead icon="bi-arrow-repeat" hint={<>Mismo ciclo de vida que usa el instructor — ver <a href="#ciclo" onClick={(e) => { e.preventDefault(); go("ciclo"); }}>la página de referencia</a>.</>}>Vuelos del día</SectionHead>
           <div className="man__steps">
@@ -428,6 +445,22 @@ export default function Manual() {
             </Step>
             <Step n={2} title={<>Para reactivar: <Chip variant="secondary">Gestionar suspensión</Chip> o <Chip>Reanudar operaciones</Chip></>}>
               <p className="man__step-text">"Gestionar" ajusta qué bloques siguen suspendidos; "Reanudar" reactiva todo de una vez (te pide confirmación).</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-tools" hint="Para fallas detectadas en la inspección pre-vuelo o reportadas por taller a mitad del día.">Aeronave a mantenimiento imprevisto</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title={<>En "Estado de la flota", tocá <Chip variant="secondary">Aeronave a mantenimiento</Chip></>}>
+              <p className="man__step-text">El widget muestra cada avión con su estado: <Badge variant="verde">Operativa</Badge> o <Badge variant="naranja">Mantenimiento</Badge>. El botón abre el formulario para sacar una de servicio.</p>
+            </Step>
+            <Step n={2} title="Elegí la aeronave, describí la falla y cerrá sus bloques">
+              <p className="man__step-text">Escribís lo que reportó taller, marcás los <strong>bloques de hoy</strong> que se cierran para esa aeronave y, si taller estima varios días, la <strong>fecha de reintegro</strong> (eso cierra también esos días completos). Antes de confirmar ves la lista exacta de vuelos que se cancelarán.</p>
+            </Step>
+            <Step n={3} title="Confirmá — el sistema hace el resto">
+              <p className="man__step-text">La aeronave pasa a <Badge variant="naranja">MANTENIMIENTO</Badge> (sale de la disponibilidad de agendado y se ve en rojo en la proyección), se cancelan sus vuelos afectados, y <strong>cada tripulación (alumno e instructor) recibe notificación</strong> en la app y por correo. Además se publica un aviso automático en el ticker.</p>
+            </Step>
+            <Step n={4} title={<>Cuando taller termina: <Chip>Marcar operativa</Chip></>}>
+              <p className="man__step-text">El botón aparece en el chip de la aeronave en mantenimiento. La reactiva, vuelve a estar disponible para agendar y su aviso del ticker se limpia solo.</p>
             </Step>
           </div>
 
