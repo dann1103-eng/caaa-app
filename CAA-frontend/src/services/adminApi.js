@@ -76,6 +76,13 @@ export const getVuelosAeronave = async (id, limite) =>
 export const setFotoAeronave = async (id, foto_url) =>
   (await axios.put(`${API_URL}/admin/aeronaves/${id}/foto`, { foto_url })).data;
 
+// licencias = arreglo de id_licencia. Reemplaza el set completo.
+export const setLicenciasAeronave = async (id, licencias) =>
+  (await axios.put(`${API_URL}/admin/aeronaves/registro/${id}/licencias`, { licencias })).data;
+
+export const listLicencias = async () =>
+  (await axios.get(`${API_URL}/admin/licencias`)).data;
+
 export const iniciarMantenimiento = async (id, datos) => {
   const res = await axios.post(`${API_URL}/admin/aeronaves/${id}/iniciar-mantenimiento`, datos);
   return res.data;

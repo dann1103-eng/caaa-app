@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   getAeronaveFicha, actualizarAeronave, getVuelosAeronave, setFotoAeronave,
+  setLicenciasAeronave, listLicencias,
 } from "../../services/adminApi";
 
 const TABS = [
@@ -200,22 +201,7 @@ function TabDatos({ a, onSaved }) {
         </div>
       </div>
 
-      <div className="adf-card" style={{ marginBottom: "var(--sp-5)" }}>
-        <h3><i className="bi bi-key me-2"></i>Licencias habilitadas</h3>
-        {a.licencias?.length ? (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-            {a.licencias.map((l) => <span key={l.id_licencia} className="adf-tag blue">{l.nombre}</span>)}
-          </div>
-        ) : (
-          <p className="adf-note" style={{ marginTop: 8 }}>
-            <i className="bi bi-exclamation-triangle"></i>
-            <span>
-              Ninguna licencia tiene habilitada esta aeronave, así que <strong>nadie la puede
-              agendar</strong>. Se define en la tabla <code>licencia_aeronave</code>.
-            </span>
-          </p>
-        )}
-      </div>
+      <LicenciasCard a={a} onSaved={onSaved} />
 
       <div className="adf-card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -237,6 +223,96 @@ function TabDatos({ a, onSaved }) {
         )}
       </div>
     </>
+  );
+}
+
+// ── Licencias habilitadas ────────────────────────────────────────────────────
+// Esta tabla (licencia_aeronave) es la ÚNICA fuente de verdad de quién puede pedir
+// este avión: la consultan con el mismo JOIN el alumno al pedir horas y el staff al
+// agendar. Hasta ahora solo se tocaba por SQL.
+function LicenciasCard({ a, onSaved }) {
+  const [todas, setTodas] = useState([]);
+  const [sel, setSel] = useState(() => new Set((a.licencias || []).map((l) => l.id_licencia)));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setTodas(await listLicencias());
+      } catch {
+        toast.error("Error al cargar las licencias");
+      }
+    })();
+  }, []);
+
+  const toggle = (id) => {
+    const s = new Set(sel);
+    s.has(id) ? s.delete(id) : s.add(id);
+    setSel(s);
+  };
+
+  const guardar = async () => {
+    setSaving(true);
+    try {
+      await setLicenciasAeronave(a.id_aeronave, [...sel]);
+      toast.success("Licencias actualizadas");
+      onSaved?.();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al guardar las licencias");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="adf-card" style={{ marginBottom: "var(--sp-5)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <h3 style={{ margin: 0 }}><i className="bi bi-key me-2"></i>Licencias habilitadas</h3>
+        <button className="adf-btn small" onClick={guardar} disabled={saving}>
+          <i className="bi bi-check"></i>{saving ? "Guardando…" : "Guardar licencias"}
+        </button>
+      </div>
+
+      <p className="adf-note">
+        <i className="bi bi-info-circle"></i>
+        <span>
+          Esto es <strong>lo que decide quién puede pedir este avión</strong>: es la misma tabla que
+          consulta el alumno al pedir horas y el staff al agendar. Si a un alumno no le aparece una
+          aeronave, se arregla acá — no cambiándole la licencia, porque eso también le mueve las
+          horas y el avance hacia su licencia.
+        </span>
+      </p>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+        {todas.map((l) => {
+          const on = sel.has(l.id_licencia);
+          return (
+            <button key={l.id_licencia} type="button"
+              className={`adf-btn ${on ? "" : "secondary"} small`}
+              onClick={() => toggle(l.id_licencia)}
+              title={on ? "Quitar" : "Habilitar"}>
+              <i className={`bi ${on ? "bi-check-square" : "bi-square"}`}></i> {l.nombre}
+            </button>
+          );
+        })}
+      </div>
+
+      {sel.size === 0 && (
+        <p className="adf-note" style={{ marginTop: 12 }}>
+          <i className="bi bi-exclamation-triangle"></i>
+          <span>Sin ninguna licencia marcada, <strong>nadie va a poder agendar este avión</strong>.</span>
+        </p>
+      )}
+      {a.activa === false && sel.size > 0 && (
+        <p className="adf-note" style={{ marginTop: 12 }}>
+          <i className="bi bi-exclamation-triangle"></i>
+          <span>
+            Ojo: aunque marques licencias, este avión <strong>no aparece al pedir horas</strong>
+            porque hoy está fuera de servicio ({a.estado === "MANTENIMIENTO" ? "en mantenimiento" : "dado de baja"}).
+          </span>
+        </p>
+      )}
+    </div>
   );
 }
 
