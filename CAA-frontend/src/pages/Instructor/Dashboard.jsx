@@ -506,9 +506,14 @@ export default function InstructorDashboard() {
     if (!porDia[v.dia_semana]) porDia[v.dia_semana] = [];
     porDia[v.dia_semana].push(v);
   }
-  const dias = Object.keys(porDia).map(Number).sort();
-  const hoyNum = new Date().getDay(); 
+  const diasBase = Object.keys(porDia).map(Number).sort();
+  const hoyNum = new Date().getDay();
   const diaHoyDb = hoyNum === 0 ? 7 : hoyNum; // Ajustar si domingo es 7
+  // Hoy siempre primero (semana actual): así el instructor ve sus vuelos del
+  // momento sin tener que hacer scroll pasando los días ya pasados de la semana.
+  const dias = (weekMode === "current" && diasBase.includes(diaHoyDb))
+    ? [diaHoyDb, ...diasBase.filter((d) => d !== diaHoyDb)]
+    : diasBase;
 
   return (
     <>
