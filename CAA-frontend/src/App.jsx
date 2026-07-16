@@ -51,6 +51,10 @@ import AdmAulaVirtual from "./pages/Administracion/AulaVirtual";
 import ProtectedTaller from "./components/routes/ProtectedTaller";
 import TallerLayoutAuto from "./components/TallerLayout/TallerLayoutAuto";
 import TallerDashboard from "./pages/Taller/TallerDashboard";
+
+// ── Dashboard del dueño (solo lectura + push) ─────────────
+import ProtectedDueno from "./components/routes/ProtectedDueno";
+import DuenoDashboard from "./pages/Dueno/Dashboard";
 import TallerAeronavegabilidad from "./pages/Taller/Aeronavegabilidad";
 import TallerInventario from "./pages/Taller/Inventario";
 
@@ -348,6 +352,8 @@ function App() {
           <Route path="/taller/dashboard"         element={<ProtectedTaller><TallerLayoutAuto><TallerDashboard /></TallerLayoutAuto></ProtectedTaller>} />
           <Route path="/taller/aeronavegabilidad" element={<ProtectedTaller><TallerLayoutAuto><TallerAeronavegabilidad /></TallerLayoutAuto></ProtectedTaller>} />
           <Route path="/taller/inventario"        element={<ProtectedTaller><TallerLayoutAuto><TallerInventario /></TallerLayoutAuto></ProtectedTaller>} />
+
+          <Route path="/dueno" element={<ProtectedDueno><DuenoDashboard /></ProtectedDueno>} />
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

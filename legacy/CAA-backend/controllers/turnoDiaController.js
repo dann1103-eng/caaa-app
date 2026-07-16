@@ -7,6 +7,12 @@
 const db = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
 const { logAuditoria } = require("../utils/auditoria");
+const { notificarStaff } = require("../utils/webpush");
+
+function pushCicloTurno(user, title, body) {
+  notificarStaff({ title, body, url: "/turno", tag: "turno-dia" }, { excluirUid: user?.id_usuario })
+    .catch((e) => console.error("push turno-dia:", e.message));
+}
 
 const HOY_SV = `(NOW() AT TIME ZONE 'America/El_Salvador')::date`;
 
@@ -128,6 +134,7 @@ exports.abrirTurno = catchAsync(async (req, res) => {
 
     await client.query("COMMIT");
     emitirCambio(req);
+    pushCicloTurno(user, "🟢 Turno abierto", `Operaciones abiertas con ${instructores.length} instructor(es).`);
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");
@@ -153,6 +160,7 @@ exports.pausarTurno = catchAsync(async (req, res) => {
     await registrarEvento(client, "PAUSA", user, req.body?.detalle || "Pausa de almuerzo");
     await client.query("COMMIT");
     emitirCambio(req);
+    pushCicloTurno(user, "⏸️ Turno en pausa", req.body?.detalle || "Pausa de almuerzo.");
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");
@@ -178,6 +186,7 @@ exports.reanudarTurno = catchAsync(async (req, res) => {
     await registrarEvento(client, "REANUDACION", user);
     await client.query("COMMIT");
     emitirCambio(req);
+    pushCicloTurno(user, "▶️ Turno reanudado", "Operaciones reanudadas tras la pausa.");
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");
@@ -238,6 +247,7 @@ exports.cambioTurno = catchAsync(async (req, res) => {
 
     await client.query("COMMIT");
     emitirCambio(req);
+    pushCicloTurno(user, "🔄 Cambio de turno", `Entra el turno de la tarde (${instructores.length} instructor(es)).`);
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");
@@ -277,6 +287,7 @@ exports.cerrarTurno = catchAsync(async (req, res) => {
 
     await client.query("COMMIT");
     emitirCambio(req);
+    pushCicloTurno(user, "🔴 Turno cerrado", "Operaciones del día cerradas.");
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");

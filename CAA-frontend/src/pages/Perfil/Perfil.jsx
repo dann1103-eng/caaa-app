@@ -62,6 +62,7 @@ export default function Perfil() {
     else if (rol === "TURNO") navigate("/turno");
     else if (rol === "ADMINISTRACION") navigate("/administracion/dashboard");
     else if (rol === "TALLER") navigate("/taller/dashboard");
+    else if (rol === "DUENO") navigate("/dueno");
     else navigate("/admin/dashboard");
   };
 

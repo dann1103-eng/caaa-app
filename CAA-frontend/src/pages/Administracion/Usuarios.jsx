@@ -14,6 +14,7 @@ const ROLES_PERSONAL = [
   { v: "TURNO",          t: "Turno" },
   { v: "INSTRUCTOR",     t: "Instructor" },
   { v: "ADMIN",          t: "Administrador del sistema" },
+  { v: "DUENO",          t: "Dueño (solo lectura)" },
 ];
 
 const EMPTY_ALUMNO = {

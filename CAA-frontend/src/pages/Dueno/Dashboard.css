@@ -1,0 +1,203 @@
+@import "../../styles/tokens.css";
+
+/* Dashboard del dueño: mobile-first, letra grande, alto contraste, sin
+   acciones — es un vistazo pasivo, no una consola de operación. */
+
+.duo {
+  min-height: 100vh;
+  background: var(--c-surface-2);
+  font-family: var(--font-sans);
+  font-size: 19px;
+  line-height: 1.4;
+}
+
+.duo__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--c-brand-900);
+  color: #fff;
+  padding: 18px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.duo__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.duo__brand-logo { width: 32px; height: 32px; object-fit: contain; }
+
+.duo__clock {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.duo__main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 18px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.duo__push {
+  background: var(--c-brand-700);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  text-align: center;
+}
+
+.duo__push-text {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.duo__push-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  width: 100%;
+  padding: 16px;
+  font-size: 19px;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  border: none;
+  background: #fff;
+  color: var(--c-brand-700);
+  cursor: pointer;
+}
+.duo__push-btn:disabled { opacity: 0.6; }
+
+.duo__card {
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.duo__card-title {
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-ink-3);
+}
+
+/* ── Estado de operaciones ── */
+.duo__estado {
+  align-items: center;
+  text-align: center;
+  padding: 22px 18px;
+  border-width: 2px;
+}
+.duo__estado-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--c-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.duo__estado-valor {
+  font-size: 28px;
+  font-weight: 800;
+}
+.duo__estado-motivo {
+  font-size: 17px;
+  color: var(--c-ink-2);
+}
+
+.duo__estado.duo__pill--activo .duo__estado-valor { color: var(--c-success-700); }
+.duo__estado.duo__pill--pausa .duo__estado-valor { color: oklch(55% 0.15 75); }
+.duo__estado.duo__pill--cerrado .duo__estado-valor { color: var(--c-ink-2); }
+.duo__estado.duo__pill--suspendido .duo__estado-valor { color: var(--c-danger-700); }
+.duo__estado.duo__pill--activo { border-color: var(--c-success-500); }
+.duo__estado.duo__pill--suspendido { border-color: var(--c-danger-500); }
+
+/* ── Turno de hoy ── */
+.duo__turno-estado {
+  font-size: 22px;
+  font-weight: 700;
+}
+.duo__capitanes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.duo__capitan-chip {
+  background: var(--c-surface-3);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ── Vuelos de hoy ── */
+.duo__vacio {
+  margin: 0;
+  font-size: 17px;
+  color: var(--c-ink-3);
+}
+.duo__vuelos {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.duo__vuelo {
+  border-top: 1px solid var(--c-line-1);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.duo__vuelo:first-child { border-top: none; padding-top: 0; }
+.duo__vuelo-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.duo__vuelo-hora {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--c-brand-700);
+}
+.duo__vuelo-aero {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+}
+.duo__vuelo-personas {
+  font-size: 18px;
+}
+.duo__vuelo-sep { color: var(--c-ink-4); margin: 0 4px; }
+.duo__vuelo-estado {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--c-ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+@media (min-width: 720px) {
+  .duo { font-size: 20px; }
+}

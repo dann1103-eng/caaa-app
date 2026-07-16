@@ -1,6 +1,7 @@
 const db = require("../../config/db");
 const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor, getSemanaActual, registrarHorasInstructor } = require("../../utils/instructorHelpers");
+const { notificarStaff } = require("../../utils/webpush");
 
 const NEXT_ESTADO_INSTRUCTOR = {
   PUBLICADO:      "SALIDA_HANGAR",
@@ -351,6 +352,36 @@ exports.avanzarEstadoVuelo = async (req, res) => {
           id_alumno: vuelo.id_alumno,
         });
       }
+    }
+
+    // Push a todo el staff: salidas/entradas al hangar y finalización del vuelo.
+    // Este es el path del INSTRUCTOR (el normal/mayoritario); antes solo el path
+    // de Turno (respaldo) disparaba push, así que la mayoría de cambios de
+    // estado nunca notificaban a nadie.
+    if (["SALIDA_HANGAR", "REGRESO_HANGAR", "COMPLETADO"].includes(nuevoEstado)) {
+      (async () => {
+        try {
+          const info = await db.query(
+            `SELECT ae.codigo AS aeronave, u.nombre || ' ' || u.apellido AS alumno
+               FROM vuelo v
+               JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
+               LEFT JOIN alumno al ON al.id_alumno = v.id_alumno
+               LEFT JOIN usuario u ON u.id_usuario = al.id_usuario
+              WHERE v.id_vuelo = $1`, [id_vuelo]
+          );
+          const x = info.rows[0] || {};
+          const titulos = {
+            SALIDA_HANGAR: "🛫 Salida de hangar",
+            REGRESO_HANGAR: "🛬 Regreso a hangar",
+            COMPLETADO: "✅ Vuelo completado",
+          };
+          await notificarStaff({
+            title: titulos[nuevoEstado],
+            body: `${x.aeronave || "Aeronave"}${x.alumno ? " · " + x.alumno : ""}`,
+            url: "/turno", tag: "vuelo-estado",
+          }, { excluirUid: user?.id_usuario });
+        } catch (e) { console.error("push vuelo-estado (instructor):", e.message); }
+      })();
     }
 
     res.json({

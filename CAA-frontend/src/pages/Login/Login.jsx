@@ -64,6 +64,7 @@ export default function Login() {
       else if (user.rol === "INSTRUCTOR") navigate(user.es_instructor_vuelo === false ? "/instructor/aula-virtual" : "/instructor");
       else if (user.rol === "ADMINISTRACION") navigate("/administracion/dashboard");
       else if (user.rol === "TALLER") navigate("/taller/dashboard");
+      else if (user.rol === "DUENO") navigate("/dueno");
     } catch (err) {
       toast.error(mensajeErrorLogin(err));
     }

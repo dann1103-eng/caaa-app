@@ -24,6 +24,7 @@ export default function Header() {
     if (rol === "ALUMNO") return "/alumno/dashboard";
     if (rol === "TURNO") return "/turno";
     if (rol === "INSTRUCTOR") return "/instructor";
+    if (rol === "DUENO") return "/dueno";
     return "/login";
   };
 
