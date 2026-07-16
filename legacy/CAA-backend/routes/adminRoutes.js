@@ -59,6 +59,9 @@ router.put("/aeronaves/registro/:id", aeronaveEscritura, adminAeronave.actualiza
 router.delete("/aeronaves/registro/:id", aeronaveEscritura, adminAeronave.darDeBajaAeronave);
 router.post("/aeronaves/registro/:id/reactivar", aeronaveEscritura, adminAeronave.reactivarAeronave);
 router.get("/aeronaves/registro/:id/vuelos", aeronaveLectura, adminAeronave.getVuelosAeronave);
+// Qué licencias pueden volar esta aeronave. Es la fuente de verdad que consultan
+// tanto el alumno al pedir horas como el staff al agendar.
+router.put("/aeronaves/registro/:id/licencias", aeronaveEscritura, adminAeronave.setLicenciasAeronave);
 
 // --- Mantenimiento ---
 router.get("/mantenimiento", adminAccess, adminMantenimiento.getMantenimientoAeronaves);

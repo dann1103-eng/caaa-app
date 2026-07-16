@@ -372,3 +372,87 @@ exports.getVuelosAeronave = catchAsync(async (req, res) => {
   `, [id, limite]);
   res.json(r.rows);
 });
+
+/**
+ * Reemplaza qué licencias pueden volar esta aeronave (tabla licencia_aeronave).
+ *
+ * Esta tabla es la ÚNICA fuente de verdad de "quién puede pedir qué avión": la
+ * consultan igual el alumno (agendarController.getAeronavesPermitidas) y el staff
+ * (adminUsuarioController.getAeronavesPermitidasAlumno), con el mismo JOIN. El
+ * único filtro extra en ambos lados es aeronave.activa = true. Hasta ahora solo se
+ * tocaba por SQL, y por eso un alumno al que le faltaba un avión terminaba
+ * "arreglándose" cambiándole la licencia — lo que le ensucia las horas, porque
+ * id_licencia también manda en el avance hacia su licencia.
+ *
+ * Se hace DELETE + INSERT del set completo (no un diff) porque la tabla es una
+ * relación N:N pelada con PK compuesta: el estado deseado ES la lista que llega.
+ */
+exports.setLicenciasAeronave = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { licencias } = req.body;
+
+  if (!Array.isArray(licencias)) {
+    return res.status(400).json({ message: "Se espera un arreglo 'licencias' con los id_licencia." });
+  }
+  // Se normaliza a enteros únicos: un id repetido reventaría la PK compuesta con
+  // un 23505 críptico, y un no-numérico daría un error de tipo en el INSERT.
+  const ids = [...new Set(licencias.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const ae = await client.query(`SELECT id_aeronave, codigo FROM aeronave WHERE id_aeronave = $1 FOR UPDATE`, [id]);
+    if (ae.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Aeronave no encontrada" });
+    }
+
+    if (ids.length > 0) {
+      const existen = await client.query(`SELECT id_licencia FROM licencia WHERE id_licencia = ANY($1::int[])`, [ids]);
+      if (existen.rows.length !== ids.length) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "Hay id_licencia que no existen." });
+      }
+    }
+
+    const antes = await client.query(
+      `SELECT id_licencia FROM licencia_aeronave WHERE id_aeronave = $1 ORDER BY id_licencia`, [id]
+    );
+
+    await client.query(`DELETE FROM licencia_aeronave WHERE id_aeronave = $1`, [id]);
+    if (ids.length > 0) {
+      await client.query(
+        `INSERT INTO licencia_aeronave (id_licencia, id_aeronave)
+         SELECT x, $1 FROM unnest($2::int[]) AS x`,
+        [id, ids]
+      );
+    }
+
+    await logAuditoria(client, {
+      accion: "OTRO",
+      entidad: "aeronave",
+      id_entidad: Number(id),
+      actor: req.user,
+      req,
+      descripcion: `Licencias habilitadas de ${ae.rows[0].codigo}`,
+      metadata: { before: antes.rows.map((r) => r.id_licencia), after: ids },
+    });
+
+    await client.query("COMMIT");
+
+    const out = await db.query(
+      `SELECT l.id_licencia, l.nombre
+         FROM licencia_aeronave la
+         JOIN licencia l ON l.id_licencia = la.id_licencia
+        WHERE la.id_aeronave = $1
+        ORDER BY l.id_licencia`, [id]
+    );
+    res.json(out.rows);
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
