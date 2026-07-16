@@ -410,12 +410,20 @@ export default function InstructorDashboard() {
           if (duracion_estimada_min != null) updated.duracion_estimada_min = duracion_estimada_min;
           if (tiempo_vuelo_min != null) updated.tiempo_vuelo_min = tiempo_vuelo_min;
           if (es_inasistencia != null) updated.es_inasistencia = es_inasistencia;
-          
-          // Si el estado cambió a COMPLETADO, abrimos automáticamente el reporte
+
+          // Al llegar a COMPLETADO, el checklist post-vuelo es obligatorio y va
+          // PRIMERO — el backend rechaza firmar el reporte sin él (400). Antes
+          // esto abría directo el reporte (la "vouchera"), saltándose el
+          // checklist si el instructor completaba el vuelo con el botón
+          // "Finalizar Vuelo" en vez de por el flujo del checklist.
           if (estado === "COMPLETADO" && v.estado !== "COMPLETADO") {
-            setReporteModal(updated);
+            if (updated.es_inasistencia || updated.checklist_completado) {
+              setReporteModal(updated);
+            } else {
+              setChecklistModal({ vuelo: updated, tiempoMin: parseInt(updated.tiempo_vuelo_min, 10) || 0 });
+            }
           }
-          
+
           return updated;
         })
       );
