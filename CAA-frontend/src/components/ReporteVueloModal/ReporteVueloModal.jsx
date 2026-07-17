@@ -132,20 +132,22 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   const tacDiff = !isNaN(tacSal) && !isNaN(tacLle) && tacLle > tacSal ? tacLle - tacSal : null;
 
   function setField(key, val) {
-    const numericFields = [
+    // El Hobbs físico solo tiene 1 decimal (décimas de hora, ej. 1234.5) — el
+    // tacómetro y el resto sí se leen en centésimas (hasta 2 decimales).
+    const camposUnDecimal = ["hobbs_salida", "hobbs_llegada"];
+    const camposDosDecimales = [
       "tacometro_salida", "tacometro_llegada",
-      "hobbs_salida", "hobbs_llegada",
       "combustible_salida", "combustible_llegada",
       "cantidad_combustible", "horas_cobradas"
     ];
 
-    if (numericFields.includes(key)) {
-      // Permitir números con hasta 2 decimales (tacómetro/hobbs se leen en centésimas
-      // de hora, no solo décimas), sin límite de dígitos enteros
+    if (camposUnDecimal.includes(key)) {
+      // Sin límite de dígitos enteros (algunos medidores superan los 4 dígitos).
+      const regex = /^\d*(\.\d{0,1})?$/;
+      if (val !== "" && !regex.test(val)) return;
+    } else if (camposDosDecimales.includes(key)) {
       const regex = /^\d*(\.\d{0,2})?$/;
-      if (val !== "" && !regex.test(val)) {
-        return; // Ignorar cambio si no cumple el formato
-      }
+      if (val !== "" && !regex.test(val)) return;
     }
 
     setDatos((prev) => ({ ...prev, [key]: val }));
