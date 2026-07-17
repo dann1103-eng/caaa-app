@@ -496,6 +496,13 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos }) {
 
   const horas = (n) => (n == null ? "" : Number(n).toFixed(2));
   // TAC si existe; si no (simulador, o reporte viejo sin TAC) cae a horas_cobradas.
+  // Orden a propósito e INVERSO al de instructorReporteController.js (cobro, ~L353):
+  // ahí se prioriza horas_cobradas (estimación de facturación que digita el
+  // instructor); acá se prioriza TAC (lectura física del instrumento) porque el
+  // objetivo es cuánto duró la operación, no cuánto se cobró. Invertir esto no
+  // rompería nada visible en el simulador (ahí TAC ya es NULL de cualquier forma) —
+  // silenciosamente convertiría "Horas" en una cuasi-columna de facturación para
+  // TODO avión real, sin ningún error que lo delate.
   const horaFila = (v) => {
     if (v.tac_ini != null && v.tac_fin != null) return Number(v.tac_fin) - Number(v.tac_ini);
     if (v.horas_cobradas != null) return Number(v.horas_cobradas);
