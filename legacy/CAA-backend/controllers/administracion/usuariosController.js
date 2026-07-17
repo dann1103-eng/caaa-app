@@ -219,7 +219,7 @@ exports.editarPersonal = async (req, res) => {
     }
 
     await client.query("BEGIN");
-    const uRes = await client.query(`SELECT id_usuario, nombre, apellido FROM usuario WHERE id_usuario = $1 FOR UPDATE`, [id_usuario]);
+    const uRes = await client.query(`SELECT id_usuario, nombre, apellido, rol FROM usuario WHERE id_usuario = $1 FOR UPDATE`, [id_usuario]);
     if (!uRes.rows.length) {
       await client.query("ROLLBACK");
       return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -275,7 +275,13 @@ exports.editarPersonal = async (req, res) => {
       }
     }
 
-    if (rolFinal === 'INSTRUCTOR') {
+    // Auto-reparación: si el rol EFECTIVO (el que se está fijando ahora, o si no
+    // se tocó en este edit, el que ya tenía) es INSTRUCTOR pero por algún motivo
+    // histórico le falta su fila `instructor` (ej. datos cargados por SQL antes
+    // de que existiera esta lógica), se crea acá — no hace falta re-tocar el rol
+    // a mano para que el instructor deje de estar "invisible" en turno/alumnos.
+    const rolEfectivo = rolFinal || uRes.rows[0].rol;
+    if (rolEfectivo === 'INSTRUCTOR') {
       await asegurarInstructorTx(client, id_usuario);
     }
 
