@@ -260,10 +260,17 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     let duracionMin = null;
 
     if (nuevoEstado === "SALIDA_HANGAR") {
+      // tiempo_ruta pasó de INTERVAL a texto libre (migración 20260713000005 —
+      // el alumno lo escribe a mano en el Plan de Vuelo, no tiene formato
+      // garantizado). EXTRACT(EPOCH FROM tiempo_ruta) sobre un VARCHAR revienta
+      // con un error de tipo de Postgres — antes tumbaba TODA la transacción
+      // (el instructor no podía ni dar salida de hangar). Se intenta el cast
+      // solo si el texto tiene pinta de H:MM[:SS]; si no calza, se cae al
+      // fallback de bloque_horario de siempre.
       const planRes = await client.query(
-        `SELECT ROUND(EXTRACT(EPOCH FROM tiempo_ruta) / 60)::int AS minutos
+        `SELECT ROUND(EXTRACT(EPOCH FROM tiempo_ruta::interval) / 60)::int AS minutos
          FROM plan_vuelo
-         WHERE id_vuelo = $1 AND tiempo_ruta IS NOT NULL`,
+         WHERE id_vuelo = $1 AND tiempo_ruta ~ '^\\d{1,2}:\\d{2}(:\\d{2})?$'`,
         [id_vuelo]
       );
 
