@@ -1477,15 +1477,23 @@ llamarse `m` (por eso el LATERAL vecino se renombró `mact`; costó un `column m
 ## 23. Sesión 2026-07-16 (2ª tanda) — Scroll de Proyección, capacidades del instructor al crear, límite de vuelos POR DÍA, fix del botón de solicitudes, y reset de contraseña de alumnos
 
 Pedidos de Daniel al cierre del día + un bug que le bloqueaba las pruebas. **Migración `20260716000004`
-aplicada**. **A/B/C/D desplegados y verificados en producción** (backend `railway up` + frontend Vercel);
-**E (reset de contraseña de alumno) queda SIN desplegar** — requiere `git push` + `railway up` (§3).
+aplicada**. **A/B/C/D/E desplegados y verificados en producción** (backend `railway up` + frontend Vercel).
 
 > 🚨 **Vercel dejó de auto-desplegar el 2026-07-16 ~16:19.** Desplegó los commits de Samuel de 16:01/16:11/
 > 16:19 y después **nada**, pese a 2 pushes (sin builds fallidos ni encolados: no se dispara ninguno). La
 > integración Git existe (el deploy de 16:19 tiene el alias `caaa-app-git-master-caaa.vercel.app`, que Vercel
 > solo crea en deploys por Git) ⇒ es la entrega del webhook de su GitHub App, que **no se ve ni se arregla
 > desde el CLI**: hay que mirar el dashboard (Settings → Git). **Workaround usado: `vercel --prod --scope caaa`
-> manual.**
+> manual** para los pushes `4ab562d`(17:00) y el merge con `fc8d0f8`(17:11).
+>
+> **Se recuperó solo, sin ninguna acción**: el push del merge `ef42a5f` (17:50, trae `95224d4` + el
+> `a0c73f2` de Samuel) **nunca se desplegó a mano** — solo se corrió `railway up` para el backend — y aun
+> así apareció "Ready" en el dashboard de Vercel poco después, confirmado con el bundle real servido en
+> `caaa-app.vercel.app` (`index-DZVX9qH4.js`, contiene `DUENO`/`limite_vuelos_dia`/`salida_anticipada`/
+> "Resetear contraseña" — o sea el trabajo de ambos, mío y de Samuel). Probablemente fue un retraso puntual
+> de entrega del webhook, no una desconexión real. **Si vuelve a pasar**: mismo diagnóstico (¿tiene el
+> alias `-git-`? ¿hay builds en `BUILDING`/`QUEUED`/`ERROR`? ¿cuántos deploys hoy?) antes de asumir que
+> hace falta el manual.
 >
 > ⚠️ **Y el deploy manual falla con `ECONNRESET` si no se acota el upload.** El CLI sube **archivos locales** y
 > lee `.vercelignore` (o `.gitignore` si no hay), **pero NO lee `.git/info/exclude`** — que es justo donde está
