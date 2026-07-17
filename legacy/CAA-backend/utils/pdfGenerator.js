@@ -384,7 +384,12 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
     return `${ent.padStart(4, "0")}.${dec}`;
   };
   const horaReal = (iso) =>
-    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/El_Salvador" }) : "—";
+    // hourCycle explícito (no basta con hour12:false): el ICU del contenedor
+    // de Railway mostraba "24:02" en vez de "00:02" para la medianoche —
+    // hour12:false deja el hourCycle ambiguo y algunas builds de ICU resuelven
+    // a h24 (1-24) en vez de h23 (0-23). hourCycle:"h23" fuerza 0-23 sin
+    // depender de qué versión de ICU trae el runtime.
+    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "America/El_Salvador" }) : "—";
   // Columnas: [titulo, ancho, align]
   const cols = [
     ["Fecha", 46, "left"], ["Número", 36, "right"], ["Alumno", 145, "left"],
@@ -566,7 +571,12 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
     return null;
   };
   const horaReal = (iso) =>
-    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/El_Salvador" }) : "—";
+    // hourCycle explícito (no basta con hour12:false): el ICU del contenedor
+    // de Railway mostraba "24:02" en vez de "00:02" para la medianoche —
+    // hour12:false deja el hourCycle ambiguo y algunas builds de ICU resuelven
+    // a h24 (1-24) en vez de h23 (0-23). hourCycle:"h23" fuerza 0-23 sin
+    // depender de qué versión de ICU trae el runtime.
+    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "America/El_Salvador" }) : "—";
   const cols = [
     ["Fecha", 55, "left"], ["Número", 45, "right"], ["Alumno", 210, "left"],
     ["Salida", 40, "right"], ["Llegada", 45, "right"],
