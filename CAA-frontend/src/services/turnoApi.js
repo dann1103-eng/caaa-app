@@ -128,3 +128,13 @@ export const cerrarTurnoDia = async () => {
   const res = await axios.post(`${API_URL}/turno/dia/cerrar`);
   return res.data;
 };
+
+export const agregarInstructorTurnoDia = async (instructores) => {
+  const res = await axios.post(`${API_URL}/turno/dia/asistencia`, { instructores });
+  return res.data;
+};
+
+export const marcarSalidaInstructorTurno = async (id_asistencia) => {
+  const res = await axios.post(`${API_URL}/turno/dia/asistencia/${id_asistencia}/salida`);
+  return res.data;
+};

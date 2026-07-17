@@ -296,3 +296,104 @@ exports.cerrarTurno = catchAsync(async (req, res) => {
     client.release();
   }
 });
+
+// ── POST /turno/dia/asistencia { instructores: [id_instructor] } ────────────
+// Agrega instructor(es) al turno YA abierto (llegó tarde, refuerzo de último
+// momento) sin forzar un "cambio de turno" completo. Se suman al grupo
+// actualmente activo (MANANA, o TARDE si ya hubo cambio de turno hoy).
+exports.agregarInstructorTurno = catchAsync(async (req, res) => {
+  const user = req.user;
+  const instructores = (Array.isArray(req.body.instructores) ? req.body.instructores : [])
+    .map(Number).filter((n) => !isNaN(n));
+  if (instructores.length === 0) {
+    return res.status(400).json({ message: "Seleccioná al menos un instructor para agregar." });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const diaRes = await client.query(`SELECT estado FROM turno_dia WHERE fecha = ${HOY_SV} FOR UPDATE`);
+    if (diaRes.rows.length === 0 || diaRes.rows[0].estado === "CERRADO") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "El turno de hoy no está abierto." });
+    }
+
+    const tardeRes = await client.query(
+      `SELECT 1 FROM turno_asistencia WHERE fecha = ${HOY_SV} AND turno = 'TARDE' LIMIT 1`
+    );
+    const turnoActivo = tardeRes.rows.length > 0 ? "TARDE" : "MANANA";
+
+    for (const idIns of instructores) {
+      await client.query(
+        `INSERT INTO turno_asistencia (fecha, turno, id_instructor, registrado_por)
+         VALUES (${HOY_SV}, $1, $2, $3)
+         ON CONFLICT (fecha, turno, id_instructor) DO UPDATE SET salida_en = NULL`,
+        [turnoActivo, idIns, user?.id_usuario ?? null]
+      );
+    }
+
+    await registrarEvento(client, "AJUSTE_ASISTENCIA", user, `Se agregaron ${instructores.length} instructor(es) al turno (${turnoActivo === "MANANA" ? "mañana" : "tarde"})`);
+    await logAuditoria(client, {
+      accion: "OTRO", entidad: "operaciones", actor: user, req,
+      descripcion: `Turno: se agregaron ${instructores.length} instructor(es) al turno en curso`,
+    });
+
+    await client.query("COMMIT");
+    emitirCambio(req);
+    pushCicloTurno(user, "➕ Instructor agregado al turno", `Se sumaron ${instructores.length} instructor(es) al turno en curso.`);
+    res.json(await getEstadoDia());
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// ── POST /turno/dia/asistencia/:id_asistencia/salida ─────────────────────────
+// Marca la salida de un instructor puntual (se retiró antes, o se lo
+// reemplaza) sin afectar al resto del turno ni su estado.
+exports.marcarSalidaInstructor = catchAsync(async (req, res) => {
+  const user = req.user;
+  const { id_asistencia } = req.params;
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const diaRes = await client.query(`SELECT estado FROM turno_dia WHERE fecha = ${HOY_SV} FOR UPDATE`);
+    if (diaRes.rows.length === 0 || diaRes.rows[0].estado === "CERRADO") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "El turno de hoy no está abierto." });
+    }
+
+    const r = await client.query(
+      `UPDATE turno_asistencia SET salida_en = NOW()
+       WHERE id_asistencia = $1 AND fecha = ${HOY_SV} AND salida_en IS NULL
+       RETURNING id_asistencia, turno,
+         (SELECT u.nombre || ' ' || u.apellido FROM instructor i JOIN usuario u ON u.id_usuario = i.id_usuario WHERE i.id_instructor = turno_asistencia.id_instructor) AS nombre`,
+      [Number(id_asistencia)]
+    );
+    if (r.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Esa asistencia no existe, es de otro día, o ya tiene salida registrada." });
+    }
+
+    const { turno, nombre } = r.rows[0];
+    await registrarEvento(client, "AJUSTE_ASISTENCIA", user, `Salida puntual de ${nombre} (turno ${turno === "MANANA" ? "mañana" : "tarde"})`);
+    await logAuditoria(client, {
+      accion: "OTRO", entidad: "operaciones", actor: user, req,
+      descripcion: `Turno: salida puntual de ${nombre}`,
+    });
+
+    await client.query("COMMIT");
+    emitirCambio(req);
+    res.json(await getEstadoDia());
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});

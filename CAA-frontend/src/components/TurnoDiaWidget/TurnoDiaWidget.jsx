@@ -8,6 +8,8 @@ import {
   reanudarTurnoDia,
   cambioTurnoDia,
   cerrarTurnoDia,
+  agregarInstructorTurnoDia,
+  marcarSalidaInstructorTurno,
 } from "../../services/turnoApi";
 import "../SuspenderOperacionesModal/SuspenderOperacionesModal.css";
 import "./TurnoDiaWidget.css";
@@ -24,8 +26,11 @@ function formatHora(ts) {
   });
 }
 
-// Modal de selección de instructores (apertura y cambio de turno).
-function SeleccionInstructoresModal({ titulo, hint, onClose, onConfirm }) {
+// Modal de selección de instructores (apertura, cambio de turno, y agregar
+// instructor al turno ya abierto). `excluirIds` oculta a quienes ya están
+// activos en el turno en curso (no tiene sentido "agregar" a alguien que ya
+// está adentro).
+function SeleccionInstructoresModal({ titulo, hint, excluirIds = [], onClose, onConfirm }) {
   const [instructores, setInstructores] = useState([]);
   const [seleccion, setSeleccion] = useState([]);
   const [filtro, setFiltro] = useState("");
@@ -43,9 +48,9 @@ function SeleccionInstructoresModal({ titulo, hint, onClose, onConfirm }) {
     setSeleccion((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const visibles = instructores.filter((i) =>
-    i.nombre_completo.toLowerCase().includes(filtro.toLowerCase())
-  );
+  const visibles = instructores
+    .filter((i) => !excluirIds.includes(i.id_instructor))
+    .filter((i) => i.nombre_completo.toLowerCase().includes(filtro.toLowerCase()));
 
   const handleConfirm = async () => {
     if (seleccion.length === 0) {
@@ -130,6 +135,7 @@ export default function TurnoDiaWidget() {
   const manana = asistencias.filter((a) => a.turno === "MANANA");
   const tarde = asistencias.filter((a) => a.turno === "TARDE");
   const huboCambio = tarde.length > 0;
+  const activos = asistencias.filter((a) => !a.salida_en);
 
   const accion = async (fn, okMsg) => {
     setWorking(true);
@@ -148,8 +154,14 @@ export default function TurnoDiaWidget() {
     accion(() => abrirTurnoDia(ids), "Turno abierto — entrada registrada").then(() => setModal(null));
   const handleCambio = (ids) =>
     accion(() => cambioTurnoDia(ids), "Cambio de turno registrado").then(() => setModal(null));
+  const handleAgregar = (ids) =>
+    accion(() => agregarInstructorTurnoDia(ids), "Instructor(es) agregado(s) al turno").then(() => setModal(null));
   const handlePausa = () => accion(pausarTurnoDia, "Turno en pausa (almuerzo)");
   const handleReanudar = () => accion(reanudarTurnoDia, "Turno reanudado");
+  const handleSalidaInstructor = (a) => {
+    if (!window.confirm(`¿Marcar la salida de ${a.nombre_completo}?`)) return;
+    accion(() => marcarSalidaInstructorTurno(a.id_asistencia), `Salida registrada — ${a.nombre_completo}`);
+  };
   const handleCerrar = () => {
     if (!window.confirm("¿Cerrar el turno del día? Se registra la salida de los instructores presentes.")) return;
     accion(cerrarTurnoDia, "Turno cerrado");
@@ -188,6 +200,9 @@ export default function TurnoDiaWidget() {
           )}
           {estado === "ABIERTO" && (
             <>
+              <button className="trn__ops-btn" disabled={working} onClick={() => setModal("agregar")}>
+                <i className="bi bi-person-plus" style={{ marginRight: 6 }} />Agregar instructor
+              </button>
               <button className="trn__ops-btn" disabled={working} onClick={handlePausa}>
                 <i className="bi bi-cup-hot" style={{ marginRight: 6 }} />Pausa almuerzo
               </button>
@@ -203,6 +218,9 @@ export default function TurnoDiaWidget() {
           )}
           {estado === "EN_PAUSA" && (
             <>
+              <button className="trn__ops-btn" disabled={working} onClick={() => setModal("agregar")}>
+                <i className="bi bi-person-plus" style={{ marginRight: 6 }} />Agregar instructor
+              </button>
               <button className="trn__ops-btn trn__ops-btn--primary" disabled={working} onClick={handleReanudar}>
                 <i className="bi bi-play-circle" style={{ marginRight: 6 }} />Reanudar
               </button>
@@ -230,6 +248,16 @@ export default function TurnoDiaWidget() {
                 <span key={a.id_asistencia} className={`tdw__chip ${a.salida_en ? "tdw__chip--salio" : ""}`}>
                   {a.nombre_completo}
                   <b>{formatHora(a.entrada_en)}{a.salida_en ? ` – ${formatHora(a.salida_en)}` : ""}</b>
+                  {!a.salida_en && (estado === "ABIERTO" || estado === "EN_PAUSA") && (
+                    <button
+                      className="tdw__chip-salida"
+                      title={`Marcar salida de ${a.nombre_completo}`}
+                      disabled={working}
+                      onClick={() => handleSalidaInstructor(a)}
+                    >
+                      &times;
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
@@ -241,6 +269,16 @@ export default function TurnoDiaWidget() {
                 <span key={a.id_asistencia} className={`tdw__chip ${a.salida_en ? "tdw__chip--salio" : ""}`}>
                   {a.nombre_completo}
                   <b>{formatHora(a.entrada_en)}{a.salida_en ? ` – ${formatHora(a.salida_en)}` : ""}</b>
+                  {!a.salida_en && (estado === "ABIERTO" || estado === "EN_PAUSA") && (
+                    <button
+                      className="tdw__chip-salida"
+                      title={`Marcar salida de ${a.nombre_completo}`}
+                      disabled={working}
+                      onClick={() => handleSalidaInstructor(a)}
+                    >
+                      &times;
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
@@ -262,6 +300,15 @@ export default function TurnoDiaWidget() {
           hint="Se marca la salida de los instructores de la mañana y la entrada de los que seleccionés para la tarde."
           onClose={() => setModal(null)}
           onConfirm={handleCambio}
+        />
+      )}
+      {modal === "agregar" && (
+        <SeleccionInstructoresModal
+          titulo="Agregar instructor al turno"
+          hint={`Se suma al turno de ${huboCambio ? "la tarde" : "la mañana"}, ya en curso — no afecta a quienes ya están adentro.`}
+          excluirIds={activos.map((a) => a.id_instructor)}
+          onClose={() => setModal(null)}
+          onConfirm={handleAgregar}
         />
       )}
     </div>

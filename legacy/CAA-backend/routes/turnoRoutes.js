@@ -48,4 +48,10 @@ router.post("/dia/reanudar", authMiddleware, turnoMantAccess, turnoDia.reanudarT
 router.post("/dia/cambio", authMiddleware, turnoMantAccess, turnoDia.cambioTurno);
 router.post("/dia/cerrar", authMiddleware, turnoMantAccess, turnoDia.cerrarTurno);
 
+// Ajustes puntuales de asistencia dentro del turno YA abierto (agregar a
+// alguien que llegó tarde, o marcar la salida de uno solo) sin forzar un
+// cambio de turno completo.
+router.post("/dia/asistencia", authMiddleware, turnoMantAccess, turnoDia.agregarInstructorTurno);
+router.post("/dia/asistencia/:id_asistencia/salida", authMiddleware, turnoMantAccess, turnoDia.marcarSalidaInstructor);
+
 module.exports = router;
