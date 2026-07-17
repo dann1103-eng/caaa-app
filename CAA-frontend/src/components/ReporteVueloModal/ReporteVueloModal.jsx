@@ -30,6 +30,27 @@ function formatMedidor(val) {
   return `${ent.padStart(4, "0")}.${decLimpio}`;
 }
 
+// Cuántos dígitos enteros/decimales tiene cada medidor, para armar el punto
+// decimal solo: el instructor tipea puros números seguidos (sin el punto) y
+// acá se insertan 4 enteros + N decimales según el instrumento — tacómetro
+// se lee en centésimas (6 dígitos: 4+2), Hobbs en décimas (5 dígitos: 4+1).
+const MEDIDOR_DIGITOS = {
+  tacometro_salida:  { enteros: 4, decimales: 2 },
+  tacometro_llegada: { enteros: 4, decimales: 2 },
+  hobbs_salida:      { enteros: 4, decimales: 1 },
+  hobbs_llegada:     { enteros: 4, decimales: 1 },
+};
+
+// Toma el valor crudo del input (puede traer el punto que ya insertamos antes,
+// o uno que el instructor haya tecleado por su cuenta) y lo reconstruye desde
+// los puros dígitos: los primeros `enteros` dígitos son la parte entera, el
+// resto (hasta `decimales`) son la parte decimal.
+function maskMedidor(rawValue, { enteros, decimales }) {
+  const digits = rawValue.replace(/\D/g, "").slice(0, enteros + decimales);
+  if (digits.length <= enteros) return digits;
+  return `${digits.slice(0, enteros)}.${digits.slice(enteros)}`;
+}
+
 const DATOS_INICIALES = {
   tipo_vuelo: "",
   tacometro_salida: "",
@@ -132,20 +153,16 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   const tacDiff = !isNaN(tacSal) && !isNaN(tacLle) && tacLle > tacSal ? tacLle - tacSal : null;
 
   function setField(key, val) {
-    // El Hobbs físico solo tiene 1 decimal (décimas de hora, ej. 1234.5) — el
-    // tacómetro y el resto sí se leen en centésimas (hasta 2 decimales).
-    const camposUnDecimal = ["hobbs_salida", "hobbs_llegada"];
-    const camposDosDecimales = [
-      "tacometro_salida", "tacometro_llegada",
-      "combustible_salida", "combustible_llegada",
-      "cantidad_combustible", "horas_cobradas"
-    ];
+    // Tacómetro/Hobbs: el instructor solo tipea dígitos seguidos, el punto
+    // decimal se arma solo (4 enteros + N decimales según el instrumento).
+    if (MEDIDOR_DIGITOS[key]) {
+      setDatos((prev) => ({ ...prev, [key]: maskMedidor(val, MEDIDOR_DIGITOS[key]) }));
+      return;
+    }
 
-    if (camposUnDecimal.includes(key)) {
-      // Sin límite de dígitos enteros (algunos medidores superan los 4 dígitos).
-      const regex = /^\d*(\.\d{0,1})?$/;
-      if (val !== "" && !regex.test(val)) return;
-    } else if (camposDosDecimales.includes(key)) {
+    // Resto de campos numéricos: decimal libre (hasta 2), sin máscara.
+    const camposDosDecimales = ["combustible_salida", "combustible_llegada", "cantidad_combustible", "horas_cobradas"];
+    if (camposDosDecimales.includes(key)) {
       const regex = /^\d*(\.\d{0,2})?$/;
       if (val !== "" && !regex.test(val)) return;
     }
@@ -465,8 +482,8 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                   ) : (
                     <input
                       type="text"
-                      inputMode="decimal"
-                      placeholder="0000.0"
+                      inputMode={MEDIDOR_DIGITOS[key] ? "numeric" : "decimal"}
+                      placeholder={MEDIDOR_DIGITOS[key] ? "0".repeat(MEDIDOR_DIGITOS[key].enteros + MEDIDOR_DIGITOS[key].decimales) : "0000.0"}
                       className="rv-input"
                       value={datos[key]}
                       onChange={(e) => setField(key, e.target.value)}
