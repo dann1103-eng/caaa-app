@@ -14,7 +14,7 @@ import {
   limpiarUnicoTicker,
   getTicker,
   avanzarEstadoVuelo,
-  abrirReporteVuelosDia,
+  abrirReporteOperacionesDia,
   getFlotaMantenimiento,
   completarMantenimientoAeronave,
 } from "../../services/turnoApi";
@@ -399,7 +399,7 @@ export default function TurnoDashboard() {
   const handleReporteDia = async () => {
     setGenerandoReporte(true);
     try {
-      await abrirReporteVuelosDia(reporteFecha);
+      await abrirReporteOperacionesDia(reporteFecha);
     } catch {
       toast.error("No se pudo generar el reporte del día");
     } finally {
@@ -607,7 +607,7 @@ export default function TurnoDashboard() {
                 className="trn__ops-btn trn__ops-btn--primary"
                 disabled={generandoReporte}
                 onClick={handleReporteDia}
-                title="Vuelos completados del día agrupados por avión, con tacómetro, hobbs y monto"
+                title="Vuelos completados del día agrupados por avión, con tripulación y horas"
               >
                 <i className="bi bi-file-earmark-pdf" style={{ marginRight: 6 }}></i>
                 {generandoReporte ? "Generando…" : "Reporte del día"}
