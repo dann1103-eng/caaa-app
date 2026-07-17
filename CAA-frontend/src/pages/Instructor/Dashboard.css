@@ -703,6 +703,10 @@
   font-weight: 500;
 }
 
+.ins__empty--error {
+  color: var(--c-danger-700);
+}
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .ins { padding: 80px 24px; }

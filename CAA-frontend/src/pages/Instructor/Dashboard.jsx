@@ -445,6 +445,7 @@ export default function InstructorDashboard() {
 
   const [loadingVuelos, setLoadingVuelos]   = useState(true);
   const [loadingAlumnos, setLoadingAlumnos] = useState(true);
+  const [errorAlumnos, setErrorAlumnos]     = useState(null);
 
   // Checklist post-vuelo
   const [checklistModal, setChecklistModal] = useState(null); // { vuelo, tiempoMin }
@@ -486,8 +487,11 @@ export default function InstructorDashboard() {
   useEffect(() => {
     fetchVuelos();
     getMisAlumnos()
-      .then((data) => { setAlumnos(data.alumnos); setSemanaProxima(data.semana); })
-      .catch(() => {})
+      .then((data) => { setAlumnos(data.alumnos); setSemanaProxima(data.semana); setErrorAlumnos(null); })
+      // Antes un error acá (403/500) quedaba indistinguible de "no tenés
+      // alumnos": el catch estaba vacío y la lista arrancaba en []. Ahora se
+      // guarda el mensaje para mostrarlo distinto del estado vacío real.
+      .catch((e) => setErrorAlumnos(e?.response?.data?.message || "No se pudo cargar tus alumnos."))
       .finally(() => setLoadingAlumnos(false));
     getInstructoresVuelo().then(setInstructoresVuelo).catch(() => {});
     cargarReportesPendientes().finally(() => setLoadingReportes(false));
@@ -845,6 +849,8 @@ export default function InstructorDashboard() {
 
           {loadingAlumnos ? (
             <p className="ins__loading">Cargando alumnos…</p>
+          ) : errorAlumnos ? (
+            <p className="ins__empty ins__empty--error">⚠ {errorAlumnos}</p>
           ) : alumnos.length === 0 ? (
             <p className="ins__empty">No tenés alumnos asignados actualmente.</p>
           ) : (

@@ -9,8 +9,10 @@ export default function ProtectedInstructor({ children }) {
   if (user.rol !== "INSTRUCTOR") return <Navigate to="/" replace />;
 
   const path = location.pathname;
-  // Instructor solo-teoría: no entra a las pantallas de vuelo → al aula.
-  if (user.es_instructor_vuelo === false && (path === "/instructor" || path === "/instructor/solicitudes")) {
+  // Instructor solo-teoría: no entra a solicitudes de vuelo (no aplica).
+  // Sí entra a /instructor: ahí gestiona "Mis alumnos asignados" y asigna
+  // el instructor de vuelo real de cada uno (rol de cabecera).
+  if (user.es_instructor_vuelo === false && path === "/instructor/solicitudes") {
     return <Navigate to="/instructor/aula-virtual" replace />;
   }
   // Instructor solo-vuelo: no entra al aula → a su panel.
