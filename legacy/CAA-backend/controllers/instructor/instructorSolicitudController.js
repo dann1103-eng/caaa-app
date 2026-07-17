@@ -2,6 +2,7 @@ const db = require("../../config/db");
 const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor } = require("../../utils/instructorHelpers");
 const solicitudService = require("../../services/solicitudService");
+const { mantenimientoCubreFechaSQL } = require("../../utils/mantenimientoUtils");
 
 // "Mío" = el instructor efectivo del vuelo soy yo: override puntual del
 // vuelo/solicitud, si no el instructor de VUELO asignado al alumno (puede no
@@ -20,11 +21,11 @@ exports.getCalendario = async (req, res) => {
     if (!idInstructor) return res.status(403).json({ message: "No sos instructor" });
 
     const semanaRes = await db.query(`
-      SELECT id_semana, publicada FROM semana_vuelo
+      SELECT id_semana, publicada, fecha_inicio FROM semana_vuelo
       WHERE fecha_inicio > CURRENT_DATE ORDER BY fecha_inicio LIMIT 1
     `);
     if (semanaRes.rows.length === 0) return res.json({ items: [], publicada: false });
-    const { id_semana, publicada } = semanaRes.rows[0];
+    const { id_semana, publicada, fecha_inicio } = semanaRes.rows[0];
 
     const result = await db.query(`
       SELECT
@@ -54,13 +55,49 @@ exports.getCalendario = async (req, res) => {
       ORDER BY b.hora_inicio, sv.dia_semana, ae.modelo
     `, [id_semana, idInstructor]);
 
-    // Aeronaves activas para el popover (el instructor puede cambiar de avión).
+    // Aeronaves para el popover (el instructor puede cambiar de avión). Se
+    // devuelven TODAS (incluidas las que hoy están en el taller, con el detalle
+    // de su mantenimiento) — antes se filtraba por `activa = true`, que es
+    // "disponible HOY", pero acá se pide para la semana QUE VIENE: un avión
+    // en mantenimiento sin fecha de regreso desaparecía del popover para
+    // SIEMPRE, incluso semanas futuras donde ya podría estar de vuelta. El
+    // freno real vive en solicitudService.insertarSolicitudVuelo, que valida
+    // contra la FECHA pedida. Los dados de baja (activa=false, estado='ACTIVO')
+    // sí se excluyen: esos no vuelven.
+    //
+    // OJO: NO se expone como `activa` — AdminCalendar/AgendarVueloModal (compartidos
+    // con Programación/Turno) ocultan de su selector cualquier fila con
+    // `activa === false`. Se manda como `activa_hoy` (informativo) para que esta
+    // lista siga siendo seleccionable; el filtro real ya no vive en el picker.
     const aeroRes = await db.query(`
-      SELECT id_aeronave, codigo, modelo, activa
-      FROM aeronave
-      WHERE activa = true AND estado = 'ACTIVO'
-      ORDER BY codigo
-    `);
+      WITH sem AS (SELECT $1::date AS fecha_inicio)
+      SELECT
+        a.id_aeronave, a.codigo, a.modelo, a.tipo, a.activa AS activa_hoy,
+        mact.id_mantenimiento IS NOT NULL AS en_mantenimiento,
+        mact.fecha_fin::date              AS mantenimiento_hasta,
+        COALESCE((
+          SELECT array_agg(d ORDER BY d)
+            FROM generate_series(1, 6) AS d
+           WHERE EXISTS (
+             -- El alias TIENE que ser 'm': mantenimientoCubreFechaSQL lo hardcodea.
+             SELECT 1 FROM mantenimiento_aeronave m
+              WHERE m.id_aeronave = a.id_aeronave
+                AND ${mantenimientoCubreFechaSQL("((SELECT fecha_inicio FROM sem) + (d - 1))")}
+           )
+        ), '{}') AS dias_bloqueados
+      FROM aeronave a
+      LEFT JOIN LATERAL (
+        SELECT m2.id_mantenimiento, m2.fecha_fin
+          FROM mantenimiento_aeronave m2
+         WHERE m2.id_aeronave = a.id_aeronave
+           AND m2.completado = false
+           AND COALESCE(m2.estado, '') <> 'CANCELADO'
+         ORDER BY m2.fecha_fin IS NULL DESC, m2.fecha_fin DESC
+         LIMIT 1
+      ) mact ON true
+      WHERE NOT (a.activa = false AND a.estado = 'ACTIVO')
+      ORDER BY a.codigo
+    `, [fecha_inicio]);
 
     res.json({ items: result.rows, publicada, aeronaves: aeroRes.rows });
   } catch (e) {
