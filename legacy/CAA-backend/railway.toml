@@ -8,3 +8,7 @@ restartPolicyMaxRetries = 3
 
 [healthcheck]
 path = "/api/health"
+
+# Conectado a GitHub (dann1103-eng/caaa-app, rama master, root legacy/CAA-backend):
+# cada push a master con cambios en esta carpeta despliega solo — ya no se usa
+# `railway up` manual (ver CLAUDE.md §3).
