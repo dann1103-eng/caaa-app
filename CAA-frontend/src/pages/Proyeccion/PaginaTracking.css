@@ -33,6 +33,75 @@
   font-size: 1rem;
 }
 
+/* ── Búsqueda libre (cualquier matrícula, no solo la flota) ──────────────── */
+.pt__buscar {
+  margin-bottom: 16px;
+}
+
+.pt__buscar-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--pp-text-muted);
+  margin-bottom: 8px;
+}
+
+.pt__buscar-row {
+  display: flex;
+  gap: 10px;
+  max-width: 420px;
+}
+
+.pt__buscar-input {
+  flex: 1;
+  background: var(--pp-card-bg);
+  border: 1px solid var(--pp-card-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--pp-text-bright);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+}
+
+.pt__buscar-input:focus {
+  outline: none;
+  border-color: var(--pp-text-muted);
+}
+
+.pt__buscar-btn,
+.pt__buscar-clear {
+  background: transparent;
+  color: var(--pp-text-main);
+  border: 1px solid var(--pp-card-border);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.pt__buscar-btn:hover,
+.pt__buscar-clear:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pt__tile--busqueda {
+  max-width: 480px;
+  margin-bottom: 20px;
+  border-color: var(--pp-text-muted);
+}
+
+.pt__section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pp-text-muted);
+  margin-bottom: 10px;
+}
+
 .pt__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));

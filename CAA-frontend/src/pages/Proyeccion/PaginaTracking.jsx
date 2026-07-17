@@ -19,6 +19,10 @@ function trackUrl(codigo) {
 export default function PaginaTracking() {
   const [aeronaves, setAeronaves] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busquedaInput, setBusquedaInput] = useState("");
+  // Matrícula/vuelo confirmado a rastrear — separado del input para no armar
+  // el iframe en cada tecla (cada cambio de src recarga el mapa entero).
+  const [busqueda, setBusqueda] = useState(null);
 
   useEffect(() => {
     getAeronavesPublicas()
@@ -26,6 +30,18 @@ export default function PaginaTracking() {
       .catch(() => setAeronaves([]))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleBuscar = (e) => {
+    e.preventDefault();
+    const val = busquedaInput.trim();
+    if (!val) return;
+    setBusqueda(val);
+  };
+
+  const handleLimpiar = () => {
+    setBusqueda(null);
+    setBusquedaInput("");
+  };
 
   return (
     <div className="pp pt">
@@ -40,29 +56,73 @@ export default function PaginaTracking() {
       </div>
 
       <main className="pt__container">
+        {/* Búsqueda libre: cualquier matrícula, no solo la flota de la escuela
+            (ej. un avión prestado, o tráfico de otra escuela). */}
+        <form className="pt__buscar" onSubmit={handleBuscar}>
+          <label className="pt__buscar-label" htmlFor="pt-buscar-input">
+            <i className="bi bi-search"></i> Buscar otra matrícula
+          </label>
+          <div className="pt__buscar-row">
+            <input
+              id="pt-buscar-input"
+              type="text"
+              className="pt__buscar-input"
+              placeholder="Ej. YS-127-P"
+              value={busquedaInput}
+              onChange={(e) => setBusquedaInput(e.target.value)}
+            />
+            <button type="submit" className="pt__buscar-btn">Buscar</button>
+            {busqueda && (
+              <button type="button" className="pt__buscar-clear" onClick={handleLimpiar}>
+                Quitar
+              </button>
+            )}
+          </div>
+        </form>
+
+        {busqueda && (
+          <div className="pt__tile pt__tile--busqueda">
+            <div className="pt__tile-head">
+              <span className="pt__tile-codigo">{busqueda}</span>
+              <span className="pt__tile-modelo">Búsqueda</span>
+            </div>
+            <div className="pt__tile-frame">
+              <iframe
+                title={`ADS-B — búsqueda ${busqueda}`}
+                src={trackUrl(busqueda)}
+                frameBorder="0"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <p className="pt__empty">Cargando flota…</p>
         ) : aeronaves.length === 0 ? (
           <p className="pt__empty">No hay aeronaves activas para rastrear.</p>
         ) : (
-          <div className="pt__grid">
-            {aeronaves.map((a) => (
-              <div key={a.id_aeronave} className="pt__tile">
-                <div className="pt__tile-head">
-                  <span className="pt__tile-codigo">{a.codigo}</span>
-                  <span className="pt__tile-modelo">{a.modelo}</span>
+          <>
+            <div className="pt__section-title">Flota de la escuela</div>
+            <div className="pt__grid">
+              {aeronaves.map((a) => (
+                <div key={a.id_aeronave} className="pt__tile">
+                  <div className="pt__tile-head">
+                    <span className="pt__tile-codigo">{a.codigo}</span>
+                    <span className="pt__tile-modelo">{a.modelo}</span>
+                  </div>
+                  <div className="pt__tile-frame">
+                    <iframe
+                      title={`ADS-B — ${a.codigo}`}
+                      src={trackUrl(a.codigo)}
+                      frameBorder="0"
+                      loading="lazy"
+                    />
+                  </div>
                 </div>
-                <div className="pt__tile-frame">
-                  <iframe
-                    title={`ADS-B — ${a.codigo}`}
-                    src={trackUrl(a.codigo)}
-                    frameBorder="0"
-                    loading="lazy"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>
