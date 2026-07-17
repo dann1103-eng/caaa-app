@@ -90,6 +90,28 @@ function assert(cond, msg) { if (!cond) throw new Error("ASSERTION FAILED: " + m
 ```
 Run → FAIL (`TURNO todavía ve el reporte con MONTOS` — hoy da 200; y `/reporte-operaciones-dia` da 404).
 
+- [ ] **Step 1b: Chequeo del caso que JUSTIFICA el re-gateo — instructor con `puede_operaciones`** (script aparte `tr_op.js`, en el verde de Task 1)
+
+Es el escenario headline: un instructor con `puede_operaciones` actúa como Turno ⇒ **NO** ve montos pero **SÍ** el reporte de operaciones. Hoy **ningún** instructor tiene `puede_operaciones=true` (verificado, la BD devuelve `[]`), así que sin sembrar es un caso vacío. Sembrá temporalmente y restaurá:
+```bash
+# Preparar (u6 = Ricardo, instructor). RESTAURAR AL FINAL con false.
+node query.js "UPDATE instructor SET puede_operaciones=true WHERE id_instructor=1"
+# u6 primero debe tener datos_confirmados para loguear sin el robapantallas; si el login
+# de u6 falla por must_confirm_data, usar el token igual (el gate del reporte no lo exige)
+# o confirmar: node query.js "UPDATE usuario SET datos_confirmados=true WHERE username='u6'"
+```
+Script:
+```js
+// mismos helpers login/H/assert que tr.js
+(async () => {
+  const insOp = await login("u6");
+  assert((await fetch(`${API}/turno/reporte-vuelos-dia`, { headers: H(insOp) })).status === 403, "instructor con puede_operaciones VE montos (no debería)");
+  assert((await fetch(`${API}/turno/reporte-operaciones-dia`, { headers: H(insOp) })).status === 200, "instructor con puede_operaciones NO puede sacar operaciones (debería)");
+  console.log("OK Step 1b (instructor puede_operaciones: 403 montos / 200 operaciones)");
+})().catch((e) => { console.error(e); process.exit(1); });
+```
+Restaurar: `node query.js "UPDATE instructor SET puede_operaciones=false WHERE id_instructor=1"` (y `datos_confirmados` de u6 a su valor previo si lo tocaste — verificá antes con un SELECT).
+
 - [ ] **Step 2: `turnoRoutes.js` — re-importar roleMiddleware + re-gatear + ruta nueva**
 
 Import (junto a `authMiddleware`, línea ~2):
@@ -159,7 +181,7 @@ exports.getReporteOperacionesDia = async (req, res) => {
 
 Después de `generarReporteVuelosDiaPDF` (cierra en línea 474). **Leé esa función entera primero** (líneas 369-474) y espejala: mismo `PDFDocument`/`ancho`/`fmtFecha`/`headerCompacto`/`drawRow`/`nuevaPagina`/agrupado por avión. Quitá columnas de Tac/Hobbs/Monto; dejá **5 columnas** (Fecha, Número, Alumno, Instructor, Horas). `headerCompacto` y `CAAA_BLUE` son module-level (líneas 231, 5) — disponibles. El `money()` NO se usa acá.
 
-⚠️ **Simulador sin TAC** (spec §4.3): `instructorReporteController.js:264-266` fuerza `tacometro_*` a NULL para el simulador; sus horas viven en `reporte_vuelo.horas_cobradas`. Un simulador SÍ entra al `WHERE` (llega a COMPLETADO). Por eso el cálculo de horas por fila es TAC-primero-con-fallback (al revés que el cobro, a propósito: acá querés "cuánto duró", el TAC del avión real es más preciso que la estimación de facturación):
+⚠️ **Simulador sin TAC** (spec §4.3): `controllers/instructor/instructorReporteController.js:264-266` fuerza `tacometro_*` a NULL para el simulador; sus horas viven en `reporte_vuelo.horas_cobradas`. Un simulador SÍ entra al `WHERE` (llega a COMPLETADO). Por eso el cálculo de horas por fila es TAC-primero-con-fallback (al revés que el cobro, a propósito: acá querés "cuánto duró", el TAC del avión real es más preciso que la estimación de facturación):
 ```js
 function generarReporteOperacionesDiaPDF({ fecha, vuelos }) {
   const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
