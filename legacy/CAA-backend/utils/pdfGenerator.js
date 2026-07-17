@@ -383,13 +383,20 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
     const [ent, dec = "00"] = Number(n).toFixed(2).split(".");
     return `${ent.padStart(4, "0")}.${dec}`;
   };
-  const horaReal = (iso) =>
-    // hourCycle explícito (no basta con hour12:false): el ICU del contenedor
-    // de Railway mostraba "24:02" en vez de "00:02" para la medianoche —
-    // hour12:false deja el hourCycle ambiguo y algunas builds de ICU resuelven
-    // a h24 (1-24) en vez de h23 (0-23). hourCycle:"h23" fuerza 0-23 sin
-    // depender de qué versión de ICU trae el runtime.
-    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "America/El_Salvador" }) : "—";
+  // El Salvador es UTC-6 fijo todo el año (sin horario de verano) — cálculo
+  // manual en vez de toLocaleTimeString/Intl: el ICU del contenedor de Railway
+  // no formatea bien el locale "es-SV" (mostraba "24:02" en vez de "00:02"
+  // para la medianoche, ni con hourCycle:"h23" explícito — verificado contra
+  // producción real, probablemente un build de Node con ICU reducido). `iso`
+  // ya llega como instante UTC genuino (timestamptz crudo, o convertido con
+  // AT TIME ZONE del lado del SQL para las columnas naive) — restar 6h a mano
+  // no depende de qué ICU trae el runtime.
+  const horaReal = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    const totalMin = (d.getUTCHours() * 60 + d.getUTCMinutes() - 6 * 60 + 24 * 60) % (24 * 60);
+    return `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
+  };
   // Columnas: [titulo, ancho, align]
   const cols = [
     ["Fecha", 46, "left"], ["Número", 36, "right"], ["Alumno", 145, "left"],
@@ -570,13 +577,20 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
     if (v.tac_ini != null && v.tac_fin != null) return Number(v.tac_fin) - Number(v.tac_ini);
     return null;
   };
-  const horaReal = (iso) =>
-    // hourCycle explícito (no basta con hour12:false): el ICU del contenedor
-    // de Railway mostraba "24:02" en vez de "00:02" para la medianoche —
-    // hour12:false deja el hourCycle ambiguo y algunas builds de ICU resuelven
-    // a h24 (1-24) en vez de h23 (0-23). hourCycle:"h23" fuerza 0-23 sin
-    // depender de qué versión de ICU trae el runtime.
-    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "America/El_Salvador" }) : "—";
+  // El Salvador es UTC-6 fijo todo el año (sin horario de verano) — cálculo
+  // manual en vez de toLocaleTimeString/Intl: el ICU del contenedor de Railway
+  // no formatea bien el locale "es-SV" (mostraba "24:02" en vez de "00:02"
+  // para la medianoche, ni con hourCycle:"h23" explícito — verificado contra
+  // producción real, probablemente un build de Node con ICU reducido). `iso`
+  // ya llega como instante UTC genuino (timestamptz crudo, o convertido con
+  // AT TIME ZONE del lado del SQL para las columnas naive) — restar 6h a mano
+  // no depende de qué ICU trae el runtime.
+  const horaReal = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    const totalMin = (d.getUTCHours() * 60 + d.getUTCMinutes() - 6 * 60 + 24 * 60) % (24 * 60);
+    return `${String(Math.floor(totalMin / 60)).padStart(2, "0")}:${String(totalMin % 60).padStart(2, "0")}`;
+  };
   const cols = [
     ["Fecha", 55, "left"], ["Número", 45, "right"], ["Alumno", 210, "left"],
     ["Salida", 40, "right"], ["Llegada", 45, "right"],
