@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const { resolverVueloEspecial } = require("../utils/practicanteHelper");
+const { mantenimientoCubreFechaSQL } = require("../utils/mantenimientoUtils");
 
 /**
  * Lógica compartida de solicitudes de vuelo (semana próxima, no publicada).
@@ -274,6 +275,31 @@ async function insertarSolicitudVuelo(client, {
     if (lic.rows.length === 0) {
       throw Object.assign(new Error("La aeronave no está habilitada para esa licencia"), { status: 400 });
     }
+  }
+
+  // Mantenimiento, validado contra la FECHA PEDIDA (no contra hoy) — mismo
+  // criterio date-aware que ya usa agendarController (alumno) y
+  // getAeronavesDisponibles (staff). Aplica siempre, incluso extracurricular:
+  // la aeronave está físicamente fuera de servicio sin importar quién la pida.
+  const fechaSlotSQL = `((SELECT fecha_inicio FROM semana_vuelo WHERE id_semana = $1) + ($2::int - 1))`;
+  const mantRes = await client.query(
+    `SELECT a.codigo, ${fechaSlotSQL} AS fecha_slot,
+            (SELECT MIN(m.fecha_fin::date) FROM mantenimiento_aeronave m
+              WHERE m.id_aeronave = a.id_aeronave
+                AND ${mantenimientoCubreFechaSQL(fechaSlotSQL)}) AS hasta
+       FROM aeronave a
+      WHERE a.id_aeronave = $3
+        AND EXISTS (SELECT 1 FROM mantenimiento_aeronave m
+                     WHERE m.id_aeronave = a.id_aeronave
+                       AND ${mantenimientoCubreFechaSQL(fechaSlotSQL)})`,
+    [id_semana, dia_semana, id_aeronave]
+  );
+  if (mantRes.rows.length > 0) {
+    const { codigo, fecha_slot, hasta } = mantRes.rows[0];
+    throw Object.assign(new Error(
+      `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
+      (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).")
+    ), { status: 400 });
   }
 
   // Instructor efectivo para el chequeo de conflicto (override explícito, o el
