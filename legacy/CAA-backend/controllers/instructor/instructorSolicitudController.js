@@ -3,9 +3,11 @@ const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor } = require("../../utils/instructorHelpers");
 const solicitudService = require("../../services/solicitudService");
 
-// "Mío" = el instructor efectivo del vuelo soy yo (override del vuelo, o el
-// instructor de vuelo por defecto del alumno). Misma regla que usa la
-// publicación (COALESCE(sv.id_instructor, al.id_instructor)).
+// "Mío" = el instructor efectivo del vuelo soy yo: override puntual del
+// vuelo/solicitud, si no el instructor de VUELO asignado al alumno (puede no
+// ser el de cabecera), y si tampoco hay ninguno, el de cabecera (compat con
+// alumnos que aún no tienen instructor de vuelo asignado). Mismo criterio en
+// todos los endpoints de este controller y en solicitudService.js.
 
 /**
  * GET /instructor/solicitudes/calendario?week=next
@@ -35,7 +37,7 @@ exports.getCalendario = async (req, res) => {
         i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
         LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
         COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular,
-        (COALESCE(sv.id_instructor, al.id_instructor) = $2) AS es_mio
+        (COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) = $2) AS es_mio
       FROM solicitud_vuelo sv
       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
       JOIN bloque_horario b ON b.id_bloque = sv.id_bloque
@@ -43,7 +45,7 @@ exports.getCalendario = async (req, res) => {
       JOIN alumno al ON al.id_alumno = ss.id_alumno
       JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
       LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle AND v.id_semana = sv.id_semana
-      JOIN instructor i ON i.id_instructor = COALESCE(v.id_instructor, sv.id_instructor, al.id_instructor)
+      JOIN instructor i ON i.id_instructor = COALESCE(v.id_instructor, sv.id_instructor, al.id_instructor_vuelo, al.id_instructor)
       JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
       WHERE sv.id_semana = $1
         AND ss.estado NOT IN ('RECHAZADA', 'CANCELADA')
@@ -95,7 +97,7 @@ exports.getResumen = async (req, res) => {
       FROM alumno a
       JOIN usuario u ON u.id_usuario = a.id_usuario
       LEFT JOIN solicitud_semana ss ON ss.id_alumno = a.id_alumno AND ss.id_semana = $1
-      WHERE a.id_instructor = $2 AND a.activo
+      WHERE COALESCE(a.id_instructor_vuelo, a.id_instructor) = $2 AND a.activo
       ORDER BY u.nombre, u.apellido
     `, [id_semana, idInstructor]);
 
@@ -190,9 +192,9 @@ exports.crearSolicitud = async (req, res) => {
       return res.status(400).json({ message: "Faltan datos del vuelo" });
     }
 
-    // El alumno debe ser mío (instructor de vuelo por defecto).
+    // El alumno debe ser mío (instructor de vuelo asignado, o de cabecera si no tiene uno).
     const own = await client.query(
-      `SELECT 1 FROM alumno WHERE id_alumno = $1 AND id_instructor = $2`,
+      `SELECT 1 FROM alumno WHERE id_alumno = $1 AND COALESCE(id_instructor_vuelo, id_instructor) = $2`,
       [id_alumno, idInstructor]
     );
     if (own.rows.length === 0) return res.status(403).json({ message: "Ese alumno no es tuyo" });
@@ -238,7 +240,7 @@ exports.eliminarSolicitud = async (req, res) => {
     const { id_detalle } = req.params;
     const info = await client.query(`
       SELECT sv.id_detalle, w.publicada,
-             COALESCE(sv.id_instructor, al.id_instructor) AS id_instructor
+             COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor
       FROM solicitud_vuelo sv
       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
       JOIN alumno al ON al.id_alumno = ss.id_alumno
@@ -285,7 +287,8 @@ exports.enviarSolicitud = async (req, res) => {
     const { id_solicitud } = req.params;
     await client.query("BEGIN");
     const info = await client.query(`
-      SELECT ss.id_solicitud, ss.estado, w.publicada, al.id_instructor,
+      SELECT ss.id_solicitud, ss.estado, w.publicada,
+             COALESCE(al.id_instructor_vuelo, al.id_instructor) AS id_instructor,
              (SELECT COUNT(*) FROM solicitud_vuelo sv WHERE sv.id_solicitud = ss.id_solicitud
                 AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')) AS n_vuelos
       FROM solicitud_semana ss
@@ -345,7 +348,7 @@ exports.enviarTodas = async (req, res) => {
       SET estado = 'EN_REVISION', enviada_instructor_en = now(), enviada_por = $3, fecha_actualizacion = now()
       FROM alumno al
       WHERE ss.id_alumno = al.id_alumno
-        AND al.id_instructor = $2
+        AND COALESCE(al.id_instructor_vuelo, al.id_instructor) = $2
         AND ss.id_semana = $1
         AND ss.estado = 'BORRADOR'
         AND EXISTS (SELECT 1 FROM solicitud_vuelo sv WHERE sv.id_solicitud = ss.id_solicitud

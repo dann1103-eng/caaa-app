@@ -31,6 +31,8 @@ router.post("/vuelos/:id_vuelo/avanzar",                      access, instructor
 router.post("/vuelos/:id_vuelo/inasistencia",                 access, instructorVuelo.registrarInasistencia);
 router.patch("/alumnos/:id_alumno/limites",                   access, instructorAlumno.actualizarLimitesAlumno);
 router.patch("/alumnos/:id_alumno/habilitar-vuelo-extra",     access, instructorAlumno.habilitarVueloExtra);
+router.get("/instructores-vuelo",                             access, instructorAlumno.getInstructoresVuelo);
+router.patch("/alumnos/:id_alumno/instructor-vuelo",          access, instructorAlumno.actualizarInstructorVuelo);
 
 router.get("/reportes-pendientes",                            access, instructorReporte.getReportesPendientes);
 router.get("/vuelos/:id/reporte-vuelo",                       access, instructorReporte.getReporteVueloInstructor);

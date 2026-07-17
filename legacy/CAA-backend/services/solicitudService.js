@@ -90,7 +90,7 @@ async function assertSlotLibre(client, {
       `SELECT 1 FROM solicitud_vuelo sv
         JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
         JOIN alumno al ON al.id_alumno = ss.id_alumno
-       WHERE sv.id_semana = $1 AND COALESCE(sv.id_instructor, al.id_instructor) = $2 AND sv.dia_semana = $3
+       WHERE sv.id_semana = $1 AND COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) = $2 AND sv.dia_semana = $3
          AND sv.id_detalle <> ALL($4::int[])
          AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
          AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
@@ -152,7 +152,7 @@ async function aplicarMovimientos(client, { id_semana, movimientos, assertOwners
 
   const infoRes = await client.query(
     `SELECT sv.id_detalle, ss.id_alumno, ss.id_solicitud,
-            COALESCE(sv.id_instructor, al.id_instructor) AS id_instructor
+            COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor
        FROM solicitud_vuelo sv
        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
        JOIN alumno al ON al.id_alumno = ss.id_alumno
@@ -258,13 +258,14 @@ async function insertarSolicitudVuelo(client, {
     }
   }
 
-  // Instructor efectivo para el chequeo de conflicto (override explícito o el de
-  // vuelo por defecto del alumno). En DEMO/CHEQUEO_LINEA el id_instructor viene
-  // siempre explícito (PIC) — no hay "instructor de cabecera" de un placeholder.
+  // Instructor efectivo para el chequeo de conflicto (override explícito, o el
+  // instructor de vuelo asignado al alumno, o si no tiene, el de cabecera). En
+  // DEMO/CHEQUEO_LINEA el id_instructor viene siempre explícito (PIC) — no hay
+  // "instructor de cabecera" de un placeholder.
   let instrEff = id_instructor;
   if (!instrEff && resuelto.categoria !== "DEMO" && resuelto.categoria !== "CHEQUEO_LINEA") {
-    const a = await client.query(`SELECT id_instructor FROM alumno WHERE id_alumno = $1`, [idAlumnoEfectivo]);
-    instrEff = a.rows[0]?.id_instructor || null;
+    const a = await client.query(`SELECT id_instructor_vuelo, id_instructor FROM alumno WHERE id_alumno = $1`, [idAlumnoEfectivo]);
+    instrEff = a.rows[0]?.id_instructor_vuelo || a.rows[0]?.id_instructor || null;
   }
 
   await assertSlotLibre(client, {

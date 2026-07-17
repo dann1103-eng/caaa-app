@@ -69,9 +69,13 @@ exports.getMisAlumnos = async (req, res) => {
          COALESCE(ss.limite_vuelos_simulador, a.limite_vuelos_simulador, 3) AS limite_vuelos_simulador,
          -- El tope por día no tiene override por semana: sale siempre del alumno.
          COALESCE(a.limite_vuelos_dia, 1) AS limite_vuelos_dia,
+         a.id_instructor_vuelo,
+         uv.nombre || ' ' || uv.apellido AS instructor_vuelo_nombre,
          ss.id_solicitud
        FROM alumno a
        JOIN usuario u ON u.id_usuario = a.id_usuario
+       LEFT JOIN instructor iv ON iv.id_instructor = a.id_instructor_vuelo
+       LEFT JOIN usuario uv ON uv.id_usuario = iv.id_usuario
        LEFT JOIN solicitud_semana ss
          ON ss.id_alumno = a.id_alumno
         AND ss.id_semana = $2
@@ -87,6 +91,80 @@ exports.getMisAlumnos = async (req, res) => {
   } catch (e) {
     console.error("getMisAlumnos instructor:", e);
     res.status(500).json({ message: "Error al obtener alumnos" });
+  }
+};
+
+// Lista de instructores de VUELO activos (para el picker del instructor de
+// cabecera al asignar quién vuela realmente con su alumno).
+exports.getInstructoresVuelo = async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT i.id_instructor, u.nombre || ' ' || u.apellido AS nombre_completo
+      FROM instructor i JOIN usuario u ON u.id_usuario = i.id_usuario
+      WHERE i.activo = true AND i.es_instructor_vuelo = true
+      ORDER BY u.apellido, u.nombre
+    `);
+    res.json(r.rows);
+  } catch (e) {
+    console.error("getInstructoresVuelo:", e);
+    res.status(500).json({ message: "Error al obtener instructores de vuelo" });
+  }
+};
+
+// PATCH /instructor/alumnos/:id_alumno/instructor-vuelo { id_instructor_vuelo }
+// El instructor de CABECERA asigna quién es el instructor de VUELO real de su
+// alumno (pueden no ser la misma persona). Solo aplica a solicitudes de horas
+// futuras — no reasigna vuelos ya agendados. id_instructor_vuelo=null limpia
+// la asignación (vuelve a usar el de cabecera como antes).
+exports.actualizarInstructorVuelo = async (req, res) => {
+  const { id_alumno } = req.params;
+  const raw = req.body.id_instructor_vuelo;
+  const idInstructorVuelo = (raw === undefined || raw === null || raw === "") ? null : parseInt(raw, 10);
+  if (idInstructorVuelo != null && isNaN(idInstructorVuelo)) {
+    return res.status(400).json({ message: "Instructor de vuelo inválido" });
+  }
+
+  try {
+    const id_instructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!id_instructor) return res.status(403).json({ message: "No sos instructor activo" });
+
+    const pertenece = await db.query(
+      "SELECT 1 FROM alumno WHERE id_alumno = $1 AND id_instructor = $2",
+      [id_alumno, id_instructor]
+    );
+    if (pertenece.rows.length === 0) {
+      return res.status(403).json({ message: "Ese alumno no te está asignado" });
+    }
+
+    if (idInstructorVuelo != null) {
+      const valido = await db.query(
+        "SELECT 1 FROM instructor WHERE id_instructor = $1 AND activo = true AND es_instructor_vuelo = true",
+        [idInstructorVuelo]
+      );
+      if (valido.rows.length === 0) {
+        return res.status(400).json({ message: "Ese instructor no está activo como instructor de vuelo" });
+      }
+    }
+
+    await db.query(
+      "UPDATE alumno SET id_instructor_vuelo = $1 WHERE id_alumno = $2",
+      [idInstructorVuelo, id_alumno]
+    );
+
+    await logAuditoria(db, {
+      actor: req.user,
+      accion: "OTRO",
+      entidad: "alumno",
+      id_entidad: Number(id_alumno),
+      descripcion: idInstructorVuelo
+        ? `Instructor de cabecera asignó instructor de vuelo #${idInstructorVuelo} al alumno #${id_alumno}`
+        : `Instructor de cabecera quitó la asignación de instructor de vuelo del alumno #${id_alumno}`,
+    });
+
+    res.json({ message: "Instructor de vuelo actualizado", id_instructor_vuelo: idInstructorVuelo });
+  } catch (e) {
+    console.error("actualizarInstructorVuelo:", e);
+    res.status(500).json({ message: "Error al actualizar el instructor de vuelo" });
   }
 };
 

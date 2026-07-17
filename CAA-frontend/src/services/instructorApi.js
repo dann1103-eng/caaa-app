@@ -64,6 +64,19 @@ export const habilitarVueloExtra = async (id_alumno, id_semana, limite_vuelos_av
   return res.data;
 };
 
+export const getInstructoresVuelo = async () => {
+  const res = await axios.get(`${API_URL}/instructor/instructores-vuelo`);
+  return res.data;
+};
+
+export const actualizarInstructorVuelo = async (id_alumno, id_instructor_vuelo) => {
+  const res = await axios.patch(
+    `${API_URL}/instructor/alumnos/${id_alumno}/instructor-vuelo`,
+    { id_instructor_vuelo }
+  );
+  return res.data;
+};
+
 export const getReportesPendientes = async () => {
   const res = await axios.get(`${API_URL}/instructor/reportes-pendientes`);
   return res.data;

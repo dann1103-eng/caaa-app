@@ -12,6 +12,8 @@ import {
   getMisAlumnos,
   getMisVuelosPractica,
   actualizarLimitesAlumno,
+  getInstructoresVuelo,
+  actualizarInstructorVuelo,
   avanzarEstadoVuelo,
   getReportesPendientes,
   registrarInasistencia,
@@ -255,7 +257,7 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
 }
 
 // ── Fila de alumno ─────────────────────────────────────────────────────────
-function AlumnoFila({ alumno, onGuardado }) {
+function AlumnoFila({ alumno, onGuardado, instructoresVuelo = [], onInstructorVueloGuardado }) {
   const baseAvion = String(alumno.limite_vuelos_avion ?? 3);
   const baseSim = String(alumno.limite_vuelos_simulador ?? 3);
   const baseDia = String(alumno.limite_vuelos_dia ?? 1);
@@ -265,12 +267,36 @@ function AlumnoFila({ alumno, onGuardado }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Instructor de VUELO asignado al alumno — puede ser distinto del instructor
+  // de cabecera (yo). Vacío = "sin asignar" (las solicitudes las revisa el de
+  // cabecera, como antes).
+  const [instructorVueloStr, setInstructorVueloStr] = useState(String(alumno.id_instructor_vuelo ?? ""));
+  const [savingInstructorVuelo, setSavingInstructorVuelo] = useState(false);
+
   // Re-sincronizar si el alumno cambia (ej. tras guardar/recargar)
   useEffect(() => {
     setLimAvionStr(String(alumno.limite_vuelos_avion ?? 3));
     setLimSimStr(String(alumno.limite_vuelos_simulador ?? 3));
     setLimDiaStr(String(alumno.limite_vuelos_dia ?? 1));
-  }, [alumno.limite_vuelos_avion, alumno.limite_vuelos_simulador, alumno.limite_vuelos_dia]);
+    setInstructorVueloStr(String(alumno.id_instructor_vuelo ?? ""));
+  }, [alumno.limite_vuelos_avion, alumno.limite_vuelos_simulador, alumno.limite_vuelos_dia, alumno.id_instructor_vuelo]);
+
+  const handleCambiarInstructorVuelo = async (e) => {
+    const valor = e.target.value;
+    setInstructorVueloStr(valor);
+    setSavingInstructorVuelo(true);
+    try {
+      await actualizarInstructorVuelo(alumno.id_alumno, valor || null);
+      const elegido = instructoresVuelo.find((i) => String(i.id_instructor) === valor);
+      onInstructorVueloGuardado(alumno.id_alumno, valor ? Number(valor) : null, elegido?.nombre_completo ?? null);
+      toast.success(valor ? `Instructor de vuelo: ${elegido?.nombre_completo ?? ""}` : "Instructor de vuelo desasignado");
+    } catch (e2) {
+      setInstructorVueloStr(String(alumno.id_instructor_vuelo ?? ""));
+      toast.error(e2.response?.data?.message || "No se pudo actualizar el instructor de vuelo");
+    } finally {
+      setSavingInstructorVuelo(false);
+    }
+  };
 
   const cambiado = limAvionStr !== baseAvion || limSimStr !== baseSim || limDiaStr !== baseDia;
 
@@ -381,6 +407,20 @@ function AlumnoFila({ alumno, onGuardado }) {
         </div>
         {error && <div className="ins__fila-error">{error}</div>}
       </td>
+      <td className="ins__td">
+        <select
+          className="ins__limite-input"
+          value={instructorVueloStr}
+          disabled={savingInstructorVuelo}
+          onChange={handleCambiarInstructorVuelo}
+          title="Quién vuela realmente con este alumno — a él le van a llegar sus solicitudes de horas para revisar y enviar a programación"
+        >
+          <option value="">— (mismo que cabecera)</option>
+          {instructoresVuelo.map((i) => (
+            <option key={i.id_instructor} value={i.id_instructor}>{i.nombre_completo}</option>
+          ))}
+        </select>
+      </td>
     </tr>
   );
 }
@@ -398,6 +438,7 @@ export default function InstructorDashboard() {
   const [vuelos, setVuelos]               = useState([]);
   const [semana, setSemana]               = useState(null);
   const [alumnos, setAlumnos]             = useState([]);
+  const [instructoresVuelo, setInstructoresVuelo] = useState([]);
   const [semanaProxima, setSemanaProxima] = useState(null);
   const [advancing, setAdvancing]         = useState(null);
   const [searchTerm, setSearchTerm]       = useState("");
@@ -448,6 +489,7 @@ export default function InstructorDashboard() {
       .then((data) => { setAlumnos(data.alumnos); setSemanaProxima(data.semana); })
       .catch(() => {})
       .finally(() => setLoadingAlumnos(false));
+    getInstructoresVuelo().then(setInstructoresVuelo).catch(() => {});
     cargarReportesPendientes().finally(() => setLoadingReportes(false));
     cargarVuelosPractica();
   }, [fetchVuelos, cargarReportesPendientes, cargarVuelosPractica]);
@@ -556,6 +598,14 @@ export default function InstructorDashboard() {
     setAlumnos((prev) =>
       prev.map((a) => a.id_alumno === id_alumno
         ? { ...a, limite_vuelos_avion: limAvion, limite_vuelos_simulador: limSim, limite_vuelos_dia: limDia }
+        : a)
+    );
+  };
+
+  const handleInstructorVueloGuardado = (id_alumno, id_instructor_vuelo, nombre) => {
+    setAlumnos((prev) =>
+      prev.map((a) => a.id_alumno === id_alumno
+        ? { ...a, id_instructor_vuelo, instructor_vuelo_nombre: nombre }
         : a)
     );
   };
@@ -806,6 +856,7 @@ export default function InstructorDashboard() {
                     <th className="ins__th ins__th--center">Condición</th>
                     <th className="ins__th ins__th--center">Límite actual</th>
                     <th className="ins__th">Ajustar límite</th>
+                    <th className="ins__th" title="Quién vuela realmente con el alumno — a él le llegan sus solicitudes de horas">Instructor de vuelo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -816,6 +867,8 @@ export default function InstructorDashboard() {
                         key={a.id_alumno}
                         alumno={a}
                         onGuardado={handleGuardado}
+                        instructoresVuelo={instructoresVuelo}
+                        onInstructorVueloGuardado={handleInstructorVueloGuardado}
                       />
                     ))}
                 </tbody>
