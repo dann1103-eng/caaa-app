@@ -86,22 +86,26 @@
   min-height: 0;
 }
 
-/* Custom Ticker Styles for Proyeccion */
+/* Custom Ticker Styles for Proyeccion — más alto que el default (36px) para
+   que se lea mejor a distancia; si se cambia esta altura, ajustar también
+   el "86px" del cálculo de .pp__dashboard-grid más abajo (mismo delta). */
 .pp .ticker-bar {
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(10px);
   border-top: 1px solid var(--pp-card-border);
-  height: 40px;
+  height: 56px;
 }
 
 .pp .ticker-bar__label {
   background: var(--pp-primary);
   color: white;
+  font-size: 0.85rem;
 }
 
 .pp .ticker-bar__text {
   font-weight: 700;
   color: var(--pp-text-bright);
+  font-size: 1.25rem;
 }
 
 /* Background elements for depth */
@@ -300,7 +304,7 @@
   gap: 18px;
   min-height: 0;
   margin-top: 8px;
-  height: calc(100vh - var(--pp-header-h) - 86px); /* topbar + ticker + márgenes */
+  height: calc(100vh - var(--pp-header-h) - 102px); /* topbar + ticker (56px) + márgenes */
 }
 
 /* La columna izquierda scrollea igual que .pp__sidebar (derecha).
