@@ -543,7 +543,7 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
  *   { id_vuelo, avion_codigo, avion_modelo, alumno, instructor,
  *     tac_ini, tac_fin, horas_cobradas }
  */
-function generarReporteOperacionesDiaPDF({ fecha, vuelos }) {
+function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asistencias = [] }) {
   const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
   const ancho = 712;
   const fmtFecha = (() => {
@@ -566,9 +566,12 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos }) {
     if (v.horas_cobradas != null) return Number(v.horas_cobradas);
     return null;
   };
+  const horaReal = (iso) =>
+    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/El_Salvador" }) : "—";
   const cols = [
-    ["Fecha", 70, "left"], ["Número", 60, "right"], ["Alumno", 250, "left"],
-    ["Instructor", 250, "left"], ["Horas", 72, "right"],
+    ["Fecha", 55, "left"], ["Número", 45, "right"], ["Alumno", 210, "left"],
+    ["Salida", 40, "right"], ["Llegada", 45, "right"],
+    ["Instructor", 210, "left"], ["Horas", 55, "right"],
   ];
 
   const drawRow = (cells, opts = {}) => {
@@ -604,10 +607,14 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos }) {
       if (y > 500) nuevaPagina();
       const h = horaFila(v);
       if (h != null) sHoras += h;
-      drawRow([fmtFecha, v.id_vuelo, v.alumno, v.instructor || "—", horas(h)]);
+      drawRow([
+        fmtFecha, v.id_vuelo, v.alumno,
+        horaReal(v.salida_real), horaReal(v.llegada_real),
+        v.instructor || "—", horas(h),
+      ]);
       doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();
     }
-    drawRow(["", "", `Total ${g.codigo}`, `${g.filas.length} operaciones`, horas(sHoras)], { bold: true, color: CAAA_BLUE });
+    drawRow(["", "", `Total ${g.codigo}`, "", "", `${g.filas.length} operaciones`, horas(sHoras)], { bold: true, color: CAAA_BLUE });
     gOps += g.filas.length; gHoras += sHoras;
     y += 2;
   }
@@ -620,10 +627,60 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos }) {
   y += 6;
   doc.strokeColor(CAAA_BLUE).lineWidth(1.2).moveTo(40, y).lineTo(40 + ancho, y).stroke();
   y += 5;
-  drawRow(["", "", "GRAN TOTAL", `${gOps} operaciones`, horas(gHoras)], { bold: true, color: CAAA_BLUE });
+  drawRow(["", "", "GRAN TOTAL", "", "", `${gOps} operaciones`, horas(gHoras)], { bold: true, color: CAAA_BLUE });
+
+  // Turno del día: apertura/cierre de operaciones + instructores en turno
+  // (entrada/salida) — mismas tablas que usa el widget "Turno del día".
+  if (y > 460) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
+  y += 14;
+  doc.strokeColor("#e5e7eb").lineWidth(0.75).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+  y += 12;
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(CAAA_BLUE).text("TURNO DEL DÍA", 40, y);
+  y += 16;
+
+  const aperturaTxt = turnoDia?.apertura_en ? horaReal(turnoDia.apertura_en) : "—";
+  const cierreTxt = turnoDia?.cierre_en
+    ? horaReal(turnoDia.cierre_en)
+    : (turnoDia ? "aún no cerrado" : "turno no abierto ese día");
+  doc.fontSize(9).font("Helvetica-Bold").fillColor("#444").text("Apertura de operaciones: ", 40, y, { continued: true })
+     .font("Helvetica").text(aperturaTxt, { continued: true })
+     .font("Helvetica-Bold").text("     Cierre de operaciones: ", { continued: true })
+     .font("Helvetica").text(cierreTxt);
+  y += 18;
+
+  if (asistencias.length) {
+    const TURNO_LABEL = { MANANA: "Mañana", TARDE: "Tarde" };
+    const colsAsist = [
+      ["Instructor", 220, "left"], ["Turno", 70, "left"],
+      ["Entrada", 70, "right"], ["Salida", 70, "right"],
+    ];
+    const anchoAsist = colsAsist.reduce((s, c) => s + c[1], 0);
+    const drawRowAsist = (cells, opts = {}) => {
+      let x = 40;
+      doc.fontSize(opts.head ? 7.5 : 8.5).font(opts.head ? "Helvetica-Bold" : "Helvetica")
+         .fillColor(opts.head ? "#666" : "#222");
+      colsAsist.forEach((c, i) => {
+        doc.text(String(cells[i] ?? ""), x + 3, y + 4, { width: c[1] - 6, align: c[2] });
+        x += c[1];
+      });
+      y += opts.head ? 16 : 14;
+    };
+    doc.rect(40, y, anchoAsist, 16).fill("#eef2f7");
+    drawRowAsist(colsAsist.map((c) => c[0]), { head: true });
+    for (const a of asistencias) {
+      if (y > 500) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
+      drawRowAsist([
+        a.nombre_completo || "—", TURNO_LABEL[a.turno] || a.turno,
+        horaReal(a.entrada_en), horaReal(a.salida_en),
+      ]);
+    }
+  } else {
+    doc.fontSize(9).fillColor("#999").font("Helvetica").text("Sin instructores registrados en turno ese día.", 40, y);
+    y += 16;
+  }
 
   doc.fontSize(7.5).fillColor("#999").font("Helvetica")
-     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, 555);
+     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, y + 16);
 
   doc.end();
   return doc;
