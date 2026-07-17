@@ -88,6 +88,13 @@ export default function Header() {
                     </Link>
                   )}
 
+                  {user.rol === "INSTRUCTOR" && user.puede_operaciones && (
+                    <Link to="/turno" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-clipboard-check header__action-icon" />
+                      <span>Turno</span>
+                    </Link>
+                  )}
+
                   {user.rol === "INSTRUCTOR" && user.es_instructor_teoria !== false && (
                     <Link to="/instructor/aula-virtual" className="header__action-link" onClick={closeMenu}>
                       <i className="bi bi-mortarboard header__action-icon" />

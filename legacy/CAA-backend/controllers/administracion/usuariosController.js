@@ -110,7 +110,7 @@ exports.listPersonal = async (req, res) => {
       SELECT u.id_usuario, u.username, u.rol, u.nombre, u.apellido, u.correo, u.activo,
              e.id AS id_empleado, e.cargo, e.sueldo_base, e.es_servicios_profesionales,
              e.dui, e.nit, e.isss_num, e.afp_num,
-             ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar,
+             ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar, ins.puede_operaciones,
              (SELECT COUNT(*) FROM alumno a WHERE a.id_instructor = ins.id_instructor) AS num_alumnos
       FROM usuario u
       LEFT JOIN empleado e     ON e.id_usuario   = u.id_usuario
@@ -131,7 +131,7 @@ exports.crearPersonal = async (req, res) => {
       username, password, nombre, apellido, correo, rol,
       cargo, dui, nit, isss_num, afp_num,
       sueldo_base, es_servicios_profesionales,
-      es_instructor_vuelo, es_instructor_teoria, puede_programar
+      es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones
     } = req.body;
 
     if (!username || !password || !nombre || !apellido) {
@@ -167,17 +167,19 @@ exports.crearPersonal = async (req, res) => {
     if (rolFinal === 'INSTRUCTOR') {
       await asegurarInstructorTx(client, id_usuario);
       // Capacidades opcionales al crear (defaults de la columna: solo vuelo).
-      if (es_instructor_vuelo != null || es_instructor_teoria != null || puede_programar != null) {
+      if (es_instructor_vuelo != null || es_instructor_teoria != null || puede_programar != null || puede_operaciones != null) {
         await client.query(`
           UPDATE instructor SET
             es_instructor_vuelo  = COALESCE($2, es_instructor_vuelo),
             es_instructor_teoria = COALESCE($3, es_instructor_teoria),
-            puede_programar      = COALESCE($4, puede_programar)
+            puede_programar      = COALESCE($4, puede_programar),
+            puede_operaciones    = COALESCE($5, puede_operaciones)
           WHERE id_usuario = $1
         `, [id_usuario,
             es_instructor_vuelo != null ? !!es_instructor_vuelo : null,
             es_instructor_teoria != null ? !!es_instructor_teoria : null,
-            puede_programar != null ? !!puede_programar : null]);
+            puede_programar != null ? !!puede_programar : null,
+            puede_operaciones != null ? !!puede_operaciones : null]);
       }
     }
 
@@ -204,7 +206,7 @@ exports.editarPersonal = async (req, res) => {
     const {
       username, nombre, apellido, correo, cargo, dui, nit, isss_num, afp_num,
       sueldo_base, es_servicios_profesionales, rol, activo,
-      es_instructor_vuelo, es_instructor_teoria, puede_programar
+      es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones
     } = req.body;
 
     // Nombre de usuario (login): normalizado a minúsculas + trim para que
@@ -288,7 +290,7 @@ exports.editarPersonal = async (req, res) => {
     // Capacidades del instructor (tipos + toggle de programación). Solo aplican
     // si el usuario tiene ficha de instructor. Un instructor debe quedar como
     // de vuelo, de teoría o ambos — nunca ninguno.
-    if (es_instructor_vuelo != null || es_instructor_teoria != null || puede_programar != null) {
+    if (es_instructor_vuelo != null || es_instructor_teoria != null || puede_programar != null || puede_operaciones != null) {
       const insRes = await client.query(
         `SELECT es_instructor_vuelo, es_instructor_teoria FROM instructor WHERE id_usuario = $1 FOR UPDATE`,
         [id_usuario]
@@ -305,10 +307,12 @@ exports.editarPersonal = async (req, res) => {
           UPDATE instructor SET
             es_instructor_vuelo  = $2,
             es_instructor_teoria = $3,
-            puede_programar      = COALESCE($4, puede_programar)
+            puede_programar      = COALESCE($4, puede_programar),
+            puede_operaciones    = COALESCE($5, puede_operaciones)
           WHERE id_usuario = $1
         `, [id_usuario, vueloFinal, teoriaFinal,
-            puede_programar != null ? !!puede_programar : null]);
+            puede_programar != null ? !!puede_programar : null,
+            puede_operaciones != null ? !!puede_operaciones : null]);
       }
     }
 

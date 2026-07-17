@@ -1,6 +1,6 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/authMiddleware");
-const roleMiddleware = require("../middlewares/roleMiddleware");
+const { requireCapacidad } = require("../utils/capacidades");
 const router = express.Router();
 
 const turnoController = require("../controllers/turnoController");
@@ -21,17 +21,17 @@ router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzar
 
 // Editar tripulación (alumno/instructor/aeronave) + almas a bordo. Mutación
 // más sensible que avanzar estado → gate de rol explícito (no solo JWT válido).
-router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, roleMiddleware(["TURNO", "ADMIN"]), turnoController.editarTripulacion);
+router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.editarTripulacion);
 router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.registrarInasistencia);
 
 // Reporte de cierre del día (vuelos por avión, PDF). Lo usa TURNO; ADMIN como
 // super-usuario y ADMINISTRACION (es su insumo para debitar saldos).
-router.get("/reporte-vuelos-dia", authMiddleware, roleMiddleware(["TURNO", "ADMIN", "ADMINISTRACION"]), turnoController.getReporteVuelosDia);
+router.get("/reporte-vuelos-dia", authMiddleware, requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES"), turnoController.getReporteVuelosDia);
 
 // Mantenimiento imprevisto de una aeronave (falla detectada en pre-vuelo):
 // Turno la saca de servicio, cancela y notifica sus vuelos, y la reactiva
 // cuando taller termina. Mutaciones sensibles → gate de rol explícito.
-const turnoMantAccess = roleMiddleware(["TURNO", "ADMIN"]);
+const turnoMantAccess = requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES");
 router.get("/mantenimiento/flota", authMiddleware, turnoMantAccess, turnoMantenimiento.getFlotaMantenimiento);
 router.post("/aeronaves/:id/preview-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.previewMantenimientoAeronave);
 router.post("/aeronaves/:id/mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.iniciarMantenimientoAeronave);

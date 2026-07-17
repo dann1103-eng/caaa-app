@@ -28,7 +28,7 @@ const EMPTY_PERSONAL = {
   // Capacidades del instructor, configurables desde el alta (antes solo se
   // podían tocar reabriendo la edición). Los defaults replican los de la
   // columna en BD (migración 016): nace solo-vuelo.
-  es_instructor_vuelo: true, es_instructor_teoria: false, puede_programar: false
+  es_instructor_vuelo: true, es_instructor_teoria: false, puede_programar: false, puede_operaciones: false
 };
 
 // Sección colapsable (acordeón) reutilizable.
@@ -184,6 +184,7 @@ export default function Usuarios() {
         es_instructor_vuelo: p.es_instructor_vuelo !== false,
         es_instructor_teoria: p.es_instructor_teoria !== false,
         puede_programar: !!p.puede_programar,
+        puede_operaciones: !!p.puede_operaciones,
       } : {}),
     });
     setInstrHist(null);
@@ -556,6 +557,11 @@ export default function Usuarios() {
                           onChange={(e) => setPersonalForm({...personalForm, puede_programar: e.target.checked})} />
                         <span><strong>Programación</strong> — ve el calendario completo de la escuela, mueve vuelos y publica la semana.</span>
                       </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!personalForm.puede_operaciones}
+                          onChange={(e) => setPersonalForm({...personalForm, puede_operaciones: e.target.checked})} />
+                        <span><strong>Operaciones (Turno)</strong> — administra mantenimiento de flota, el turno del día, cancelaciones y cambios del programa, igual que el rol Turno.</span>
+                      </label>
                     </div>
                     {!personalForm.es_instructor_vuelo && !personalForm.es_instructor_teoria && (
                       <p style={{ fontSize: "0.8rem", color: "var(--c-danger-700, #b42318)", marginTop: 8, marginBottom: 0 }}>
@@ -670,6 +676,11 @@ export default function Usuarios() {
                         <input type="checkbox" checked={!!editPForm.puede_programar}
                           onChange={(e) => setEditPForm({...editPForm, puede_programar: e.target.checked})} />
                         <span><strong>Programación</strong> — ve el calendario completo de la escuela, mueve vuelos y publica la semana.</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!editPForm.puede_operaciones}
+                          onChange={(e) => setEditPForm({...editPForm, puede_operaciones: e.target.checked})} />
+                        <span><strong>Operaciones (Turno)</strong> — administra mantenimiento de flota, el turno del día, cancelaciones y cambios del programa, igual que el rol Turno.</span>
                       </label>
                     </div>
                     {!editPForm.es_instructor_vuelo && !editPForm.es_instructor_teoria && (

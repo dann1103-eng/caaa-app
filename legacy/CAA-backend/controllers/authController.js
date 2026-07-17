@@ -41,7 +41,8 @@ exports.login = async (req, res) => {
         ins.id_instructor,
         ins.es_instructor_vuelo,
         ins.es_instructor_teoria,
-        ins.puede_programar
+        ins.puede_programar,
+        ins.puede_operaciones
       FROM usuario u
       LEFT JOIN alumno a ON a.id_usuario = u.id_usuario
       LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
@@ -155,6 +156,7 @@ exports.login = async (req, res) => {
       es_instructor_vuelo: user.es_instructor_vuelo ?? null,
       es_instructor_teoria: user.es_instructor_teoria ?? null,
       puede_programar: user.puede_programar ?? null,
+      puede_operaciones: user.puede_operaciones ?? null,
     };
 
     const payload = {
@@ -213,7 +215,7 @@ exports.refresh = async (req, res) => {
       SELECT
         u.id_usuario, u.username, u.nombre, u.apellido, u.rol,
         u.must_change_password, u.must_set_email, u.datos_confirmados,
-        ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar
+        ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar, ins.puede_operaciones
       FROM usuario u
       LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
       WHERE u.id_usuario = $1
@@ -230,6 +232,7 @@ exports.refresh = async (req, res) => {
       es_instructor_vuelo: user.es_instructor_vuelo ?? null,
       es_instructor_teoria: user.es_instructor_teoria ?? null,
       puede_programar: user.puede_programar ?? null,
+      puede_operaciones: user.puede_operaciones ?? null,
     };
 
     const payload = {

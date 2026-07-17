@@ -9,9 +9,10 @@ const db = require("../config/db");
  * solo para UX del frontend (mostrar/ocultar navegación).
  *
  * Capacidades de un INSTRUCTOR:
- *   PROGRAMAR → puede_programar      (todo lo que hace el rol PROGRAMACION)
- *   VUELO     → es_instructor_vuelo  (gestión de vuelos/solicitudes de alumnos)
- *   AULA      → es_instructor_teoria (Aula Virtual: sesiones, notas, material)
+ *   PROGRAMAR   → puede_programar      (todo lo que hace el rol PROGRAMACION)
+ *   VUELO       → es_instructor_vuelo  (gestión de vuelos/solicitudes de alumnos)
+ *   AULA        → es_instructor_teoria (Aula Virtual: sesiones, notas, material)
+ *   OPERACIONES → puede_operaciones    (todo lo que hace el rol TURNO)
  */
 
 // Roles que programan sin depender de flags de instructor.
@@ -26,7 +27,7 @@ async function getCapacidadesInstructor(req) {
   let cap = null;
   if (req.user?.rol === "INSTRUCTOR") {
     const r = await db.query(
-      `SELECT id_instructor, activo, es_instructor_vuelo, es_instructor_teoria, puede_programar
+      `SELECT id_instructor, activo, es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones
          FROM instructor
         WHERE id_usuario = $1`,
       [req.user.id_usuario]
@@ -48,8 +49,8 @@ async function puedeProgramar(req) {
 
 /**
  * Middleware: pasa si el rol está en `roles`, o si es un INSTRUCTOR activo con
- * la capacidad indicada ('PROGRAMAR' | 'VUELO' | 'AULA'). Reemplaza a
- * roleMiddleware en rutas donde un instructor con toggle debe entrar.
+ * la capacidad indicada ('PROGRAMAR' | 'VUELO' | 'AULA' | 'OPERACIONES'). Reemplaza
+ * a roleMiddleware en rutas donde un instructor con toggle debe entrar.
  */
 function requireCapacidad(roles, capacidad) {
   const allowed = Array.isArray(roles) ? roles : [roles];
@@ -63,6 +64,7 @@ function requireCapacidad(roles, capacidad) {
           if (capacidad === "PROGRAMAR" && cap.puede_programar) return next();
           if (capacidad === "VUELO" && cap.es_instructor_vuelo) return next();
           if (capacidad === "AULA" && cap.es_instructor_teoria) return next();
+          if (capacidad === "OPERACIONES" && cap.puede_operaciones) return next();
         }
       }
       return res.status(403).json({ message: "Acceso denegado" });
