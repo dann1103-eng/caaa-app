@@ -620,6 +620,43 @@
 .pp__badge--envuelo .pp__status-dot { background: var(--pp-success); box-shadow: 0 0 8px var(--pp-success); }
 .pp__badge--cancelado .pp__status-dot { background: var(--pp-accent); }
 
+/* Este bloque también se usa fuera del tablero de kiosco (ScheduleWeekTable
+   embebido en el dashboard del instructor) — en pantallas angostas los tabs
+   pasan a scroll horizontal (mismo patrón que .ins__tabs) y la tarjeta de
+   vuelo se apila en vez del grid fijo 100px/1fr/180px, que desbordaba y
+   cortaba AERONAVE/estado. En el kiosco (siempre ancho) esto nunca aplica. */
+@media (max-width: 768px) {
+  .pp__day-tabs {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pp__day-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 10px 14px;
+  }
+
+  .pp__flight-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .pp__flight-info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pp__flight-status {
+    text-align: left;
+  }
+}
+
 /* ── Sidebar ────────────────────────────────────────────────────────────── */
 .pp__sidebar {
   display: flex;
