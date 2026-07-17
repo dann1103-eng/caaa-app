@@ -41,28 +41,40 @@ async function getCurrentSemana(conn = db) {
  * intervalos [a,b] y [c,d] se solapan salvo que uno termine antes que empiece
  * el otro. Excluye `excluir` (ids de detalle que se están moviendo).
  * Lanza Error con .code 23505/23506/23507 si hay conflicto.
+ *
+ * `saltarConflictoAeronave`/`saltarConflictoInstructor`: igual que el alumno
+ * (que YA puede "solicitar encimado" sobre otro alumno, migración
+ * drop_uq_slot), el instructor de vuelo debe poder pedir horas para sus
+ * alumnos aunque la aeronave o él mismo ya estén pedidos en ese horario por
+ * otra solicitud — el choque real lo resuelve Programación al publicar, no
+ * bloquea el pedido. Solo aplica al PEDIDO (instructor); Programación al
+ * mover/colocar vuelos sigue exigiendo ambos (son quienes dan la palabra final).
  */
 async function assertSlotLibre(client, {
   id_semana, dia_semana, id_bloque, id_bloque_fin,
   id_aeronave, id_alumno, id_instructor, excluir = [],
   saltarConflictoAlumno = false,
+  saltarConflictoAeronave = false,
+  saltarConflictoInstructor = false,
 }) {
   const fin = id_bloque_fin || id_bloque;
   const excl = excluir.length ? excluir : [-1];
 
-  const aero = await client.query(
-    `SELECT 1 FROM solicitud_vuelo sv
-        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
-      WHERE sv.id_semana = $1 AND sv.dia_semana = $2 AND sv.id_aeronave = $3
-        AND sv.id_detalle <> ALL($4::int[])
-        AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
-        AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
-        AND NOT ($6 < sv.id_bloque OR $5 > COALESCE(sv.id_bloque_fin, sv.id_bloque))
-      LIMIT 1`,
-    [id_semana, dia_semana, id_aeronave, excl, id_bloque, fin]
-  );
-  if (aero.rows.length) {
-    throw Object.assign(new Error("Ese bloque y aeronave ya está ocupado"), { code: "23505" });
+  if (!saltarConflictoAeronave) {
+    const aero = await client.query(
+      `SELECT 1 FROM solicitud_vuelo sv
+          JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        WHERE sv.id_semana = $1 AND sv.dia_semana = $2 AND sv.id_aeronave = $3
+          AND sv.id_detalle <> ALL($4::int[])
+          AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
+          AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
+          AND NOT ($6 < sv.id_bloque OR $5 > COALESCE(sv.id_bloque_fin, sv.id_bloque))
+        LIMIT 1`,
+      [id_semana, dia_semana, id_aeronave, excl, id_bloque, fin]
+    );
+    if (aero.rows.length) {
+      throw Object.assign(new Error("Ese bloque y aeronave ya está ocupado"), { code: "23505" });
+    }
   }
 
   // Vuelos DEMO comparten una ficha placeholder única (no representa a una
@@ -85,7 +97,7 @@ async function assertSlotLibre(client, {
     }
   }
 
-  if (id_instructor) {
+  if (id_instructor && !saltarConflictoInstructor) {
     const ins = await client.query(
       `SELECT 1 FROM solicitud_vuelo sv
         JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
@@ -147,7 +159,10 @@ function validarMovimientosEnMemoria(movimientos, infoPorDetalle) {
  * guardarCambios original. `assertOwnership(infoPorDetalle)` es opcional: la
  * variante del instructor la usa para exigir que todos los detalles sean suyos.
  */
-async function aplicarMovimientos(client, { id_semana, movimientos, assertOwnership }) {
+async function aplicarMovimientos(client, {
+  id_semana, movimientos, assertOwnership,
+  saltarConflictoAeronave = false, saltarConflictoInstructor = false,
+}) {
   const idsMovidos = movimientos.map((m) => m.id_detalle);
 
   const infoRes = await client.query(
@@ -185,6 +200,8 @@ async function aplicarMovimientos(client, { id_semana, movimientos, assertOwners
       id_alumno: info.id_alumno,
       id_instructor: info.id_instructor,
       excluir: idsMovidos,
+      saltarConflictoAeronave,
+      saltarConflictoInstructor,
     });
   }
 
@@ -220,6 +237,7 @@ async function insertarSolicitudVuelo(client, {
   id_aeronave, tipo_vuelo, id_instructor, es_extracurricular,
   validarLicencia = true,
   categoria, id_licencia_chequeo, id_usuario_practicante, tipo_instruccion, nombre_externo,
+  saltarConflictoAeronave = false, saltarConflictoInstructor = false,
 }) {
   const resuelto = await resolverVueloEspecial(client, {
     categoria, id_alumno, id_instructor, id_usuario_practicante, tipo_instruccion, nombre_externo,
@@ -272,6 +290,7 @@ async function insertarSolicitudVuelo(client, {
     id_semana, dia_semana, id_bloque, id_bloque_fin, id_aeronave,
     id_alumno: idAlumnoEfectivo, id_instructor: instrEff, excluir: [],
     saltarConflictoAlumno: resuelto.saltarConflictoAlumno,
+    saltarConflictoAeronave, saltarConflictoInstructor,
   });
 
   const ins = await client.query(

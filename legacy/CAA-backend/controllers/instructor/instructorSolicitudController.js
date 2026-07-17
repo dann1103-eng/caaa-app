@@ -145,6 +145,11 @@ exports.guardarCambios = async (req, res) => {
           }
         }
       },
+      // El instructor de vuelo tiene la misma facultad que el alumno de pedir
+      // horas aunque ya haya otra solicitud sobre la misma aeronave/instructor
+      // en ese horario — el choque real lo resuelve Programación al publicar.
+      saltarConflictoAeronave: true,
+      saltarConflictoInstructor: true,
     });
 
     await logAuditoria(client, {
@@ -207,6 +212,11 @@ exports.crearSolicitud = async (req, res) => {
     const out = await solicitudService.insertarSolicitudVuelo(client, {
       id_alumno, id_semana: semana.id_semana, dia_semana, id_bloque, id_bloque_fin,
       id_aeronave, tipo_vuelo, id_instructor: idInstructor, es_extracurricular,
+      // Misma facultad que el alumno al pedir horas: puede solicitar aunque la
+      // aeronave o el instructor ya estén pedidos por otra solicitud en ese
+      // horario — el choque real lo resuelve Programación al publicar.
+      saltarConflictoAeronave: true,
+      saltarConflictoInstructor: true,
     });
     await client.query("COMMIT");
 
