@@ -74,11 +74,13 @@ exports.getTurnoDia = catchAsync(async (req, res) => {
 });
 
 // ── GET /turno/instructores — lista para elegir a los de turno ──────────────
+// El turno del día (asistencia/hangar) lo cubren TODOS los instructores
+// activos, den vuelo o teoría — no es exclusivo de instructores de vuelo.
 exports.getInstructoresParaTurno = catchAsync(async (req, res) => {
   const r = await db.query(`
     SELECT i.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo
     FROM instructor i JOIN usuario u ON u.id_usuario = i.id_usuario
-    WHERE i.activo = true AND i.es_instructor_vuelo = true
+    WHERE i.activo = true
     ORDER BY u.apellido, u.nombre
   `);
   res.json(r.rows);
