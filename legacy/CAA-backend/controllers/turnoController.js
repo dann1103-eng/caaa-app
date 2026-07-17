@@ -823,19 +823,20 @@ exports.getReporteVuelosDia = async (req, res) => {
     `, [fecha]);
 
     // Apertura/cierre de operaciones del día + instructores en turno (entrada/
-    // salida) — mismas tablas que usa el widget "Turno del día".
+    // salida) — mismas tablas que usa el widget "Turno del día". A diferencia
+    // de vuelo_estado_tiempo.registrado_en (timestamp SIN zona, requiere
+    // AT TIME ZONE para no salir 6h desfasado), estas columnas YA son
+    // TIMESTAMPTZ: se seleccionan crudas (mismo patrón que turnoDiaController.js
+    // getEstadoDia, ya en producción) y el front convierte a hora local — un
+    // AT TIME ZONE acá las volvería a correr 6h, no las corrige.
     const [turnoDiaRes, asistenciasRes] = await Promise.all([
       db.query(`
-        SELECT (apertura_en AT TIME ZONE 'America/El_Salvador') AS apertura_en,
-               (cierre_en   AT TIME ZONE 'America/El_Salvador') AS cierre_en,
-               estado
+        SELECT apertura_en, cierre_en, estado
         FROM turno_dia
         WHERE fecha = $1::date
       `, [fecha]),
       db.query(`
-        SELECT ta.turno, ta.id_instructor,
-               (ta.entrada_en AT TIME ZONE 'America/El_Salvador') AS entrada_en,
-               (ta.salida_en  AT TIME ZONE 'America/El_Salvador') AS salida_en,
+        SELECT ta.turno, ta.id_instructor, ta.entrada_en, ta.salida_en,
                TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre_completo
         FROM turno_asistencia ta
         JOIN instructor i ON i.id_instructor = ta.id_instructor
@@ -914,19 +915,20 @@ exports.getReporteOperacionesDia = async (req, res) => {
     `, [fecha]);
 
     // Apertura/cierre de operaciones del día + instructores en turno (entrada/
-    // salida) — mismas tablas que usa el widget "Turno del día".
+    // salida) — mismas tablas que usa el widget "Turno del día". A diferencia
+    // de vuelo_estado_tiempo.registrado_en (timestamp SIN zona, requiere
+    // AT TIME ZONE para no salir 6h desfasado), estas columnas YA son
+    // TIMESTAMPTZ: se seleccionan crudas (mismo patrón que turnoDiaController.js
+    // getEstadoDia, ya en producción) y el front convierte a hora local — un
+    // AT TIME ZONE acá las volvería a correr 6h, no las corrige.
     const [turnoDiaRes, asistenciasRes] = await Promise.all([
       db.query(`
-        SELECT (apertura_en AT TIME ZONE 'America/El_Salvador') AS apertura_en,
-               (cierre_en   AT TIME ZONE 'America/El_Salvador') AS cierre_en,
-               estado
+        SELECT apertura_en, cierre_en, estado
         FROM turno_dia
         WHERE fecha = $1::date
       `, [fecha]),
       db.query(`
-        SELECT ta.turno, ta.id_instructor,
-               (ta.entrada_en AT TIME ZONE 'America/El_Salvador') AS entrada_en,
-               (ta.salida_en  AT TIME ZONE 'America/El_Salvador') AS salida_en,
+        SELECT ta.turno, ta.id_instructor, ta.entrada_en, ta.salida_en,
                TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre_completo
         FROM turno_asistencia ta
         JOIN instructor i ON i.id_instructor = ta.id_instructor
