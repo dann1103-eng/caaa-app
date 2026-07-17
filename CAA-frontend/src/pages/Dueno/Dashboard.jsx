@@ -6,7 +6,7 @@ import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoFlotaWidget from "../../components/ProgWidgets/EstadoFlotaWidget";
 import WindyWidget from "../../components/ProgWidgets/WindyWidget";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
-import VuelosEnCursoTable from "../../components/VuelosEnCursoTable/VuelosEnCursoTable";
+import VueloResumenCard from "../../components/VueloResumenCard/VueloResumenCard";
 import PushToggle from "../../components/PushToggle/PushToggle";
 import "../Proyeccion/PaginaProgramacion.css";
 import "./Dashboard.css";
@@ -102,7 +102,13 @@ export default function DuenoDashboard() {
           <div className="pp__card-head">
             <h2 className="pp__card-title"><i className="bi bi-broadcast-pin" /> Vuelos de hoy</h2>
           </div>
-          <VuelosEnCursoTable vuelos={vuelosHoy} emptyLabel="No hay vuelos programados para hoy." />
+          <div className="duo__vuelos">
+            {vuelosHoy.length === 0 ? (
+              <p className="duo__vacio">No hay vuelos programados para hoy.</p>
+            ) : (
+              vuelosHoy.map((v) => <VueloResumenCard key={v.id_vuelo} vuelo={v} />)
+            )}
+          </div>
         </div>
 
         <AvisosTurnoWidget />

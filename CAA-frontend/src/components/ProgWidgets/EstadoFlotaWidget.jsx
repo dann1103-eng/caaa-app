@@ -33,6 +33,11 @@ export default function EstadoFlotaWidget() {
 
   useEffect(() => {
     cargar();
+    // Red de seguridad: si la carga inicial falla por un hipo de red (el
+    // catch es silencioso), sin esto quedaba "vacío" hasta el próximo evento
+    // de socket — que puede tardar mucho o no llegar nunca.
+    const t = setInterval(cargar, 60000);
+    return () => clearInterval(t);
   }, [cargar]);
 
   useEffect(() => {

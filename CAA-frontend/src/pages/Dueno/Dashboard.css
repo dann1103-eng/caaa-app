@@ -64,32 +64,18 @@
 }
 .duo__push-btn:disabled { opacity: 0.6; }
 
-/* La tabla de vuelos tiene 7 columnas pensadas para una pantalla ancha de
-   operaciones; en un teléfono angosto obligaba a scroll horizontal dentro de
-   la tarjeta. Se ocultan ALMAS y LLEGADA (menos relevantes para el dueño)
-   para que el resto entre sin scroll lateral — el resto de la tabla
-   (estudiante/instructor, aeronave, tipo, estado + barra de progreso, salida)
-   queda visualmente idéntico a Proyección. */
-.duo .pp__table th:nth-child(5),
-.duo .pp__table td:nth-child(5),
-.duo .pp__table th:nth-child(7),
-.duo .pp__table td:nth-child(7) {
-  display: none;
+/* Vuelos de hoy: tarjetas apiladas (no la tabla de 7 columnas de Proyección,
+   que en un teléfono angosto obligaba a scroll horizontal y recortaba
+   matrícula/almas/llegada). Cada VueloResumenCard muestra todo sin recortar. */
+.duo__vuelos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
 }
 
-/* El padding original (24px) es para una tabla de escritorio ancha; en el
-   ancho de un teléfono sigue desbordando aunque se oculten 2 columnas.
-   Se recorta el padding lateral — mismo tamaño de letra y colores, solo
-   menos aire entre columnas. */
-.duo .pp__table th,
-.duo .pp__table td {
-  padding-left: 6px;
-  padding-right: 6px;
-}
-
-.duo .pp__tbl-badge,
-.duo .pp__tipo-badge,
-.duo .pp__tbl-aero {
-  padding-left: 6px;
-  padding-right: 6px;
+.duo__vacio {
+  margin: 0;
+  padding: 8px 0;
+  color: var(--pp-text-muted);
 }

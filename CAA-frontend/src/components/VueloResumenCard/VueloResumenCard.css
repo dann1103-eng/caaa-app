@@ -1,0 +1,78 @@
+.vrc {
+  background: var(--pp-card-bg);
+  border: 1px solid var(--pp-card-border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vrc__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.vrc__hora {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--pp-text-bright);
+}
+
+.vrc__aero {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.vrc__alumno {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--pp-text-bright);
+}
+
+.vrc__instructor {
+  font-size: 1rem;
+  color: var(--pp-text-muted);
+}
+
+.vrc__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.vrc__bar-wrap {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.vrc__bar {
+  height: 100%;
+  background: var(--pp-primary);
+}
+
+.vrc__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--pp-card-border);
+  font-size: 0.95rem;
+  color: var(--pp-text-muted);
+}
+
+.vrc__foot-item b {
+  color: var(--pp-text-bright);
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
