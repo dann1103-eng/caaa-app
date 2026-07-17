@@ -99,8 +99,22 @@
 
 /* ── Avisos de Turno (se oculta sola si no hay avisos activos) ────────────── */
 .ins__avisos {
-  max-width: 480px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  max-width: 720px;
   margin-bottom: 1.25rem;
+  align-items: start;
+}
+
+.ins__avisos > * {
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .ins__avisos {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Sección ─────────────────────────────────────────────────────────────── */
