@@ -8,6 +8,7 @@ import ChecklistPostvueloModal from "../../components/ChecklistPostvueloModal/Ch
 import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
 import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/EstadoOperacionesWidget";
+import ScheduleWeekTable from "../../components/ScheduleWeekTable/ScheduleWeekTable";
 import {
   getVuelosSemana,
   getMisAlumnos,
@@ -19,6 +20,7 @@ import {
   getReportesPendientes,
   registrarInasistencia,
 } from "../../services/instructorApi";
+import { getCalendarioPublico } from "../../services/programacionApi";
 import { SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
 
@@ -458,6 +460,9 @@ export default function InstructorDashboard() {
   const [vuelosPractica, setVuelosPractica]           = useState([]);   // vuelos donde ESTE instructor es el practicante
   const [practicaReporte, setPracticaReporte]         = useState(null); // vuelo de práctica a firmar como estudiante
 
+  // Programación de la semana de TODA la escuela (mismo cuadro que Proyección).
+  const [calendarioEscuela, setCalendarioEscuela] = useState([]);
+
   const cargarVuelosPractica = useCallback(async () => {
     try {
       const data = await getMisVuelosPractica();
@@ -505,6 +510,15 @@ export default function InstructorDashboard() {
     const t = setInterval(fetchVuelos, 30000);
     return () => clearInterval(t);
   }, [weekMode, fetchVuelos]);
+
+  // Programación de toda la escuela (mismo dato que consume Proyección).
+  useEffect(() => {
+    const cargarCalendarioEscuela = () =>
+      getCalendarioPublico().then((data) => setCalendarioEscuela(Array.isArray(data) ? data : [])).catch(() => {});
+    cargarCalendarioEscuela();
+    const t = setInterval(cargarCalendarioEscuela, 20000);
+    return () => clearInterval(t);
+  }, []);
 
   // Socket.io tiempo real
   useEffect(() => {
@@ -781,6 +795,16 @@ export default function InstructorDashboard() {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="ins__section">
+          <h3 className="ins__section-title">
+            <i className="bi bi-calendar3" style={{ color: 'var(--c-brand-700)' }}></i>
+            Programación de la semana (toda la escuela)
+          </h3>
+          <div className="pp">
+            <ScheduleWeekTable vuelos={calendarioEscuela} diaHoy={diaHoyDb} />
+          </div>
         </div>
 
         <div className="ins__secondary">

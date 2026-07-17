@@ -16,6 +16,7 @@ import WindyWidget from "../../components/ProgWidgets/WindyWidget";
 import TickerBar from "../../components/TickerBar/TickerBar";
 import OperacionesWidget from "../../components/OperacionesWidget/OperacionesWidget";
 import VuelosEnCursoTable from "../../components/VuelosEnCursoTable/VuelosEnCursoTable";
+import ScheduleWeekTable from "../../components/ScheduleWeekTable/ScheduleWeekTable";
 import { SOCKET_URL } from "../../api/axiosConfig";
 import {
   categoriaMeta, aeroBadgeStyle, colorAeronave, formatHora,
@@ -27,22 +28,6 @@ function jsDayToDb(jsDay) {
   if (jsDay === 0) return null;
   return jsDay;
 }
-
-const DIAS = [
-  { db: 1, label: "LUNES",     short: "LUN" },
-  { db: 2, label: "MARTES",    short: "MAR" },
-  { db: 3, label: "MIÉRCOLES", short: "MIÉ" },
-  { db: 4, label: "JUEVES",    short: "JUE" },
-  { db: 5, label: "VIERNES",   short: "VIE" },
-  { db: 6, label: "SÁBADO",    short: "SÁB" },
-];
-
-const ESTADO_META = {
-  PROGRAMADO: { label: "Programado", cls: "pp__badge--programado" },
-  EN_VUELO:   { label: "En progreso",   cls: "pp__badge--envuelo"   },
-  COMPLETADO: { label: "Completado", cls: "pp__badge--completado" },
-  CANCELADO:  { label: "Cancelado",  cls: "pp__badge--cancelado"  },
-};
 
 // Devuelve el estado real de la BD. La proyección NO sobreescribe con el reloj:
 // solo el instructor/turno puede avanzar el estado manualmente.
@@ -72,7 +57,6 @@ export default function PaginaProgramacion() {
   const [turnoDia,    setTurnoDia]    = useState(null);
 
   const diaHoy = jsDayToDb(new Date().getDay());
-  const [tabActivo,       setTabActivo]       = useState(diaHoy ?? 1);
 
   /* ── clock ── (local + UTC/Zulu, muy usado en aviación) */
   useEffect(() => {
@@ -234,11 +218,6 @@ export default function PaginaProgramacion() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vuelosConEstado, diaHoy, minutoActual]);
 
-  const vuelosFiltrados = useMemo(() =>
-    vuelosConEstado.filter(v => Number(v.dia_semana) === tabActivo),
-    [vuelosConEstado, tabActivo]
-  );
-
   return (
     <>
       <div className="pp">
@@ -372,61 +351,7 @@ export default function PaginaProgramacion() {
               )}
 
               {/* Schedule */}
-              <div className="pp__card pp__schedule-card">
-                <div className="pp__day-tabs">
-                  {DIAS.map(dia => (
-                    <button
-                      key={dia.db}
-                      className={`pp__day-tab ${tabActivo === dia.db ? "pp__day-tab--active" : ""} ${diaHoy === dia.db ? "pp__day-tab--hoy" : ""}`}
-                      onClick={() => setTabActivo(dia.db)}
-                    >
-                      {dia.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="pp__flights-list">
-                  {vuelosFiltrados.length === 0 ? (
-                    <div className="pp__empty-state">No hay vuelos programados para este día.</div>
-                  ) : (
-                    vuelosFiltrados.map(v => {
-                      const meta = ESTADO_META[v.estadoDinamico] || { label: v.estadoDinamico, cls: "" };
-                      const tipo = categoriaMeta(v);
-                      return (
-                        <div key={v.id_vuelo} className="pp__flight-card">
-                          <div className="pp__flight-time">
-                            <span className="pp__time-val">{formatHora(v.hora_inicio)}</span>
-                          </div>
-                          <div className="pp__flight-info">
-                            <div className="pp__info-group">
-                              <span className="pp__info-label">ESTUDIANTE</span>
-                              <span className="pp__info-main">{v.alumno_nombre}</span>
-                            </div>
-                            <div className="pp__info-group">
-                              <span className="pp__info-label">INSTRUCTOR</span>
-                              <span className="pp__info-main">
-                                Cap. {v.instructor_nombre}{" "}
-                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
-                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
-                              </span>
-                            </div>
-                            <div className="pp__info-group">
-                              <span className="pp__info-label">AERONAVE</span>
-                              <span className="pp__info-main" style={{ color: colorAeronave(v.aeronave_codigo) }}>
-                                {v.aeronave_codigo} ({v.aeronave_modelo})
-                              </span>
-                            </div>
-                          </div>
-                          <div className="pp__flight-status">
-                            <span className={`pp__status-badge ${meta.cls}`}>
-                              <span className="pp__status-dot" /> {meta.label}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
+              <ScheduleWeekTable vuelos={vuelosConEstado} diaHoy={diaHoy} />
             </div>
 
             <aside className="pp__sidebar">
