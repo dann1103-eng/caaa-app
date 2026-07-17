@@ -88,14 +88,26 @@ export async function generarPdfReporteVuelo({
         ["Horas a cobrar",   formatNum(d.horas_cobradas)],
       ]
     : [
-        ["Tacómetro Salida",    formatMedidor(d.tacometro_salida)],
-        ["Tacómetro Llegada",   formatMedidor(d.tacometro_llegada)],
-        ["Hobbs Salida",        formatMedidor(d.hobbs_salida)],
-        ["Hobbs Llegada",       formatMedidor(d.hobbs_llegada)],
         ["Combustible Salida",  formatNum(d.combustible_salida)],
         ["Combustible Llegada", formatNum(d.combustible_llegada)],
         ["Cantidad agregada",   formatNum(d.cantidad_combustible)],
+        ["Horas a cobrar",      formatNum(d.horas_cobradas)],
       ];
+
+  // Bloque Tacómetro/Hobbs (solo avión real): dos columnas lado a lado,
+  // cada una con Llegada arriba y Salida abajo — así queda igual que el
+  // instrumento físico, donde la lectura crece de abajo hacia arriba.
+  const medidorColumn = (titulo, llegada, salida) => ({
+    table: {
+      widths: ["*", "*"],
+      body: [
+        [hdr(titulo, { colSpan: 2, alignment: "center" }), {}],
+        [cell("Llegada", { bold: true }), cell(llegada)],
+        [cell("Salida", { bold: true }), cell(salida)],
+      ],
+    },
+    layout: "lightHorizontalLines",
+  });
 
   const docDefinition = {
     pageSize: "A4",
@@ -192,6 +204,16 @@ export async function generarPdfReporteVuelo({
           ],
         },
         layout: "lightHorizontalLines",
+        margin: [0, 0, 0, 10],
+      }] : []),
+
+      // ── Tacómetro / Hobbs (solo avión real, omitido en inasistencia) ──
+      ...(!esInasistencia && !isSim ? [{
+        columns: [
+          medidorColumn("TACÓMETRO", formatMedidor(d.tacometro_llegada), formatMedidor(d.tacometro_salida)),
+          medidorColumn("HOBBS", formatMedidor(d.hobbs_llegada), formatMedidor(d.hobbs_salida)),
+        ],
+        columnGap: 10,
         margin: [0, 0, 0, 10],
       }] : []),
 
