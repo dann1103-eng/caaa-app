@@ -168,6 +168,7 @@ async function aplicarMovimientos(client, {
 
   const infoRes = await client.query(
     `SELECT sv.id_detalle, ss.id_alumno, ss.id_solicitud,
+            sv.id_bloque AS orig_id_bloque, sv.id_bloque_fin AS orig_id_bloque_fin,
             COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor
        FROM solicitud_vuelo sv
        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
@@ -207,15 +208,22 @@ async function aplicarMovimientos(client, {
   }
 
   // Colocar en el destino final (preservando el ancho de las RUTA).
+  // OJO: el ancho se calcula con el id_bloque ORIGINAL (capturado antes de
+  // aparcar), NO con el id_bloque ya aparcado (día 0, índice descartable) —
+  // usar el aparcado aquí produce un id_bloque_fin corrupto (bug histórico).
   for (const m of movimientos) {
+    const info = infoPorDetalle.get(Number(m.id_detalle));
+    const nuevoFin = info.orig_id_bloque_fin != null
+      ? Number(m.id_bloque) + (Number(info.orig_id_bloque_fin) - Number(info.orig_id_bloque))
+      : null;
     await client.query(
       `UPDATE solicitud_vuelo
           SET dia_semana = $1,
-              id_bloque_fin = CASE WHEN id_bloque_fin IS NOT NULL THEN $2 + (id_bloque_fin - id_bloque) ELSE id_bloque_fin END,
-              id_bloque = $2,
-              id_aeronave = $3
-        WHERE id_detalle = $4`,
-      [m.dia_semana, m.id_bloque, m.id_aeronave, m.id_detalle]
+              id_bloque_fin = $2,
+              id_bloque = $3,
+              id_aeronave = $4
+        WHERE id_detalle = $5`,
+      [m.dia_semana, nuevoFin, m.id_bloque, m.id_aeronave, m.id_detalle]
     );
   }
 

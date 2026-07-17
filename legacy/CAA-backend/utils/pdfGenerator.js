@@ -532,6 +532,104 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
 }
 
 /**
+ * Genera el PDF "OPERACIONES DEL DÍA" (sin montos) — el reporte de cierre que
+ * usa Turno. Mismo agrupado por aeronave que generarReporteVuelosDiaPDF, pero
+ * sin columnas de Tac/Hobbs crudos ni Monto: solo Fecha, Número, Alumno,
+ * Instructor y Horas (subtotal por aeronave = cantidad de operaciones + horas).
+ *
+ * @param {Object} params
+ * @param {string} params.fecha  - Fecha del reporte (YYYY-MM-DD).
+ * @param {Array}  params.vuelos - Filas ya ordenadas por aeronave:
+ *   { id_vuelo, avion_codigo, avion_modelo, alumno, instructor,
+ *     tac_ini, tac_fin, horas_cobradas }
+ */
+function generarReporteOperacionesDiaPDF({ fecha, vuelos }) {
+  const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
+  const ancho = 712;
+  const fmtFecha = (() => {
+    const [yy, mm, dd] = String(fecha).slice(0, 10).split("-");
+    return `${Number(dd)}/${Number(mm)}/${yy}`;
+  })();
+  let y = headerCompacto(doc, "OPERACIONES DEL DÍA", `Desde ${fmtFecha} hasta ${fmtFecha}`, ancho);
+
+  const horas = (n) => (n == null ? "" : Number(n).toFixed(2));
+  // TAC si existe; si no (simulador, o reporte viejo sin TAC) cae a horas_cobradas.
+  // Orden a propósito e INVERSO al de instructorReporteController.js (cobro, ~L353):
+  // ahí se prioriza horas_cobradas (estimación de facturación que digita el
+  // instructor); acá se prioriza TAC (lectura física del instrumento) porque el
+  // objetivo es cuánto duró la operación, no cuánto se cobró. Invertir esto no
+  // rompería nada visible en el simulador (ahí TAC ya es NULL de cualquier forma) —
+  // silenciosamente convertiría "Horas" en una cuasi-columna de facturación para
+  // TODO avión real, sin ningún error que lo delate.
+  const horaFila = (v) => {
+    if (v.tac_ini != null && v.tac_fin != null) return Number(v.tac_fin) - Number(v.tac_ini);
+    if (v.horas_cobradas != null) return Number(v.horas_cobradas);
+    return null;
+  };
+  const cols = [
+    ["Fecha", 70, "left"], ["Número", 60, "right"], ["Alumno", 250, "left"],
+    ["Instructor", 250, "left"], ["Horas", 72, "right"],
+  ];
+
+  const drawRow = (cells, opts = {}) => {
+    let x = 40;
+    doc.fontSize(opts.head ? 7.5 : 8.5).font(opts.bold || opts.head ? "Helvetica-Bold" : "Helvetica")
+       .fillColor(opts.color || (opts.head ? "#666" : "#222"));
+    cols.forEach((c, i) => { doc.text(String(cells[i] ?? ""), x + 3, y + 4, { width: c[1] - 6, align: c[2] }); x += c[1]; });
+    y += opts.head ? 18 : 16;
+  };
+  const nuevaPagina = () => {
+    doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 });
+    y = 50; doc.rect(40, y, ancho, 18).fill("#eef2f7"); drawRow(cols.map((c) => c[0]), { head: true });
+  };
+
+  doc.rect(40, y, ancho, 18).fill("#eef2f7");
+  drawRow(cols.map((c) => c[0]), { head: true });
+
+  const grupos = [];
+  for (const v of vuelos) {
+    const g = grupos[grupos.length - 1];
+    if (!g || g.codigo !== v.avion_codigo) grupos.push({ codigo: v.avion_codigo, modelo: v.avion_modelo, filas: [v] });
+    else g.filas.push(v);
+  }
+
+  let gOps = 0, gHoras = 0;
+  for (const g of grupos) {
+    if (y > 480) nuevaPagina();
+    y += 4;
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(CAAA_BLUE).text(`AVIÓN:  ${g.codigo}    ${g.modelo || ""}`, 43, y);
+    y += 16;
+    let sHoras = 0;
+    for (const v of g.filas) {
+      if (y > 500) nuevaPagina();
+      const h = horaFila(v);
+      if (h != null) sHoras += h;
+      drawRow([fmtFecha, v.id_vuelo, v.alumno, v.instructor || "—", horas(h)]);
+      doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+    }
+    drawRow(["", "", `Total ${g.codigo}`, `${g.filas.length} operaciones`, horas(sHoras)], { bold: true, color: CAAA_BLUE });
+    gOps += g.filas.length; gHoras += sHoras;
+    y += 2;
+  }
+
+  if (!vuelos.length) {
+    doc.fontSize(10).fillColor("#999").font("Helvetica").text("No hay vuelos completados en la fecha seleccionada.", 40, y + 10);
+    y += 30;
+  }
+
+  y += 6;
+  doc.strokeColor(CAAA_BLUE).lineWidth(1.2).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+  y += 5;
+  drawRow(["", "", "GRAN TOTAL", `${gOps} operaciones`, horas(gHoras)], { bold: true, color: CAAA_BLUE });
+
+  doc.fontSize(7.5).fillColor("#999").font("Helvetica")
+     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, 555);
+
+  doc.end();
+  return doc;
+}
+
+/**
  * Genera un PDF de Estado de Resultados (P&L).
  * @param {Object} pyl            - { ingresos, egresos, facturado, margen }
  * @param {Array}  ingresosDetalle - filas de ingresos por mes (puede ser [])
@@ -688,4 +786,4 @@ function generarPyLPDF({ pyl, ingresosDetalle, egresosDetalle, desde, hasta, inc
   return doc;
 }
 
-module.exports = { generarFacturaPDF, generarReciboPDF, generarPlanillaPDF, generarReciboNominaPDF, generarReporteVuelosDiaPDF, generarPyLPDF };
+module.exports = { generarFacturaPDF, generarReciboPDF, generarPlanillaPDF, generarReciboNominaPDF, generarReporteVuelosDiaPDF, generarReporteOperacionesDiaPDF, generarPyLPDF };

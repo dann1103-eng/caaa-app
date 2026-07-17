@@ -72,6 +72,19 @@ export const abrirReporteVuelosDia = async (fecha) => {
   window.open(url, "_blank", "noopener,noreferrer");
 };
 
+// Reporte de cierre del día SIN montos (operaciones/tripulación/horas por
+// avión). El que usa Turno — el de arriba (con montos) queda solo para
+// Administración/Admin. Mismo patrón blob que abrirReporteVuelosDia.
+export const abrirReporteOperacionesDia = async (fecha) => {
+  const res = await axios.get(`${API_URL}/turno/reporte-operaciones-dia`, {
+    params: fecha ? { fecha } : {},
+    responseType: "blob",
+  });
+  const blob = new Blob([res.data], { type: "application/pdf" });
+  const url = window.URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+};
+
 // ── Mantenimiento imprevisto de aeronave (falla detectada en pre-vuelo) ──────
 export const getFlotaMantenimiento = async () => {
   const res = await axios.get(`${API_URL}/turno/mantenimiento/flota`);

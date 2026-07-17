@@ -1618,3 +1618,41 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 - **Factura manual**: decidir si `emitirManual` deja de debitar el saldo (hoy sí, con `CARGO_OTRO`).
 - **Instructores externos** (p.ej. E.Roeder) siguen fuera del sistema.
 - (Opcional) Descontar **reservas de aeronave** también en el selector de agenda del alumno (§19.D.1).
+
+---
+
+## 25. Sesión 2026-07-17 — Reporte de cierre de Turno separado en dos (sin montos vs. con montos)
+
+Antes había **un solo** reporte de cierre del día ("Vuelos por avión", PDF), accesible por TURNO/ADMIN/
+ADMINISTRACION por igual — incluía montos debitados por vuelo. Daniel pidió separarlo: Turno saca uno
+**sin montos** (total de operaciones, tripulación, horas completadas por vuelo, dividido por aeronave);
+el que tiene montos queda **solo para Administración/Admin**.
+
+- **Dos endpoints, no uno con branching** (`turnoRoutes.js`): así es estructuralmente imposible que un bug
+  filtre montos a Turno. `GET /turno/reporte-vuelos-dia` (existente, con montos) → re-gateado a
+  **`roleMiddleware(["ADMIN","ADMINISTRACION"])`** (rol puro). `GET /turno/reporte-operaciones-dia`
+  (nuevo, sin montos) → `requireCapacidad(["TURNO","ADMIN"], "OPERACIONES")`.
+- ⚠️ **El re-gateo tuvo que adaptarse en caliente**: mientras se diseñaba esto, Samuel desplegó
+  `instructor.puede_operaciones` (§ commits `59bfaf2`+siguientes) — un instructor con esa capacidad
+  actúa como Turno. Como ese endpoint quedó gateado con `requireCapacidad(...)` (no `roleMiddleware`),
+  un instructor-con-operaciones también hubiera visto montos si el reporte con montos se hubiera dejado
+  con capacidad en vez de rol puro. Decisión: **el reporte con montos es rol puro a propósito** — ni
+  Turno ni un instructor-con-operaciones lo ven nunca, sin importar qué capacidad tengan. Hubo que
+  **re-importar `roleMiddleware`** en `turnoRoutes.js` (Samuel lo había sacado al migrar todo a
+  capacidades).
+- **Nuevo controller `getReporteOperacionesDia`**: misma query que el de montos, **sin** el
+  `LEFT JOIN LATERAL` a `movimiento_cuenta` (no toca saldos, no hay dato de plata que filtrar), con
+  `rv.horas_cobradas` agregado. **PDF nuevo `generarReporteOperacionesDiaPDF`** (`pdfGenerator.js`): 5
+  columnas (Fecha/Número/Alumno/Instructor/Horas, sin Tac/Hobbs/Monto), agrupado por aeronave.
+- ⚠️ **El simulador no tiene TAC** (`instructorReporteController.js:264-266` fuerza `tacometro_*` a NULL
+  para `esSimulador`; sus horas viven en `reporte_vuelo.horas_cobradas`). Un simulador SÍ llega a
+  `COMPLETADO` y SÍ entra al reporte, así que sin fallback su fila salía en blanco. `horaFila(v)`:
+  TAC si existe, si no `horas_cobradas` — **orden a propósito, inverso al de cobro**
+  (`instructorReporteController.js:353-355`, que prioriza `horas_cobradas`): acá el objetivo es "cuánto
+  duró", el TAC es más preciso que una estimación de facturación para un avión real. Verificado contra
+  vuelos de simulador reales en producción (id 297/328, `horas_cobradas=1.00`) — la fila **no** sale en
+  blanco.
+- **Frontend**: `turnoApi.abrirReporteOperacionesDia` (nueva, mismo patrón blob que la existente). El
+  botón "Reporte del día" del dashboard de Turno pasa a llamarla. `Administracion/Reportes.jsx` **no se
+  toca** — Administración conserva el reporte completo con montos, sin cambios.
+- Sin migración (no toca esquema).

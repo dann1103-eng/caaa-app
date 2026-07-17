@@ -859,6 +859,52 @@ exports.getReporteVuelosDia = async (req, res) => {
   }
 };
 
+// ── Reporte "OPERACIONES DEL DÍA" (sin montos, para Turno) ─────────────────
+// Mismo alcance que getReporteVuelosDia (vuelos COMPLETADOS de la fecha,
+// agrupados por aeronave) pero SIN tocar movimiento_cuenta: no hay monto que
+// filtrar. Incluye horas_cobradas para el fallback de horas del simulador
+// (que no tiene tacómetro, ver generarReporteOperacionesDiaPDF).
+exports.getReporteOperacionesDia = async (req, res) => {
+  try {
+    const { generarReporteOperacionesDiaPDF } = require("../utils/pdfGenerator");
+
+    let fecha = String(req.query.fecha || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+      const hoy = await db.query(`SELECT (NOW() AT TIME ZONE 'America/El_Salvador')::date AS d`);
+      fecha = hoy.rows[0].d.toISOString().slice(0, 10);
+    }
+
+    const r = await db.query(`
+      SELECT v.id_vuelo,
+             a.codigo AS avion_codigo, a.modelo AS avion_modelo,
+             TRIM(ua.nombre || ' ' || COALESCE(ua.apellido, '')) AS alumno,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido, '')) AS instructor,
+             rv.tacometro_salida  AS tac_ini,
+             rv.tacometro_llegada AS tac_fin,
+             rv.horas_cobradas    AS horas_cobradas
+      FROM vuelo v
+      JOIN aeronave a   ON a.id_aeronave = v.id_aeronave
+      JOIN alumno  al   ON al.id_alumno = v.id_alumno
+      JOIN usuario ua   ON ua.id_usuario = al.id_usuario
+      LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+      LEFT JOIN usuario ui   ON ui.id_usuario = i.id_usuario
+      LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+      WHERE v.fecha_vuelo = $1::date
+        AND v.estado = 'COMPLETADO'
+        AND COALESCE(rv.es_inasistencia, false) = false
+      ORDER BY a.codigo, rv.tacometro_salida NULLS LAST, v.id_vuelo
+    `, [fecha]);
+
+    const doc = generarReporteOperacionesDiaPDF({ fecha, vuelos: r.rows });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="operaciones-${fecha}.pdf"`);
+    doc.pipe(res);
+  } catch (e) {
+    console.error("getReporteOperacionesDia:", e);
+    res.status(500).json({ message: "Error al generar el reporte de operaciones" });
+  }
+};
+
 // ── Editar tripulación de un vuelo (Turno) ──────────────────────────────────
 // En el aeropuerto no siempre hay alguien de programación disponible para
 // resolver un cambio de última hora: Turno puede reasignar alumno/instructor/

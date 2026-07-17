@@ -1,5 +1,6 @@
 const express = require("express");
 const authMiddleware = require("../middlewares/authMiddleware");
+const roleMiddleware = require("../middlewares/roleMiddleware");
 const { requireCapacidad } = require("../utils/capacidades");
 const router = express.Router();
 
@@ -24,9 +25,15 @@ router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzar
 router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.editarTripulacion);
 router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.registrarInasistencia);
 
-// Reporte de cierre del día (vuelos por avión, PDF). Lo usa TURNO; ADMIN como
-// super-usuario y ADMINISTRACION (es su insumo para debitar saldos).
-router.get("/reporte-vuelos-dia", authMiddleware, requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES"), turnoController.getReporteVuelosDia);
+// Reporte de cierre del día CON MONTOS (vuelos por avión, PDF). Insumo de
+// Administración para debitar saldos. Solo ADMIN/ADMINISTRACION por ROL — ni
+// TURNO ni un instructor con puede_operaciones (que actúa como Turno) ven montos.
+router.get("/reporte-vuelos-dia", authMiddleware, roleMiddleware(["ADMIN", "ADMINISTRACION"]), turnoController.getReporteVuelosDia);
+
+// Reporte de cierre del día SIN montos (operaciones/tripulación/horas). El que
+// usa Turno. No consulta movimiento_cuenta: no hay saldo que filtrar. Mismo gate
+// de capacidad que las demás funciones de Turno (editarTripulacion arriba).
+router.get("/reporte-operaciones-dia", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.getReporteOperacionesDia);
 
 // Mantenimiento imprevisto de una aeronave (falla detectada en pre-vuelo):
 // Turno la saca de servicio, cancela y notifica sus vuelos, y la reactiva
