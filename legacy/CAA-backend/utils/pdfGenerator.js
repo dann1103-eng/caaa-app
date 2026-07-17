@@ -366,7 +366,7 @@ function generarReciboNominaPDF({ periodo, detalle }) {
  *   { id_vuelo, avion_codigo, avion_modelo, alumno, instructor,
  *     tac_ini, tac_fin, hobbs_ini, hobbs_fin, monto }
  */
-function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
+function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencias = [] }) {
   const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
   const ancho = 712; // 752 - 40 (margen derecho)
   const fmtFecha = (() => {
@@ -383,12 +383,15 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
     const [ent, dec = "00"] = Number(n).toFixed(2).split(".");
     return `${ent.padStart(4, "0")}.${dec}`;
   };
+  const horaReal = (iso) =>
+    iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/El_Salvador" }) : "—";
   // Columnas: [titulo, ancho, align]
   const cols = [
-    ["Fecha", 52, "left"], ["Número", 46, "right"], ["Alumno", 150, "left"],
-    ["Tac. inicial", 56, "right"], ["Tac. final", 56, "right"], ["Hora", 38, "right"],
-    ["Hobbs ini.", 56, "right"], ["Hobbs fin.", 56, "right"], ["Hora", 38, "right"],
-    ["Monto", 58, "right"], ["Instructor", 146, "left"],
+    ["Fecha", 46, "left"], ["Número", 36, "right"], ["Alumno", 145, "left"],
+    ["Salida", 34, "right"], ["Llegada", 40, "right"],
+    ["Tac. inicial", 48, "right"], ["Tac. final", 48, "right"], ["Hora", 32, "right"],
+    ["Hobbs ini.", 48, "right"], ["Hobbs fin.", 48, "right"], ["Hora", 32, "right"],
+    ["Monto", 46, "right"], ["Instructor", 105, "left"],
   ];
 
   const drawRow = (cells, opts = {}) => {
@@ -437,19 +440,24 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
       if (y > 500) nuevaPagina();
       const tacH = (v.tac_ini != null && v.tac_fin != null) ? Number(v.tac_fin) - Number(v.tac_ini) : null;
       const hobH = (v.hobbs_ini != null && v.hobbs_fin != null) ? Number(v.hobbs_fin) - Number(v.hobbs_ini) : null;
-      if (tacH != null) sTac += tacH;
+      // Horas cobradas: lo que digitó el instructor, con fallback al tacómetro
+      // (mismo criterio que firmarReporteVuelo) — así esta columna coincide con
+      // el Monto, que ya se cobra por horas_cobradas.
+      const horasCob = v.horas_cobradas != null ? Number(v.horas_cobradas) : tacH;
+      if (horasCob != null) sTac += horasCob;
       if (hobH != null) sHobbs += hobH;
       sMonto += Number(v.monto || 0);
       drawRow([
         fmtFecha, v.id_vuelo, v.alumno,
-        lectura(v.tac_ini), lectura(v.tac_fin), horas(tacH),
+        horaReal(v.salida_real), horaReal(v.llegada_real),
+        lectura(v.tac_ini), lectura(v.tac_fin), horas(horasCob),
         lectura(v.hobbs_ini), lectura(v.hobbs_fin), horas(hobH),
         money(v.monto), v.instructor || "—",
       ]);
       doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();
     }
     // Subtotal del avión
-    drawRow(["", "", `Total ${g.codigo}`, "", "", horas(sTac), "", "", horas(sHobbs), money(sMonto), ""], { bold: true, color: CAAA_BLUE });
+    drawRow(["", "", `Total ${g.codigo}`, "", "", "", "", horas(sTac), "", "", horas(sHobbs), money(sMonto), ""], { bold: true, color: CAAA_BLUE });
     gTac += sTac; gHobbs += sHobbs; gMonto += sMonto;
     y += 2;
   }
@@ -463,11 +471,61 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos }) {
   y += 6;
   doc.strokeColor(CAAA_BLUE).lineWidth(1.2).moveTo(40, y).lineTo(40 + ancho, y).stroke();
   y += 5;
-  drawRow(["", "", "GRAN TOTAL", "", "", horas(gTac), "", "", horas(gHobbs), money(gMonto), ""], { bold: true, color: CAAA_BLUE });
+  drawRow(["", "", "GRAN TOTAL", "", "", "", "", horas(gTac), "", "", horas(gHobbs), money(gMonto), ""], { bold: true, color: CAAA_BLUE });
 
-  // Pie: cuándo y quién lo generó queda del lado del controller (texto simple).
+  // Turno del día: apertura/cierre de operaciones + instructores en turno
+  // (entrada/salida) — mismas tablas que usa el widget "Turno del día".
+  if (y > 460) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
+  y += 14;
+  doc.strokeColor("#e5e7eb").lineWidth(0.75).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+  y += 12;
+  doc.fontSize(10).font("Helvetica-Bold").fillColor(CAAA_BLUE).text("TURNO DEL DÍA", 40, y);
+  y += 16;
+
+  const aperturaTxt = turnoDia?.apertura_en ? horaReal(turnoDia.apertura_en) : "—";
+  const cierreTxt = turnoDia?.cierre_en
+    ? horaReal(turnoDia.cierre_en)
+    : (turnoDia ? "aún no cerrado" : "turno no abierto ese día");
+  doc.fontSize(9).font("Helvetica-Bold").fillColor("#444").text("Apertura de operaciones: ", 40, y, { continued: true })
+     .font("Helvetica").text(aperturaTxt, { continued: true })
+     .font("Helvetica-Bold").text("     Cierre de operaciones: ", { continued: true })
+     .font("Helvetica").text(cierreTxt);
+  y += 18;
+
+  if (asistencias.length) {
+    const TURNO_LABEL = { MANANA: "Mañana", TARDE: "Tarde" };
+    const colsAsist = [
+      ["Instructor", 220, "left"], ["Turno", 70, "left"],
+      ["Entrada", 70, "right"], ["Salida", 70, "right"],
+    ];
+    const anchoAsist = colsAsist.reduce((s, c) => s + c[1], 0);
+    const drawRowAsist = (cells, opts = {}) => {
+      let x = 40;
+      doc.fontSize(opts.head ? 7.5 : 8.5).font(opts.head ? "Helvetica-Bold" : "Helvetica")
+         .fillColor(opts.head ? "#666" : "#222");
+      colsAsist.forEach((c, i) => {
+        doc.text(String(cells[i] ?? ""), x + 3, y + 4, { width: c[1] - 6, align: c[2] });
+        x += c[1];
+      });
+      y += opts.head ? 16 : 14;
+    };
+    doc.rect(40, y, anchoAsist, 16).fill("#eef2f7");
+    drawRowAsist(colsAsist.map((c) => c[0]), { head: true });
+    for (const a of asistencias) {
+      if (y > 500) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
+      drawRowAsist([
+        a.nombre_completo || "—", TURNO_LABEL[a.turno] || a.turno,
+        horaReal(a.entrada_en), horaReal(a.salida_en),
+      ]);
+    }
+  } else {
+    doc.fontSize(9).fillColor("#999").font("Helvetica").text("Sin instructores registrados en turno ese día.", 40, y);
+    y += 16;
+  }
+
+  // Pie: cuándo y quién lo generó, siempre debajo del contenido.
   doc.fontSize(7.5).fillColor("#999").font("Helvetica")
-     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, 555);
+     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, y + 16);
 
   doc.end();
   return doc;

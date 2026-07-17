@@ -778,9 +778,14 @@ exports.getReporteVuelosDia = async (req, res) => {
              TRIM(ui.nombre || ' ' || COALESCE(ui.apellido, '')) AS instructor,
              rv.tacometro_salida  AS tac_ini,
              rv.tacometro_llegada AS tac_fin,
+             rv.horas_cobradas    AS horas_cobradas,
              rv.hobbs_salida      AS hobbs_ini,
              rv.hobbs_llegada     AS hobbs_fin,
-             COALESCE(mc.monto, 0) AS monto
+             COALESCE(mc.monto, 0) AS monto,
+             -- Hora real de salida/regreso de hangar (timestamp del botón, no el
+             -- bloque programado) — mismo patrón que getCalendarioPublico.
+             (vet_salida.registrado_en  AT TIME ZONE 'America/El_Salvador') AS salida_real,
+             (vet_llegada.registrado_en AT TIME ZONE 'America/El_Salvador') AS llegada_real
       FROM vuelo v
       JOIN aeronave a   ON a.id_aeronave = v.id_aeronave
       JOIN alumno  al   ON al.id_alumno = v.id_alumno
@@ -797,13 +802,54 @@ exports.getReporteVuelosDia = async (req, res) => {
         ORDER BY m.id DESC
         LIMIT 1
       ) mc ON true
+      LEFT JOIN LATERAL (
+        SELECT registrado_en
+        FROM vuelo_estado_tiempo
+        WHERE id_vuelo = v.id_vuelo AND estado = 'SALIDA_HANGAR'
+        ORDER BY registrado_en DESC
+        LIMIT 1
+      ) vet_salida ON true
+      LEFT JOIN LATERAL (
+        SELECT registrado_en
+        FROM vuelo_estado_tiempo
+        WHERE id_vuelo = v.id_vuelo AND estado = 'REGRESO_HANGAR'
+        ORDER BY registrado_en DESC
+        LIMIT 1
+      ) vet_llegada ON true
       WHERE v.fecha_vuelo = $1::date
         AND v.estado = 'COMPLETADO'
         AND COALESCE(rv.es_inasistencia, false) = false
       ORDER BY a.codigo, rv.tacometro_salida NULLS LAST, v.id_vuelo
     `, [fecha]);
 
-    const doc = generarReporteVuelosDiaPDF({ fecha, vuelos: r.rows });
+    // Apertura/cierre de operaciones del día + instructores en turno (entrada/
+    // salida) — mismas tablas que usa el widget "Turno del día".
+    const [turnoDiaRes, asistenciasRes] = await Promise.all([
+      db.query(`
+        SELECT (apertura_en AT TIME ZONE 'America/El_Salvador') AS apertura_en,
+               (cierre_en   AT TIME ZONE 'America/El_Salvador') AS cierre_en,
+               estado
+        FROM turno_dia
+        WHERE fecha = $1::date
+      `, [fecha]),
+      db.query(`
+        SELECT ta.turno, ta.id_instructor,
+               (ta.entrada_en AT TIME ZONE 'America/El_Salvador') AS entrada_en,
+               (ta.salida_en  AT TIME ZONE 'America/El_Salvador') AS salida_en,
+               TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre_completo
+        FROM turno_asistencia ta
+        JOIN instructor i ON i.id_instructor = ta.id_instructor
+        JOIN usuario u    ON u.id_usuario = i.id_usuario
+        WHERE ta.fecha = $1::date
+        ORDER BY ta.turno, ta.entrada_en
+      `, [fecha]),
+    ]);
+
+    const doc = generarReporteVuelosDiaPDF({
+      fecha, vuelos: r.rows,
+      turnoDia: turnoDiaRes.rows[0] || null,
+      asistencias: asistenciasRes.rows,
+    });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="vuelos-por-avion-${fecha}.pdf"`);
     doc.pipe(res);
