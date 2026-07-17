@@ -12,8 +12,14 @@ const { mantenimientoCubreFechaSQL } = require("../../utils/mantenimientoUtils")
 
 /**
  * GET /instructor/solicitudes/calendario?week=next
- * Calendario COMPLETO de la escuela (para ver ocupación/conflictos), con un
- * flag es_mio por tarjeta: solo esas puede editar el instructor.
+ * Solo las solicitudes de MIS alumnos (antes traía el calendario COMPLETO de
+ * la escuela "para ver ocupación/conflictos" — confundía a los instructores,
+ * que veían tarjetas de otros alumnos como si fueran su responsabilidad. Ya
+ * no hace falta esa vista de conflictos: el instructor puede pedir horas
+ * aunque choquen con otra solicitud (Programación resuelve al publicar), así
+ * que ver "quién más pidió qué" no aporta nada salvo ruido). `es_mio` queda
+ * siempre en true — se conserva el campo para no tocar el resto del frontend
+ * (canEditItem, guardas de drag-and-drop).
  */
 exports.getCalendario = async (req, res) => {
   try {
@@ -52,6 +58,7 @@ exports.getCalendario = async (req, res) => {
         AND ss.estado NOT IN ('RECHAZADA', 'CANCELADA')
         AND (sv.estado IS NULL OR sv.estado != 'RECHAZADA')
         AND (v.estado IS NULL OR v.estado != 'CANCELADO')
+        AND COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) = $2
       ORDER BY b.hora_inicio, sv.dia_semana, ae.modelo
     `, [id_semana, idInstructor]);
 

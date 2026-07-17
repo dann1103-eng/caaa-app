@@ -169,7 +169,7 @@ export default function InstructorSolicitudes() {
           {/* Calendario */}
           <div className="isol__cal-wrap">
             <div className="isol__cal-head">
-              <h3 className="isol__cal-title">Calendario de la semana próxima</h3>
+              <h3 className="isol__cal-title">Mis solicitudes — semana próxima</h3>
               {pendingMoves.length > 0 && (
                 <button className="isol__save-btn" onClick={guardarMovimientos}>
                   <i className="bi bi-check2"></i> Guardar cambios ({pendingMoves.length})
@@ -177,7 +177,7 @@ export default function InstructorSolicitudes() {
               )}
             </div>
             <p className="isol__hint">
-              Solo podés editar las tarjetas de <strong>tus alumnos</strong> (las demás se muestran de referencia).
+              Solo se muestran las horas que pidieron <strong>tus alumnos</strong>.
             </p>
             {loading ? (
               <div className="isol__loading"><div className="pop-spinner"></div><p>Cargando…</p></div>
