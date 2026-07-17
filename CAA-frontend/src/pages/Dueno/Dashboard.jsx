@@ -1,62 +1,50 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCalendarioPublico } from "../../services/programacionApi";
-import { getEstadoOperaciones, getTurnoDia } from "../../services/turnoApi";
+import { getTurnoDia } from "../../services/turnoApi";
+import OperacionesWidget from "../../components/OperacionesWidget/OperacionesWidget";
+import MetarWidget from "../../components/MetarWidget/MetarWidget";
+import EstadoFlotaWidget from "../../components/ProgWidgets/EstadoFlotaWidget";
+import WindyWidget from "../../components/ProgWidgets/WindyWidget";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
+import VuelosEnCursoTable from "../../components/VuelosEnCursoTable/VuelosEnCursoTable";
 import PushToggle from "../../components/PushToggle/PushToggle";
+import "../Proyeccion/PaginaProgramacion.css";
 import "./Dashboard.css";
 
-// Dashboard de solo lectura para el dueño de la escuela: letra grande, un solo
-// vistazo, sin botones de acción. Reusa los mismos endpoints de Proyección
-// (accesibles con cualquier JWT via proyeccionMiddleware) — no hay ruta nueva
-// en el backend para esto, solo lectura de lo que ya existe.
+// Dashboard de solo lectura para el dueño de la escuela: mismo look (oscuro,
+// tarjetas, colores por aeronave, barra de progreso) que Proyección — reusa
+// sus mismos componentes/estilos (`.pp`, VuelosEnCursoTable, OperacionesWidget,
+// MetarWidget, EstadoFlotaWidget, WindyWidget) para heredar automáticamente
+// cualquier mejora futura a esa pantalla. Todo en una sola columna,
+// mobile-first, sin botones de acción — es un vistazo pasivo.
 
 function jsDayToDb(jsDay) {
   return jsDay === 0 ? 7 : jsDay;
 }
 
-const OPERACIONES_META = {
-  ACTIVO:        { label: "Operando con normalidad", cls: "duo__pill--activo" },
-  PAUSA_TURNO:   { label: "En pausa de almuerzo",    cls: "duo__pill--pausa" },
-  CERRADO_TURNO: { label: "Turno cerrado",           cls: "duo__pill--cerrado" },
-  SUSPENDIDO:    { label: "Operaciones suspendidas", cls: "duo__pill--suspendido" },
+const TURNO_META = {
+  ABIERTO:  { label: "TURNO ABIERTO",             cls: "pp__turno--abierto",  icon: "bi-sunrise" },
+  EN_PAUSA: { label: "TURNO EN PAUSA · ALMUERZO",  cls: "pp__turno--pausa",    icon: "bi-cup-hot" },
+  CERRADO:  { label: "TURNO CERRADO",             cls: "pp__turno--cerrado",  icon: "bi-sunset" },
 };
-
-const ESTADO_VUELO_LABEL = {
-  PUBLICADO: "Por salir", PROGRAMADO: "Por salir",
-  SALIDA_HANGAR: "En hangar, saliendo", EN_PROGRESO: "Volando", EN_VUELO: "Volando",
-  REGRESO_HANGAR: "Regresando", FINALIZANDO: "Regresando",
-  COMPLETADO: "Terminado", CANCELADO: "Cancelado",
-};
-
-function formatHora(h) {
-  return h ? h.slice(0, 5) : "—";
-}
 
 export default function DuenoDashboard() {
-  const [operaciones, setOperaciones] = useState(null);
   const [turnoDia, setTurnoDia] = useState(null);
   const [vuelosHoy, setVuelosHoy] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [horaActual, setHoraActual] = useState("");
+  const [clock, setClock] = useState("");
 
   const cargar = useCallback(async () => {
-    try {
-      const [ops, dia, calendario] = await Promise.all([
-        getEstadoOperaciones().catch(() => null),
-        getTurnoDia().catch(() => null),
-        getCalendarioPublico().catch(() => []),
-      ]);
-      setOperaciones(ops);
-      setTurnoDia(dia);
-      const diaHoy = jsDayToDb(new Date().getDay());
-      setVuelosHoy(
-        (calendario || [])
-          .filter((v) => Number(v.dia_semana) === diaHoy && v.estado !== "CANCELADO")
-          .sort((a, b) => (a.hora_inicio || "").localeCompare(b.hora_inicio || ""))
-      );
-    } finally {
-      setLoading(false);
-    }
+    const [dia, calendario] = await Promise.all([
+      getTurnoDia().catch(() => null),
+      getCalendarioPublico().catch(() => []),
+    ]);
+    setTurnoDia(dia);
+    const diaHoy = jsDayToDb(new Date().getDay());
+    setVuelosHoy(
+      (calendario || [])
+        .filter((v) => Number(v.dia_semana) === diaHoy && v.estado !== "CANCELADO")
+        .sort((a, b) => (a.hora_inicio || "").localeCompare(b.hora_inicio || ""))
+    );
   }, []);
 
   useEffect(() => {
@@ -67,89 +55,60 @@ export default function DuenoDashboard() {
 
   useEffect(() => {
     const tick = () =>
-      setHoraActual(new Date().toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: true }));
+      setClock(new Date().toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false }));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, []);
 
-  const efectivo = operaciones?.estado_efectivo
-    || (operaciones?.estado_general === "ACTIVO" ? "ACTIVO" : "SUSPENDIDO");
-  const opsMeta = OPERACIONES_META[efectivo] || OPERACIONES_META.ACTIVO;
-
-  const estadoTurno = turnoDia?.dia?.estado ?? "SIN_ABRIR";
-  const asistenciasActivas = (turnoDia?.asistencias || []).filter((a) => !a.salida_en);
+  const turnoMeta = turnoDia?.dia?.estado ? TURNO_META[turnoDia.dia.estado] : null;
+  const presentes = (turnoDia?.asistencias || []).filter((a) => !a.salida_en);
 
   return (
-    <div className="duo">
-      <header className="duo__header">
-        <div className="duo__brand">
-          <img src="/iso-caaa-white.png" alt="" className="duo__brand-logo" />
-          <span>CAAA</span>
+    <div className="pp duo">
+      <div className="pp__topbar">
+        <div className="pp__topbar-left">
+          <span className="pp__topbar-label">CAAA</span>
         </div>
-        <span className="duo__clock">{horaActual}</span>
-      </header>
+        <div className="pp__topbar-right">
+          <span className="pp__topbar-clock">{clock} CST</span>
+        </div>
+      </div>
 
       <main className="duo__main">
-        <section className="duo__push">
-          <p className="duo__push-text">
-            Active esto para recibir avisos en su celular cada vez que cambie algo:
-          </p>
+        <div className="duo__push">
+          <p className="duo__push-text">Active esto para recibir avisos en su celular:</p>
           <PushToggle className="duo__push-btn" />
-        </section>
+        </div>
 
-        <section className={`duo__card duo__estado ${opsMeta.cls}`}>
-          <span className="duo__estado-label">Estado de operaciones</span>
-          <span className="duo__estado-valor">{opsMeta.label}</span>
-          {efectivo === "SUSPENDIDO" && operaciones?.motivo_inactivo && (
-            <span className="duo__estado-motivo">{operaciones.motivo_inactivo}</span>
-          )}
-        </section>
-
-        <section className="duo__card">
-          <span className="duo__card-title">Turno de hoy</span>
-          <span className="duo__turno-estado">
-            {estadoTurno === "SIN_ABRIR" && "Aún no ha abierto"}
-            {estadoTurno === "ABIERTO" && "Abierto"}
-            {estadoTurno === "EN_PAUSA" && "En pausa (almuerzo)"}
-            {estadoTurno === "CERRADO" && "Cerrado"}
-          </span>
-          {asistenciasActivas.length > 0 && (
-            <div className="duo__capitanes">
-              {asistenciasActivas.map((a) => (
-                <span key={a.id_asistencia} className="duo__capitan-chip">Cap. {a.nombre_completo}</span>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="duo__card">
-          <span className="duo__card-title">Vuelos de hoy</span>
-          {loading ? (
-            <p className="duo__vacio">Cargando…</p>
-          ) : vuelosHoy.length === 0 ? (
-            <p className="duo__vacio">No hay vuelos programados para hoy.</p>
-          ) : (
-            <ul className="duo__vuelos">
-              {vuelosHoy.map((v) => (
-                <li key={v.id_vuelo} className="duo__vuelo">
-                  <div className="duo__vuelo-top">
-                    <span className="duo__vuelo-hora">{formatHora(v.hora_inicio)}</span>
-                    <span className="duo__vuelo-aero">{v.aeronave_codigo}</span>
-                  </div>
-                  <div className="duo__vuelo-personas">
-                    {v.alumno_nombre || "—"} <span className="duo__vuelo-sep">·</span> Cap. {v.instructor_nombre || "—"}
-                  </div>
-                  <span className="duo__vuelo-estado">
-                    {ESTADO_VUELO_LABEL[v.estado] || v.estado}
+        {turnoMeta && (
+          <div className={`pp__turno-strip ${turnoMeta.cls}`}>
+            <span className="pp__turno-estado"><i className={`bi ${turnoMeta.icon}`} /> {turnoMeta.label}</span>
+            {presentes.length > 0 && (
+              <span className="pp__turno-instructores">
+                {presentes.map((a) => (
+                  <span key={a.id_asistencia} className="pp__turno-chip">
+                    <i className="bi bi-person-badge" /> Cap. {a.nombre_completo}
                   </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                ))}
+              </span>
+            )}
+          </div>
+        )}
+
+        <OperacionesWidget />
+
+        <div className="pp__card">
+          <div className="pp__card-head">
+            <h2 className="pp__card-title"><i className="bi bi-broadcast-pin" /> Vuelos de hoy</h2>
+          </div>
+          <VuelosEnCursoTable vuelos={vuelosHoy} emptyLabel="No hay vuelos programados para hoy." />
+        </div>
 
         <AvisosTurnoWidget />
+        <MetarWidget />
+        <EstadoFlotaWidget />
+        <WindyWidget />
       </main>
     </div>
   );

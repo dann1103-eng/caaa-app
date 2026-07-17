@@ -15,7 +15,11 @@ import MantenimientoResumenWidget from "../../components/ProgWidgets/Mantenimien
 import WindyWidget from "../../components/ProgWidgets/WindyWidget";
 import TickerBar from "../../components/TickerBar/TickerBar";
 import OperacionesWidget from "../../components/OperacionesWidget/OperacionesWidget";
+import VuelosEnCursoTable from "../../components/VuelosEnCursoTable/VuelosEnCursoTable";
 import { SOCKET_URL } from "../../api/axiosConfig";
+import {
+  categoriaMeta, aeroBadgeStyle, colorAeronave, formatHora,
+} from "../../utils/vueloVisual";
 import "./PaginaProgramacion.css";
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
@@ -40,116 +44,18 @@ const ESTADO_META = {
   CANCELADO:  { label: "Cancelado",  cls: "pp__badge--cancelado"  },
 };
 
-const formatHora = (h) => h?.slice(0, 5) ?? "—";
-
-// Hora real de "salida de hangar" (timestamp del botón, no el bloque programado).
-const formatHoraReal = (iso) =>
-  iso ? new Date(iso).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit", hour12: false }) : null;
-
 // Devuelve el estado real de la BD. La proyección NO sobreescribe con el reloj:
 // solo el instructor/turno puede avanzar el estado manualmente.
 function getEstadoDinamico(v) {
   return v.estado || "PROGRAMADO";
 }
 
-function calcProgreso(v) {
-  const { estado } = v;
-  if (!estado || estado === "PUBLICADO" || estado === "PROGRAMADO") return null;
-  if (estado === "SALIDA_HANGAR") return 5;
-  if (estado === "EN_VUELO" || estado === "EN_PROGRESO") return 50;
-  if (estado === "REGRESO_HANGAR" || estado === "FINALIZANDO") return 100;
-  return null;
-}
-
-const ESTADO_VUELO_META = {
-  SALIDA_HANGAR:  { label: "SALIDA HANGAR",  cls: "pp__tbl-badge--hangar"   },
-  EN_VUELO:       { label: "EN PROGRESO",        cls: "pp__tbl-badge--envuelo"  },
-  EN_PROGRESO:    { label: "EN PROGRESO",        cls: "pp__tbl-badge--envuelo"  },
-  REGRESO_HANGAR: { label: "REGRESO HANGAR",  cls: "pp__tbl-badge--regreso"  },
-  FINALIZANDO:    { label: "FINALIZANDO",     cls: "pp__tbl-badge--finaliz"  },
-  // Vuelo del bloque vigente que el instructor aún no marca como salida del hangar
-  PROGRAMADO:     { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
-  PUBLICADO:      { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
-};
-
 const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"];
-
-// Tipo de vuelo (elegido al agendar en Programación) — describe qué se va a
-// volar, más allá de a quién/qué avión. Ortogonal a RUTA (tipo_vuelo).
-// NORMAL/CHEQUEO muestran la sigla de la licencia (estándar de aviación) en
-// vez del nombre de la categoría — más compacto y más útil para el piso.
-const LICENCIA_SIGLAS = {
-  PRIVADO: "PPL",
-  COMERCIAL: "CPL",
-  INSTRUMENTOS: "IR",
-  BIMOTOR: "ME",
-  INSTRUCTOR: "CFI",
-};
-function siglaLicencia(nombre) {
-  if (!nombre) return null;
-  return LICENCIA_SIGLAS[nombre.trim().toUpperCase()] || nombre.toUpperCase();
-}
-
-const CATEGORIA_CLS = {
-  NORMAL: "pp__tipo--normal",
-  DEMO: "pp__tipo--demo",
-  CHEQUEO: "pp__tipo--chequeo",
-  CHEQUEO_LINEA: "pp__tipo--linea",
-};
-function categoriaMeta(v) {
-  const cat = v?.categoria || "NORMAL";
-  const cls = CATEGORIA_CLS[cat] || CATEGORIA_CLS.NORMAL;
-  if (cat === "NORMAL") {
-    return { label: siglaLicencia(v?.alumno_licencia_nombre) || "Normal", cls };
-  }
-  if (cat === "CHEQUEO") {
-    const sigla = siglaLicencia(v?.licencia_chequeo_nombre);
-    return { label: sigla ? `${sigla}/CHECK` : "Chequeo", cls };
-  }
-  if (cat === "CHEQUEO_LINEA") {
-    return { label: v?.tipo_instruccion === "REFRESH" ? "Refresh" : "Chequeo línea", cls };
-  }
-  return { label: "Demo", cls };
-}
 
 const horaAMin = (h) => {
   const [hh, mm] = String(h ?? "").split(":").map(Number);
   return (hh || 0) * 60 + (mm || 0);
 };
-
-/* Código de color por aeronave, réplica del Excel de programación. Se empareja por
-   el número de matrícula (334/333/270/127) para que no importe el sufijo P/PE. */
-const AERONAVE_COLOR = [
-  { num: "334", color: "#f87171" }, // YS-334-PE — rojo
-  { num: "333", color: "#60a5fa" }, // YS-333-PE — azul
-  { num: "270", color: "#4ade80" }, // YS-270-P  — verde
-  { num: "127", color: "#06b6d4" }, // YS-127-P  — cyan fuerte (se distingue del azul del 333)
-  { num: "155", color: "#a3e635" }, // YS-155-PE — verde lima fluorescente
-  { num: "259", color: "#a3e635" }, // YS-259-P  — verde lima fluorescente
-];
-
-function colorAeronave(codigo) {
-  if (!codigo) return undefined;
-  const m = AERONAVE_COLOR.find(a => codigo.includes(a.num));
-  return m ? m.color : undefined;
-}
-
-function hexToRgba(hex, alpha) {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-// Estilo del pill de matrícula en las tablas (Vuelos en Curso / Próximo
-// Bloque) — mismo código de color por aeronave que ya usa la lista de
-// Schedule más abajo, solo que aquí también tiñe fondo/borde del pill.
-function aeroBadgeStyle(codigo) {
-  const c = colorAeronave(codigo);
-  if (!c) return undefined;
-  return { color: c, background: hexToRgba(c, 0.1), borderColor: hexToRgba(c, 0.2) };
-}
 
 /* ── component ────────────────────────────────────────────────────────────── */
 export default function PaginaProgramacion() {
@@ -415,59 +321,7 @@ export default function PaginaProgramacion() {
                   <h2 className="pp__card-title"><i className="bi bi-broadcast-pin" /> Vuelos en Curso</h2>
                   <span className="pp__card-badge">Activo</span>
                 </div>
-                <div className="pp__tbl-wrap">
-                  <table className="pp__table">
-                    <thead>
-                      <tr>
-                        <th>ESTUDIANTE / INSTRUCTOR</th>
-                        <th>AERONAVE</th>
-                        <th>TIPO</th>
-                        <th>ESTADO</th>
-                        <th>ALMAS</th>
-                        <th>SALIDA</th>
-                        <th>LLEGADA</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vuelosEnCurso.length === 0 ? (
-                        <tr><td colSpan="7" className="pp__tbl-empty">Sin vuelos activos.</td></tr>
-                      ) : (
-                        vuelosEnCurso.map(v => {
-                          const pct = calcProgreso(v);
-                          const badge = ESTADO_VUELO_META[v.estado] || { label: v.estado, cls: "pp__tbl-badge--envuelo" };
-                          const tipo = categoriaMeta(v);
-                          return (
-                            <tr key={v.id_vuelo}>
-                              <td>
-                                <div className="pp__tbl-person">{v.alumno_nombre}</div>
-                                <div className="pp__tbl-sub">Cap. {v.instructor_nombre}</div>
-                              </td>
-                              <td><span className="pp__tbl-aero" style={aeroBadgeStyle(v.aeronave_codigo)}>{v.aeronave_codigo}</span></td>
-                              <td>
-                                <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
-                                {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
-                              </td>
-                              <td>
-                                <span className={`pp__tbl-badge ${badge.cls}`}>{badge.label}</span>
-                                {pct !== null && (
-                                  <div className="pp__tbl-bar-wrap"><div className="pp__tbl-bar" style={{ width: `${pct}%` }} /></div>
-                                )}
-                              </td>
-                              {/* Un vuelo normal lleva alumno+instructor (2 almas) salvo que Turno
-                                  marque otro número al editar la tripulación (pasajeros extra, etc.). */}
-                              <td className="pp__tbl-almas" title={v.pasajeros_extra || ""}>
-                                <i className="bi bi-people-fill" /> {v.almas_a_bordo ?? 2}
-                              </td>
-                              <td className="pp__tbl-hora">{formatHoraReal(v.salida_real) ?? formatHora(v.hora_inicio)}</td>
-                              {/* Hora real del botón "Regreso a hangar"; vacío hasta entonces. */}
-                              <td className="pp__tbl-hora">{formatHoraReal(v.llegada_real) ?? "—"}</td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <VuelosEnCursoTable vuelos={vuelosEnCurso} emptyLabel="Sin vuelos activos." />
               </div>
 
               {/* Próximo Bloque */}
