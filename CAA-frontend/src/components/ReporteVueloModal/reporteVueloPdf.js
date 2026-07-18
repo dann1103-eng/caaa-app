@@ -197,7 +197,7 @@ function buildVoucheraContent({
           margin: [6, 5, 0, 0],
         },
         {
-          text: "IMPRESOS RIVAS, S.A. DE C.V. — 7742-5029",
+          text: "Centro de Adiestramiento Aéreo Académico S.A. de C.V.",
           fontSize: 5.5, color: "#999", alignment: "right", margin: [0, 8, 0, 0],
         },
       ],
