@@ -310,7 +310,16 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     setGenerating(true);
     try {
       await generarPdfReporteVuelo({
-        vueloInfo,
+        // El PDF lee fecha_hora_vuelo (un solo campo); el endpoint manda
+        // fecha_vuelo + hora_inicio por separado — sin esta composición la
+        // vouchera salía con Fecha/Hora en "—". Solo la parte de fecha del
+        // string (ver fechaStr arriba: el DATE llega como medianoche UTC).
+        vueloInfo: {
+          ...vueloInfo,
+          fecha_hora_vuelo: vueloInfo?.fecha_vuelo
+            ? `${String(vueloInfo.fecha_vuelo).slice(0, 10)}T${vueloInfo.hora_inicio || "00:00:00"}`
+            : null,
+        },
         datos,
         firmaAlumno,
         firmaInstructor,
@@ -335,8 +344,11 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   }
 
   const v = vueloInfo ?? {};
+  // Solo la parte de fecha del string: fecha_vuelo es un DATE que el driver
+  // serializa como medianoche UTC — parsearlo con new Date() lo corre un día
+  // hacia atrás en El Salvador (UTC-6).
   const fechaStr = v.fecha_vuelo
-    ? new Date(v.fecha_vuelo).toLocaleDateString("es-SV")
+    ? String(v.fecha_vuelo).slice(0, 10).split("-").reverse().join("/")
     : "—";
   const horaStr = v.hora_inicio
     ? v.hora_inicio.slice(0, 5)
