@@ -168,6 +168,11 @@ export default function AgendarVueloModal({
     return !permitidasEfectivas.includes(Number(idAeronave));
   }, [extra, idAeronave, permitidasEfectivas]);
 
+  const aeronaveSeleccionada = useMemo(
+    () => aeronaves.find(a => Number(a.id_aeronave) === Number(idAeronave)) || null,
+    [aeronaves, idAeronave]
+  );
+
   const rutaInvalida = tipoVuelo === "RUTA" && Number(bloqueFin) < bloqueEff;
   const puedeGuardar = esReserva
     ? (idAeronave && !rutaInvalida && !saving)
@@ -234,17 +239,22 @@ export default function AgendarVueloModal({
         es_extracurricular: extra,
       };
     try {
+      let data;
       if (createFn) {
-        await createFn(payload);
+        data = await createFn(payload);
         toast.success("Vuelo agendado");
       } else if (publicada) {
         if (!idInstructor) { toast.error("Elegí un instructor"); setSaving(false); return; }
-        await agendarVueloDirectoCalendario(payload);
+        data = await agendarVueloDirectoCalendario(payload);
         toast.success("Vuelo agendado y publicado");
       } else {
-        await agendarSolicitudCalendario(payload);
+        data = await agendarSolicitudCalendario(payload);
         toast.success("Vuelo agendado");
       }
+      // Mantenimiento ya no bloquea el guardado — el backend lo devuelve como
+      // advertencia (para uno o varios vuelos, según el endpoint).
+      const advertencias = data?.advertencia ? [data.advertencia] : (data?.advertencias || []);
+      advertencias.forEach((a) => toast.warning(a));
       onCreated?.();
       onClose?.();
     } catch (e) {
@@ -436,12 +446,20 @@ export default function AgendarVueloModal({
             <label>Aeronave</label>
             <select value={idAeronave} onChange={(e) => setIdAeronave(e.target.value)} className={aeronaveNoPermitida ? "avm-error" : ""}>
               <option value="">— Elegí una aeronave —</option>
-              {aeronaves.filter(a => a.activa !== false).map(a => (
-                <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} — {a.modelo}</option>
+              {aeronaves.map(a => (
+                <option key={a.id_aeronave} value={a.id_aeronave}>
+                  {a.codigo} — {a.modelo}{a.en_mantenimiento ? " (en mantenimiento)" : ""}
+                </option>
               ))}
             </select>
             {aeronaveNoPermitida && (
               <p className="avm-warn"><i className="bi bi-exclamation-triangle"></i> Esa aeronave no está en {categoria === "CHEQUEO" ? "esa licencia" : "la licencia del alumno"}. Marcá "extracurricular" para permitirla.</p>
+            )}
+            {aeronaveSeleccionada?.en_mantenimiento && (
+              <p className="avm-warn">
+                <i className="bi bi-exclamation-triangle"></i> Esta aeronave está en mantenimiento
+                {aeronaveSeleccionada.mantenimiento_hasta ? ` hasta el ${aeronaveSeleccionada.mantenimiento_hasta}` : ""} — el vuelo se puede agendar igual, pero corre riesgo.
+              </p>
             )}
           </div>
 

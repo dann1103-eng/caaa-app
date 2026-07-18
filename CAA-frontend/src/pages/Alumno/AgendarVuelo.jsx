@@ -73,11 +73,13 @@ export default function AgendarVuelo() {
     if (selecciones.length === 0) return;
 
     try {
-      await guardarSolicitud(selecciones, comentario);
+      const data = await guardarSolicitud(selecciones, comentario);
       setYaGuardado(true);
       setInitialSelecciones(JSON.parse(JSON.stringify(selecciones))); // Actualizar estado inicial tras guardar
       setInitialComentario(comentario);
       toast.success("Solicitud guardada correctamente");
+      // Mantenimiento ya no bloquea el guardado — viaja como advertencia.
+      (data?.advertencias || []).forEach((a) => toast.warning(a));
       navigate("/alumno/dashboard");
     } catch (err) {
       if (err.response?.status === 403) {
@@ -476,13 +478,14 @@ export default function AgendarVuelo() {
                   <select value={rutaAeronave} onChange={e => setRutaAeronave(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
                     {aeronaves.filter(a => a.tipo !== 'SIMULADOR').map(a => {
-                      // Se deshabilita solo si el mantenimiento cubre el día elegido:
-                      // si tiene fecha de regreso y el día es posterior, se puede pedir.
-                      const noDisp = bloqueadoEseDia(a, rutaDia);
+                      // Ya no se deshabilita: mantenimiento es advertencia, no
+                      // bloqueo — se puede seleccionar igual, con el aviso en
+                      // el texto de la opción y al guardar.
+                      const enMant = bloqueadoEseDia(a, rutaDia);
                       return (
-                        <option key={a.id_aeronave} value={a.id_aeronave} disabled={noDisp}>
+                        <option key={a.id_aeronave} value={a.id_aeronave}>
                           {a.codigo} - {a.modelo}
-                          {noDisp && (a.mantenimiento_hasta
+                          {enMant && (a.mantenimiento_hasta
                             ? ` — en mantenimiento hasta el ${fmtFecha(a.mantenimiento_hasta)}`
                             : ' — en mantenimiento')}
                         </option>

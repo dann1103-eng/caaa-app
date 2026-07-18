@@ -203,11 +203,46 @@ exports.getAeronavesActivas = async (req, res) => {
     const user = await requireProgramacion(req, res);
     if (!user) return;
 
+    // Se devuelven TODAS las aeronaves no dadas de baja, incluidas las que hoy
+    // están en el taller — mismo criterio que ya usa el picker del alumno
+    // (agendarController.getAeronavesPermitidas): "activa" es "disponible HOY",
+    // pero acá se agenda para cualquier día futuro. El freno de mantenimiento
+    // pasó a ser una ADVERTENCIA en agendarSolicitud/agendarVueloDirecto, no la
+    // desaparición del selector.
     const result = await db.query(`
-      SELECT id_aeronave, codigo, modelo, tipo
-      FROM aeronave
-      WHERE activa = true
-      ORDER BY codigo
+      WITH sem AS (
+        SELECT fecha_inicio
+          FROM semana_vuelo
+         WHERE fecha_inicio > CURRENT_DATE
+         ORDER BY fecha_inicio
+         LIMIT 1
+      )
+      SELECT
+        a.id_aeronave, a.codigo, a.modelo, a.tipo,
+        mact.id_mantenimiento IS NOT NULL AS en_mantenimiento,
+        mact.fecha_fin::date AS mantenimiento_hasta,
+        COALESCE((
+          SELECT array_agg(d ORDER BY d)
+            FROM generate_series(1, 6) AS d
+           WHERE EXISTS (
+             -- El alias TIENE que ser 'm': mantenimientoCubreFechaSQL lo hardcodea.
+             SELECT 1 FROM mantenimiento_aeronave m
+              WHERE m.id_aeronave = a.id_aeronave
+                AND ${mantenimientoCubreFechaSQL("((SELECT fecha_inicio FROM sem) + (d - 1))")}
+           )
+        ), '{}') AS dias_bloqueados
+      FROM aeronave a
+      LEFT JOIN LATERAL (
+        SELECT m2.id_mantenimiento, m2.fecha_fin
+          FROM mantenimiento_aeronave m2
+         WHERE m2.id_aeronave = a.id_aeronave
+           AND m2.completado = false
+           AND COALESCE(m2.estado, '') <> 'CANCELADO'
+         ORDER BY m2.fecha_fin IS NULL DESC, m2.fecha_fin DESC
+         LIMIT 1
+      ) mact ON true
+      WHERE NOT (a.activa = false AND a.estado = 'ACTIVO')
+      ORDER BY a.codigo
     `);
 
     res.json(result.rows);
@@ -773,6 +808,32 @@ exports.agendarVueloDirecto = async (req, res) => {
     );
     if (reservaOcup.rows.length) throw Object.assign(new Error("Ese avión está reservado (uso especial) en ese horario"), { code: "23505" });
 
+    // Mantenimiento, validado contra la FECHA REAL del slot — advertencia, no
+    // bloqueo (pedido explícito: Programación puede agendar igual, asumiendo
+    // el riesgo). Antes esta ruta (semana publicada) no chequeaba mantenimiento
+    // en absoluto; la semana NO publicada sí lo hacía vía solicitudService.
+    const fechaSlotDirectoSQL = `((SELECT fecha_inicio FROM semana_vuelo WHERE id_semana = $1) + ($2::int - 1))`;
+    const mantDirectoRes = await client.query(
+      `SELECT a.codigo, ${fechaSlotDirectoSQL} AS fecha_slot,
+              (SELECT MIN(m.fecha_fin::date) FROM mantenimiento_aeronave m
+                WHERE m.id_aeronave = a.id_aeronave
+                  AND ${mantenimientoCubreFechaSQL(fechaSlotDirectoSQL)}) AS hasta
+         FROM aeronave a
+        WHERE a.id_aeronave = $3
+          AND EXISTS (SELECT 1 FROM mantenimiento_aeronave m
+                       WHERE m.id_aeronave = a.id_aeronave
+                         AND ${mantenimientoCubreFechaSQL(fechaSlotDirectoSQL)})`,
+      [id_semana, dia_semana, id_aeronave]
+    );
+    let advertenciaMantenimiento = null;
+    if (mantDirectoRes.rows.length > 0) {
+      const { codigo, fecha_slot, hasta } = mantDirectoRes.rows[0];
+      advertenciaMantenimiento =
+        `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
+        (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).") +
+        " El vuelo se agendó igual, pero corre riesgo de no poder realizarse.";
+    }
+
     // Basket + solicitud_vuelo de respaldo (id_detalle para editar en el calendario).
     const ss = await client.query(
       `INSERT INTO solicitud_semana (id_semana, id_alumno, estado)
@@ -822,7 +883,7 @@ exports.agendarVueloDirecto = async (req, res) => {
     const io = req.app.get("io");
     if (io) io.emit("guardar_cambios", { origen: "agendar-directo" });
 
-    res.json({ message: "Vuelo agendado y publicado", id_vuelo, id_detalle });
+    res.json({ message: "Vuelo agendado y publicado", id_vuelo, id_detalle, advertencia: advertenciaMantenimiento });
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.code === "VALIDATION") return res.status(400).json({ message: e.message });

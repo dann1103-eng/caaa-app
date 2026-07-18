@@ -289,6 +289,8 @@ async function insertarSolicitudVuelo(client, {
   // criterio date-aware que ya usa agendarController (alumno) y
   // getAeronavesDisponibles (staff). Aplica siempre, incluso extracurricular:
   // la aeronave está físicamente fuera de servicio sin importar quién la pida.
+  // Ya NO bloquea el guardado — es una ADVERTENCIA que viaja en la respuesta
+  // (pedido explícito: no impedir agendar/solicitar, solo avisar del riesgo).
   const fechaSlotSQL = `((SELECT fecha_inicio FROM semana_vuelo WHERE id_semana = $1) + ($2::int - 1))`;
   const mantRes = await client.query(
     `SELECT a.codigo, ${fechaSlotSQL} AS fecha_slot,
@@ -302,12 +304,13 @@ async function insertarSolicitudVuelo(client, {
                        AND ${mantenimientoCubreFechaSQL(fechaSlotSQL)})`,
     [id_semana, dia_semana, id_aeronave]
   );
+  let advertenciaMantenimiento = null;
   if (mantRes.rows.length > 0) {
     const { codigo, fecha_slot, hasta } = mantRes.rows[0];
-    throw Object.assign(new Error(
+    advertenciaMantenimiento =
       `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
-      (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).")
-    ), { status: 400 });
+      (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).") +
+      " El vuelo se guardó igual, pero corre riesgo de no poder realizarse.";
   }
 
   // Instructor efectivo para el chequeo de conflicto (override explícito, o el
@@ -340,7 +343,10 @@ async function insertarSolicitudVuelo(client, {
       resuelto.id_licencia_chequeo,
     ]
   );
-  return { id_solicitud, id_detalle: ins.rows[0].id_detalle, id_alumno: idAlumnoEfectivo };
+  return {
+    id_solicitud, id_detalle: ins.rows[0].id_detalle, id_alumno: idAlumnoEfectivo,
+    advertencia: advertenciaMantenimiento,
+  };
 }
 
 module.exports = {

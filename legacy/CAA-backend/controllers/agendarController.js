@@ -371,6 +371,10 @@ exports.guardarSolicitud = async (req, res) => {
 
     await client.query("DELETE FROM solicitud_vuelo WHERE id_solicitud = $1", [id_solicitud]);
 
+    // Mantenimiento ya NO bloquea el guardado (pedido explícito): cada choque
+    // se acumula acá como advertencia y viaja en la respuesta de éxito.
+    const advertencias = [];
+
     for (const v of vuelos) {
       // Los extracurriculares pueden usar cualquier aeronave activa (no se exige
       // que esté en la licencia del alumno).
@@ -403,10 +407,10 @@ exports.guardarSolicitud = async (req, res) => {
       );
       if (mantRes.rows.length > 0) {
         const { codigo, fecha_slot, hasta } = mantRes.rows[0];
-        throw Object.assign(new Error("Aeronave en mantenimiento"), {
-          detalle: `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
-            (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía)."),
-        });
+        advertencias.push(
+          `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
+          (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).")
+        );
       }
 
       await client.query(
@@ -416,7 +420,10 @@ exports.guardarSolicitud = async (req, res) => {
     }
 
     await client.query("COMMIT");
-    res.json({ message: "Solicitud guardada correctamente" });
+    res.json({
+      message: "Solicitud guardada correctamente",
+      advertencias: advertencias.length > 0 ? advertencias : undefined,
+    });
 
   } catch (e) {
     await client.query("ROLLBACK");
@@ -426,11 +433,6 @@ exports.guardarSolicitud = async (req, res) => {
     if (e.message === "Aeronave no permitida") {
       return res.status(400).json({
         message: "Una de las aeronaves seleccionadas no está habilitada para tu licencia.",
-      });
-    }
-    if (e.message === "Aeronave en mantenimiento") {
-      return res.status(400).json({
-        message: e.detalle || "Una de las aeronaves seleccionadas está en mantenimiento ese día.",
       });
     }
     // 23505 = violación de índice único. Hoy dispara por uq_slot cuando dos
