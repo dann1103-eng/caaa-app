@@ -15,21 +15,24 @@ async function cargarPdfMake() {
   return pdfMake;
 }
 
+// Formato compacto: la vouchera ocupa UN TERCIO de página carta, para que el
+// PDF del día imprima 3 por hoja (con guía de corte) y no se desperdicie
+// papel. Tipografías chicas a propósito — es un comprobante, no un informe.
 const cell = (text, opts = {}) => ({
   text: String(text ?? ""),
-  fontSize: 8,
-  margin: [3, 3, 3, 3],
+  fontSize: 7,
+  margin: [2, 1.5, 2, 1.5],
   ...opts,
 });
 
 const hdr = (text, opts = {}) => ({
   text,
-  fontSize: 7,
+  fontSize: 6,
   bold: true,
   color: "#fff",
   fillColor: "#1e3a5f",
   alignment: "center",
-  margin: [3, 3, 3, 3],
+  margin: [2, 2, 2, 2],
   ...opts,
 });
 
@@ -50,10 +53,32 @@ const formatMedidor = (val) => {
   return `${ent.padStart(4, "0")}.${decLimpio}`;
 };
 
-// ── Contenido de UNA vouchera ────────────────────────────────────────────────
-// Devuelve el array `content` de pdfmake para una vouchera (header CAAA, datos
-// del vuelo, medidores, firmas). Compartido entre el PDF individual y el
-// combinado del día — cualquier cambio de layout aplica a ambos.
+// Mini-tabla: encabezado azul + filas [etiqueta, valor].
+const miniTabla = (titulo, filas) => ({
+  table: {
+    widths: ["*", "*"],
+    body: [
+      [hdr(titulo, { colSpan: 2 }), {}],
+      ...filas.map(([lbl, val]) => [cell(lbl, { bold: true }), cell(val, { alignment: "right" })]),
+    ],
+  },
+  layout: "lightHorizontalLines",
+});
+
+// Mini-tabla de valor único: encabezado azul + una celda centrada.
+const miniValor = (titulo, valor, opts = {}) => ({
+  table: {
+    widths: ["*"],
+    body: [[hdr(titulo)], [cell(valor, { bold: true, alignment: "center" })]],
+  },
+  layout: "lightHorizontalLines",
+  ...opts,
+});
+
+// ── Contenido de UNA vouchera (⅓ de carta) ───────────────────────────────────
+// Devuelve el array `content` de pdfmake para una vouchera compacta. Compartido
+// entre el PDF individual y el combinado del día — cualquier cambio de layout
+// aplica a ambos.
 function buildVoucheraContent({
   vueloInfo,
   datos,
@@ -78,201 +103,134 @@ function buildVoucheraContent({
 
   const isSim = v.aeronave_tipo === "SIMULADOR";
 
-  // Filas de datos: simulador solo Hobbs + horas a cobrar (sin tacómetro/combustible).
-  const dataRows = isSim
-    ? [
-        ["Hobbs Inicio",     formatMedidor(d.hobbs_salida)],
-        ["Hobbs Cierre",     formatMedidor(d.hobbs_llegada)],
-        ["Horas a cobrar",   formatNum(d.horas_cobradas)],
-      ]
-    : [
-        ["Combustible Salida",  formatNum(d.combustible_salida)],
-        ["Combustible Llegada", formatNum(d.combustible_llegada)],
-        ["Cantidad agregada",   formatNum(d.cantidad_combustible)],
-        ["Horas a cobrar",      formatNum(d.horas_cobradas)],
-      ];
-
-  // Bloque Tacómetro/Hobbs (solo avión real): dos columnas lado a lado,
-  // cada una con Llegada arriba y Salida abajo — así queda igual que el
-  // instrumento físico, donde la lectura crece de abajo hacia arriba.
-  const medidorColumn = (titulo, llegada, salida) => ({
-    table: {
-      widths: ["*", "*"],
-      body: [
-        [hdr(titulo, { colSpan: 2, alignment: "center" }), {}],
-        [cell("Llegada", { bold: true }), cell(llegada)],
-        [cell("Salida", { bold: true }), cell(salida)],
+  // Bloque central según el caso. Columnas balanceadas para que la banda
+  // completa quede baja y pareja.
+  let centro;
+  if (esInasistencia) {
+    centro = [{
+      table: {
+        widths: ["auto", "*"],
+        body: [[
+          {
+            text: "INASISTENCIA / NO-SHOW",
+            fontSize: 8, bold: true, color: "#ffffff", fillColor: "#b91c1c",
+            margin: [6, 3, 6, 3],
+          },
+          cell(`Motivo: ${motivoInasistencia || "no especificado"}. Los campos técnicos se omiten.`, { italics: true, color: "#7f1d1d" }),
+        ]],
+      },
+      layout: "noBorders",
+      margin: [0, 0, 0, 6],
+    }];
+  } else if (isSim) {
+    centro = [{
+      columns: [
+        miniTabla("HOBBS", [
+          ["Inicio", formatMedidor(d.hobbs_salida)],
+          ["Cierre", formatMedidor(d.hobbs_llegada)],
+        ]),
+        miniTabla("COBRO", [["Horas a cobrar", formatNum(d.horas_cobradas)]]),
       ],
-    },
-    layout: "lightHorizontalLines",
+      columnGap: 8,
+      margin: [0, 0, 0, 6],
+    }];
+  } else {
+    centro = [{
+      columns: [
+        {
+          stack: [
+            miniValor("TIPO DE VUELO", d.tipo_vuelo ?? "—"),
+            miniValor("HORAS A COBRAR", formatNum(d.horas_cobradas), { margin: [0, 4, 0, 0] }),
+          ],
+        },
+        // Llegada arriba y Salida abajo, como el instrumento físico.
+        miniTabla("TACÓMETRO", [
+          ["Llegada", formatMedidor(d.tacometro_llegada)],
+          ["Salida", formatMedidor(d.tacometro_salida)],
+        ]),
+        miniTabla("HOBBS", [
+          ["Llegada", formatMedidor(d.hobbs_llegada)],
+          ["Salida", formatMedidor(d.hobbs_salida)],
+        ]),
+        miniTabla("COMBUSTIBLE", [
+          ["Salida", formatNum(d.combustible_salida)],
+          ["Llegada", formatNum(d.combustible_llegada)],
+          ["Agregado", formatNum(d.cantidad_combustible)],
+        ]),
+      ],
+      columnGap: 8,
+      margin: [0, 0, 0, 6],
+    }];
+  }
+
+  const firma = (label, imagen, nombre, licencia) => ({
+    stack: [
+      { text: label, fontSize: 6, bold: true, color: "#555", margin: [0, 0, 0, 2] },
+      imagen
+        ? { image: imagen, width: 84, height: 30, margin: [0, 0, 0, 2] }
+        : { text: "(Sin firma)", fontSize: 7, color: "#999", margin: [0, 10, 0, 12] },
+      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 140, y2: 0, lineWidth: 0.5 }], margin: [0, 0, 0, 2] },
+      { text: nombre ?? "—", fontSize: 7.5, bold: true },
+      { text: `Licencia No.: ${licencia ?? "—"}`, fontSize: 6.5 },
+    ],
   });
 
   return [
-    // ── Header CAAA ──
-    { image: LOGO_CAAA_DATAURL, width: 58, alignment: "center", margin: [0, 0, 0, 4] },
+    // ── Encabezado en línea: logo + razón social + título ──
     {
-      text: "CAAA, S.A. de C.V.",
-      fontSize: 14,
-      bold: true,
-      alignment: "center",
-      color: "#1e3a5f",
-      margin: [0, 0, 0, 2],
-    },
-    {
-      text: isSim ? "VOUCHERA DE SIMULADOR" : "REPORTE DE VUELOS",
-      fontSize: 11,
-      bold: true,
-      alignment: "center",
-      margin: [0, 0, 0, 10],
-    },
-
-    // ── Banner INASISTENCIA (solo si aplica) ──
-    ...(esInasistencia ? [{
-      table: {
-        widths: ["*"],
-        body: [[
-          {
-            text: "⚠  INASISTENCIA / NO-SHOW",
-            fontSize: 14,
-            bold: true,
-            color: "#ffffff",
-            fillColor: "#b91c1c",
-            alignment: "center",
-            margin: [10, 10, 10, 10],
-          }
-        ]]
-      },
-      layout: "noBorders",
-      margin: [0, 0, 0, 10],
-    }, {
-      text: "El alumno no se presentó al vuelo programado. Los campos técnicos se omiten en este registro.",
-      fontSize: 8,
-      color: "#7f1d1d",
-      alignment: "center",
-      italics: true,
-      margin: [0, 0, 0, 8],
-    }, {
-      stack: [
-        { text: "MOTIVO DE LA INASISTENCIA:", fontSize: 7, bold: true, color: "#991b1b", margin: [0, 0, 0, 2] },
-        { text: motivoInasistencia || "No se especificó motivo.", fontSize: 9, italics: true }
+      columns: [
+        { image: LOGO_CAAA_DATAURL, width: 20 },
+        {
+          text: [
+            { text: "CAAA, S.A. de C.V.   ", fontSize: 10, bold: true, color: "#1e3a5f" },
+            { text: isSim ? "VOUCHERA DE SIMULADOR" : "REPORTE DE VUELOS", fontSize: 8.5, bold: true },
+          ],
+          margin: [6, 5, 0, 0],
+        },
+        {
+          text: "IMPRESOS RIVAS, S.A. DE C.V. — 7742-5029",
+          fontSize: 5.5, color: "#999", alignment: "right", margin: [0, 8, 0, 0],
+        },
       ],
-      margin: [0, 0, 0, 15]
-    }] : []),
+      margin: [0, 0, 0, 5],
+    },
 
     // ── Info del vuelo ──
     {
       table: {
-        widths: ["*", "*", "*", "*", "*", "*"],
+        widths: ["*", 40, 48, "*", "*", "*"],
         body: [
+          [hdr("REPORTE #"), hdr("HORA"), hdr("FECHA"), hdr("TIPO AVIÓN"), hdr("AVIÓN No."), hdr("VUELO No.")],
           [
-            hdr("REPORTE #"),
-            hdr("HORA"),
-            hdr("FECHA"),
-            hdr("TIPO AVIÓN"),
-            hdr("AVIÓN No."),
-            hdr("VUELO No."),
-          ],
-          [
-            cell(correlativo),
-            cell(horaStr),
-            cell(fechaStr),
-            cell(v.aeronave_modelo ?? "—"),
-            cell(v.aeronave_codigo ?? "—"),
-            cell(correlativo),
+            cell(correlativo), cell(horaStr), cell(fechaStr),
+            cell(v.aeronave_modelo ?? "—"), cell(v.aeronave_codigo ?? "—"), cell(correlativo),
           ],
         ],
       },
       layout: "lightHorizontalLines",
-      margin: [0, 0, 0, 10],
+      margin: [0, 0, 0, 6],
     },
 
-    // ── Tipo de vuelo (omitido en inasistencia y en simulador) ──
-    ...(!esInasistencia && !isSim ? [{
-      table: {
-        widths: ["auto", "*"],
-        body: [
-          [
-            hdr("TIPO DE VUELO"),
-            cell(d.tipo_vuelo ?? "—", { bold: true, fontSize: 9 }),
-          ],
-        ],
-      },
-      layout: "lightHorizontalLines",
-      margin: [0, 0, 0, 10],
-    }] : []),
-
-    // ── Tacómetro / Hobbs (solo avión real, omitido en inasistencia) ──
-    ...(!esInasistencia && !isSim ? [{
-      columns: [
-        medidorColumn("TACÓMETRO", formatMedidor(d.tacometro_llegada), formatMedidor(d.tacometro_salida)),
-        medidorColumn("HOBBS", formatMedidor(d.hobbs_llegada), formatMedidor(d.hobbs_salida)),
-      ],
-      columnGap: 10,
-      margin: [0, 0, 0, 10],
-    }] : []),
-
-    // ── Datos técnicos (omitidos en inasistencia) ──
-    ...(!esInasistencia ? [{
-      table: {
-        widths: ["*", "*"],
-        body: [
-          [hdr("CAMPO"), hdr("VALOR")],
-          ...dataRows.map(([campo, valor]) => [
-            cell(campo, { bold: true }),
-            cell(valor),
-          ]),
-        ],
-      },
-      layout: "lightHorizontalLines",
-      margin: [0, 0, 0, 20],
-    }] : [{ text: "", margin: [0, 0, 0, 20] }]),
+    // ── Bloque central (medidores / sim / inasistencia) ──
+    ...centro,
 
     // ── Firmas ──
     {
       columns: [
-        // Alumno
-        {
-          stack: [
-            { text: "NOMBRE ALUMNO", fontSize: 7, bold: true, color: "#555", margin: [0, 0, 0, 4] },
-            firmaAlumno
-              ? { image: firmaAlumno, width: 180, height: 60, margin: [0, 0, 0, 4] }
-              : { text: "(Sin firma)", fontSize: 8, color: "#999", margin: [0, 0, 0, 4] },
-            { canvas: [{ type: "line", x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 0.5 }], margin: [0, 0, 0, 4] },
-            { text: v.alumno_nombre ?? "—", fontSize: 9, bold: true },
-            { text: `Licencia No.: ${v.alumno_licencia ?? "—"}`, fontSize: 8 },
-          ],
-        },
-        // Instructor
-        {
-          stack: [
-            { text: "NOMBRE INSTRUCTOR", fontSize: 7, bold: true, color: "#555", margin: [0, 0, 0, 4] },
-            firmaInstructor
-              ? { image: firmaInstructor, width: 180, height: 60, margin: [0, 0, 0, 4] }
-              : { text: "(Sin firma)", fontSize: 8, color: "#999", margin: [0, 0, 0, 4] },
-            { canvas: [{ type: "line", x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 0.5 }], margin: [0, 0, 0, 4] },
-            { text: v.instructor_nombre ?? "—", fontSize: 9, bold: true },
-            { text: `Licencia No.: ${v.instructor_licencia ?? "—"}`, fontSize: 8 },
-          ],
-        },
+        firma("NOMBRE ALUMNO", firmaAlumno, v.alumno_nombre, v.alumno_licencia),
+        firma("NOMBRE INSTRUCTOR", firmaInstructor, v.instructor_nombre, v.instructor_licencia),
       ],
-      columnGap: 20,
-    },
-
-    // ── Pie ──
-    {
-      text: "IMPRESOS RIVAS, S.A. DE C.V. — 7742-5029",
-      fontSize: 7,
-      color: "#999",
-      alignment: "center",
-      margin: [0, 20, 0, 0],
+      columnGap: 24,
+      margin: [0, 2, 0, 0],
     },
   ];
 }
 
+// Carta con márgenes angostos: caben 3 voucheras de ⅓ de hoja por página.
 const DOC_BASE = {
-  pageSize: "A4",
+  pageSize: "LETTER",
   pageOrientation: "portrait",
-  pageMargins: [40, 40, 40, 40],
+  pageMargins: [36, 18, 36, 14],
 };
 
 export async function generarPdfReporteVuelo({
@@ -312,18 +270,25 @@ export async function generarPdfReporteVuelo({
 }
 
 // ── PDF combinado del día ────────────────────────────────────────────────────
-// Junta N voucheras (mismo layout que la individual) en un solo archivo, una
-// por página, para imprimirlas todas al cierre del turno. `voucheras` es un
-// array con los mismos parámetros que recibe generarPdfReporteVuelo.
+// Junta N voucheras (⅓ de carta cada una) en un solo archivo — 3 por página,
+// con guía de corte punteada — para imprimirlas al cierre del turno.
+// `voucheras` es un array con los mismos parámetros de generarPdfReporteVuelo.
 export async function generarPdfVoucherasDia({ voucheras, filename = "voucheras.pdf" }) {
   const pdfMake = await cargarPdfMake();
 
-  const content = voucheras.flatMap((params, i) => {
-    const c = buildVoucheraContent(params);
-    // Salto de página antes de cada vouchera menos la primera.
-    if (i > 0 && c.length) c[0] = { ...c[0], pageBreak: "before" };
-    return c;
-  });
+  const content = voucheras.map((params) => ({
+    // unbreakable: una vouchera nunca queda partida entre dos páginas — si no
+    // cabe entera en el espacio restante, pasa completa a la siguiente.
+    unbreakable: true,
+    stack: [
+      ...buildVoucheraContent(params),
+      // Guía de corte entre voucheras.
+      {
+        canvas: [{ type: "line", x1: 0, y1: 0, x2: 540, y2: 0, lineWidth: 0.5, dash: { length: 4, space: 3 }, lineColor: "#bbb" }],
+        margin: [0, 8, 0, 10],
+      },
+    ],
+  }));
 
   const docDefinition = { ...DOC_BASE, content };
 
