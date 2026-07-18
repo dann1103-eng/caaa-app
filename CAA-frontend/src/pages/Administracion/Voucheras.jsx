@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getVoucherasAeronaves, getVoucherasDia } from "../../services/administracionApi";
 import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
-import { generarPdfVoucherasDia } from "../../components/ReporteVueloModal/reporteVueloPdf";
+import { generarPdfVoucherasDia, mensajeErrorPdf } from "../../components/ReporteVueloModal/reporteVueloPdf";
 
 // Fecha de "hoy" en El Salvador (la del turno operativo, no la del navegador).
 const hoySV = () =>
@@ -79,8 +79,8 @@ export default function Voucheras() {
         voucheras: rows.map(rowToPdfParams),
         filename: `voucheras-${sufijo}-${fecha}.pdf`,
       });
-    } catch {
-      toast.error("No se pudo generar el PDF.");
+    } catch (e) {
+      toast.error(mensajeErrorPdf(e));
     } finally {
       setGenerando(false);
     }

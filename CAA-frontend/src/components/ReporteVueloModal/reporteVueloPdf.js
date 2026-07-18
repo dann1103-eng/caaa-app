@@ -1,5 +1,14 @@
 import { LOGO_CAAA_DATAURL } from "../../assets/logoCaaa";
 
+// ¿El error viene de un chunk que ya no existe (deploy nuevo con la pestaña
+// vieja abierta)? El generador se carga bajo demanda: tras un deploy, el
+// archivo con el hash viejo desaparece de Vercel y el import dinámico falla.
+export function mensajeErrorPdf(e) {
+  return /dynamically imported|Failed to fetch|Importing a module script failed|error loading/i.test(e?.message || "")
+    ? "Hay una versión nueva de la app — recargá la página (Cmd+R / Ctrl+R) y volvé a intentar."
+    : "No se pudo generar el PDF.";
+}
+
 async function cargarPdfMake() {
   const pdfMakeModule = await import("pdfmake/build/pdfmake");
   const pdfFontsModule = await import("pdfmake/build/vfs_fonts");

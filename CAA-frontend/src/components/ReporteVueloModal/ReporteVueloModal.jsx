@@ -13,7 +13,7 @@ import {
 } from "../../services/instructorApi";
 import { getReporteVueloAdmin } from "../../services/administracionApi";
 import SignaturePad from "../SignaturePad/SignaturePad";
-import { generarPdfReporteVuelo } from "./reporteVueloPdf";
+import { generarPdfReporteVuelo, mensajeErrorPdf } from "./reporteVueloPdf";
 import "./ReporteVueloModal.css";
 
 const TIPO_VUELO_OPTS = ["PASAJERO", "CARGA", "SOLO", "DOBLE", "FERRY", "LOCAL"];
@@ -327,6 +327,10 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         motivoInasistencia,
         download: true,
       });
+    } catch (e) {
+      // Sin este catch el fallo era MUDO — típicamente el chunk de pdfmake
+      // con hash viejo tras un deploy (pestaña abierta de antes).
+      toast.error(mensajeErrorPdf(e));
     } finally {
       setGenerating(false);
     }
