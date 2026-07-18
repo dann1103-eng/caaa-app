@@ -40,74 +40,59 @@ Usuario → VERCEL (frontend React) → RAILWAY (backend Express) → SUPABASE (
 
 ## 3. Despliegue (IMPORTANTE)
 
-**Auto-deploy configurado.** Cada `git push origin master`:
-- **Vercel** auto-construye el frontend. Funciona porque el **Root Directory** del proyecto en Vercel está puesto en `CAA-frontend` (Settings → Build and Deployment). El `CAA-frontend/vercel.json` tiene el rewrite SPA (`/(.*) → /index.html`).
-- **Railway NO auto-despliega desde git.** El backend se despliega manualmente con:
-  ```powershell
-  cd "C:\Users\Daniel\Desktop\CAAA modulo op+admin\legacy\CAA-backend"
-  railway up --detach
-  ```
-  (Requiere `railway login` previo — credenciales del usuario `danielmancia111203@gmail.com`.)
+**✅ Auto-deploy configurado en AMBOS lados desde el 2026-07-18.** Cada `git push origin master`:
+- **Vercel** auto-construye el frontend. Root Directory = `CAA-frontend` (Settings → Build and
+  Deployment). `CAA-frontend/vercel.json` tiene el rewrite SPA (`/(.*) → /index.html`).
+- **Railway también auto-construye el backend.** Daniel conectó el servicio `caaa-backend` al repo
+  de GitHub (`dann1103-eng/caaa-app`, rama `master`, **Root Directory = `legacy/CAA-backend`**)
+  desde el dashboard de Railway (Settings → Source → Connect Repo) — `railway status` ahora muestra
+  una línea `repo: dann1103-eng/caaa-app` que antes no aparecía. **Verificado real** el mismo día:
+  Samuel pusheó la sección Voucheras (nueva ruta `/administracion/voucheras`) y quedó viva en
+  producción (401, no 404) sin que nadie corriera `railway up`.
 
-### 🚨 `railway up` sube ARCHIVOS LOCALES — sincronizá SIEMPRE antes
-
-**La asimetría que hay que tener siempre en la cabeza:**
-
-| | De dónde toma el código |
-|---|---|
-| **Vercel** (frontend) | **GitHub** (`origin/master`) |
-| **Railway** (backend) | **Tu carpeta local**, tal como esté en ese momento |
-
-Consecuencia: si corrés `railway up` con tu local **atrasado** respecto a `origin/master`,
-**borrás de producción el backend que otro ya había desplegado**. No falla nada ni avisa:
-el código simplemente desaparece del servidor.
-
-**Regla, sin excepciones — `railway up` va SIEMPRE AL FINAL, después del `git push`:**
-```powershell
-cd "C:\Users\Daniel\Desktop\CAAA modulo op+admin"
-git fetch origin; git merge origin/master
-git push origin master                        # ← 1º pushear...
-cd legacy\CAA-backend; railway up --detach    # ← 2º recién ahora desplegar
-```
-
-**Por qué el push va primero (y no alcanza con "hacer fetch antes"):** el `git push` es la
-única garantía de que tu local == `origin/master`. Si estás atrasado, **el push se rechaza**
-("fetch first") y te obliga a mergear; cuando pasa, lo que tenés en disco es exactamente lo
-que está en GitHub, y ahí `railway up` es seguro. Si desplegás ANTES de pushear, el otro
-puede pushear backend en esa ventana de segundos y tu deploy lo pisa igual — **pasó el
-2026-07-16 mientras se documentaba esta misma regla**: se hizo el fetch, se desplegó, y
-Samuel pusheó `calendarioController.js` entre el deploy y el push → hubo que re-desplegar.
-Si por lo que sea desplegás y después mergeás algo de backend, **volvé a correr `railway up`**.
-
-**Cómo se ve el síntoma** (pasó el 2026-07-16, con Samuel trabajando en paralelo): Samuel
-pusheó el ciclo de turno (`turnoDiaController.js` + rutas + `TurnoDiaWidget`). Vercel compiló
-**su frontend** desde GitHub → el widget salió en vivo. Daniel, con un local que no tenía ese
-commit, corrió `railway up` para desplegar otro fix → **el controller de Samuel desapareció
-del backend**. Resultado: *"el cambio aparece en pantalla pero no funciona"* y
-`GET /api/turno/dia` → **404**. Se ve como un bug del feature, pero es un deploy pisado.
-
-**Diagnóstico rápido:** `curl https://caaa-backend-production.up.railway.app/api/<ruta>`
-→ **404** = la ruta no existe (backend pisado/atrasado) · **401** = existe y pide auth (está bien).
-
-**Trabajo en paralelo (Daniel + Samuel Flores):** ambos pushean a `master` seguido, así que
-`origin` se mueve mientras trabajás. Si un `git push` sale rechazado con *"fetch first"*, no es
-un error raro: es que el otro pusheó recién → `git fetch; git merge origin/master` y reintentá.
-Y si ese merge trajo backend, **volvé a correr `railway up`**.
+**Ya NO hace falta `railway up` manual para el flujo normal.** Un simple `git push origin master`
+alcanza para desplegar frontend y backend. Esto también **elimina la vieja asimetría** (Vercel
+tomaba de GitHub, Railway tomaba de tu carpeta local) que causó más de un incidente de "el cambio
+del otro desaparece de producción" (ver histórico abajo) — ya no puede pasar: ambos toman siempre
+del mismo commit de `origin/master`.
 
 **Flujo normal para un cambio:**
-1. **`git fetch origin; git merge origin/master`** (traer lo del otro ANTES de nada).
+1. `git fetch origin; git merge origin/master` (traer lo del otro antes de nada — sigue siendo
+   buena práctica para no pisar trabajo en un merge feo, aunque el deploy ya no dependa de esto).
 2. Editar código.
 3. `cd CAA-frontend; $env:VITE_API_URL="https://caaa-backend-production.up.railway.app"; npm run build` (verificar que compila).
 4. Si hay migración: `node run-sql.js "..."` (**siempre antes** del deploy, si el código nuevo ya lee las columnas).
-5. `git add ... && git commit -F <archivo-msg> && git push origin master` (esto dispara Vercel **y** confirma que estás sincronizado).
-6. **Al final**, si el paso 5 metió backend (tuyo o traído en el merge): `railway up --detach` desde `legacy/CAA-backend`.
+5. `git add ... && git commit -F <archivo-msg> && git push origin master` — esto solo ya dispara
+   **ambos** despliegues.
 
-⚠️ **Los pasos 5 y 6 no se invierten.** Ver el recuadro de arriba: desplegar antes de pushear
-deja una ventana en la que el otro puede pushear backend y tu deploy se lo lleva puesto.
+**Diagnóstico rápido** (sigue siendo útil): `curl https://caaa-backend-production.up.railway.app/api/<ruta>`
+→ **404** = la ruta no existe (código no llegó / deploy no corrió) · **401** = existe y pide auth
+(está bien). `railway status` para ver el `deployment ID` vivo y compararlo con el último commit.
+
+**Si alguna vez el auto-deploy de Railway pareciera no dispararse** (poco probable ya verificado,
+pero por si la conexión GitHub se cae): `railway up --detach` desde `legacy/CAA-backend` sigue
+funcionando como respaldo manual — en ese caso sí aplica la regla vieja de sincronizar primero
+(`git fetch; git merge origin/master` antes de `railway up`, porque ese comando manual vuelve a
+subir tu carpeta local, no GitHub).
+
+<details>
+<summary>Histórico: por qué antes esto era crítico (pre 2026-07-18, ya no aplica)</summary>
+
+Antes Railway **no** auto-desplegaba desde git — solo Vercel lo hacía. `railway up` subía la
+carpeta LOCAL tal cual estuviera, así que si tu local estaba atrasado respecto a `origin/master`,
+desplegar **borraba de producción el backend que otro ya había subido**, sin avisar. Pasó el
+2026-07-16: Samuel pusheó el ciclo de turno, Vercel compiló su frontend, pero Daniel corrió
+`railway up` con un local viejo → el controller de Samuel desapareció del backend
+(`GET /api/turno/dia` → 404) aunque el frontend ya lo mostraba. La regla de la época era
+"`railway up` SIEMPRE al final, después del `git push`" — ya no hace falta seguirla para el flujo
+normal, pero explica por qué el diagnóstico 404-vs-401 sigue siendo el primer chequeo ante "el
+cambio se ve pero no funciona".
+</details>
 
 ### CLI
 - Vercel CLI logueado como `danielmancia111203-2224`. Equipo de deploy: `--scope caaa`.
-- Railway CLI logueado. Proyecto `caaa-backend` ya linkeado en `legacy/CAA-backend`.
+- Railway CLI logueado. Proyecto `caaa-backend` ya linkeado en `legacy/CAA-backend` (ya no
+  necesario para el flujo normal, solo como respaldo manual — ver arriba).
 
 ---
 
@@ -245,11 +230,12 @@ Antes era una app separada (`C:\Users\Daniel\Desktop\loadsheet_calculator`, corr
 
 ## 10. Gotchas / lecciones aprendidas
 
-- **🚨 `railway up` sube archivos LOCALES, no GitHub.** Si tu local está atrasado, **pisás el
-  backend que el otro ya desplegó** y desaparece de producción sin ningún error. Síntoma:
-  *"el cambio se ve en pantalla pero no funciona"* (Vercel sí compiló su frontend desde GitHub)
-  + rutas en 404. Pasó el 2026-07-16 con el ciclo de turno de Samuel. **Siempre
-  `git fetch; git merge origin/master` ANTES de `railway up`.** Detalle completo en la sección 3.
+- **✅ RESUELTO el 2026-07-18: Railway ya auto-despliega desde GitHub** (Root Directory
+  `legacy/CAA-backend`), igual que Vercel. Ya no hace falta `railway up` manual para el flujo
+  normal — un `git push origin master` alcanza para ambos. El viejo riesgo de "`railway up` pisa
+  el backend del otro con tu carpeta local atrasada" (pasó el 2026-07-16 con el ciclo de turno de
+  Samuel) ya no aplica porque ambos servicios toman siempre del mismo commit de GitHub. Detalle y
+  respaldo manual (por si la conexión se cae) en la sección 3.
 - **Alias de Vercel:** con Root Directory bien configurado, `git push` auto-actualiza `caaa-app.vercel.app`. Si alguna vez sale 404 en todo, un deploy se apoderó del alias; restaurar con `vercel alias set <deploy-bueno> caaa-app.vercel.app --scope caaa`.
 - **BOM en config.js:** definir variables de entorno desde PowerShell puede colar un BOM. Ya blindado en `generate-config.mjs`. Si el login falla, revisar `https://caaa-app.vercel.app/config.js` (API_URL debe empezar con `h`, no con un char invisible).
 - **PowerShell here-strings (`@'...'@`) rompen `git commit -m`.** Usar `git commit -F <archivo>` (escribir el mensaje a un archivo temporal y commitear con `-F`).
