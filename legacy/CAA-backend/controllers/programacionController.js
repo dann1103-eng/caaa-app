@@ -57,7 +57,10 @@ async function requireProgramacionOrAdmin(req, res) {
     res.status(401).json({ message: "No autenticado" });
     return null;
   }
-  if (req.user.rol === "PROYECCION") return req.user;
+  // PROYECCION y DUENO son lectura-only: pasan directo a estos endpoints de
+  // solo consulta (estado de flota / resumen de mantenimiento) sin necesitar
+  // capacidad de programar.
+  if (req.user.rol === "PROYECCION" || req.user.rol === "DUENO") return req.user;
   if (!(await puedeProgramar(req))) {
     res.status(403).json({ message: "Acceso denegado" });
     return null;
