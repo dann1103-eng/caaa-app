@@ -23,6 +23,7 @@ const reportes = require("../controllers/administracion/reportesController");
 const aula     = require("../controllers/administracion/aulaVirtualController");
 const adminUsuario = require("../controllers/admin/adminUsuarioController");
 const conceptos = require("../controllers/administracion/conceptoCobroController");
+const voucheras = require("../controllers/administracion/voucherasController");
 
 // Upload de documentos: en memoria, para subir el buffer a Supabase Storage
 // (persistente). El disco de Railway es efímero y se borra en cada redeploy.
@@ -128,6 +129,10 @@ router.get("/usuarios/alumnos/:id_alumno/historial",      roleMiddleware(READ_RO
 // depende del usuario autenticado (la pertenencia siempre la gateó la ruta,
 // no el SQL) — acá el gate es el rol administrativo.
 router.get("/vuelos/:id/reporte-vuelo",                   roleMiddleware(READ_ROLES),  require("../controllers/instructor/instructorReporteController").getReporteVueloInstructor);
+
+// ── Voucheras del día (sección Voucheras) ─────────────────────────────
+router.get("/voucheras/aeronaves",                        roleMiddleware(READ_ROLES),  voucheras.listAeronaves);
+router.get("/voucheras",                                  roleMiddleware(READ_ROLES),  voucheras.listVoucherasDia);
 
 // ── Documentación ─────────────────────────────────────────────────────
 router.get("/documentos/catalogo",          roleMiddleware(READ_ROLES),  documentos.catalogo);

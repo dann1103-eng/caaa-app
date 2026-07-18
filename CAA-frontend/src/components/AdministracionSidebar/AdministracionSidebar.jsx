@@ -23,6 +23,7 @@ export default function AdministracionSidebar({ isOpen, onClose }) {
     { label: "Documentación",  path: "/administracion/documentacion", icon: "bi-folder-check" },
     { label: "Médicos AAC",    path: "/administracion/medicos",       icon: "bi-clipboard2-pulse" },
     { label: "Aula Virtual",   path: "/administracion/aula-virtual",  icon: "bi-mortarboard-fill" },
+    { label: "Voucheras",      path: "/administracion/voucheras",     icon: "bi-file-earmark-text" },
     { label: "Reportes",       path: "/administracion/reportes",      icon: "bi-bar-chart" },
   ];
 

@@ -132,6 +132,11 @@ export const getHistorialAlumno   = async (idAlumno) => (await axios.get(`${BASE
 // el endpoint del instructor ({ vuelo, reporte }).
 export const getReporteVueloAdmin = async (idVuelo) => (await axios.get(`${BASE}/vuelos/${idVuelo}/reporte-vuelo`)).data;
 
+// ── Voucheras (sección) ─────────────────────────────────────────────
+export const getVoucherasAeronaves = async () => (await axios.get(`${BASE}/voucheras/aeronaves`)).data;
+export const getVoucherasDia = async (fecha, idAeronave) =>
+  (await axios.get(`${BASE}/voucheras`, { params: { fecha, id_aeronave: idAeronave || undefined } })).data;
+
 // ── Documentación ───────────────────────────────────────────────────
 export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/documentos/catalogo`)).data;
 export const getDocumentosAlumno   = async (id) => (await axios.get(`${BASE}/documentos/alumno/${id}`)).data;
