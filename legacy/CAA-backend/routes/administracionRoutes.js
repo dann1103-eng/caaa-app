@@ -123,6 +123,11 @@ router.get("/usuarios/instructores/:id_instructor/cursos", roleMiddleware(READ_R
 router.put("/usuarios/instructores/:id_instructor/cursos", roleMiddleware(WRITE_ROLES), usuarios.setInstructorCursos);
 router.get("/usuarios/instructores/:id_instructor/historial", roleMiddleware(READ_ROLES), usuarios.historialInstructor);
 router.get("/usuarios/alumnos/:id_alumno/historial",      roleMiddleware(READ_ROLES),  usuarios.historialAlumno);
+// Vouchera (reporte post-vuelo) en solo-lectura desde la bitácora de la ficha
+// del alumno. Reusa el controller del instructor tal cual: su consulta no
+// depende del usuario autenticado (la pertenencia siempre la gateó la ruta,
+// no el SQL) — acá el gate es el rol administrativo.
+router.get("/vuelos/:id/reporte-vuelo",                   roleMiddleware(READ_ROLES),  require("../controllers/instructor/instructorReporteController").getReporteVueloInstructor);
 
 // ── Documentación ─────────────────────────────────────────────────────
 router.get("/documentos/catalogo",          roleMiddleware(READ_ROLES),  documentos.catalogo);

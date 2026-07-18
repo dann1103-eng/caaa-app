@@ -11,6 +11,7 @@ import {
   guardarReporteVueloInstructor,
   firmarReporteVuelo,
 } from "../../services/instructorApi";
+import { getReporteVueloAdmin } from "../../services/administracionApi";
 import SignaturePad from "../SignaturePad/SignaturePad";
 import { generarPdfReporteVuelo } from "./reporteVueloPdf";
 import "./ReporteVueloModal.css";
@@ -112,9 +113,13 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
       setLoading(true);
       setError("");
       try {
+        // "admin" = solo-lectura desde Administración (ficha del alumno);
+        // isReadonly ya cubre cualquier modo que no sea "instructor".
         const data = mode === "alumno"
           ? await getReporteVuelo(id_vuelo)
-          : await getReporteVueloInstructor(id_vuelo);
+          : mode === "admin"
+            ? await getReporteVueloAdmin(id_vuelo)
+            : await getReporteVueloInstructor(id_vuelo);
 
         setVueloInfo(data.vuelo);
 

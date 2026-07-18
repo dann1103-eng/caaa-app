@@ -7,6 +7,7 @@ import {
   getCuentaAlumno, getInstructoresDisponibles, getHistorialAlumno,
 } from "../../services/administracionApi";
 import SaldoBadge from "../../components/SaldoBadge/SaldoBadge";
+import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
 
 const TABS = [
   { key: "perfil", label: "Perfil", icon: "bi-person-vcard" },
@@ -33,6 +34,7 @@ export default function AlumnoFicha() {
   const [docs, setDocs] = useState([]);
   const [cuenta, setCuenta] = useState(null);
   const [historial, setHistorial] = useState(null);
+  const [voucheraVuelo, setVoucheraVuelo] = useState(null); // id_vuelo de la vouchera abierta
   const [form, setForm] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
@@ -366,7 +368,7 @@ export default function AlumnoFicha() {
               {/* Bitácora de vuelos */}
               <h4 style={{ margin: "6px 0 8px" }}><i className="bi bi-airplane me-2"></i>Bitácora de vuelos</h4>
               <table className="adf-table">
-                <thead><tr><th>Fecha</th><th>Aeronave</th><th style={{ textAlign: "right" }}>Horas</th><th>Instructor</th></tr></thead>
+                <thead><tr><th>Fecha</th><th>Aeronave</th><th style={{ textAlign: "right" }}>Horas</th><th>Instructor</th><th></th></tr></thead>
                 <tbody>
                   {historial.vuelos.map(v => (
                     <tr key={v.id_vuelo}>
@@ -374,9 +376,15 @@ export default function AlumnoFicha() {
                       <td>{v.aeronave_codigo || v.aeronave_modelo || "—"}{v.inasistencia && <span className="adf-tag amber" style={{ marginLeft: 6 }}>inasistencia</span>}</td>
                       <td className="amount" style={{ textAlign: "right" }}>{Number(v.horas || 0).toFixed(1)}</td>
                       <td style={{ color: "var(--c-ink-3)" }}>{v.instructor_username || "—"}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button className="adf-icon-btn" title="Ver vouchera (reporte post-vuelo)"
+                          onClick={() => setVoucheraVuelo(v.id_vuelo)}>
+                          <i className="bi bi-file-earmark-text"></i>
+                        </button>
+                      </td>
                     </tr>
                   ))}
-                  {historial.vuelos.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin vuelos completados.</td></tr>}
+                  {historial.vuelos.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 14 }}>Sin vuelos completados.</td></tr>}
                 </tbody>
               </table>
 
@@ -457,6 +465,15 @@ export default function AlumnoFicha() {
             </>
           )}
         </div>
+      )}
+
+      {/* Vouchera en solo-lectura (mismo visor del instructor, modo admin) */}
+      {voucheraVuelo != null && (
+        <ReporteVueloModal
+          id_vuelo={voucheraVuelo}
+          mode="admin"
+          onClose={() => setVoucheraVuelo(null)}
+        />
       )}
     </div>
   );

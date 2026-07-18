@@ -128,6 +128,9 @@ export const setInstructorCursos  = async (idInstructor, ids) =>
   (await axios.put(`${BASE}/usuarios/instructores/${idInstructor}/cursos`, { ids })).data;
 export const getHistorialInstructor = async (idInstructor) => (await axios.get(`${BASE}/usuarios/instructores/${idInstructor}/historial`)).data;
 export const getHistorialAlumno   = async (idAlumno) => (await axios.get(`${BASE}/usuarios/alumnos/${idAlumno}/historial`)).data;
+// Vouchera (reporte post-vuelo) de un vuelo, solo-lectura — mismo shape que
+// el endpoint del instructor ({ vuelo, reporte }).
+export const getReporteVueloAdmin = async (idVuelo) => (await axios.get(`${BASE}/vuelos/${idVuelo}/reporte-vuelo`)).data;
 
 // ── Documentación ───────────────────────────────────────────────────
 export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/documentos/catalogo`)).data;
