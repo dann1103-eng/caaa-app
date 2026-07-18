@@ -1,8 +1,22 @@
 import "./Login.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { login } from "../../services/loginApi";
+
+// Un solo lugar para "a qué dashboard va cada rol" — lo usa tanto el login
+// manual como el auto-redirect de sesión ya guardada (ver useEffect abajo).
+function dashboardPathFor(user) {
+  if (user.rol === "ALUMNO") return "/alumno/dashboard";
+  if (user.rol === "PROGRAMACION") return "/programacion/dashboard";
+  if (user.rol === "ADMIN") return "/admin/dashboard";
+  if (user.rol === "TURNO") return "/turno";
+  if (user.rol === "INSTRUCTOR") return user.es_instructor_vuelo === false ? "/instructor/aula-virtual" : "/instructor";
+  if (user.rol === "ADMINISTRACION") return "/administracion/dashboard";
+  if (user.rol === "TALLER") return "/taller/dashboard";
+  if (user.rol === "DUENO") return "/dueno";
+  return null;
+}
 
 // Cada causa de fallo de login tiene un status HTTP distinto — mapear cada
 // una a su propio mensaje evita el bug de mostrar "Credenciales incorrectas"
@@ -40,7 +54,32 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
+
+  // La PWA en iOS mata el proceso de una pestaña en segundo plano por presión
+  // de memoria (no por tiempo) — al reabrir, arranca en frío en "/" →
+  // "/login". Sin este check, el usuario ve el formulario y cree que se
+  // cerró su sesión aunque el token en localStorage siga siendo válido. Si
+  // hay uno guardado, mandamos directo al dashboard; si en realidad estaba
+  // vencido/inválido, el interceptor de axios (401) lo devuelve a /login solo.
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const rawUser = localStorage.getItem("user");
+    if (token && rawUser) {
+      try {
+        const user = JSON.parse(rawUser);
+        const path = dashboardPathFor(user);
+        if (path) {
+          navigate(path, { replace: true });
+          return;
+        }
+      } catch {
+        /* localStorage corrupto: seguir al formulario normal */
+      }
+    }
+    setCheckingSession(false);
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,14 +96,7 @@ export default function Login() {
       // se navega al dashboard y el robapantallas global (ForcePasswordChange)
       // se muestra encima. No se manda a /perfil para que el modal aparezca de
       // inmediato también en móvil.
-      if (user.rol === "ALUMNO") navigate("/alumno/dashboard");
-      else if (user.rol === "PROGRAMACION") navigate("/programacion/dashboard");
-      else if (user.rol === "ADMIN") navigate("/admin/dashboard");
-      else if (user.rol === "TURNO") navigate("/turno");
-      else if (user.rol === "INSTRUCTOR") navigate(user.es_instructor_vuelo === false ? "/instructor/aula-virtual" : "/instructor");
-      else if (user.rol === "ADMINISTRACION") navigate("/administracion/dashboard");
-      else if (user.rol === "TALLER") navigate("/taller/dashboard");
-      else if (user.rol === "DUENO") navigate("/dueno");
+      navigate(dashboardPathFor(user) || "/login");
     } catch (err) {
       toast.error(mensajeErrorLogin(err));
     }
@@ -72,6 +104,9 @@ export default function Login() {
 
   const params = new URLSearchParams(window.location.search);
   const reason = params.get("reason");
+
+  // Evita el parpadeo del formulario mientras se revisa si ya había sesión.
+  if (checkingSession) return null;
 
   return (
     <div className="login">
