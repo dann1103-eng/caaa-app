@@ -34,6 +34,23 @@ function horaEmisionZ(raw) {
   return m ? `${m[1]}:${m[2]}Z` : null;
 }
 
+// Fallback por si `emitidoAt` no vino del backend (dato viejo en caché antes
+// de este cambio, o el backend no logró leer reportTime/obsTime): reconstruye
+// la fecha completa de emisión a partir del grupo ddhhmmZ del METAR crudo +
+// el mes/año actuales en UTC (con corrección de mes si el día ya pasó).
+function reconstruirEmisionDesdeRaw(raw) {
+  const m = raw?.match(/\b(\d{2})(\d{2})(\d{2})Z\b/);
+  if (!m) return null;
+  const [, dd, hh, mm] = m.map((x, i) => (i === 0 ? x : parseInt(x, 10)));
+  const now = new Date();
+  let d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), dd, hh, mm));
+  // Si la fecha resultante queda en el futuro, el METAR es del mes anterior.
+  if (d.getTime() > now.getTime() + 60 * 60 * 1000) {
+    d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, dd, hh, mm));
+  }
+  return d.toISOString();
+}
+
 /* En El Salvador el reglaje altimétrico se usa en pulgadas de mercurio (inHg).
    El backend entrega el QNH en hPa; convertimos (1 inHg = 33.8639 hPa). */
 function hpaToInHg(hpa) {
@@ -82,10 +99,11 @@ export default function MetarWidget() {
     );
   }
 
-  const d       = data.decoded;
-  const cond    = d?.condicion ? CONDICION_CFG[d.condicion] : null;
-  const emision = horaEmisionZ(data.raw);
-  const vencido = esVencido(data.fetchedAt);
+  const d          = data.decoded;
+  const cond       = d?.condicion ? CONDICION_CFG[d.condicion] : null;
+  const emision    = horaEmisionZ(data.raw);
+  const emitidoISO = data.emitidoAt || reconstruirEmisionDesdeRaw(data.raw);
+  const vencido    = esVencido(data.fetchedAt);
 
   return (
     <>
@@ -94,7 +112,7 @@ export default function MetarWidget() {
         <div className="mw__header">
           <div>
             <h3 className="mw__title">{d?.estacion ?? "MSSS"} METAR</h3>
-            <p className="mw__updated">Actualizado {minutosDesde(data.fetchedAt)}</p>
+            <p className="mw__updated">Emitido {minutosDesde(emitidoISO)}</p>
           </div>
           <div className="mw__badges">
             {vencido && <span className="mw__badge mw__badge--vencido" title="No se pudo renovar: se muestra el último METAR válido de MSSS">VENCIDO</span>}
@@ -115,7 +133,7 @@ export default function MetarWidget() {
                 {d?.estacion ?? "MSSS"} · {d.condicion}
                 {emision && <> · Emitido {emision}</>}
               </p>
-              <p className="mw__updated">Actualizado {minutosDesde(data.fetchedAt)}</p>
+              <p className="mw__updated">Emitido {minutosDesde(emitidoISO)}</p>
             </div>
             <div className="mw__badges">
               {vencido && <span className="mw__badge mw__badge--vencido" title="No se pudo renovar: se muestra el último METAR válido de MSSS">VENCIDO</span>}

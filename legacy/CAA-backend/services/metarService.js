@@ -191,7 +191,13 @@ async function fetchMetar() {
 
     const raw = entry.rawOb ?? entry.raw_text ?? "";
     const decoded = decodeMetar(raw);
-    cached = { raw, decoded, fetchedAt: new Date().toISOString() };
+    // reportTime/obsTime = cuándo se EMITIÓ el METAR según aviationweather.gov
+    // (el grupo ddhhmmZ del propio reporte) — distinto de fetchedAt, que es
+    // cuándo NUESTRO poller lo bajó (puede repetir el mismo METAR si la
+    // estación todavía no reemitió uno nuevo en esos 20 min).
+    const emitidoAt = entry.reportTime
+      ?? (entry.obsTime ? new Date(entry.obsTime * 1000).toISOString() : null);
+    cached = { raw, decoded, fetchedAt: new Date().toISOString(), emitidoAt };
     console.log(`[METAR] Actualizado (MSSS): ${raw}`);
   } catch (e) {
     console.warn(`[METAR] Fallo con MSSS: ${e.message} — se conserva el último dato en caché.`);
