@@ -28,6 +28,11 @@ function formatFecha(isoString) {
 
 const ESTADO_CFG = {
   PUBLICADO:      { label: "Publicado",       cls: "mhl__badge--publicado" },
+  // Sinónimo histórico de PUBLICADO (mismo significado; turnoController.js ya
+  // los trata igual en su tabla de transición NEXT_ESTADO). Quedó en 108
+  // vuelos de la semana cargada por Excel del 22-27 jun 2026 (migración
+  // 20260624000004) que usó este nombre en vez de PUBLICADO.
+  PROGRAMADO:     { label: "Publicado",       cls: "mhl__badge--publicado" },
   BORRADOR:       { label: "Borrador",        cls: "mhl__badge--borrador" },
   CANCELADO:      { label: "Cancelado",       cls: "mhl__badge--cancelado" },
   COMPLETADO:     { label: "Completado",      cls: "mhl__badge--completado" },
@@ -60,7 +65,7 @@ function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitar
         <span className={`mhl__badge ${cfg.cls}`}>{cfg.label}</span>
       </div>
 
-      {(v.estado === "PUBLICADO" || v.estado === "AJUSTADO") && (
+      {(v.estado === "PUBLICADO" || v.estado === "AJUSTADO" || v.estado === "PROGRAMADO") && (
         <div className="mhl__vuelo-actions">
           {esReal && (
             horasTotales >= 0 ? (
