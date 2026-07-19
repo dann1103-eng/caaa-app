@@ -62,4 +62,13 @@ function mantenimientoCubreFechaSQL(fechaParam) {
   return CUBRE_FECHA.replace(/\$FECHA\$/g, fechaParam);
 }
 
-module.exports = { sincronizarEstadoFlota, mantenimientoCubreFechaSQL };
+// node-postgres parsea columnas/expresiones DATE como objetos JS Date (no
+// strings) — String(unaDate) da el formato verboso "Mon Jul 20 2026 ...", no
+// "2026-07-20". Usar esto (no String(x).slice(0,10)) en cualquier mensaje que
+// muestre una fecha que vino de una columna/expresión DATE de Postgres.
+function soloFecha(v) {
+  if (!v) return null;
+  return (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
+}
+
+module.exports = { sincronizarEstadoFlota, mantenimientoCubreFechaSQL, soloFecha };

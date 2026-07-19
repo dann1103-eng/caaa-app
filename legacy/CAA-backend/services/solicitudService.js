@@ -1,6 +1,6 @@
 const db = require("../config/db");
 const { resolverVueloEspecial } = require("../utils/practicanteHelper");
-const { mantenimientoCubreFechaSQL } = require("../utils/mantenimientoUtils");
+const { mantenimientoCubreFechaSQL, soloFecha } = require("../utils/mantenimientoUtils");
 
 /**
  * Lógica compartida de solicitudes de vuelo (semana próxima, no publicada).
@@ -308,8 +308,8 @@ async function insertarSolicitudVuelo(client, {
   if (mantRes.rows.length > 0) {
     const { codigo, fecha_slot, hasta } = mantRes.rows[0];
     advertenciaMantenimiento =
-      `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
-      (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).") +
+      `${codigo} está en mantenimiento el ${soloFecha(fecha_slot)}` +
+      (hasta ? ` (vuelve el ${soloFecha(hasta)}).` : " (sin fecha de regreso todavía).") +
       " El vuelo se guardó igual, pero corre riesgo de no poder realizarse.";
   }
 

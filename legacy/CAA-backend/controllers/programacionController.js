@@ -4,7 +4,7 @@ const transporter = require("../utils/mailer");
 const { puedeProgramar } = require("../utils/capacidades");
 const solicitudService = require("../services/solicitudService");
 const { notificarUsuario } = require("../utils/notificaciones");
-const { mantenimientoCubreFechaSQL } = require("../utils/mantenimientoUtils");
+const { mantenimientoCubreFechaSQL, soloFecha } = require("../utils/mantenimientoUtils");
 const { normalizarCategoria, resolverVueloEspecial } = require("../utils/practicanteHelper");
 
 async function getNextSemanaId(client) {
@@ -829,8 +829,8 @@ exports.agendarVueloDirecto = async (req, res) => {
     if (mantDirectoRes.rows.length > 0) {
       const { codigo, fecha_slot, hasta } = mantDirectoRes.rows[0];
       advertenciaMantenimiento =
-        `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
-        (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).") +
+        `${codigo} está en mantenimiento el ${soloFecha(fecha_slot)}` +
+        (hasta ? ` (vuelve el ${soloFecha(hasta)}).` : " (sin fecha de regreso todavía).") +
         " El vuelo se agendó igual, pero corre riesgo de no poder realizarse.";
     }
 

@@ -2,7 +2,7 @@ const db = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
 const { DateTime } = require("luxon");
 const { verificarSaldoSuficiente } = require("../utils/saldoHelper");
-const { mantenimientoCubreFechaSQL } = require("../utils/mantenimientoUtils");
+const { mantenimientoCubreFechaSQL, soloFecha } = require("../utils/mantenimientoUtils");
 
 /**
  * Un alumno queda habilitado para vuelos extracurriculares solo cuando ya
@@ -408,8 +408,8 @@ exports.guardarSolicitud = async (req, res) => {
       if (mantRes.rows.length > 0) {
         const { codigo, fecha_slot, hasta } = mantRes.rows[0];
         advertencias.push(
-          `${codigo} está en mantenimiento el ${String(fecha_slot).slice(0, 10)}` +
-          (hasta ? ` (vuelve el ${String(hasta).slice(0, 10)}).` : " (sin fecha de regreso todavía).")
+          `${codigo} está en mantenimiento el ${soloFecha(fecha_slot)}` +
+          (hasta ? ` (vuelve el ${soloFecha(hasta)}).` : " (sin fecha de regreso todavía).")
         );
       }
 
