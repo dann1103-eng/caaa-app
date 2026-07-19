@@ -20,6 +20,25 @@
   font-size: 1.4rem;
 }
 
+.duo__logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.duo__logout-btn:hover {
+  background: rgba(248, 113, 113, 0.2);
+}
+
 .duo__main {
   max-width: 640px;
   margin: 0 auto;

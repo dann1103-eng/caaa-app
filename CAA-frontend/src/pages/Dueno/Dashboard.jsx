@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getCalendarioPublico } from "../../services/programacionApi";
 import { getTurnoDia } from "../../services/turnoApi";
 import OperacionesWidget from "../../components/OperacionesWidget/OperacionesWidget";
@@ -29,9 +30,16 @@ const TURNO_META = {
 };
 
 export default function DuenoDashboard() {
+  const navigate = useNavigate();
   const [turnoDia, setTurnoDia] = useState(null);
   const [vuelosHoy, setVuelosHoy] = useState([]);
   const [clock, setClock] = useState("");
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
 
   const cargar = useCallback(async () => {
     const [dia, calendario] = await Promise.all([
@@ -72,6 +80,9 @@ export default function DuenoDashboard() {
         </div>
         <div className="pp__topbar-right">
           <span className="pp__topbar-clock">{clock} CST</span>
+          <button className="duo__logout-btn" onClick={handleLogout}>
+            <i className="bi bi-box-arrow-right" /> Salir
+          </button>
         </div>
       </div>
 
