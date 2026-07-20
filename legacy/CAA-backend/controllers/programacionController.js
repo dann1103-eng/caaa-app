@@ -145,6 +145,7 @@ exports.getCalendario = async (req, res) => {
         sv.id_solicitud,
         ss.estado AS estado_solicitud,
         ss.comentario_alumno,
+        sv.remarks_instructor,
         sv.estado AS estado_vuelo_individual,
 
         sv.id_semana,
