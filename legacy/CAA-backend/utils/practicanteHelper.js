@@ -6,9 +6,13 @@
 //     (es_externo) — nunca se factura contra ella (comisionaría saldos de
 //     personas distintas); el cobro del demo se hace manual con los datos que
 //     se anoten en `nombre_externo`.
+//   - PRUEBA (vuelo interno sin pasajero, ej. chequeo/prueba de mantenimiento):
+//     reusa la MISMA ficha placeholder de DEMO — igual de no facturable — pero
+//     es una categoría separada para no mezclarse en reportes/badges con un
+//     demo real a un pasajero externo.
 
 const TIPOS_INSTRUCCION = ["NORMAL", "CHEQUEO", "REFRESH"];
-const CATEGORIAS = ["NORMAL", "DEMO", "CHEQUEO", "CHEQUEO_LINEA"];
+const CATEGORIAS = ["NORMAL", "DEMO", "PRUEBA", "CHEQUEO", "CHEQUEO_LINEA"];
 
 // Normaliza el tipo de instrucción recibido del cliente.
 function normalizarTipoInstruccion(v) {
@@ -140,7 +144,7 @@ async function resolverVueloEspecial(client, {
     };
   }
 
-  if (cat === "DEMO") {
+  if (cat === "DEMO" || cat === "PRUEBA") {
     const idAlumnoExterno = await asegurarFichaExterno(client);
     const nombre = nombre_externo ? String(nombre_externo).trim().slice(0, 120) || null : null;
     return { categoria: cat, id_alumno: idAlumnoExterno, saltarConflictoAlumno: true, nombre_externo: nombre, tipo_instruccion: null, id_licencia_chequeo: null };

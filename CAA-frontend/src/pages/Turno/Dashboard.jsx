@@ -197,7 +197,9 @@ function VueloCard({ vuelo, onRefresh }) {
         </div>
         <div className="trn__card-nombres">
           <span className="trn__alumno">
-            {vuelo.alumno_nombre} {vuelo.alumno_apellido}
+            {(vuelo.categoria === "DEMO" || vuelo.categoria === "PRUEBA") && vuelo.nombre_externo
+              ? vuelo.nombre_externo
+              : `${vuelo.alumno_nombre} ${vuelo.alumno_apellido}`}
           </span>
           <span className="trn__instructor">
             Inst: {vuelo.instructor_nombre} {vuelo.instructor_apellido}

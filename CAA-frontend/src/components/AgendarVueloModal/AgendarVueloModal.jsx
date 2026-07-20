@@ -178,7 +178,7 @@ export default function AgendarVueloModal({
     ? (idAeronave && !rutaInvalida && !saving)
     : categoria === "CHEQUEO_LINEA"
     ? (idPracticante && idInstructor && idAeronave && !rutaInvalida && !saving)
-    : categoria === "DEMO"
+    : (categoria === "DEMO" || categoria === "PRUEBA")
     ? (idInstructor && idAeronave && !rutaInvalida && !saving)
     : (idAlumno && idAeronave && (!publicada || idInstructor) && !aeronaveNoPermitida && !rutaInvalida && !saving);
 
@@ -224,7 +224,7 @@ export default function AgendarVueloModal({
         id_usuario_practicante: Number(idPracticante),
         tipo_instruccion: tipoInstruccion,
       } :
-      categoria === "DEMO" ? {
+      (categoria === "DEMO" || categoria === "PRUEBA") ? {
         ...payloadBase,
         nombre_externo: nombreExterno.trim() || null,
       } :
@@ -275,6 +275,7 @@ export default function AgendarVueloModal({
               {esReserva ? "Reservar aeronave (uso especial)"
                 : categoria === "CHEQUEO_LINEA" ? "Chequeo de línea (instructor con instructor)"
                 : categoria === "DEMO" ? "Vuelo demo (pasajero externo)"
+                : categoria === "PRUEBA" ? "Vuelo de prueba interno (sin pasajero)"
                 : categoria === "CHEQUEO" ? "Chequeo de licencia"
                 : publicada ? "Agendar vuelo (semana publicada)" : "Agendar vuelo"}
             </div>
@@ -313,6 +314,7 @@ export default function AgendarVueloModal({
               <select value={categoria} onChange={(e) => cambiarCategoria(e.target.value)}>
                 <option value="NORMAL">Normal</option>
                 <option value="DEMO">Demo (pasajero externo)</option>
+                <option value="PRUEBA">Prueba interna (sin pasajero)</option>
                 <option value="CHEQUEO">Chequeo (con licencia)</option>
                 <option value="CHEQUEO_LINEA">Chequeo de línea (instructor con instructor)</option>
               </select>
@@ -356,16 +358,20 @@ export default function AgendarVueloModal({
           </div>
           </>)}
 
-          {!esReserva && categoria === "DEMO" && (
+          {!esReserva && (categoria === "DEMO" || categoria === "PRUEBA") && (
             <div className="avm-field">
-              <label>Nombre del pasajero (opcional)</label>
+              <label>{categoria === "PRUEBA" ? "Descripción (opcional)" : "Nombre del pasajero (opcional)"}</label>
               <input
                 value={nombreExterno}
                 onChange={(e) => setNombreExterno(e.target.value)}
-                placeholder="Referencia para facturar manualmente después…"
+                placeholder={categoria === "PRUEBA" ? "Ej.: revisión de indicador, chequeo de instructor…" : "Referencia para facturar manualmente después…"}
                 maxLength={120}
               />
-              <p className="avm-hint">No se debita ningún saldo — se factura manual con estos datos.</p>
+              <p className="avm-hint">
+                {categoria === "PRUEBA"
+                  ? "No se debita ningún saldo — es un vuelo interno de la escuela, sin pasajero."
+                  : "No se debita ningún saldo — se factura manual con estos datos."}
+              </p>
             </div>
           )}
 
@@ -427,7 +433,7 @@ export default function AgendarVueloModal({
 
           {!esReserva && (
           <div className="avm-field">
-            <label>{categoria === "CHEQUEO_LINEA" ? "PIC (instructor que instruye)" : "Instructor"} {(publicada || categoria === "DEMO" || categoria === "CHEQUEO_LINEA") && <span className="avm-req">*</span>}</label>
+            <label>{categoria === "CHEQUEO_LINEA" ? "PIC (instructor que instruye)" : "Instructor"} {(publicada || categoria === "DEMO" || categoria === "PRUEBA" || categoria === "CHEQUEO_LINEA") && <span className="avm-req">*</span>}</label>
             {fixedInstructor ? (
               <input value={(instructores.find(i => Number(i.id_instructor) === Number(fixedInstructor))?.nombre_completo) || "Vos"} disabled />
             ) : (

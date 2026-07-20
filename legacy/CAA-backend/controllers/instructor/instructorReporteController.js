@@ -361,12 +361,13 @@ exports.firmarReporteVuelo = async (req, res) => {
             LEFT JOIN aeronave a ON a.id_aeronave = v.id_aeronave
             WHERE v.id_vuelo = $1
           `, [id]);
-          // DEMO (pasajero externo, se factura manual) y CHEQUEO_LINEA
-          // (instructor-con-instructor: CHEQUEO lo paga la escuela, REFRESH se
-          // cobra MANUAL desde administración) NO se auto-debitan. NORMAL y
-          // CHEQUEO (alumno real) sí, igual que siempre.
+          // DEMO (pasajero externo, se factura manual), PRUEBA (vuelo interno
+          // sin pasajero, nunca se factura) y CHEQUEO_LINEA (instructor-con-
+          // instructor: CHEQUEO lo paga la escuela, REFRESH se cobra MANUAL
+          // desde administración) NO se auto-debitan. NORMAL y CHEQUEO (alumno
+          // real) sí, igual que siempre.
           const categoriaVuelo = vueloInfo.rows[0]?.categoria || "NORMAL";
-          const sinCobroAutomatico = categoriaVuelo === "DEMO" || categoriaVuelo === "CHEQUEO_LINEA";
+          const sinCobroAutomatico = categoriaVuelo === "DEMO" || categoriaVuelo === "PRUEBA" || categoriaVuelo === "CHEQUEO_LINEA";
           if (!sinCobroAutomatico && vueloInfo.rows.length > 0 && vueloInfo.rows[0].id_alumno) {
             const info = vueloInfo.rows[0];
             cargoAutomatico = await cargarVueloACuentaDentroTx(client, {

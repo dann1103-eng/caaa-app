@@ -47,6 +47,7 @@ function siglaLicencia(nombre) {
 const CATEGORIA_CLS = {
   NORMAL: "pp__tipo--normal",
   DEMO: "pp__tipo--demo",
+  PRUEBA: "pp__tipo--prueba",
   CHEQUEO: "pp__tipo--chequeo",
   CHEQUEO_LINEA: "pp__tipo--linea",
 };
@@ -62,6 +63,9 @@ export function categoriaMeta(v) {
   }
   if (cat === "CHEQUEO_LINEA") {
     return { label: v?.tipo_instruccion === "REFRESH" ? "Refresh" : "Chequeo línea", cls };
+  }
+  if (cat === "PRUEBA") {
+    return { label: "Prueba", cls };
   }
   return { label: "Demo", cls };
 }

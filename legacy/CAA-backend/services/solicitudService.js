@@ -315,10 +315,10 @@ async function insertarSolicitudVuelo(client, {
 
   // Instructor efectivo para el chequeo de conflicto (override explícito, o el
   // instructor de vuelo asignado al alumno, o si no tiene, el de cabecera). En
-  // DEMO/CHEQUEO_LINEA el id_instructor viene siempre explícito (PIC) — no hay
-  // "instructor de cabecera" de un placeholder.
+  // DEMO/PRUEBA/CHEQUEO_LINEA el id_instructor viene siempre explícito (PIC) —
+  // no hay "instructor de cabecera" de un placeholder.
   let instrEff = id_instructor;
-  if (!instrEff && resuelto.categoria !== "DEMO" && resuelto.categoria !== "CHEQUEO_LINEA") {
+  if (!instrEff && resuelto.categoria !== "DEMO" && resuelto.categoria !== "PRUEBA" && resuelto.categoria !== "CHEQUEO_LINEA") {
     const a = await client.query(`SELECT id_instructor_vuelo, id_instructor FROM alumno WHERE id_alumno = $1`, [idAlumnoEfectivo]);
     instrEff = a.rows[0]?.id_instructor_vuelo || a.rows[0]?.id_instructor || null;
   }
