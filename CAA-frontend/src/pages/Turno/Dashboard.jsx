@@ -21,6 +21,7 @@ import {
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
+import GestionarMantenimientoModal from "../../components/GestionarMantenimientoModal/GestionarMantenimientoModal";
 import TurnoDiaWidget from "../../components/TurnoDiaWidget/TurnoDiaWidget";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
@@ -340,7 +341,7 @@ function RelojTurno() {
 
 // Estado de la flota: chips por aeronave (operativa / en mantenimiento) con
 // acciones de mantenimiento imprevisto. Caso: falla detectada en pre-vuelo.
-function FlotaWidget({ flota, onIniciar, onReactivar }) {
+function FlotaWidget({ flota, onIniciar, onReactivar, onGestionar }) {
   const [reactivando, setReactivando] = useState(null);
 
   const handleReactivar = async (a) => {
@@ -378,6 +379,13 @@ function FlotaWidget({ flota, onIniciar, onReactivar }) {
                   </span>
                   <button
                     className="trn__flota-reactivar"
+                    onClick={() => onGestionar(a)}
+                    title="Gestionar mantenimiento: agregar más bloques/días de taller"
+                  >
+                    Gestionar
+                  </button>
+                  <button
+                    className="trn__flota-reactivar"
                     disabled={reactivando === a.id_aeronave}
                     onClick={() => handleReactivar(a)}
                     title="Mantenimiento efectuado: la aeronave vuelve al servicio"
@@ -413,6 +421,9 @@ export default function TurnoDashboard() {
   // Mantenimiento imprevisto de aeronave.
   const [flota, setFlota] = useState([]);
   const [showMantenimiento, setShowMantenimiento] = useState(false);
+  // Gestionar un mantenimiento EN CURSO (agregar bloques/días) — mismo modal
+  // que usa Admin; espera { id_mantenimiento, id_aeronave, aeronave_codigo }.
+  const [gestionandoMant, setGestionandoMant] = useState(null);
 
   const handleAbrirAgendar = async () => {
     setAbriendoAgendar(true);
@@ -678,6 +689,11 @@ export default function TurnoDashboard() {
             flota={flota}
             onIniciar={() => setShowMantenimiento(true)}
             onReactivar={handleReactivarAeronave}
+            onGestionar={(a) => setGestionandoMant({
+              id_mantenimiento: a.id_mantenimiento,
+              id_aeronave: a.id_aeronave,
+              aeronave_codigo: a.codigo,
+            })}
           />
         )}
 
@@ -765,6 +781,17 @@ export default function TurnoDashboard() {
           aeronaves={flota}
           onClose={() => setShowMantenimiento(false)}
           onConfirm={handleMantenimientoConfirmado}
+        />
+      )}
+
+      {gestionandoMant && (
+        <GestionarMantenimientoModal
+          maintenance={gestionandoMant}
+          onClose={() => setGestionandoMant(null)}
+          onSuccess={() => {
+            cargarFlota();
+            setGestionandoMant(null);
+          }}
         />
       )}
 
