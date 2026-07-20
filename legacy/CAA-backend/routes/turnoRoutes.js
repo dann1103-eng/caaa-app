@@ -20,6 +20,10 @@ router.delete("/ticker/:id",      authMiddleware, turnoController.limpiarUnicoTi
 router.post("/agregar-bloques-suspension", authMiddleware, turnoController.agregarBloquesSuspension);
 router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzarEstadoVuelo);
 
+// Revertir un avance de estado hecho por error. Mutación sensible (reescribe
+// historial operativo) → mismo gate de capacidad que editarTripulacion/mantenimiento.
+router.patch("/vuelos/:id_vuelo/estado/retroceder", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.revertirEstadoVuelo);
+
 // Editar tripulación (alumno/instructor/aeronave) + almas a bordo. Mutación
 // más sensible que avanzar estado → gate de rol explícito (no solo JWT válido).
 router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.editarTripulacion);

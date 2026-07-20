@@ -395,6 +395,30 @@
   border-color: var(--c-brand-700);
 }
 
+.trn__btn-revertir {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-1);
+  color: var(--c-ink-3);
+  cursor: pointer;
+  transition: color var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out);
+}
+
+.trn__btn-revertir:hover {
+  color: #f87171;
+  border-color: #f87171;
+}
+
+.trn__btn-revertir:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .trn__card-nombres {
   display: flex;
   flex-direction: column;

@@ -53,6 +53,13 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   return res.data;
 };
 
+// Revertir un avance de estado hecho por error (vuelve al estado anterior real
+// del vuelo, tomado de su propio historial).
+export const revertirEstadoVuelo = async (id_vuelo) => {
+  const res = await axios.patch(`${API_URL}/turno/vuelos/${id_vuelo}/estado/retroceder`);
+  return res.data;
+};
+
 // Editar tripulación (alumno/instructor/aeronave) + almas a bordo, para cuando
 // no hay nadie de programación disponible para resolver un cambio en el momento.
 export const editarTripulacionVuelo = async (id_vuelo, payload) => {

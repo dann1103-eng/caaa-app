@@ -294,6 +294,87 @@ exports.avanzarEstadoVuelo = async (req, res) => {
   }
 };
 
+// Reversión de un avance de estado hecho por error. En vez de un mapa estático
+// PREV_ESTADO (ambiguo: SALIDA_HANGAR pudo venir de PUBLICADO o de PROGRAMADO,
+// y esa distinción no se puede adivinar), se usa el propio historial en
+// vuelo_estado_tiempo: el penúltimo registro ES el estado real anterior de
+// ESTE vuelo. Si no hay penúltimo (el vuelo solo tiene un registro, o
+// ninguno), el estado anterior nunca quedó trazado porque PUBLICADO/PROGRAMADO
+// no se insertan ahí (ver CHECK constraint) — se usa PROGRAMADO como destino.
+// Se borra (no se inserta) el registro del estado que se deshace: es una
+// corrección de un error, no un nuevo evento de negocio, y así el registro
+// que queda para el estado destino conserva su timestamp ORIGINAL (el momento
+// real en que se entró a ese estado), lo cual mantiene correcto el cálculo de
+// "estado_desde"/barra de progreso sin tocarlo.
+exports.revertirEstadoVuelo = async (req, res) => {
+  const { id_vuelo } = req.params;
+  const user = req.user;
+  const io = req.app.get("io");
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const vueloRes = await client.query(
+      `SELECT v.id_vuelo, v.estado FROM vuelo v WHERE v.id_vuelo = $1 FOR UPDATE OF v`,
+      [Number(id_vuelo)]
+    );
+
+    if (vueloRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Vuelo no encontrado" });
+    }
+
+    const vuelo = vueloRes.rows[0];
+
+    if (!Object.values(NEXT_ESTADO).includes(vuelo.estado) && !Object.values(NEXT_ESTADO_SIM).includes(vuelo.estado)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "El vuelo no puede retroceder de estado" });
+    }
+
+    const histRes = await client.query(
+      `SELECT id_registro, estado
+       FROM vuelo_estado_tiempo
+       WHERE id_vuelo = $1
+       ORDER BY registrado_en DESC, id_registro DESC
+       LIMIT 2`,
+      [Number(id_vuelo)]
+    );
+
+    const filaActual = histRes.rows[0];
+    const estadoAnterior = histRes.rows[1]?.estado || "PROGRAMADO";
+
+    await client.query("UPDATE vuelo SET estado = $1 WHERE id_vuelo = $2", [estadoAnterior, id_vuelo]);
+
+    if (filaActual && filaActual.estado === vuelo.estado) {
+      await client.query("DELETE FROM vuelo_estado_tiempo WHERE id_registro = $1", [filaActual.id_registro]);
+    }
+
+    await logAuditoria(client, {
+      accion:      "OTRO",
+      entidad:     "vuelo",
+      id_entidad:  Number(id_vuelo),
+      actor:       user,
+      descripcion: `Reversión de estado vuelo #${id_vuelo}: ${vuelo.estado} → ${estadoAnterior}`,
+    });
+
+    await client.query("COMMIT");
+
+    if (io) {
+      io.emit("vuelo_estado_changed", { id_vuelo: Number(id_vuelo), estado: estadoAnterior });
+      io.emit("estado_operaciones_changed");
+    }
+
+    res.json({ id_vuelo: Number(id_vuelo), estado: estadoAnterior });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("revertirEstadoVuelo:", e);
+    res.status(500).json({ message: "Error al revertir estado" });
+  } finally {
+    client.release();
+  }
+};
+
 exports.registrarInasistencia = async (req, res) => {
   const { id_vuelo } = req.params;
   const user = req.user;

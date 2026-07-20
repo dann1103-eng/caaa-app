@@ -14,6 +14,7 @@ import {
   limpiarUnicoTicker,
   getTicker,
   avanzarEstadoVuelo,
+  revertirEstadoVuelo,
   abrirReporteOperacionesDia,
   getFlotaMantenimiento,
   completarMantenimientoAeronave,
@@ -60,6 +61,10 @@ const NEXT_LABEL = {
   FINALIZANDO:    "→ Completar vuelo",
 };
 
+// Estados a los que TURNO puede revertir (avión o simulador): cualquier estado
+// que solo se alcanza avanzando, nunca el inicial (PUBLICADO/PROGRAMADO) ni CANCELADO.
+const ESTADOS_REVERTIBLES = new Set(["SALIDA_HANGAR", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO", "COMPLETADO"]);
+
 // El simulador no sale/regresa de un hangar físico: solo Iniciar/Finalizar sesión.
 const ESTADOS_AVANZABLES_SIM = new Set(["PUBLICADO", "PROGRAMADO", "EN_PROGRESO"]);
 const NEXT_LABEL_SIM = {
@@ -87,6 +92,7 @@ function esAntesDeHora(horaStr) {
 function VueloCard({ vuelo, onRefresh }) {
   const tagClass = ESTADO_COLOR[vuelo.estado] ?? "trn__tag--gris";
   const [advancing, setAdvancing] = useState(false);
+  const [reverting, setReverting] = useState(false);
   const [editando, setEditando] = useState(false);
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
 
@@ -117,6 +123,20 @@ function VueloCard({ vuelo, onRefresh }) {
     }
   };
 
+  const handleRevertir = async () => {
+    if (!window.confirm(`¿Revertir el estado de este vuelo? Se deshace el último avance (actualmente: ${ESTADO_LABEL[vuelo.estado] ?? vuelo.estado}).`)) return;
+    setReverting(true);
+    try {
+      await revertirEstadoVuelo(vuelo.id_vuelo);
+      toast.success(`Vuelo ${vuelo.aeronave_codigo}: estado revertido`);
+      onRefresh();
+    } catch (e) {
+      toast.error(e.response?.data?.message || "No se pudo revertir el estado");
+    } finally {
+      setReverting(false);
+    }
+  };
+
   const handleInasistencia = async () => {
     if (!window.confirm(`¿Registrar inasistencia para ${vuelo.alumno_nombre}? El vuelo pasará a COMPLETADO con 0 min.`)) return;
     setAdvancing(true);
@@ -142,6 +162,7 @@ function VueloCard({ vuelo, onRefresh }) {
     : (ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO');
   const nextLabel = isSim ? NEXT_LABEL_SIM[vuelo.estado] : NEXT_LABEL[vuelo.estado];
   const btnDisabled = advancing;
+  const canRevert = ESTADOS_REVERTIBLES.has(vuelo.estado);
 
   return (
     <div className="trn__card">
@@ -163,6 +184,16 @@ function VueloCard({ vuelo, onRefresh }) {
           >
             <i className="bi bi-pencil-square"></i>
           </button>
+          {canRevert && (
+            <button
+              className="trn__btn-revertir"
+              onClick={handleRevertir}
+              disabled={reverting}
+              title="Revertir al estado anterior (por si se avanzó por error)"
+            >
+              <i className="bi bi-arrow-counterclockwise"></i>
+            </button>
+          )}
         </div>
         <div className="trn__card-nombres">
           <span className="trn__alumno">
