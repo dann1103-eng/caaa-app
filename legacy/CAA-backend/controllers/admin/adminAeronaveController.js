@@ -3,11 +3,29 @@ const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 
 exports.getAeronavesActivas = catchAsync(async (req, res) => {
+  // Mismo criterio que programacionController.getAeronavesActivas: se devuelven
+  // TODAS las aeronaves no dadas de baja, incluidas las que hoy están en el
+  // taller (con en_mantenimiento/mantenimiento_hasta para que el modal avise,
+  // no las esconda). "activa" es "disponible HOY", no "dada de baja" — este
+  // endpoint alimenta el "Agendar vuelo" de Turno/Admin/Programación y
+  // EditarTripulacionModal, que agendan/reasignan para cualquier día.
   const result = await db.query(`
-    SELECT id_aeronave, codigo, modelo, tipo
-    FROM aeronave
-    WHERE activa = true
-    ORDER BY codigo
+    SELECT
+      a.id_aeronave, a.codigo, a.modelo, a.tipo,
+      mact.id_mantenimiento IS NOT NULL AS en_mantenimiento,
+      mact.fecha_fin::date AS mantenimiento_hasta
+    FROM aeronave a
+    LEFT JOIN LATERAL (
+      SELECT m2.id_mantenimiento, m2.fecha_fin
+        FROM mantenimiento_aeronave m2
+       WHERE m2.id_aeronave = a.id_aeronave
+         AND m2.completado = false
+         AND COALESCE(m2.estado, '') <> 'CANCELADO'
+       ORDER BY m2.fecha_fin IS NULL DESC, m2.fecha_fin DESC
+       LIMIT 1
+    ) mact ON true
+    WHERE NOT (a.activa = false AND a.estado = 'ACTIVO')
+    ORDER BY a.codigo
   `);
   res.json(result.rows);
 });

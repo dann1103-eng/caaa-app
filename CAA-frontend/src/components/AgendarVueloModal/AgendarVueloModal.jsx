@@ -458,7 +458,7 @@ export default function AgendarVueloModal({
             {aeronaveSeleccionada?.en_mantenimiento && (
               <p className="avm-warn">
                 <i className="bi bi-exclamation-triangle"></i> Esta aeronave está en mantenimiento
-                {aeronaveSeleccionada.mantenimiento_hasta ? ` hasta el ${aeronaveSeleccionada.mantenimiento_hasta}` : ""} — el vuelo se puede agendar igual, pero corre riesgo.
+                {aeronaveSeleccionada.mantenimiento_hasta ? ` hasta el ${String(aeronaveSeleccionada.mantenimiento_hasta).slice(0, 10)}` : ""} — el vuelo se puede agendar igual, pero corre riesgo.
               </p>
             )}
           </div>
