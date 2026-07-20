@@ -269,18 +269,25 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       (async () => {
         try {
           const info = await db.query(
-            `SELECT ae.codigo AS aeronave, u.nombre || ' ' || u.apellido AS alumno
+            `SELECT ae.codigo AS aeronave,
+                    LEFT(u_al.nombre,1) || '. ' || u_al.apellido AS alumno,
+                    LEFT(u_ins.nombre,1) || '. ' || u_ins.apellido AS instructor
                FROM vuelo v
                JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
                LEFT JOIN alumno al ON al.id_alumno = v.id_alumno
-               LEFT JOIN usuario u ON u.id_usuario = al.id_usuario
+               LEFT JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
+               LEFT JOIN instructor ins ON ins.id_instructor = v.id_instructor
+               LEFT JOIN usuario u_ins ON u_ins.id_usuario = ins.id_usuario
               WHERE v.id_vuelo = $1`, [id_vuelo]
           );
           const x = info.rows[0] || {};
           const esSalida = nuevoEstado === "SALIDA_HANGAR";
+          const partes = [x.aeronave || "Aeronave"];
+          if (x.alumno) partes.push(x.alumno);
+          if (x.instructor) partes.push(`Inst: ${x.instructor}`);
           await notificarStaff({
             title: esSalida ? "🛫 Salida de hangar" : "🛬 Regreso a hangar",
-            body: `${x.aeronave || "Aeronave"}${x.alumno ? " · " + x.alumno : ""}`,
+            body: partes.join(" · "),
             url: "/turno", tag: "hangar",
           }, { excluirUid: user?.id_usuario });
         } catch (e) { console.error("push hangar:", e.message); }
