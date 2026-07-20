@@ -63,7 +63,13 @@ export default function DuenoDashboard() {
       v.id_vuelo === id_vuelo ? { ...v, aprobado_dueno_en: aprobado ? new Date().toISOString() : null } : v
     ));
     try {
-      await aprobarVueloDueno(id_vuelo, aprobado);
+      const r = await aprobarVueloDueno(id_vuelo, aprobado);
+      // Reafirmar con el valor del servidor: si el refresco periódico de 20s
+      // estaba en vuelo durante el toque, su respuesta (vieja) puede pisar el
+      // estado optimista — esto lo corrige apenas confirma el guardado.
+      setVuelosHoy((prev) => prev.map((v) =>
+        v.id_vuelo === id_vuelo ? { ...v, aprobado_dueno_en: r.aprobado_dueno_en } : v
+      ));
     } catch {
       // Revertir si falló.
       setVuelosHoy((prev) => prev.map((v) =>
