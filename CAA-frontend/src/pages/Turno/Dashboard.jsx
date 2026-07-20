@@ -170,6 +170,11 @@ function VueloCard({ vuelo, onRefresh }) {
         <div className="trn__card-info">
           <div className="trn__card-info-left">
             <span className="trn__aeronave">{vuelo.aeronave_codigo}</span>
+            {vuelo.aprobado_dueno_en && (
+              <span title={`Operación aprobada por el dueño (${new Date(vuelo.aprobado_dueno_en).toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" })})`} style={{ fontSize: "1.05rem" }}>
+                ✅
+              </span>
+            )}
             <span className={`trn__tag ${tagClass}`}>{ESTADO_LABEL[vuelo.estado] ?? vuelo.estado}</span>
             {vuelo.salida_anticipada && (
               <span className="trn__tag trn__tag--anticipada" title="Este vuelo salió antes de la hora programada">

@@ -9,12 +9,13 @@ import "./VueloResumenCard.css";
 // columnas angostas donde la tabla de Proyección (7 columnas fijas) no
 // entra sin scroll horizontal. Reusa los mismos helpers/colores/badges que
 // esa tabla para mantener el mismo lenguaje visual.
-export default function VueloResumenCard({ vuelo }) {
+export default function VueloResumenCard({ vuelo, onAprobar }) {
   const pct = calcProgreso(vuelo);
   const badge = ESTADO_VUELO_META[vuelo.estado] || { label: vuelo.estado, cls: "pp__tbl-badge--envuelo" };
   const tipo = categoriaMeta(vuelo);
   const salida = formatHoraReal(vuelo.salida_real) ?? formatHora(vuelo.hora_inicio);
   const llegada = formatHoraReal(vuelo.llegada_real);
+  const aprobado = !!vuelo.aprobado_dueno_en;
 
   return (
     <div className="vrc">
@@ -48,6 +49,19 @@ export default function VueloResumenCard({ vuelo }) {
           <i className="bi bi-people-fill" /> <b>{vuelo.almas_a_bordo ?? 2}</b> almas
         </span>
       </div>
+
+      {/* Visto bueno del dueño: checkbox grande (pantalla táctil, usuario
+          mayor). Solo aparece si el dashboard pasa el handler. */}
+      {onAprobar && (
+        <label className={`vrc__aprobar ${aprobado ? "vrc__aprobar--ok" : ""}`}>
+          <input
+            type="checkbox"
+            checked={aprobado}
+            onChange={(e) => onAprobar(vuelo.id_vuelo, e.target.checked)}
+          />
+          {aprobado ? "✅ Operación revisada" : "Marcar como revisada"}
+        </label>
+      )}
     </div>
   );
 }

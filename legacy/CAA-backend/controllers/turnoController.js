@@ -57,6 +57,7 @@ exports.getVuelosHoy = async (req, res) => {
          v.almas_a_bordo,
          v.pasajeros_extra,
          v.salida_anticipada,
+         v.aprobado_dueno_en,
          v.categoria,
          v.nombre_externo,
          bh.hora_inicio,

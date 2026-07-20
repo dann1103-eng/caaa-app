@@ -76,3 +76,33 @@
   font-weight: 800;
   font-family: var(--font-mono);
 }
+
+/* Visto bueno del dueño: fila táctil grande al pie de la tarjeta. */
+.vrc__aprobar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--pp-text-muted, #94a3b8);
+  cursor: pointer;
+  user-select: none;
+}
+
+.vrc__aprobar input {
+  width: 22px;
+  height: 22px;
+  accent-color: #34d399;
+  cursor: pointer;
+}
+
+.vrc__aprobar--ok {
+  border-style: solid;
+  border-color: rgba(52, 211, 153, 0.5);
+  background: rgba(52, 211, 153, 0.12);
+  color: #6ee7b7;
+}

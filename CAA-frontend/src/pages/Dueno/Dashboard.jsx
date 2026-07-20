@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCalendarioPublico } from "../../services/programacionApi";
 import { getTurnoDia } from "../../services/turnoApi";
+import { aprobarVueloDueno } from "../../services/duenoApi";
 import OperacionesWidget from "../../components/OperacionesWidget/OperacionesWidget";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoFlotaWidget from "../../components/ProgWidgets/EstadoFlotaWidget";
@@ -53,6 +54,22 @@ export default function DuenoDashboard() {
         .filter((v) => Number(v.dia_semana) === diaHoy && v.estado !== "CANCELADO")
         .sort((a, b) => (a.hora_inicio || "").localeCompare(b.hora_inicio || ""))
     );
+  }, []);
+
+  // Visto bueno del dueño: optimista (el check responde al toque) y el
+  // refresco periódico corrige si el servidor dijo otra cosa.
+  const handleAprobar = useCallback(async (id_vuelo, aprobado) => {
+    setVuelosHoy((prev) => prev.map((v) =>
+      v.id_vuelo === id_vuelo ? { ...v, aprobado_dueno_en: aprobado ? new Date().toISOString() : null } : v
+    ));
+    try {
+      await aprobarVueloDueno(id_vuelo, aprobado);
+    } catch {
+      // Revertir si falló.
+      setVuelosHoy((prev) => prev.map((v) =>
+        v.id_vuelo === id_vuelo ? { ...v, aprobado_dueno_en: aprobado ? null : new Date().toISOString() } : v
+      ));
+    }
   }, []);
 
   useEffect(() => {
@@ -117,7 +134,7 @@ export default function DuenoDashboard() {
             {vuelosHoy.length === 0 ? (
               <p className="duo__vacio">No hay vuelos programados para hoy.</p>
             ) : (
-              vuelosHoy.map((v) => <VueloResumenCard key={v.id_vuelo} vuelo={v} />)
+              vuelosHoy.map((v) => <VueloResumenCard key={v.id_vuelo} vuelo={v} onAprobar={handleAprobar} />)
             )}
           </div>
         </div>
