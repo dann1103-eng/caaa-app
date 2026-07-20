@@ -53,6 +53,7 @@ router.put("/solicitudes/guardar-cambios",                    accessVuelo, instr
 router.post("/solicitudes/enviar-todas",                      accessVuelo, instructorSolicitud.enviarTodas);
 router.post("/solicitudes/:id_solicitud/enviar",              accessVuelo, instructorSolicitud.enviarSolicitud);
 router.post("/solicitudes",                                   accessVuelo, instructorSolicitud.crearSolicitud);
+router.patch("/solicitudes/:id_detalle/remarks",              accessVuelo, instructorSolicitud.guardarRemarks);
 router.delete("/solicitudes/:id_detalle",                     accessVuelo, instructorSolicitud.eliminarSolicitud);
 
 module.exports = router;

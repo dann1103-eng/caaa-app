@@ -143,6 +143,12 @@ export const eliminarSolicitudInstructor = async (id_detalle) => {
   return res.data;
 };
 
+// Remarks del instructor sobre un vuelo solicitado (los ve Programación).
+export const guardarRemarksSolicitud = async (id_detalle, remarks) => {
+  const res = await axios.patch(`${API_URL}/instructor/solicitudes/${id_detalle}/remarks`, { remarks });
+  return res.data;
+};
+
 export const enviarSolicitudInstructor = async (id_solicitud) => {
   const res = await axios.post(`${API_URL}/instructor/solicitudes/${id_solicitud}/enviar`);
   return res.data;

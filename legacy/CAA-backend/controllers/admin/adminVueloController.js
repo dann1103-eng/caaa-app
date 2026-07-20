@@ -232,7 +232,7 @@ exports.getCalendario = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT
       sv.id_detalle, sv.id_solicitud, ss.estado AS estado_solicitud, sv.estado AS estado_vuelo_individual,
-      ss.comentario_alumno,
+      ss.comentario_alumno, sv.remarks_instructor,
       v.id_vuelo, v.estado AS estado_vuelo, COALESCE(v.estado, ss.estado) AS estado_mostrar,
       sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
       sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,

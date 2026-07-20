@@ -70,6 +70,7 @@ export default function AdminCalendar({
   allowInstructorChange = true, // mostrar el selector de instructor en el popover
   onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
   onGestionarEspera,         // (slot) => void: abrir gestor de lista de espera
+  onGuardarRemarks,          // (id_detalle, remarks) => Promise: remarks del instructor sobre el vuelo
   rechazarLabel = "Rechazar Vuelo",
   reservas = [],             // reservas de uso especial (sin alumno) a pintar
   onEliminarReserva,         // (id) => Promise: eliminar una reserva
@@ -770,6 +771,7 @@ export default function AdminCalendar({
               allowInstructorChange={allowInstructorChange}
               onRechazar={onRechazar}
               onGestionarEspera={onGestionarEspera}
+              onGuardarRemarks={onGuardarRemarks}
               rechazarLabel={rechazarLabel}
               loadingSave={loadingSave}
               handleSave={handleSave}
@@ -800,6 +802,7 @@ function PopoverContent({
   allowInstructorChange = true,
   onRechazar,
   onGestionarEspera,
+  onGuardarRemarks,
   rechazarLabel = "Rechazar Vuelo",
   loadingSave,
   handleSave,
@@ -809,6 +812,22 @@ function PopoverContent({
   onRefresh,
   getEstadoClass
 }) {
+  // Remarks del instructor sobre este vuelo. El popover se monta al abrirse,
+  // así que el estado arranca con el valor actual del item.
+  const [remarksDraft, setRemarksDraft] = useState(activePopover.item.remarks_instructor || "");
+  const [savingRemarks, setSavingRemarks] = useState(false);
+  const remarksCambiado = remarksDraft !== (activePopover.item.remarks_instructor || "");
+
+  async function handleGuardarRemarks() {
+    setSavingRemarks(true);
+    try {
+      await onGuardarRemarks(activePopover.item.id_detalle, remarksDraft);
+      activePopover.item.remarks_instructor = remarksDraft.trim() || null;
+    } finally {
+      setSavingRemarks(false);
+    }
+  }
+
   return (
     <>
       <div className="pop-header">
@@ -828,6 +847,38 @@ function PopoverContent({
             <span><strong>Nota del alumno:</strong> {activePopover.item.comentario_alumno}</span>
           </div>
         )}
+
+        {/* Remarks del instructor: el instructor los edita en SU calendario de
+            solicitudes; programación/admin los ven en solo-lectura. */}
+        {onGuardarRemarks && isEditable ? (
+          <div style={{ margin: '2px 0 8px' }}>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--c-ink-3, #64748b)', display: 'block', marginBottom: 3 }}>
+              <i className="bi bi-chat-left-text"></i> Remarks para Programación
+            </label>
+            <textarea
+              value={remarksDraft}
+              onChange={(e) => setRemarksDraft(e.target.value)}
+              rows={2}
+              maxLength={500}
+              placeholder="Comentario sobre este vuelo/alumno (lo ve Programación al aprobar)…"
+              style={{ width: '100%', fontSize: '0.78rem', padding: 6, border: '1px solid var(--c-line-2, #e2e8f0)', borderRadius: 6, resize: 'vertical', boxSizing: 'border-box' }}
+            />
+            {remarksCambiado && (
+              <button
+                onClick={handleGuardarRemarks}
+                disabled={savingRemarks}
+                style={{ marginTop: 4, fontSize: '0.74rem', fontWeight: 700, padding: '4px 10px', border: 'none', borderRadius: 6, background: 'var(--c-brand-700, #1B365D)', color: '#fff', cursor: 'pointer' }}
+              >
+                {savingRemarks ? 'Guardando…' : 'Guardar remarks'}
+              </button>
+            )}
+          </div>
+        ) : activePopover.item.remarks_instructor ? (
+          <div className="pop-alert" style={{ background: 'var(--c-warn-50, #fffbeb)', color: 'var(--c-ink-2, #334155)', border: '1px solid var(--c-warn-100, #fef3c7)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+            <i className="bi bi-chat-left-text" style={{ color: 'var(--c-warn-700, #b45309)', marginTop: 2 }}></i>
+            <span><strong>Remarks del instructor:</strong> {activePopover.item.remarks_instructor}</span>
+          </div>
+        ) : null}
         {popoverConflict.aero && (
           <div className="pop-alert pop-alert--danger">
             ⚠ <strong>Conflicto de Aeronave:</strong> Este avión ya está asignado en este bloque.

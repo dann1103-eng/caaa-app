@@ -11,6 +11,7 @@ import {
   guardarCambiosSolicitudInstructor,
   crearSolicitudInstructor,
   eliminarSolicitudInstructor,
+  guardarRemarksSolicitud,
   enviarSolicitudInstructor,
   enviarTodasSolicitudesInstructor,
 } from "../../services/instructorApi";
@@ -197,6 +198,15 @@ export default function InstructorSolicitudes() {
                 canEditItem={(i) => !publicada && !!i.es_mio}
                 onPersistCardEdit={async (move) => { await guardarCambiosSolicitudInstructor([move]); }}
                 onRechazar={async (id_detalle) => { await eliminarSolicitudInstructor(id_detalle); }}
+                onGuardarRemarks={async (id_detalle, remarks) => {
+                  try {
+                    await guardarRemarksSolicitud(id_detalle, remarks);
+                    toast.success("Remarks guardados — Programación los verá al revisar.");
+                  } catch (e) {
+                    toast.error(e?.response?.data?.message || "No se pudieron guardar los remarks.");
+                    throw e;
+                  }
+                }}
                 rechazarLabel="Quitar de la solicitud"
                 onEmptyCellClick={publicada ? undefined : (cell) => setAgendarCell(cell)}
                 onRefresh={reload}

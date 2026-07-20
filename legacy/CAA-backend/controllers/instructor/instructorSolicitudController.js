@@ -35,7 +35,7 @@ exports.getCalendario = async (req, res) => {
 
     const result = await db.query(`
       SELECT
-        sv.id_detalle, sv.id_solicitud, ss.estado AS estado_solicitud, ss.comentario_alumno, sv.estado AS estado_vuelo_individual,
+        sv.id_detalle, sv.id_solicitud, ss.estado AS estado_solicitud, ss.comentario_alumno, sv.remarks_instructor, sv.estado AS estado_vuelo_individual,
         v.id_vuelo, v.estado AS estado_vuelo, COALESCE(v.estado, ss.estado) AS estado_mostrar,
         sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
         sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,
@@ -325,6 +325,42 @@ exports.eliminarSolicitud = async (req, res) => {
     res.status(500).json({ message: "Error al quitar el vuelo" });
   } finally {
     client.release();
+  }
+};
+
+/**
+ * PATCH /instructor/solicitudes/:id_detalle/remarks
+ * Remarks del instructor sobre UN vuelo solicitado (visible para Programación
+ * antes de aprobar/rechazar). Mismo chequeo de pertenencia que eliminar.
+ */
+exports.guardarRemarks = async (req, res) => {
+  try {
+    const idInstructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!idInstructor) return res.status(403).json({ message: "No sos instructor" });
+
+    const { id_detalle } = req.params;
+    const remarks = String(req.body?.remarks ?? "").trim().slice(0, 500) || null;
+
+    const info = await db.query(`
+      SELECT sv.id_detalle, w.publicada,
+             COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor
+      FROM solicitud_vuelo sv
+      JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+      JOIN alumno al ON al.id_alumno = ss.id_alumno
+      JOIN semana_vuelo w ON w.id_semana = sv.id_semana
+      WHERE sv.id_detalle = $1
+    `, [id_detalle]);
+    if (info.rows.length === 0) return res.status(404).json({ message: "Vuelo no encontrado" });
+    if (Number(info.rows[0].id_instructor) !== Number(idInstructor)) {
+      return res.status(403).json({ message: "Solo podés comentar vuelos de tus alumnos" });
+    }
+    if (info.rows[0].publicada) return res.status(403).json({ message: "La semana ya fue publicada" });
+
+    await db.query(`UPDATE solicitud_vuelo SET remarks_instructor = $2 WHERE id_detalle = $1`, [id_detalle, remarks]);
+    res.json({ message: "Remarks guardados", remarks });
+  } catch (e) {
+    console.error("instructorSolicitud.guardarRemarks:", e);
+    res.status(500).json({ message: "Error al guardar los remarks" });
   }
 };
 
