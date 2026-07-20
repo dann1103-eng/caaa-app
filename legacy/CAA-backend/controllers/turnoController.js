@@ -300,7 +300,9 @@ exports.avanzarEstadoVuelo = async (req, res) => {
 // vuelo_estado_tiempo: el penúltimo registro ES el estado real anterior de
 // ESTE vuelo. Si no hay penúltimo (el vuelo solo tiene un registro, o
 // ninguno), el estado anterior nunca quedó trazado porque PUBLICADO/PROGRAMADO
-// no se insertan ahí (ver CHECK constraint) — se usa PROGRAMADO como destino.
+// no se insertan ahí (ver CHECK constraint) — se usa PUBLICADO como destino
+// (es el único valor inicial que el flujo real produce hoy: publicarSemana
+// inserta 'PUBLICADO'; 'PROGRAMADO' es legado y ningún path lo escribe).
 // Se borra (no se inserta) el registro del estado que se deshace: es una
 // corrección de un error, no un nuevo evento de negocio, y así el registro
 // que queda para el estado destino conserva su timestamp ORIGINAL (el momento
@@ -342,7 +344,7 @@ exports.revertirEstadoVuelo = async (req, res) => {
     );
 
     const filaActual = histRes.rows[0];
-    const estadoAnterior = histRes.rows[1]?.estado || "PROGRAMADO";
+    const estadoAnterior = histRes.rows[1]?.estado || "PUBLICADO";
 
     await client.query("UPDATE vuelo SET estado = $1 WHERE id_vuelo = $2", [estadoAnterior, id_vuelo]);
 
