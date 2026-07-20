@@ -9,6 +9,13 @@
   min-height: 100vh;
   overflow: visible;
   display: block;
+  /* iOS: el doble-tap / pellizco accidental hacía zoom y la página quedaba
+     "corrida" con paneo lateral (reportado por el dueño). pan-y permite el
+     scroll vertical normal pero bloquea el zoom por gesto en esta pantalla;
+     los tamaños grandes ya vienen dados por el propio diseño. */
+  touch-action: pan-y;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 .duo .pp__topbar-label {
