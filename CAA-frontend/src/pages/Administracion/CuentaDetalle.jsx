@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   getCuentaAlumno, getExtractoAlumno,
-  crearRecibo, cargoManualCuenta, descargarPdfRecibo,
+  crearRecibo, cargoManualCuenta, descargarPdfRecibo, getRecibo,
   editarMovimiento, anularMovimiento,
   cobrarConceptoCuenta, getConceptosCobro
 } from "../../services/administracionApi";
@@ -38,6 +38,7 @@ export default function CuentaDetalle() {
 
   const [openPanel, setOpenPanel] = useState(null); // 'recibo' | 'cargo' | null
   const [editing, setEditing] = useState(null);
+  const [verRecibo, setVerRecibo] = useState(null); // recibo + items, para el modal "Ver detalle"
 
   const [recForm, setRecForm] = useState({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "", fecha: new Date().toISOString().slice(0, 10) });
   // Ítems del ingreso (opcional): si hay líneas, el total del recibo sale de
@@ -171,6 +172,24 @@ export default function CuentaDetalle() {
       toast.success("Movimiento borrado.");
       load();
     } catch (e) { toast.error(e?.response?.data?.message || "Error al borrar."); }
+  };
+
+  const handleVerRecibo = async (m) => {
+    try {
+      const r = await getRecibo(m.id_recibo);
+      if (!r?.ok) throw new Error();
+      setVerRecibo(r.data);
+    } catch {
+      toast.error("No se pudo cargar el detalle del recibo.");
+    }
+  };
+
+  const handleDescargarRecibo = async (m) => {
+    try {
+      await descargarPdfRecibo(m.id_recibo, `recibo-${m.recibo_correlativo || m.id_recibo}.pdf`);
+    } catch {
+      toast.error("No se pudo descargar el PDF. Recargá la página e intentá de nuevo.");
+    }
   };
 
   if (!cuenta) return <p style={{ padding: 24, color: "var(--c-ink-3)" }}>Cargando…</p>;
@@ -536,6 +555,70 @@ export default function CuentaDetalle() {
         </div>
       )}
 
+      {/* Detalle de recibo */}
+      {verRecibo && (
+        <div className="adf-card" style={{ background: "var(--c-accent-50)", borderColor: "var(--c-accent-100)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <i className="bi bi-receipt" style={{ color: "var(--c-brand-500)" }}></i>
+              Recibo #{verRecibo.numero_correlativo}
+            </h3>
+            <button className="adf-icon-btn" title="Cerrar" aria-label="Cerrar" onClick={() => setVerRecibo(null)}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
+          <p style={{ color: "var(--c-ink-3)", fontSize: 13, marginTop: -8, marginBottom: 14 }}>
+            {new Date(verRecibo.fecha).toLocaleDateString("es-SV")} · {verRecibo.metodo}
+            {verRecibo.referencia ? ` · Ref: ${verRecibo.referencia}` : ""}
+            {verRecibo.anulado ? " · ANULADO" : ""}
+          </p>
+
+          {verRecibo.items?.length > 0 ? (
+            <table className="adf-table">
+              <thead>
+                <tr>
+                  <th>Descripción</th>
+                  <th style={{ textAlign: "right" }}>Cant.</th>
+                  <th style={{ textAlign: "right" }}>P. unitario</th>
+                  <th style={{ textAlign: "right" }}>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {verRecibo.items.map((it, i) => (
+                  <tr key={i}>
+                    <td>{it.descripcion}</td>
+                    <td style={{ textAlign: "right" }}>{Number(it.cantidad).toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }}>${Number(it.precio_unitario).toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }}>${Number(it.subtotal).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p style={{ color: "var(--c-ink-2)" }}>
+              {verRecibo.descripcion || "Depósito sin detalle de ítems."}
+            </p>
+          )}
+
+          <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <strong style={{ fontSize: "var(--text-lg)", color: "var(--c-brand-700)" }}>
+              Total: ${Number(verRecibo.monto_usd).toFixed(2)} USD
+            </strong>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" className="adf-btn ghost" onClick={() => setVerRecibo(null)}>Cerrar</button>
+              <button
+                type="button"
+                className="adf-btn"
+                onClick={() => descargarPdfRecibo(verRecibo.id, `recibo-${verRecibo.numero_correlativo}.pdf`)
+                  .catch(() => toast.error("No se pudo descargar el PDF."))}
+              >
+                <i className="bi bi-download"></i> Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabla extracto */}
       <div style={{ marginTop: 8 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
@@ -551,6 +634,8 @@ export default function CuentaDetalle() {
           movimientos={mov}
           onEditar={openEditar}
           onAnular={handleAnular}
+          onVerRecibo={handleVerRecibo}
+          onDescargarRecibo={handleDescargarRecibo}
           showActions={true}
         />
       </div>
