@@ -9,12 +9,14 @@ import "./MovimientoCuentaTable.css";
  *   FECHA · INSTRUCTOR · FACTURA NO. · AVION · H.V. · H.T. · NOTA · DEBE · HABER · SALDO
  *
  * Props:
- *   movimientos: Array de movimientos
- *   onEditar:    (mov) => void   (botón editar en cada fila)
- *   onAnular:    (mov) => void   (botón anular en cada fila)
- *   showActions: boolean         (mostrar columna de acciones)
+ *   movimientos:      Array de movimientos
+ *   onEditar:         (mov) => void   (botón editar en cada fila)
+ *   onAnular:         (mov) => void   (botón anular en cada fila)
+ *   onVerRecibo:      (mov) => void   (botón ver detalle, solo filas con id_recibo)
+ *   onDescargarRecibo:(mov) => void   (botón descargar PDF, solo filas con id_recibo)
+ *   showActions:      boolean         (mostrar columna de acciones)
  */
-export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAnular, showActions = true }) {
+export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAnular, onVerRecibo, onDescargarRecibo, showActions = true }) {
   const fmt = (n) => (n != null && n !== "")
     ? Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : "";
@@ -34,7 +36,7 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
             <th style={{ width: 110, textAlign: "right" }}>Debe</th>
             <th style={{ width: 110, textAlign: "right" }}>Haber</th>
             <th style={{ width: 124, textAlign: "right" }}>Saldo</th>
-            {showActions && <th style={{ width: 86 }}></th>}
+            {showActions && <th style={{ width: 150 }}></th>}
           </tr>
         </thead>
         <tbody>
@@ -73,6 +75,26 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
                 <td className="adf-hoja__num adf-hoja__saldo">{fmt(m.saldo_corrido ?? m.saldo_resultante_usd)}</td>
                 {showActions && (
                   <td className="adf-hoja__actions">
+                    {m.id_recibo && (
+                      <>
+                        <button
+                          className="adf-hoja__action-btn"
+                          title="Ver detalle del recibo"
+                          onClick={() => onVerRecibo && onVerRecibo(m)}
+                          aria-label="Ver detalle"
+                        >
+                          <i className="bi bi-eye"></i>
+                        </button>
+                        <button
+                          className="adf-hoja__action-btn"
+                          title="Descargar PDF"
+                          onClick={() => onDescargarRecibo && onDescargarRecibo(m)}
+                          aria-label="Descargar PDF"
+                        >
+                          <i className="bi bi-download"></i>
+                        </button>
+                      </>
+                    )}
                     {!m.anulado && (
                       <>
                         <button

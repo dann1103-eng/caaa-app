@@ -78,6 +78,7 @@ router.patch("/conceptos-cobro/:id",        roleMiddleware(WRITE_ROLES), concept
 // ── Recibos ───────────────────────────────────────────────────────────
 router.get("/recibos",                      roleMiddleware(READ_ROLES),  recibos.list);
 router.post("/recibos",                     roleMiddleware(WRITE_ROLES), recibos.create);
+router.get("/recibos/:id",                  roleMiddleware(READ_ROLES),  recibos.getOne);
 router.get("/recibos/:id/pdf",              roleMiddleware(READ_ROLES),  recibos.pdf);
 router.patch("/recibos/:id/anular",         roleMiddleware(WRITE_ROLES), recibos.anular);
 

@@ -38,6 +38,7 @@ export const anularMovimiento   = async (idMov, payload = {}) => (await axios.pa
 
 // ── Recibos ─────────────────────────────────────────────────────────
 export const getRecibos    = async (params) => (await axios.get(`${BASE}/recibos`, { params })).data;
+export const getRecibo     = async (id) => (await axios.get(`${BASE}/recibos/${id}`)).data;
 export const crearRecibo   = async (payload) => (await axios.post(`${BASE}/recibos`, payload)).data;
 export const anularRecibo  = async (id, motivo) => (await axios.patch(`${BASE}/recibos/${id}/anular`, { motivo })).data;
 

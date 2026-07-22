@@ -134,6 +134,29 @@ exports.anular = async (req, res) => {
   }
 };
 
+exports.getOne = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await db.query(`
+      SELECT r.*, u.username AS alumno_username
+      FROM recibo_pago r
+      LEFT JOIN alumno a ON a.id_alumno = r.id_alumno
+      LEFT JOIN usuario u ON u.id_usuario = a.id_usuario
+      WHERE r.id = $1
+    `, [id]);
+    if (r.rows.length === 0) return res.status(404).json({ ok: false, message: "Recibo no encontrado" });
+
+    const det = await db.query(`
+      SELECT descripcion, cantidad, precio_unitario, subtotal
+      FROM recibo_detalle WHERE id_recibo = $1 ORDER BY id
+    `, [id]);
+
+    res.json({ ok: true, data: { ...r.rows[0], items: det.rows } });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 exports.pdf = async (req, res) => {
   try {
     const { id } = req.params;
