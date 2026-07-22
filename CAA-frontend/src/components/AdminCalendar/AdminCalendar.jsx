@@ -633,6 +633,7 @@ export default function AdminCalendar({
                         <div style={{ padding: '2px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div className="flight-alumno" style={{ fontWeight: 600 }}>
                             {conflictText && <span className="conflict-icon">⚠</span>}
+                            {item.saldo_bajo && <span title={`Saldo bajo: el alumno tiene $${Number(item.saldo_alumno ?? 0).toFixed(2)} y este vuelo cuesta aprox. $${Number(item.tarifa_estimada ?? 0).toFixed(2)}/h`} style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--c-warn-700)', background: 'var(--c-warn-50)', border: '1px solid var(--c-warn-700)', padding: '1px 4px', borderRadius: '999px', marginRight: '4px', display: 'inline-block' }}>$</span>}
                             {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                             {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
                             {abbrevNombre(item.alumno_nombre_corto, item.alumno_nombre)}
@@ -715,6 +716,7 @@ export default function AdminCalendar({
                       <div style={{ position: 'sticky', top: '30px', padding: '2px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <div className="flight-alumno" style={{ fontWeight: 600 }}>
                           {conflictText && <span className="conflict-icon">⚠</span>}
+                          {item.saldo_bajo && <span title={`Saldo bajo: el alumno tiene $${Number(item.saldo_alumno ?? 0).toFixed(2)} y este vuelo cuesta aprox. $${Number(item.tarifa_estimada ?? 0).toFixed(2)}/h`} style={{ fontSize: '0.6rem', fontWeight: 800, color: 'var(--c-warn-700)', background: 'var(--c-warn-50)', border: '1px solid var(--c-warn-700)', padding: '1px 4px', borderRadius: '999px', marginRight: '4px', display: 'inline-block' }}>$</span>}
                           <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>Ruta</span>
                           {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                           {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}

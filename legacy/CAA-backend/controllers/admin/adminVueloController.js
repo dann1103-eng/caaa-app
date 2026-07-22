@@ -240,7 +240,18 @@ exports.getCalendario = catchAsync(async (req, res) => {
       LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
       i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
       LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
-      COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular
+      COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular,
+      -- Advertencia de saldo bajo: el saldo del alumno no cubre el costo
+      -- estimado de ESE vuelo (tarifa efectiva × 1h; el precio especial del
+      -- alumno manda sobre el estándar). Se excluyen las categorías que no
+      -- auto-cobran al alumno (DEMO / CHEQUEO_LINEA / PRUEBA).
+      COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
+      COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
+      (
+        COALESCE(v.categoria, sv.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+        AND COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) IS NOT NULL
+        AND COALESCE(cc.saldo_actual_usd, 0) < COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd)
+      ) AS saldo_bajo
     FROM solicitud_vuelo sv
     JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
     JOIN bloque_horario b ON b.id_bloque = sv.id_bloque
@@ -250,6 +261,19 @@ exports.getCalendario = catchAsync(async (req, res) => {
     LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle AND v.id_semana = sv.id_semana
     JOIN instructor i ON i.id_instructor = COALESCE(v.id_instructor, sv.id_instructor, al.id_instructor)
     JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
+    LEFT JOIN cuenta_corriente_alumno cc ON cc.id_alumno = ss.id_alumno
+    LEFT JOIN LATERAL (
+      SELECT at.tarifa_hora_usd FROM alumno_tarifa_aeronave ata
+      JOIN aeronave_tarifa at ON at.id = ata.id_tarifa
+      WHERE ata.id_alumno = ss.id_alumno AND ata.id_aeronave = sv.id_aeronave
+      LIMIT 1
+    ) tesp ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT t.tarifa_hora_usd FROM aeronave_tarifa t
+      WHERE t.id_aeronave = sv.id_aeronave AND COALESCE(t.es_estandar, TRUE) = TRUE
+        AND t.vigente_desde <= CURRENT_DATE AND (t.vigente_hasta IS NULL OR t.vigente_hasta >= CURRENT_DATE)
+      ORDER BY t.vigente_desde DESC LIMIT 1
+    ) test ON TRUE
     WHERE sv.id_semana = $1
       AND ss.estado NOT IN ('RECHAZADA', 'CANCELADA')
       AND (sv.estado IS NULL OR sv.estado != 'RECHAZADA')

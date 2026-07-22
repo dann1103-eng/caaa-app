@@ -1,7 +1,7 @@
 const db = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
 const { DateTime } = require("luxon");
-const { verificarSaldoSuficiente } = require("../utils/saldoHelper");
+const { verificarSaldoSuficiente, getSaldoAlumno, estimarCostoVuelos } = require("../utils/saldoHelper");
 const { mantenimientoCubreFechaSQL, soloFecha } = require("../utils/mantenimientoUtils");
 
 /**
@@ -171,6 +171,11 @@ exports.getMisSolicitudes = async (req, res) => {
       [defLimAvion, defLimSim, idAlumno, idSemana]
     );
 
+    // Saldo del alumno + costo estimado de lo que tiene pedido, para que la
+    // página de Agendar muestre la advertencia de saldo bajo (no bloquea).
+    let saldo = null;
+    try { saldo = await getSaldoAlumno(idAlumno); } catch (_) {}
+
     if (solicitudRes.rows.length === 0) {
       return res.json({
         estado: "BORRADOR",
@@ -178,7 +183,9 @@ exports.getMisSolicitudes = async (req, res) => {
         limite_vuelos_simulador: defLimSim,
         limite_vuelos_dia: limDia,
         comentario_alumno: "",
-        vuelos: []
+        vuelos: [],
+        saldo,
+        costo_estimado: 0
       });
     }
 
@@ -193,7 +200,10 @@ exports.getMisSolicitudes = async (req, res) => {
       [id_solicitud]
     );
 
-    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia: limDia, comentario_alumno: comentario_alumno || "", vuelos: vuelosRes.rows });
+    let costo_estimado = 0;
+    try { costo_estimado = await estimarCostoVuelos(vuelosRes.rows, new Date(), db, idAlumno); } catch (_) {}
+
+    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia: limDia, comentario_alumno: comentario_alumno || "", vuelos: vuelosRes.rows, saldo, costo_estimado });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error obtener solicitudes" });
@@ -204,7 +214,7 @@ exports.guardarSolicitud = async (req, res) => {
   const client = await db.connect();
   try {
     const user = req.user;
-    const { vuelos, comentario } = req.body;
+    const { vuelos, comentario, forzar_saldo } = req.body;
     const { week } = req.query;
     // Comentario del alumno para su instructor (opcional, se recorta a 500).
     const comentarioNorm = (comentario == null) ? null : String(comentario).trim().slice(0, 500) || null;
@@ -238,17 +248,24 @@ exports.guardarSolicitud = async (req, res) => {
     const limDia = alumnoRes.rows[0].limite_vuelos_dia ?? 1;
 
     // --- Validación de Saldo (Módulo Administración) ---
-    // Si el módulo de Administración está activo, bloqueamos solicitudes
-    // cuyo costo estimado supere el saldo prepagado del alumno.
+    // Si el costo estimado supera el saldo prepagado, se responde 403 con
+    // saldo_insuficiente para que el frontend muestre la ADVERTENCIA — pero el
+    // alumno puede FORZAR el agendado reintentando con forzar_saldo=true
+    // (decisión de Daniel: cubre el caso "deposito el fin de semana pero
+    // necesito los vuelos de la próxima"). No es un bloqueo duro.
     try {
       const chk = await verificarSaldoSuficiente(id_alumno, vuelos);
-      if (!chk.ok) {
+      if (!chk.ok && !forzar_saldo) {
         return res.status(403).json({
           message: chk.mensaje,
           saldo_insuficiente: true,
+          forzable: true,
           saldo: chk.saldo,
           costo_estimado: chk.costo_estimado
         });
+      }
+      if (!chk.ok && forzar_saldo) {
+        console.log(`[saldo] alumno ${id_alumno} forzó agendado con saldo bajo (saldo $${chk.saldo}, costo est. $${chk.costo_estimado})`);
       }
     } catch (e) {
       // No abortar agendamiento por error en verificación de saldo

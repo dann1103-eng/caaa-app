@@ -21,36 +21,72 @@ async function getSaldoAlumno(id_alumno, client = db) {
 }
 
 /**
- * Estima el costo de un conjunto de vuelos a agendar.
+ * Estima el costo de un conjunto de vuelos a agendar, usando la TARIFA EFECTIVA
+ * del alumno para cada avión: precio especial asignado (alumno_tarifa_aeronave)
+ * → tarifa estándar vigente por id_aeronave → match por texto de modelo (solo
+ * queda para tarifas viejas sin vincular).
  * vuelos: Array<{ id_aeronave, duracion_estimada_min }>
  * Devuelve el costo total estimado en USD.
  */
-async function estimarCostoVuelos(vuelos, fecha = new Date(), client = db) {
+async function estimarCostoVuelos(vuelos, fecha = new Date(), client = db, id_alumno = null) {
   if (!Array.isArray(vuelos) || vuelos.length === 0) return 0;
   let total = 0;
   for (const v of vuelos) {
     const horas = (v.duracion_estimada_min || 60) / 60;
-    let modelo = "Cessna 152";
-    if (v.id_aeronave) {
+    let tarifa = null;
+
+    // 1) Precio especial asignado al alumno para ese avión.
+    if (id_alumno && v.id_aeronave) {
       try {
-        const a = await client.query(`SELECT modelo, tipo FROM aeronave WHERE id_aeronave = $1`, [v.id_aeronave]);
-        if (a.rows.length > 0) {
-          modelo = a.rows[0].modelo || a.rows[0].tipo || modelo;
-        }
+        const e = await client.query(`
+          SELECT at.tarifa_hora_usd
+          FROM alumno_tarifa_aeronave ata
+          JOIN aeronave_tarifa at ON at.id = ata.id_tarifa
+          WHERE ata.id_alumno = $1 AND ata.id_aeronave = $2
+          LIMIT 1
+        `, [id_alumno, v.id_aeronave]);
+        if (e.rows.length > 0) tarifa = Number(e.rows[0].tarifa_hora_usd);
       } catch (_) {}
     }
-    try {
-      const t = await client.query(`
-        SELECT tarifa_hora_usd FROM aeronave_tarifa
-        WHERE modelo_aeronave ILIKE '%' || $1 || '%'
-          AND vigente_desde <= $2::date
-          AND (vigente_hasta IS NULL OR vigente_hasta >= $2::date)
-        ORDER BY vigente_desde DESC LIMIT 1
-      `, [modelo, fecha]);
-      if (t.rows.length > 0) {
-        total += horas * Number(t.rows[0].tarifa_hora_usd);
+
+    // 2) Tarifa estándar vigente vinculada por id_aeronave.
+    if (tarifa == null && v.id_aeronave) {
+      try {
+        const t = await client.query(`
+          SELECT tarifa_hora_usd FROM aeronave_tarifa
+          WHERE id_aeronave = $1
+            AND COALESCE(es_estandar, TRUE) = TRUE
+            AND vigente_desde <= $2::date
+            AND (vigente_hasta IS NULL OR vigente_hasta >= $2::date)
+          ORDER BY vigente_desde DESC LIMIT 1
+        `, [v.id_aeronave, fecha]);
+        if (t.rows.length > 0) tarifa = Number(t.rows[0].tarifa_hora_usd);
+      } catch (_) {}
+    }
+
+    // 3) Último recurso: match por texto de modelo (tarifas viejas sin vincular).
+    if (tarifa == null) {
+      let modelo = "Cessna 152";
+      if (v.id_aeronave) {
+        try {
+          const a = await client.query(`SELECT modelo, tipo FROM aeronave WHERE id_aeronave = $1`, [v.id_aeronave]);
+          if (a.rows.length > 0) modelo = a.rows[0].modelo || a.rows[0].tipo || modelo;
+        } catch (_) {}
       }
-    } catch (_) {}
+      try {
+        const t = await client.query(`
+          SELECT tarifa_hora_usd FROM aeronave_tarifa
+          WHERE modelo_aeronave ILIKE '%' || $1 || '%'
+            AND COALESCE(es_estandar, TRUE) = TRUE
+            AND vigente_desde <= $2::date
+            AND (vigente_hasta IS NULL OR vigente_hasta >= $2::date)
+          ORDER BY vigente_desde DESC LIMIT 1
+        `, [modelo, fecha]);
+        if (t.rows.length > 0) tarifa = Number(t.rows[0].tarifa_hora_usd);
+      } catch (_) {}
+    }
+
+    if (tarifa != null) total += horas * tarifa;
   }
   return +total.toFixed(2);
 }
@@ -65,7 +101,7 @@ async function verificarSaldoSuficiente(id_alumno, vuelos, client = db) {
     // Módulo no instalado: no aplica bloqueo
     return { ok: true, saldo: null, costo_estimado: 0 };
   }
-  const costo = await estimarCostoVuelos(vuelos, new Date(), client);
+  const costo = await estimarCostoVuelos(vuelos, new Date(), client, id_alumno);
   if (saldo < costo) {
     const faltante = +(costo - saldo).toFixed(2);
     return {

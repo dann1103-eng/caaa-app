@@ -45,6 +45,9 @@ export default function AgendarVuelo() {
   const [initialSelecciones, setInitialSelecciones] = useState([]);
   const [comentario, setComentario] = useState("");
   const [initialComentario, setInitialComentario] = useState("");
+  // Saldo prepagado + costo estimado de lo pedido, para la advertencia de
+  // saldo bajo (informativa — el guardado nunca se bloquea, solo se confirma).
+  const [saldoInfo, setSaldoInfo] = useState({ saldo: null, costo_estimado: 0 });
 
   // Extracurricular: habilitado solo cuando el alumno ya completó sus horas de licencia.
   const [extraHabilitado, setExtraHabilitado] = useState(false);
@@ -69,11 +72,14 @@ export default function AgendarVuelo() {
   const comentarioCambiado = (comentario || "").trim() !== (initialComentario || "").trim();
   const hayCambios = tieneCambios || comentarioCambiado;
 
-  const handleGuardar = async () => {
+  const handleGuardar = async (forzarSaldo) => {
     if (selecciones.length === 0) return;
+    // Ojo: como onClick pasa el evento como 1er argumento, solo se considera
+    // "forzar" cuando viene el booleano true explícito (reintento confirmado).
+    const forzar = forzarSaldo === true;
 
     try {
-      const data = await guardarSolicitud(selecciones, comentario);
+      const data = await guardarSolicitud(selecciones, comentario, forzar);
       setYaGuardado(true);
       setInitialSelecciones(JSON.parse(JSON.stringify(selecciones))); // Actualizar estado inicial tras guardar
       setInitialComentario(comentario);
@@ -82,10 +88,23 @@ export default function AgendarVuelo() {
       (data?.advertencias || []).forEach((a) => toast.warning(a));
       navigate("/alumno/dashboard");
     } catch (err) {
+      const d = err.response?.data;
+      // Saldo insuficiente: ADVERTENCIA forzable, no bloqueo. El alumno puede
+      // confirmar y agendar igual (p. ej. "deposito el fin de semana pero
+      // necesito los vuelos de la próxima"). Programación ve el aviso.
+      if (err.response?.status === 403 && d?.saldo_insuficiente && d?.forzable) {
+        const ok = window.confirm(
+          `${d.message}\n\n` +
+          `¿Querés agendar de todas formas? (por ejemplo, si vas a depositar antes de tus vuelos.)\n` +
+          `Programación verá la advertencia de saldo bajo en tu solicitud.`
+        );
+        if (ok) return handleGuardar(true);
+        return;
+      }
       if (err.response?.status === 403) {
-        toast.warning("La solicitud ya no puede modificarse");
+        toast.warning(d?.message || "La solicitud ya no puede modificarse");
       } else {
-        toast.error(err.response?.data?.message || "Error al guardar la solicitud");
+        toast.error(d?.message || "Error al guardar la solicitud");
       }
     }
   };
@@ -108,6 +127,7 @@ export default function AgendarVuelo() {
 
         if (solicitud) {
           setEstadoSolicitud(solicitud.estado);
+          setSaldoInfo({ saldo: solicitud.saldo ?? null, costo_estimado: Number(solicitud.costo_estimado || 0) });
           const limAvion = solicitud.limite_vuelos_avion ?? 3;
           const limSim = solicitud.limite_vuelos_simulador ?? 3;
           setLimiteAvion(limAvion);
@@ -300,6 +320,26 @@ export default function AgendarVuelo() {
           </div>
 
         </div>
+
+        {/* Advertencia de saldo bajo (informativa: no bloquea; al guardar se
+            pide confirmación y Programación ve el aviso en el calendario). */}
+        {saldoInfo.saldo != null && (saldoInfo.saldo <= 0 || saldoInfo.saldo < saldoInfo.costo_estimado) && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10,
+            background: "var(--c-warn-50, #fdf6e3)", border: "1px solid var(--c-warn-700, #b8860b)",
+            color: "var(--c-warn-700, #7a5a00)", borderRadius: 10,
+            padding: "10px 14px", margin: "10px 0", fontSize: "0.9rem", fontWeight: 600,
+          }}>
+            <i className="bi bi-exclamation-triangle-fill"></i>
+            <span>
+              Saldo bajo: tenés <strong>${Number(saldoInfo.saldo).toFixed(2)}</strong>
+              {saldoInfo.costo_estimado > 0 && (
+                <> y tus vuelos pedidos cuestan aprox. <strong>${Number(saldoInfo.costo_estimado).toFixed(2)}</strong></>
+              )}.
+              {" "}Podés agendar igual, pero recordá depositar antes de tus vuelos.
+            </span>
+          </div>
+        )}
 
         <div className="ag__info-strip">
           {licencia && (

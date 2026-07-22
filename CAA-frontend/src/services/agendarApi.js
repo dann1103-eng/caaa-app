@@ -22,10 +22,12 @@ export const getMisSolicitudes = async (week = "next") => {
   return res.data;
 };
 
-export const guardarSolicitud = async (vuelos, comentario = "") => {
+// forzarSaldo: el alumno confirmó agendar aunque su saldo no cubra el costo
+// estimado (advertencia forzable, no bloqueo duro).
+export const guardarSolicitud = async (vuelos, comentario = "", forzarSaldo = false) => {
   const res = await axios.post(
     `${API_URL}/agendar/solicitar-vuelos`,
-    { vuelos, comentario },
+    { vuelos, comentario, forzar_saldo: forzarSaldo },
     { params: { week: "next" } }
   );
   return res.data;

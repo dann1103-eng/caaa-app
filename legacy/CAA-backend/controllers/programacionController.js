@@ -118,7 +118,16 @@ exports.getCalendario = async (req, res) => {
           v.es_extracurricular,
 
           'PUBLICADO' AS estado_solicitud,
-          v.estado AS estado_mostrar
+          v.estado AS estado_mostrar,
+
+          -- Advertencia de saldo bajo (ver adminVueloController.getCalendario)
+          COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
+          COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
+          (
+            COALESCE(v.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+            AND COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) IS NOT NULL
+            AND COALESCE(cc.saldo_actual_usd, 0) < COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd)
+          ) AS saldo_bajo
         FROM vuelo v
         JOIN bloque_horario b ON b.id_bloque = v.id_bloque
         JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
@@ -128,6 +137,20 @@ exports.getCalendario = async (req, res) => {
 
         LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
         LEFT JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
+
+        LEFT JOIN cuenta_corriente_alumno cc ON cc.id_alumno = v.id_alumno
+        LEFT JOIN LATERAL (
+          SELECT at.tarifa_hora_usd FROM alumno_tarifa_aeronave ata
+          JOIN aeronave_tarifa at ON at.id = ata.id_tarifa
+          WHERE ata.id_alumno = v.id_alumno AND ata.id_aeronave = v.id_aeronave
+          LIMIT 1
+        ) tesp ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT t.tarifa_hora_usd FROM aeronave_tarifa t
+          WHERE t.id_aeronave = v.id_aeronave AND COALESCE(t.es_estandar, TRUE) = TRUE
+            AND t.vigente_desde <= CURRENT_DATE AND (t.vigente_hasta IS NULL OR t.vigente_hasta >= CURRENT_DATE)
+          ORDER BY t.vigente_desde DESC LIMIT 1
+        ) test ON TRUE
 
         WHERE v.id_semana = $1
         ORDER BY b.hora_inicio, v.dia_semana, ae.modelo
@@ -172,7 +195,16 @@ exports.getCalendario = async (req, res) => {
         NULL::text AS estado_vuelo,
         sv.es_extracurricular,
 
-        ss.estado AS estado_mostrar
+        ss.estado AS estado_mostrar,
+
+        -- Advertencia de saldo bajo (ver adminVueloController.getCalendario)
+        COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
+        COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
+        (
+          COALESCE(sv.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+          AND COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) IS NOT NULL
+          AND COALESCE(cc.saldo_actual_usd, 0) < COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd)
+        ) AS saldo_bajo
       FROM solicitud_vuelo sv
       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
       JOIN bloque_horario b ON b.id_bloque = sv.id_bloque
@@ -183,6 +215,20 @@ exports.getCalendario = async (req, res) => {
 
       JOIN instructor i ON i.id_instructor = COALESCE(sv.id_instructor, al.id_instructor)
       JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
+
+      LEFT JOIN cuenta_corriente_alumno cc ON cc.id_alumno = ss.id_alumno
+      LEFT JOIN LATERAL (
+        SELECT at.tarifa_hora_usd FROM alumno_tarifa_aeronave ata
+        JOIN aeronave_tarifa at ON at.id = ata.id_tarifa
+        WHERE ata.id_alumno = ss.id_alumno AND ata.id_aeronave = sv.id_aeronave
+        LIMIT 1
+      ) tesp ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT t.tarifa_hora_usd FROM aeronave_tarifa t
+        WHERE t.id_aeronave = sv.id_aeronave AND COALESCE(t.es_estandar, TRUE) = TRUE
+          AND t.vigente_desde <= CURRENT_DATE AND (t.vigente_hasta IS NULL OR t.vigente_hasta >= CURRENT_DATE)
+        ORDER BY t.vigente_desde DESC LIMIT 1
+      ) test ON TRUE
 
       WHERE sv.id_semana = $1
         AND ss.estado NOT IN ('RECHAZADA', 'CANCELADA')

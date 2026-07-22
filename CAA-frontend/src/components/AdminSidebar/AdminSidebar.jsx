@@ -54,6 +54,9 @@ export default function AdminSidebar({ isOpen, onClose }) {
           external: true,
         },
         { label: "Agendar vuelos", path: "/admin/agendar", icon: "bi-calendar-plus" },
+        // ADMIN entra al dashboard de Turno como super-usuario (p.ej. para
+        // publicar avisos del ticker); ProtectedTurno ya lo permite.
+        { label: "Turno", path: "/turno/dashboard", icon: "bi-megaphone" },
         { label: "Cancelaciones", path: "/admin/cancelaciones", icon: "bi-x-circle", badge: pendingCancelCount },
       ],
     },

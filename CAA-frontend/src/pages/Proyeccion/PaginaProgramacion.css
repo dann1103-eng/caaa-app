@@ -797,3 +797,73 @@
 }
 
 .pp__turno-chip i { opacity: 0.7; }
+
+/* ── Móvil (≤768px) ──────────────────────────────────────────────────────
+   La proyección nació como tablero de TV (100vh, overflow hidden, 2
+   columnas). En un celular eso rompía todo: acá se apila en UNA columna con
+   scroll natural de página, y las tablas anchas scrollean horizontal dentro
+   de su tarjeta. El @media 1200 existente va por ancho pero solo suelta la
+   altura — este bloque completa el resto. */
+@media (max-width: 768px) {
+  .pp {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  /* Topbar: el METAR crudo no cabe en el ancho del teléfono (el decodificado
+     sigue disponible en el widget del sidebar, ahora apilado abajo). */
+  .pp__topbar {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+  .pp__topbar-raw { display: none; }
+  .pp__topbar-metar-list { gap: 0.75rem; flex-wrap: wrap; font-size: 0.78rem; }
+
+  .pp__container { padding: 0 12px 12px; }
+
+  /* Header: título y reloj apilados a la izquierda */
+  .pp__page-hdr {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 0;
+    padding: 10px 0;
+  }
+  .pp__page-title { font-size: 1.35rem; }
+  .pp__hdr-clock-new { text-align: left; }
+  .pp__clock-utc { font-size: 1.05rem; }
+  .pp__clock-time { font-size: 1.35rem; }
+
+  /* Grid principal: una sola columna, altura natural (scrollea la página) */
+  .pp__dashboard-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+    gap: 14px;
+  }
+  .pp__main-col,
+  .pp__sidebar {
+    height: auto;
+    overflow-y: visible;
+    padding-right: 0;
+    gap: 14px;
+  }
+
+  /* Tablas anchas: scroll horizontal DENTRO de la tarjeta (la página nunca
+     scrollea de lado) */
+  .pp__tbl-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pp__table { min-width: 560px; }
+  .pp__table th, .pp__table td { padding: 8px 10px; font-size: 0.78rem; }
+
+  /* El schedule y las listas dejan de tener piso/techo fijo */
+  .pp__schedule-card { min-height: 0; }
+  .pp__flights-list { overflow-y: visible; }
+
+  .pp__card { padding: 12px; }
+  .pp__turno-strip { gap: 8px; padding: 8px 12px; }
+}
