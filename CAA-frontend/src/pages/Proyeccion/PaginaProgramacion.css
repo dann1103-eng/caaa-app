@@ -19,12 +19,17 @@
 
 /* ── Reset & Base ───────────────────────────────────────────────────────── */
 
-/* Mientras la proyección esté montada, el body entero es oscuro: el rebote
-   del scroll en iOS (rubber-band) y cualquier pixel fuera de .pp mostraban el
-   body blanco — el "límite raro" al deslizar en el celular. Navegadores sin
+/* Mientras la proyección esté montada, TODA la página es oscura: el rebote
+   del scroll en iOS (rubber-band) y cualquier pixel fuera de .pp mostraban
+   blanco — el "límite raro" al deslizar en el celular. Hay que cubrir las
+   TRES capas que pinta el shim global (tokens.css: html, body y #root — este
+   último tapa al body aunque el body quede oscuro). El !important es a
+   propósito: excepción de página sobre el reset global. Navegadores sin
    :has() ignoran la regla (quedan como antes, no peor). */
-body:has(.pp) {
-  background: var(--pp-bg, #0b0f19);
+html:has(.pp),
+body:has(.pp),
+#root:has(.pp) {
+  background-color: var(--pp-bg, #0b0f19) !important;
 }
 
 .pp {
