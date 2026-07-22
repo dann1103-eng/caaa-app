@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   getCuentaAlumno, getExtractoAlumno,
-  crearRecibo, cargoManualCuenta,
+  crearRecibo, cargoManualCuenta, descargarPdfRecibo,
   editarMovimiento, anularMovimiento,
   cobrarConceptoCuenta, getConceptosCobro
 } from "../../services/administracionApi";
@@ -40,6 +40,10 @@ export default function CuentaDetalle() {
   const [editing, setEditing] = useState(null);
 
   const [recForm, setRecForm] = useState({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "", fecha: new Date().toISOString().slice(0, 10) });
+  // Ítems del ingreso (opcional): si hay líneas, el total del recibo sale de
+  // acá (cantidad × precio unitario) y el campo Monto queda de solo lectura.
+  const [recItems, setRecItems] = useState([]);
+  const recTotal = recItems.reduce((s, it) => s + (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0), 0);
   const [cargoForm, setCargoForm] = useState(EMPTY_FORM);
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM, motivo_edicion: "" });
   const [conceptos, setConceptos] = useState([]);
@@ -80,11 +84,27 @@ export default function CuentaDetalle() {
   const handleRecibo = async (e) => {
     e.preventDefault();
     try {
-      await crearRecibo({ id_alumno: Number(id), ...recForm, monto_usd: Number(recForm.monto_usd), fecha: recForm.fecha || null });
-      toast.success("Depósito registrado.");
+      const conItems = recItems.length > 0;
+      const r = await crearRecibo({
+        id_alumno: Number(id),
+        ...recForm,
+        fecha: recForm.fecha || null,
+        monto_usd: conItems ? undefined : Number(recForm.monto_usd),
+        items: conItems ? recItems.map((it) => ({
+          descripcion: it.descripcion,
+          cantidad: Number(it.cantidad),
+          precio_unitario: Number(it.precio_unitario),
+        })) : undefined,
+      });
+      toast.success(`Depósito registrado — Recibo #${r?.data?.numero_correlativo ?? ""}.`);
       setOpenPanel(null);
       setRecForm({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "", fecha: new Date().toISOString().slice(0, 10) });
+      setRecItems([]);
       load();
+      // El recibo recién emitido se descarga solo (PDF).
+      if (r?.data?.id) {
+        descargarPdfRecibo(r.data.id, `recibo-${r.data.numero_correlativo}.pdf`).catch(() => {});
+      }
     } catch (e) { toast.error(e?.response?.data?.message || "Error al registrar depósito."); }
   };
 
@@ -239,8 +259,11 @@ export default function CuentaDetalle() {
                   onChange={(e) => setRecForm({...recForm, fecha: e.target.value})} />
               </div>
               <div className="adf-form-field">
-                <label>Monto USD</label>
-                <input type="number" step="0.01" min="0.01" required value={recForm.monto_usd}
+                <label>Monto USD{recItems.length > 0 && " (suma del detalle)"}</label>
+                <input type="number" step="0.01" min="0.01"
+                  required={recItems.length === 0}
+                  disabled={recItems.length > 0}
+                  value={recItems.length > 0 ? recTotal.toFixed(2) : recForm.monto_usd}
                   onChange={(e) => setRecForm({...recForm, monto_usd: e.target.value})} />
               </div>
               <div className="adf-form-field">
@@ -260,6 +283,48 @@ export default function CuentaDetalle() {
                   onChange={(e) => setRecForm({...recForm, descripcion: e.target.value})} />
               </div>
             </div>
+
+            {/* Detalle por ítems (opcional): el recibo sale como factura de
+                ingreso y el total se calcula solo. */}
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--c-line-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4 }}>
+                  DETALLE DEL INGRESO (OPCIONAL)
+                </span>
+                <button type="button" className="adf-btn small secondary"
+                  onClick={() => setRecItems([...recItems, { descripcion: "", cantidad: "1", precio_unitario: "" }])}>
+                  <i className="bi bi-plus-lg"></i> Agregar ítem
+                </button>
+              </div>
+              {recItems.length > 0 && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 110px 100px 34px", gap: 8, fontSize: "0.72rem", fontWeight: 700, color: "var(--c-ink-3)", marginBottom: 4 }}>
+                    <span>Descripción</span><span>Cantidad</span><span>P. unitario</span><span style={{ textAlign: "right" }}>Subtotal</span><span></span>
+                  </div>
+                  {recItems.map((it, i) => (
+                    <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 110px 100px 34px", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                      <input required placeholder="Ej: 10 horas de vuelo Cessna 152" value={it.descripcion}
+                        onChange={(e) => setRecItems(recItems.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
+                      <input required type="number" step="0.01" min="0.01" value={it.cantidad}
+                        onChange={(e) => setRecItems(recItems.map((x, j) => j === i ? { ...x, cantidad: e.target.value } : x))} />
+                      <input required type="number" step="0.01" min="0" placeholder="0.00" value={it.precio_unitario}
+                        onChange={(e) => setRecItems(recItems.map((x, j) => j === i ? { ...x, precio_unitario: e.target.value } : x))} />
+                      <span className="amount" style={{ textAlign: "right", fontWeight: 700 }}>
+                        ${(((Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0))).toFixed(2)}
+                      </span>
+                      <button type="button" className="adf-icon-btn" title="Quitar ítem"
+                        onClick={() => setRecItems(recItems.filter((_, j) => j !== i))}>
+                        <i className="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  ))}
+                  <div style={{ textAlign: "right", fontWeight: 800, marginTop: 6 }}>
+                    Total del ingreso: <span className="amount pos">${recTotal.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
             <div style={{ marginTop: 16, display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" className="adf-btn ghost" onClick={() => setOpenPanel(null)}>Cancelar</button>
               <button type="submit" className="adf-btn positive"><i className="bi bi-check2"></i> Guardar depósito</button>

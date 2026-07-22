@@ -51,7 +51,9 @@ function drawHeader(doc, titulo, fecha) {
 }
 
 function drawFooter(doc) {
-  const y = doc.page.height - 50;
+  // -64 (no -50): a -50 la línea de texto cruzaba el margen inferior y pdfkit
+  // agregaba una página en blanco a TODOS los recibos/facturas.
+  const y = doc.page.height - 64;
   doc
     .strokeColor("#ccc")
     .lineWidth(0.5)
@@ -63,7 +65,10 @@ function drawFooter(doc) {
     .font("Helvetica")
     .text(
       "MAS DE 60 AÑOS DE EXPERIENCIA FORMANDO PILOTOS PROFESIONALES",
-      50, y, { align: "center", width: 495 }
+      // lineBreak:false — a esta altura (page.height-50) el salto de línea
+      // automático de pdfkit cruzaba el margen inferior y agregaba una
+      // página en blanco a TODOS los recibos/facturas (bug preexistente).
+      50, y, { align: "center", width: 495, lineBreak: false }
     );
 }
 
@@ -184,10 +189,10 @@ function generarFacturaPDF({ factura, detalle, alumno }) {
 /**
  * Genera PDF de recibo de pago.
  */
-function generarReciboPDF({ recibo, alumno }) {
+function generarReciboPDF({ recibo, alumno, items = [] }) {
   const doc = new PDFDocument({ size: "LETTER", margin: 50 });
   const fecha = new Date(recibo.fecha).toLocaleDateString("es-SV", { day:"2-digit", month:"2-digit", year:"numeric" });
-  let y = drawHeader(doc, "RECIBO DE PAGO", fecha);
+  let y = drawHeader(doc, "RECIBO DE INGRESO", fecha);
 
   doc.fontSize(9).font("Helvetica-Bold").fillColor("#222").text("RECIBO No.", 50, y)
      .font("Helvetica").fontSize(14).fillColor(CAAA_GREEN).text(`#${recibo.numero_correlativo}`, 50, y + 12);
@@ -197,8 +202,33 @@ function generarReciboPDF({ recibo, alumno }) {
 
   y += 70;
 
+  // ── Detalle por ítems (si el recibo se emitió detallado) ──
+  if (items.length > 0) {
+    doc.rect(50, y, 495, 22).fill(CAAA_GREEN)
+       .fillColor("white").fontSize(9).font("Helvetica-Bold")
+       .text("DESCRIPCIÓN", 55, y + 7, { width: 250 })
+       .text("CANT.", 310, y + 7, { width: 50, align: "right" })
+       .text("P. UNITARIO", 365, y + 7, { width: 70, align: "right" })
+       .text("SUBTOTAL", 440, y + 7, { width: 100, align: "right" });
+    y += 22;
+
+    doc.font("Helvetica").fontSize(9);
+    items.forEach((it, i) => {
+      const rowH = 20;
+      if (i % 2 === 0) doc.rect(50, y, 495, rowH).fillColor("#f0f9f3").fill();
+      doc.fillColor("#222")
+        .text(it.descripcion || "", 55, y + 6, { width: 250 })
+        .text(Number(it.cantidad).toFixed(2), 310, y + 6, { width: 50, align: "right" })
+        .text(`$${Number(it.precio_unitario).toFixed(2)}`, 365, y + 6, { width: 70, align: "right" })
+        .text(`$${Number(it.subtotal).toFixed(2)}`, 440, y + 6, { width: 100, align: "right" });
+      y += rowH;
+    });
+    y += 10;
+  }
+
   doc.rect(50, y, 495, 80).fillColor("#f0f9f3").fill();
-  doc.fillColor("#222").fontSize(10).font("Helvetica-Bold").text("LA CANTIDAD DE:", 65, y + 12);
+  doc.fillColor("#222").fontSize(10).font("Helvetica-Bold")
+     .text(items.length > 0 ? "TOTAL DEL INGRESO:" : "LA CANTIDAD DE:", 65, y + 12);
   doc.fontSize(22).fillColor(CAAA_GREEN).font("Helvetica-Bold")
      .text(`$${Number(recibo.monto_usd).toFixed(2)} USD`, 65, y + 30);
   doc.fontSize(9).fillColor("#5b6b63").font("Helvetica")
