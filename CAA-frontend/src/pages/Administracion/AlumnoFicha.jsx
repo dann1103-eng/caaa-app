@@ -5,6 +5,7 @@ import {
   getAlumnoFicha, actualizarAlumnoFicha, getLicencias,
   getDocumentosAlumno, subirDocumentoAlumno, revisarDocumento, getArchivoUrlDoc,
   getCuentaAlumno, getInstructoresDisponibles, getHistorialAlumno,
+  getPreciosAlumno, setPrecioAlumno,
 } from "../../services/administracionApi";
 import SaldoBadge from "../../components/SaldoBadge/SaldoBadge";
 import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
@@ -12,6 +13,7 @@ import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloMo
 const TABS = [
   { key: "perfil", label: "Perfil", icon: "bi-person-vcard" },
   { key: "documentos", label: "Documentos y contratos", icon: "bi-folder2-open" },
+  { key: "precios", label: "Precios por avión", icon: "bi-tags" },
   { key: "cuenta", label: "Cuenta corriente", icon: "bi-cash-stack" },
   { key: "historial", label: "Historial", icon: "bi-clock-history" },
 ];
@@ -37,6 +39,24 @@ export default function AlumnoFicha() {
   const [voucheraVuelo, setVoucheraVuelo] = useState(null); // id_vuelo de la vouchera abierta
   const [form, setForm] = useState(null);
   const [guardando, setGuardando] = useState(false);
+  const [precios, setPrecios] = useState(null); // precios por avión (lazy)
+
+  const loadPrecios = async () => {
+    try {
+      const r = await getPreciosAlumno(id_alumno);
+      if (r?.ok) setPrecios(r.data);
+    } catch { setPrecios([]); }
+  };
+  useEffect(() => { if (tab === "precios" && precios === null) loadPrecios(); }, [tab]);
+
+  const cambiarPrecioAvion = async (id_aeronave, id_tarifa) => {
+    try {
+      await setPrecioAlumno(id_alumno, { id_aeronave, id_tarifa: id_tarifa || null });
+      setPrecios((prev) => prev.map((p) =>
+        p.id_aeronave === id_aeronave ? { ...p, id_tarifa_asignada: id_tarifa ? Number(id_tarifa) : null } : p));
+      toast.success("Precio actualizado");
+    } catch (e) { toast.error(e?.response?.data?.message || "Error al asignar el precio"); }
+  };
 
   const load = async () => {
     try {
@@ -331,6 +351,68 @@ export default function AlumnoFicha() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── Precios por avión ── */}
+      {tab === "precios" && (
+        <div className="adf-card">
+          <h3><i className="bi bi-tags me-2"></i>Precios especiales por avión</h3>
+          <p style={{ color: "var(--c-ink-3)", fontSize: "0.88rem", marginTop: -6 }}>
+            Por defecto cada avión se cobra a su precio <strong>Estándar</strong>. Si a este alumno se le
+            cobra un precio distinto en algún avión, elegilo acá. Los precios especiales se crean en
+            <strong> Contabilidad → Tarifas → Aeronaves → Precios</strong>.
+          </p>
+          {precios === null ? (
+            <p style={{ color: "var(--c-ink-3)" }}>Cargando…</p>
+          ) : (
+            <table className="adf-table">
+              <thead>
+                <tr>
+                  <th>Avión</th>
+                  <th style={{ textAlign: "right" }}>Estándar</th>
+                  <th>Precio que se le cobra</th>
+                </tr>
+              </thead>
+              <tbody>
+                {precios.map((p) => {
+                  const especiales = Array.isArray(p.especiales) ? p.especiales : [];
+                  const asignada = p.id_tarifa_asignada;
+                  return (
+                    <tr key={p.id_aeronave}>
+                      <td><i className="bi bi-airplane-engines me-2"></i><strong>{p.codigo}</strong>
+                        <span style={{ color: "var(--c-ink-4)", marginLeft: 6, fontSize: "0.82rem" }}>{p.modelo}</span>
+                      </td>
+                      <td className="amount" style={{ textAlign: "right" }}>
+                        {p.tarifa_estandar != null ? `$${Number(p.tarifa_estandar).toFixed(2)}` : "—"}
+                      </td>
+                      <td>
+                        {especiales.length === 0 ? (
+                          <span style={{ color: "var(--c-ink-4)" }}>Estándar (sin precios especiales configurados)</span>
+                        ) : (
+                          <select
+                            value={asignada ?? ""}
+                            onChange={(e) => cambiarPrecioAvion(p.id_aeronave, e.target.value)}
+                            style={{ minWidth: 220 }}
+                          >
+                            <option value="">Estándar {p.tarifa_estandar != null ? `($${Number(p.tarifa_estandar).toFixed(2)})` : ""}</option>
+                            {especiales.map((e) => (
+                              <option key={e.id} value={e.id}>{e.nombre} (${Number(e.tarifa_hora_usd).toFixed(2)})</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {precios.length === 0 && (
+                  <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 24 }}>
+                    No hay aviones activos.
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
 

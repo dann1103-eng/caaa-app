@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import {
   getAeronaveTarifas, getAeronavesParaTarifa, upsertAeronaveTarifa,
   getInstructorTarifas, getInstructoresDisponibles, upsertInstructorTarifa,
-  getUsuariosPersonal, editarUsuarioPersonal
+  getUsuariosPersonal, editarUsuarioPersonal,
+  getNivelesAeronave, crearNivelTarifa, editarNivelTarifa, borrarNivelTarifa
 } from "../../services/administracionApi";
 import { fmtFecha } from "../../utils/fechas";
 
@@ -75,6 +76,12 @@ export default function Tarifas() {
   const [showAeroForm, setShowAeroForm] = useState(false);
   const [aeroForm, setAeroForm] = useState(EMPTY_AERO_FORM);
 
+  // Gestión de precios especiales de un avión (modal)
+  const [gestionAero, setGestionAero] = useState(null); // { id_aeronave, codigo, modelo, estandar }
+  const [niveles, setNiveles] = useState([]);
+  const [nivelForm, setNivelForm] = useState({ nombre: "", tarifa_hora_usd: "" });
+  const [editingNivel, setEditingNivel] = useState(null); // id del nivel en edición
+
   const [showInstForm, setShowInstForm] = useState(false);
   const [instForm, setInstForm] = useState(EMPTY_INST_FORM);
   const [editingInst, setEditingInst] = useState(null);
@@ -143,6 +150,59 @@ export default function Tarifas() {
       vigente_desde: new Date().toISOString().slice(0, 10)
     });
     setShowAeroForm(true);
+  };
+
+  // ── Precios especiales por avión ───────────────────────────────────
+  const abrirGestionPrecios = async (a) => {
+    if (!a.id_aeronave) return toast.error("Esta tarifa no está vinculada a un avión. Vinculala primero.");
+    setGestionAero({
+      id_aeronave: a.id_aeronave,
+      codigo: a.aeronave_codigo || a.modelo_aeronave,
+      modelo: a.aeronave_modelo || a.modelo_aeronave,
+      estandar: a.tarifa_hora_usd,
+    });
+    setNivelForm({ nombre: "", tarifa_hora_usd: "" });
+    setEditingNivel(null);
+    try {
+      const r = await getNivelesAeronave(a.id_aeronave);
+      if (r?.ok) setNiveles(r.data.filter(n => !n.es_estandar));
+    } catch { setNiveles([]); }
+  };
+
+  const recargarNiveles = async () => {
+    if (!gestionAero) return;
+    const r = await getNivelesAeronave(gestionAero.id_aeronave);
+    if (r?.ok) setNiveles(r.data.filter(n => !n.es_estandar));
+  };
+
+  const handleSaveNivel = async (e) => {
+    e.preventDefault();
+    if (!nivelForm.nombre.trim() || nivelForm.tarifa_hora_usd === "") {
+      return toast.error("Nombre y tarifa son requeridos");
+    }
+    try {
+      if (editingNivel) {
+        await editarNivelTarifa(editingNivel, { nombre: nivelForm.nombre.trim(), tarifa_hora_usd: Number(nivelForm.tarifa_hora_usd) });
+        toast.success("Precio actualizado");
+      } else {
+        await crearNivelTarifa({ id_aeronave: gestionAero.id_aeronave, nombre: nivelForm.nombre.trim(), tarifa_hora_usd: Number(nivelForm.tarifa_hora_usd) });
+        toast.success("Precio especial agregado");
+      }
+      setNivelForm({ nombre: "", tarifa_hora_usd: "" });
+      setEditingNivel(null);
+      recargarNiveles();
+      load();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+  };
+
+  const handleBorrarNivel = async (n) => {
+    if (!window.confirm(`¿Borrar el precio "${n.nombre}"? Los alumnos con este precio asignado volverán al estándar.`)) return;
+    try {
+      await borrarNivelTarifa(n.id);
+      toast.success("Precio borrado");
+      recargarNiveles();
+      load();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
   };
 
   // ── Instructor ─────────────────────────────────────────────────────
@@ -312,7 +372,8 @@ export default function Tarifas() {
             <thead>
               <tr>
                 <th>Aeronave</th>
-                <th style={{ textAlign: "right" }}>Tarifa USD/h</th>
+                <th style={{ textAlign: "right" }}>Tarifa estándar USD/h</th>
+                <th style={{ textAlign: "center" }}>Precios especiales</th>
                 <th>Vigente desde</th>
                 <th></th>
               </tr>
@@ -331,16 +392,91 @@ export default function Tarifas() {
                     )}
                   </td>
                   <td className="amount" style={{ textAlign: "right" }}>${Number(a.tarifa_hora_usd).toFixed(2)}</td>
+                  <td style={{ textAlign: "center" }}>
+                    {Number(a.precios_especiales) > 0
+                      ? <span className="adf-tag blue">{a.precios_especiales}</span>
+                      : <span style={{ color: "var(--c-ink-4)" }}>—</span>}
+                  </td>
                   <td style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>{fmtFecha(a.vigente_desde)}</td>
-                  <td style={{ textAlign: "right" }}>
-                    <button className="adf-btn small secondary" onClick={() => editAeroQuick(a)}>
-                      <i className="bi bi-pencil"></i>Cambiar tarifa
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button className="adf-btn small secondary" onClick={() => editAeroQuick(a)} title="Cambiar el precio estándar (se historia por fecha)">
+                      <i className="bi bi-pencil"></i>Cambiar estándar
                     </button>
+                    {a.id_aeronave && (
+                      <button className="adf-btn small secondary" style={{ marginLeft: 6 }} onClick={() => abrirGestionPrecios(a)}
+                        title="Precios especiales (Precio 1, Precio 2…) para asignar a alumnos">
+                        <i className="bi bi-tags"></i>Precios
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+
+          {/* Modal: precios especiales de un avión */}
+          {gestionAero && (
+            <div className="adf-modal-backdrop" onClick={() => setGestionAero(null)}>
+              <div className="adf-card adf-modal-card" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+                <h3 style={{ marginTop: 0 }}>
+                  <i className="bi bi-tags me-2"></i>Precios especiales — {gestionAero.codigo}
+                </h3>
+                <p style={{ color: "var(--c-ink-3)", fontSize: "0.85rem", marginTop: -4 }}>
+                  Estándar: <strong>${Number(gestionAero.estandar).toFixed(2)}/h</strong>. Creá precios con nombre
+                  (Precio 1, Precio 2…) para asignarlos a alumnos desde su ficha (pestaña "Precios por avión").
+                </p>
+
+                <table className="adf-table" style={{ marginTop: 8 }}>
+                  <thead><tr><th>Nombre</th><th style={{ textAlign: "right" }}>USD/h</th><th></th></tr></thead>
+                  <tbody>
+                    {niveles.length === 0 && (
+                      <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 16 }}>
+                        Sin precios especiales. Agregá el primero abajo.
+                      </td></tr>
+                    )}
+                    {niveles.map(n => (
+                      <tr key={n.id}>
+                        <td><i className="bi bi-tag me-2"></i>{n.nombre}</td>
+                        <td className="amount" style={{ textAlign: "right" }}>${Number(n.tarifa_hora_usd).toFixed(2)}</td>
+                        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                          <button className="adf-btn small secondary" onClick={() => { setEditingNivel(n.id); setNivelForm({ nombre: n.nombre, tarifa_hora_usd: n.tarifa_hora_usd }); }}>
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                          <button className="adf-btn small secondary" style={{ marginLeft: 6 }} onClick={() => handleBorrarNivel(n)}>
+                            <i className="bi bi-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <form onSubmit={handleSaveNivel} style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--c-line-2)" }}>
+                  <div className="adf-form-grid">
+                    <div className="adf-form-field">
+                      <label>{editingNivel ? "Editar nombre" : "Nombre del precio"}</label>
+                      <input value={nivelForm.nombre} placeholder="Precio 1, Beca, Convenio…"
+                        onChange={(e) => setNivelForm({ ...nivelForm, nombre: e.target.value })} />
+                    </div>
+                    <div className="adf-form-field">
+                      <label>Tarifa USD/h</label>
+                      <input type="number" step="0.01" min="0" value={nivelForm.tarifa_hora_usd}
+                        onChange={(e) => setNivelForm({ ...nivelForm, tarifa_hora_usd: e.target.value })} />
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                    {editingNivel && (
+                      <button type="button" className="adf-btn secondary" onClick={() => { setEditingNivel(null); setNivelForm({ nombre: "", tarifa_hora_usd: "" }); }}>
+                        Cancelar edición
+                      </button>
+                    )}
+                    <button type="submit" className="adf-btn"><i className="bi bi-check"></i>{editingNivel ? "Guardar" : "Agregar precio"}</button>
+                    <button type="button" className="adf-btn secondary" onClick={() => setGestionAero(null)}>Cerrar</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </>
       )}
 

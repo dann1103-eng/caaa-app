@@ -2,16 +2,173 @@ const db = require("../../config/db");
 
 exports.listAeronaveTarifas = async (req, res) => {
   try {
+    // Solo el precio ESTÁNDAR vigente de cada avión (los precios especiales se
+    // gestionan aparte, por avión). Se cuenta cuántos precios especiales tiene
+    // cada uno para mostrarlo en la tabla.
     const r = await db.query(`
       SELECT t.id, t.id_aeronave, t.modelo_aeronave, t.tarifa_hora_usd,
-             t.vigente_desde, t.vigente_hasta,
-             a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo
+             t.vigente_desde, t.vigente_hasta, t.nombre, t.es_estandar,
+             a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo,
+             (SELECT COUNT(*) FROM aeronave_tarifa e
+                WHERE e.id_aeronave = t.id_aeronave AND e.es_estandar = FALSE
+                  AND (e.vigente_hasta IS NULL OR e.vigente_hasta >= CURRENT_DATE)
+             ) AS precios_especiales
       FROM aeronave_tarifa t
       LEFT JOIN aeronave a ON a.id_aeronave = t.id_aeronave
-      WHERE t.vigente_hasta IS NULL OR t.vigente_hasta >= CURRENT_DATE
+      WHERE COALESCE(t.es_estandar, TRUE) = TRUE
+        AND (t.vigente_hasta IS NULL OR t.vigente_hasta >= CURRENT_DATE)
       ORDER BY t.modelo_aeronave, t.vigente_desde DESC
     `);
     res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/**
+ * Precios (estándar + especiales) vigentes de UN avión. Para el modal
+ * "Gestionar precios" y para poblar el selector en el perfil del alumno.
+ */
+exports.getNivelesAeronave = async (req, res) => {
+  try {
+    const { id_aeronave } = req.params;
+    const r = await db.query(`
+      SELECT id, id_aeronave, nombre, tarifa_hora_usd, es_estandar, vigente_desde
+      FROM aeronave_tarifa
+      WHERE id_aeronave = $1
+        AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
+      ORDER BY es_estandar DESC, nombre
+    `, [id_aeronave]);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/**
+ * Crea un PRECIO ESPECIAL (no estándar) para un avión: nombre + tarifa fija.
+ * No se versiona por fecha (Daniel: montos fijos editables) — queda vigente
+ * hasta que se edite o se borre.
+ */
+exports.crearNivelTarifa = async (req, res) => {
+  try {
+    const { id_aeronave, nombre, tarifa_hora_usd } = req.body;
+    if (!id_aeronave || !nombre?.trim() || tarifa_hora_usd == null || Number(tarifa_hora_usd) < 0) {
+      return res.status(400).json({ ok: false, message: "Avión, nombre y tarifa (>= 0) son requeridos" });
+    }
+    const aero = await db.query(`SELECT modelo FROM aeronave WHERE id_aeronave = $1`, [id_aeronave]);
+    if (aero.rows.length === 0) return res.status(400).json({ ok: false, message: "Aeronave no encontrada" });
+
+    const r = await db.query(`
+      INSERT INTO aeronave_tarifa (id_aeronave, modelo_aeronave, nombre, tarifa_hora_usd, es_estandar, vigente_desde, creado_por)
+      VALUES ($1, $2, $3, $4, FALSE, CURRENT_DATE, $5)
+      RETURNING *
+    `, [id_aeronave, aero.rows[0].modelo, nombre.trim(), tarifa_hora_usd, req.user?.id_usuario || null]);
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/** Edita un precio especial en el lugar (nombre y/o monto). Solo es_estandar=false. */
+exports.editarNivelTarifa = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, tarifa_hora_usd } = req.body;
+    const r = await db.query(`
+      UPDATE aeronave_tarifa
+      SET nombre = COALESCE(NULLIF($2, ''), nombre),
+          tarifa_hora_usd = COALESCE($3, tarifa_hora_usd)
+      WHERE id = $1 AND es_estandar = FALSE
+      RETURNING *
+    `, [id, nombre ?? null, tarifa_hora_usd != null && tarifa_hora_usd !== '' ? Number(tarifa_hora_usd) : null]);
+    if (r.rows.length === 0) return res.status(404).json({ ok: false, message: "Precio especial no encontrado" });
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/** Borra un precio especial (las asignaciones a alumnos caen por CASCADE → vuelven al estándar). */
+exports.borrarNivelTarifa = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await db.query(`DELETE FROM aeronave_tarifa WHERE id = $1 AND es_estandar = FALSE RETURNING id`, [id]);
+    if (r.rows.length === 0) return res.status(404).json({ ok: false, message: "Precio especial no encontrado" });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/**
+ * Precios por avión de un alumno: cada avión con su precio estándar, sus precios
+ * especiales disponibles, y cuál tiene asignado el alumno (id_tarifa o null=estándar).
+ */
+exports.getPreciosAlumno = async (req, res) => {
+  try {
+    const { id_alumno } = req.params;
+    const r = await db.query(`
+      SELECT a.id_aeronave, a.codigo, a.modelo,
+             est.id AS id_tarifa_estandar, est.tarifa_hora_usd AS tarifa_estandar,
+             ata.id_tarifa AS id_tarifa_asignada,
+             COALESCE(
+               (SELECT json_agg(json_build_object(
+                   'id', e.id, 'nombre', e.nombre, 'tarifa_hora_usd', e.tarifa_hora_usd)
+                   ORDER BY e.nombre)
+                FROM aeronave_tarifa e
+                WHERE e.id_aeronave = a.id_aeronave AND e.es_estandar = FALSE
+                  AND (e.vigente_hasta IS NULL OR e.vigente_hasta >= CURRENT_DATE)),
+               '[]'
+             ) AS especiales
+      FROM aeronave a
+      LEFT JOIN LATERAL (
+        SELECT id, tarifa_hora_usd FROM aeronave_tarifa
+        WHERE id_aeronave = a.id_aeronave AND es_estandar = TRUE
+          AND (vigente_hasta IS NULL OR vigente_hasta >= CURRENT_DATE)
+        ORDER BY vigente_desde DESC LIMIT 1
+      ) est ON TRUE
+      LEFT JOIN alumno_tarifa_aeronave ata
+        ON ata.id_aeronave = a.id_aeronave AND ata.id_alumno = $1
+      WHERE a.activa = TRUE
+      ORDER BY a.codigo
+    `, [id_alumno]);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/**
+ * Asigna (o quita, si id_tarifa es null) el precio especial de un avión a un alumno.
+ * Valida que la tarifa sea un precio especial de ESE avión.
+ */
+exports.setPrecioAlumno = async (req, res) => {
+  try {
+    const { id_alumno } = req.params;
+    const { id_aeronave, id_tarifa } = req.body;
+    if (!id_aeronave) return res.status(400).json({ ok: false, message: "id_aeronave requerido" });
+
+    if (id_tarifa == null || id_tarifa === '') {
+      // Quitar la asignación → el alumno vuelve al precio estándar.
+      await db.query(`DELETE FROM alumno_tarifa_aeronave WHERE id_alumno = $1 AND id_aeronave = $2`, [id_alumno, id_aeronave]);
+      return res.json({ ok: true, data: null });
+    }
+
+    const t = await db.query(
+      `SELECT id FROM aeronave_tarifa WHERE id = $1 AND id_aeronave = $2 AND es_estandar = FALSE`,
+      [id_tarifa, id_aeronave]
+    );
+    if (t.rows.length === 0) return res.status(400).json({ ok: false, message: "El precio no corresponde a ese avión" });
+
+    const r = await db.query(`
+      INSERT INTO alumno_tarifa_aeronave (id_alumno, id_aeronave, id_tarifa, asignado_por)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (id_alumno, id_aeronave)
+      DO UPDATE SET id_tarifa = EXCLUDED.id_tarifa, asignado_por = EXCLUDED.asignado_por, asignado_en = now()
+      RETURNING *
+    `, [id_alumno, id_aeronave, id_tarifa, req.user?.id_usuario || null]);
+    res.json({ ok: true, data: r.rows[0] });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
   }
@@ -82,24 +239,25 @@ exports.upsertAeronaveTarifa = async (req, res) => {
       modelo_aeronave = aero.rows[0].modelo;
     }
 
-    // Cerrar la tarifa vigente anterior: por id_aeronave si lo hay, si no por modelo.
+    // Cerrar la tarifa ESTÁNDAR vigente anterior (los precios especiales NO se
+    // tocan). Por id_aeronave si lo hay, si no por modelo.
     if (id_aeronave) {
       await client.query(`
         UPDATE aeronave_tarifa
         SET vigente_hasta = ($1::date - INTERVAL '1 day')
-        WHERE id_aeronave = $2 AND vigente_hasta IS NULL
+        WHERE id_aeronave = $2 AND vigente_hasta IS NULL AND COALESCE(es_estandar, TRUE) = TRUE
       `, [vigente_desde, id_aeronave]);
     } else {
       await client.query(`
         UPDATE aeronave_tarifa
         SET vigente_hasta = ($1::date - INTERVAL '1 day')
-        WHERE modelo_aeronave = $2 AND id_aeronave IS NULL AND vigente_hasta IS NULL
+        WHERE modelo_aeronave = $2 AND id_aeronave IS NULL AND vigente_hasta IS NULL AND COALESCE(es_estandar, TRUE) = TRUE
       `, [vigente_desde, modelo_aeronave]);
     }
 
     const r = await client.query(`
-      INSERT INTO aeronave_tarifa (id_aeronave, modelo_aeronave, tarifa_hora_usd, vigente_desde, creado_por)
-      VALUES ($1, $2, $3, $4, $5) RETURNING *
+      INSERT INTO aeronave_tarifa (id_aeronave, modelo_aeronave, nombre, tarifa_hora_usd, es_estandar, vigente_desde, creado_por)
+      VALUES ($1, $2, 'Estándar', $3, TRUE, $4, $5) RETURNING *
     `, [id_aeronave || null, modelo_aeronave, tarifa_hora_usd, vigente_desde, req.user?.id_usuario || null]);
     await client.query("COMMIT");
     res.json({ ok: true, data: r.rows[0] });

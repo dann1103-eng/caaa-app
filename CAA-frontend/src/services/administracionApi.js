@@ -8,6 +8,13 @@ export const getAeronaveTarifas    = async () => (await axios.get(`${BASE}/tarif
 export const getAeronavesParaTarifa = async () => (await axios.get(`${BASE}/tarifas/aeronaves/lista`)).data;
 export const getHistorialAeronave  = async ({ id_aeronave, modelo } = {}) => (await axios.get(`${BASE}/tarifas/aeronaves/historial`, { params: { id_aeronave, modelo } })).data;
 export const upsertAeronaveTarifa  = async (payload) => (await axios.put(`${BASE}/tarifas/aeronaves`, payload)).data;
+// Precios especiales por avión (niveles) + asignación por alumno
+export const getNivelesAeronave    = async (idAero) => (await axios.get(`${BASE}/tarifas/aeronaves/${idAero}/niveles`)).data;
+export const crearNivelTarifa      = async (payload) => (await axios.post(`${BASE}/tarifas/niveles`, payload)).data;
+export const editarNivelTarifa     = async (id, payload) => (await axios.patch(`${BASE}/tarifas/niveles/${id}`, payload)).data;
+export const borrarNivelTarifa     = async (id) => (await axios.delete(`${BASE}/tarifas/niveles/${id}`)).data;
+export const getPreciosAlumno      = async (idAlumno) => (await axios.get(`${BASE}/alumnos/${idAlumno}/precios-aeronave`)).data;
+export const setPrecioAlumno       = async (idAlumno, payload) => (await axios.put(`${BASE}/alumnos/${idAlumno}/precios-aeronave`, payload)).data;
 export const getInstructorTarifas       = async () => (await axios.get(`${BASE}/tarifas/instructores`)).data;
 export const getInstructoresDisponibles = async () => (await axios.get(`${BASE}/tarifas/instructores/disponibles`)).data;
 export const upsertInstructorTarifa     = async (payload) => (await axios.put(`${BASE}/tarifas/instructores`, payload)).data;

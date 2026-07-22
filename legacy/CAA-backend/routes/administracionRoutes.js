@@ -47,6 +47,13 @@ router.get("/tarifas/aeronaves",            roleMiddleware(READ_ROLES),  tarifas
 router.get("/tarifas/aeronaves/lista",      roleMiddleware(READ_ROLES),  tarifas.listAeronaves);
 router.get("/tarifas/aeronaves/historial",  roleMiddleware(READ_ROLES),  tarifas.historialAeronave);
 router.put("/tarifas/aeronaves",            roleMiddleware(WRITE_ROLES), tarifas.upsertAeronaveTarifa);
+// Precios especiales por avión (niveles) + asignación por alumno
+router.get("/tarifas/aeronaves/:id_aeronave/niveles", roleMiddleware(READ_ROLES),  tarifas.getNivelesAeronave);
+router.post("/tarifas/niveles",             roleMiddleware(WRITE_ROLES), tarifas.crearNivelTarifa);
+router.patch("/tarifas/niveles/:id",        roleMiddleware(WRITE_ROLES), tarifas.editarNivelTarifa);
+router.delete("/tarifas/niveles/:id",       roleMiddleware(WRITE_ROLES), tarifas.borrarNivelTarifa);
+router.get("/alumnos/:id_alumno/precios-aeronave", roleMiddleware(READ_ROLES),  tarifas.getPreciosAlumno);
+router.put("/alumnos/:id_alumno/precios-aeronave", roleMiddleware(WRITE_ROLES), tarifas.setPrecioAlumno);
 router.get("/tarifas/instructores",         roleMiddleware(READ_ROLES),  tarifas.listInstructorTarifas);
 router.get("/tarifas/instructores/disponibles", roleMiddleware(READ_ROLES), tarifas.listInstructoresDisponibles);
 router.put("/tarifas/instructores",         roleMiddleware(WRITE_ROLES), tarifas.upsertInstructorTarifa);
