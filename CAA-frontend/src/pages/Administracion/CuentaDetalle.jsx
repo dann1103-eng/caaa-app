@@ -39,7 +39,7 @@ export default function CuentaDetalle() {
   const [openPanel, setOpenPanel] = useState(null); // 'recibo' | 'cargo' | null
   const [editing, setEditing] = useState(null);
 
-  const [recForm, setRecForm] = useState({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "" });
+  const [recForm, setRecForm] = useState({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "", fecha: new Date().toISOString().slice(0, 10) });
   const [cargoForm, setCargoForm] = useState(EMPTY_FORM);
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM, motivo_edicion: "" });
   const [conceptos, setConceptos] = useState([]);
@@ -80,10 +80,10 @@ export default function CuentaDetalle() {
   const handleRecibo = async (e) => {
     e.preventDefault();
     try {
-      await crearRecibo({ id_alumno: Number(id), ...recForm, monto_usd: Number(recForm.monto_usd) });
+      await crearRecibo({ id_alumno: Number(id), ...recForm, monto_usd: Number(recForm.monto_usd), fecha: recForm.fecha || null });
       toast.success("Depósito registrado.");
       setOpenPanel(null);
-      setRecForm({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "" });
+      setRecForm({ monto_usd: "", metodo: "EFECTIVO", referencia: "", descripcion: "", fecha: new Date().toISOString().slice(0, 10) });
       load();
     } catch (e) { toast.error(e?.response?.data?.message || "Error al registrar depósito."); }
   };
@@ -130,10 +130,27 @@ export default function CuentaDetalle() {
   };
 
   const handleAnular = async (m) => {
-    const motivo = prompt("Motivo de anulación:");
-    if (!motivo) return;
-    try { await anularMovimiento(m.id, motivo); toast.success("Movimiento anulado."); load(); }
-    catch (e) { toast.error(e?.response?.data?.message || "Error."); }
+    // Borrado tipo Excel: la fila desaparece y los saldos se recalculan solos.
+    if (!window.confirm("¿Borrar este movimiento de la cuenta? Los saldos se recalculan automáticamente.")) return;
+
+    // Si tiene un documento fiscal ligado (recibo/factura), preguntar si también
+    // se borra ese documento o solo se quita el movimiento de la cuenta.
+    const docTxt = m.recibo_correlativo
+      ? `recibo #${m.recibo_correlativo}`
+      : m.factura_correlativo ? `factura #${m.factura_correlativo}` : null;
+    let borrar_documento = false;
+    if (docTxt) {
+      borrar_documento = window.confirm(
+        `Este movimiento tiene un ${docTxt} asociado.\n\n` +
+        `• Aceptar → borrar también el ${docTxt}.\n` +
+        `• Cancelar → dejar el ${docTxt} en su listado y solo quitar el movimiento de la cuenta.`
+      );
+    }
+    try {
+      await anularMovimiento(m.id, { borrar_documento });
+      toast.success("Movimiento borrado.");
+      load();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error al borrar."); }
   };
 
   if (!cuenta) return <p style={{ padding: 24, color: "var(--c-ink-3)" }}>Cargando…</p>;
@@ -216,6 +233,11 @@ export default function CuentaDetalle() {
           <h3><i className="bi bi-receipt"></i> Registrar depósito</h3>
           <form onSubmit={handleRecibo}>
             <div className="adf-form-grid">
+              <div className="adf-form-field">
+                <label>Fecha</label>
+                <input type="date" required value={recForm.fecha}
+                  onChange={(e) => setRecForm({...recForm, fecha: e.target.value})} />
+              </div>
               <div className="adf-form-field">
                 <label>Monto USD</label>
                 <input type="number" step="0.01" min="0.01" required value={recForm.monto_usd}

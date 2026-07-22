@@ -51,10 +51,12 @@ exports.create = async (req, res) => {
     const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) + Number(monto_usd);
     await client.query(`UPDATE cuenta_corriente_alumno SET saldo_actual_usd = $2, ultimo_movimiento_en = NOW() WHERE id_alumno = $1`, [id_alumno, nuevo_saldo]);
 
+    // La fecha del movimiento sigue la del recibo (COALESCE a NOW()), para que
+    // un abono con fecha anterior quede en su lugar cronológico en el extracto.
     await client.query(`
-      INSERT INTO movimiento_cuenta (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, id_recibo, registrado_por)
-      VALUES ($1, 'DEPOSITO', $2, $3, $4, $5, $6)
-    `, [id_alumno, `Depósito - Recibo #${numero} (${metodo})`, Number(monto_usd), nuevo_saldo, recibo.rows[0].id, req.user?.id_usuario || null]);
+      INSERT INTO movimiento_cuenta (id_alumno, tipo, fecha, descripcion, monto_usd, saldo_resultante_usd, id_recibo, registrado_por)
+      VALUES ($1, 'DEPOSITO', COALESCE($2, NOW()), $3, $4, $5, $6, $7)
+    `, [id_alumno, fecha || null, `Depósito - Recibo #${numero} (${metodo})`, Number(monto_usd), nuevo_saldo, recibo.rows[0].id, req.user?.id_usuario || null]);
 
     await client.query("COMMIT");
 

@@ -32,7 +32,9 @@ export const getConceptosCobro      = async (params) => (await axios.get(`${BASE
 export const crearConceptoCobro     = async (payload) => (await axios.post(`${BASE}/conceptos-cobro`, payload)).data;
 export const actualizarConceptoCobro = async (id, payload) => (await axios.patch(`${BASE}/conceptos-cobro/${id}`, payload)).data;
 export const editarMovimiento   = async (idMov, payload) => (await axios.patch(`${BASE}/movimientos/${idMov}`, payload)).data;
-export const anularMovimiento   = async (idMov, motivo) => (await axios.patch(`${BASE}/movimientos/${idMov}/anular`, { motivo })).data;
+// Borra el movimiento por completo (tipo Excel). payload: { borrar_documento }
+// para borrar también el recibo/factura ligado.
+export const anularMovimiento   = async (idMov, payload = {}) => (await axios.patch(`${BASE}/movimientos/${idMov}/anular`, payload)).data;
 
 // ── Recibos ─────────────────────────────────────────────────────────
 export const getRecibos    = async (params) => (await axios.get(`${BASE}/recibos`, { params })).data;

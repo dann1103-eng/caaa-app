@@ -70,7 +70,7 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
                 <td className="adf-hoja__nota">{m.nota || ""}</td>
                 <td className="adf-hoja__num adf-hoja__debe">{debe != null ? fmt(debe) : ""}</td>
                 <td className="adf-hoja__num adf-hoja__haber">{haber != null ? fmt(haber) : ""}</td>
-                <td className="adf-hoja__num adf-hoja__saldo">{fmt(m.saldo_resultante_usd)}</td>
+                <td className="adf-hoja__num adf-hoja__saldo">{fmt(m.saldo_corrido ?? m.saldo_resultante_usd)}</td>
                 {showActions && (
                   <td className="adf-hoja__actions">
                     {!m.anulado && (
@@ -85,11 +85,11 @@ export default function MovimientoCuentaTable({ movimientos = [], onEditar, onAn
                         </button>
                         <button
                           className="adf-hoja__action-btn adf-hoja__action-btn--danger"
-                          title="Anular movimiento"
+                          title="Borrar movimiento"
                           onClick={() => onAnular && onAnular(m)}
-                          aria-label="Anular"
+                          aria-label="Borrar"
                         >
-                          <i className="bi bi-slash-circle"></i>
+                          <i className="bi bi-trash"></i>
                         </button>
                       </>
                     )}

@@ -83,23 +83,42 @@ exports.getExtracto = async (req, res) => {
   try {
     const { id_alumno } = req.params;
     const { desde, hasta } = req.query;
+    // El SALDO de cada fila se calcula AL LEER como suma corrida ordenada por
+    // (fecha, id) — NO se lee de la columna guardada `saldo_resultante_usd`
+    // (que quedaba congelada y desincronizada al meter/editar movimientos con
+    // fecha anterior). Así el extracto se comporta como Excel: insertás o
+    // editás cualquier movimiento con cualquier fecha y todos los saldos de
+    // abajo se recalculan solos. El campo se llama `saldo_corrido`.
+    //
+    // La suma corrida se calcula en el CTE sobre TODOS los movimientos del
+    // alumno; el filtro de fechas (desde/hasta) solo limita las filas que se
+    // muestran, no el punto de partida del saldo.
     const params = [id_alumno];
-    let where = "WHERE m.id_alumno = $1";
-    if (desde) { params.push(desde); where += ` AND m.fecha >= $${params.length}`; }
-    if (hasta) { params.push(hasta); where += ` AND m.fecha <= $${params.length}`; }
+    let dateFilter = "";
+    if (desde) { params.push(desde); dateFilter += ` AND base.fecha >= $${params.length}`; }
+    if (hasta) { params.push(hasta); dateFilter += ` AND base.fecha <= $${params.length}`; }
     const r = await db.query(`
-      SELECT m.*,
+      WITH base AS (
+        SELECT m.*,
+               SUM(m.monto_usd) OVER (
+                 ORDER BY m.fecha ASC, m.id ASC
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+               ) AS saldo_corrido
+        FROM movimiento_cuenta m
+        WHERE m.id_alumno = $1
+      )
+      SELECT base.*,
              f.numero_correlativo AS factura_correlativo,
              r.numero_correlativo AS recibo_correlativo,
              u.username AS registrado_por_username,
              ue.username AS editado_por_username
-      FROM movimiento_cuenta m
-      LEFT JOIN factura f ON f.id = m.id_factura
-      LEFT JOIN recibo_pago r ON r.id = m.id_recibo
-      LEFT JOIN usuario u ON u.id_usuario = m.registrado_por
-      LEFT JOIN usuario ue ON ue.id_usuario = m.editado_por
-      ${where}
-      ORDER BY m.fecha ASC, m.id ASC
+      FROM base
+      LEFT JOIN factura f ON f.id = base.id_factura
+      LEFT JOIN recibo_pago r ON r.id = base.id_recibo
+      LEFT JOIN usuario u ON u.id_usuario = base.registrado_por
+      LEFT JOIN usuario ue ON ue.id_usuario = base.editado_por
+      WHERE TRUE ${dateFilter}
+      ORDER BY base.fecha ASC, base.id ASC
       LIMIT 500
     `, params);
     res.json({ ok: true, data: r.rows });
@@ -366,20 +385,12 @@ exports.editarMovimiento = async (req, res) => {
       motivo_edicion
     ]);
 
-    // Si cambió el monto, recalcular saldos en cascada
+    // El saldo corrido por fila se calcula AL LEER (getExtracto), así que no hay
+    // que parchear `saldo_resultante_usd` en cascada — cambiar monto o fecha se
+    // refleja solo. Solo mantenemos el saldo TOTAL del alumno = suma de todos
+    // sus movimientos (independiente del orden, así que basta re-sumar).
     if (diff !== 0) {
-      // Bloquear cuenta
-      await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [mov.id_alumno]);
-
-      // Sumar diff al saldo_resultante de este y todos los movimientos posteriores
-      await client.query(`
-        UPDATE movimiento_cuenta
-        SET saldo_resultante_usd = saldo_resultante_usd + $1
-        WHERE id_alumno = $2
-          AND (fecha > $3 OR (fecha = $3 AND id >= $4))
-      `, [diff, mov.id_alumno, mov.fecha, mov.id]);
-
-      // Recalcular el saldo actual del alumno
+      await client.query(`SELECT 1 FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [mov.id_alumno]);
       await client.query(`
         UPDATE cuenta_corriente_alumno c
         SET saldo_actual_usd = (
@@ -406,52 +417,62 @@ exports.editarMovimiento = async (req, res) => {
 };
 
 /**
- * Anular un movimiento manual (no se borra, queda con bandera anulado=true).
+ * Borrar un movimiento — comportamiento tipo Excel: la fila DESAPARECE por
+ * completo (no queda bandera `anulado` ni una fila de "Anulación"), y el saldo
+ * corrido de las demás se recalcula solo al leer (getExtracto).
+ *
+ * `borrar_documento` (bool): si el movimiento tiene un recibo o factura ligado
+ * y el usuario lo confirmó, se borra también ese documento (con sus detalles).
+ * Si es false, el documento fiscal queda en su listado y solo se quita el
+ * movimiento de la cuenta.
  */
 exports.anularMovimiento = async (req, res) => {
   const client = await db.connect();
   try {
     const { id } = req.params;
-    const { motivo } = req.body;
-    if (!motivo) return res.status(400).json({ ok: false, message: "Motivo requerido" });
+    const borrarDocumento = req.body?.borrar_documento === true;
 
     await client.query("BEGIN");
     const movRes = await client.query(
-      `SELECT * FROM movimiento_cuenta WHERE id = $1 AND anulado = FALSE FOR UPDATE`,
+      `SELECT * FROM movimiento_cuenta WHERE id = $1 FOR UPDATE`,
       [id]
     );
     if (movRes.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ ok: false, message: "Movimiento no encontrado o ya anulado" });
+      return res.status(404).json({ ok: false, message: "Movimiento no encontrado" });
     }
     const mov = movRes.rows[0];
 
-    await client.query(`
-      UPDATE movimiento_cuenta
-      SET anulado = TRUE, motivo_anulacion = $2, editado_en = NOW(), editado_por = $3
-      WHERE id = $1
-    `, [id, motivo, req.user?.id_usuario || null]);
+    // Borrar el movimiento de la cuenta.
+    await client.query(`DELETE FROM movimiento_cuenta WHERE id = $1`, [id]);
 
-    // Restituir el saldo: insertar movimiento ANULACION con monto opuesto
-    let cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [mov.id_alumno]);
-    const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) - Number(mov.monto_usd);
-    await client.query(
-      `UPDATE cuenta_corriente_alumno SET saldo_actual_usd = $2, ultimo_movimiento_en = NOW() WHERE id_alumno = $1`,
-      [mov.id_alumno, nuevo_saldo]
-    );
-    await client.query(`
-      INSERT INTO movimiento_cuenta
-        (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, registrado_por)
-      VALUES ($1, 'ANULACION', $2, $3, $4, $5)
-    `, [
-      mov.id_alumno,
-      `Anulación movimiento #${mov.id}: ${motivo}`,
-      -Number(mov.monto_usd),
-      nuevo_saldo,
-      req.user?.id_usuario || null
-    ]);
+    // Si se pidió, borrar también el documento fiscal ligado (primero sus
+    // detalles hijos por las llaves foráneas).
+    if (borrarDocumento) {
+      if (mov.id_recibo) {
+        await client.query(`DELETE FROM recibo_detalle WHERE id_recibo = $1`, [mov.id_recibo]);
+        await client.query(`DELETE FROM recibo_pago WHERE id = $1`, [mov.id_recibo]);
+      }
+      if (mov.id_factura) {
+        await client.query(`DELETE FROM factura_detalle WHERE id_factura = $1`, [mov.id_factura]);
+        await client.query(`DELETE FROM factura WHERE id = $1`, [mov.id_factura]);
+      }
+    }
+
+    // Recalcular el saldo total del alumno = suma de los movimientos que quedan.
+    await client.query(`SELECT 1 FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [mov.id_alumno]);
+    const saldoRes = await client.query(`
+      UPDATE cuenta_corriente_alumno c
+      SET saldo_actual_usd = (SELECT COALESCE(SUM(monto_usd), 0) FROM movimiento_cuenta WHERE id_alumno = $1),
+          ultimo_movimiento_en = NOW()
+      WHERE c.id_alumno = $1
+      RETURNING saldo_actual_usd
+    `, [mov.id_alumno]);
+    const nuevo_saldo = saldoRes.rows.length ? Number(saldoRes.rows[0].saldo_actual_usd) : 0;
 
     await client.query("COMMIT");
+    const io = req.app.get("io");
+    if (io) io.emit("cuenta_alumno_movimiento", { id_alumno: mov.id_alumno, saldo: nuevo_saldo });
     res.json({ ok: true, saldo: nuevo_saldo });
   } catch (e) {
     await client.query("ROLLBACK");
