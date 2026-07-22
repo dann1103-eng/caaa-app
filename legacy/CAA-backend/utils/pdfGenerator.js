@@ -197,8 +197,29 @@ function generarReciboPDF({ recibo, alumno, items = [] }) {
   doc.fontSize(9).font("Helvetica-Bold").fillColor("#222").text("RECIBO No.", 50, y)
      .font("Helvetica").fontSize(14).fillColor(CAAA_GREEN).text(`#${recibo.numero_correlativo}`, 50, y + 12);
 
-  doc.fontSize(9).fillColor("#222").font("Helvetica-Bold").text("RECIBIDO DE", 250, y)
-     .font("Helvetica").fontSize(11).text(alumno?.username || `Alumno #${recibo.id_alumno}`, 250, y + 14);
+  doc.fontSize(9).fillColor("#222").font("Helvetica-Bold").text("RECIBIDO DE", 250, y);
+  let yInfo = y + 14;
+  const nombreCompleto = [alumno?.nombre, alumno?.apellido].filter(Boolean).join(" ")
+    || alumno?.username || `Alumno #${recibo.id_alumno}`;
+  doc.font("Helvetica-Bold").fontSize(11).fillColor("#222").text(nombreCompleto, 250, yInfo, { width: 295 });
+  yInfo += 15;
+
+  doc.font("Helvetica").fontSize(8).fillColor("#5b6b63");
+  if (alumno?.es_extranjero && alumno?.pasaporte) {
+    doc.text(`Pasaporte: ${alumno.pasaporte}${alumno?.nacionalidad ? ` · ${alumno.nacionalidad}` : ""}`, 250, yInfo, { width: 295 });
+    yInfo += 12;
+  } else if (alumno?.dui) {
+    doc.text(`DUI: ${alumno.dui}`, 250, yInfo, { width: 295 });
+    yInfo += 12;
+  }
+  if (alumno?.direccion) {
+    doc.text(alumno.direccion, 250, yInfo, { width: 295 });
+    yInfo += 12;
+  }
+  if (alumno?.telefono) {
+    doc.text(`Tel: ${alumno.telefono}`, 250, yInfo, { width: 295 });
+    yInfo += 12;
+  }
 
   y += 70;
 

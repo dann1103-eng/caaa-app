@@ -138,7 +138,10 @@ exports.pdf = async (req, res) => {
   try {
     const { id } = req.params;
     const r = await db.query(`
-      SELECT r.*, u.username AS alumno_username, u.correo AS alumno_correo
+      SELECT r.*, u.username AS alumno_username, u.correo AS alumno_correo,
+             u.nombre, u.apellido, u.dui, u.direccion,
+             u.es_extranjero, u.pasaporte, u.nacionalidad,
+             COALESCE(u.telefono, a.telefono) AS telefono
       FROM recibo_pago r
       LEFT JOIN alumno a ON a.id_alumno = r.id_alumno
       LEFT JOIN usuario u ON u.id_usuario = a.id_usuario
@@ -155,7 +158,16 @@ exports.pdf = async (req, res) => {
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="recibo-${recibo.numero_correlativo}.pdf"`);
-    const pdf = generarReciboPDF({ recibo, alumno: { username: recibo.alumno_username, correo: recibo.alumno_correo }, items: det.rows });
+    const pdf = generarReciboPDF({
+      recibo,
+      alumno: {
+        username: recibo.alumno_username, correo: recibo.alumno_correo,
+        nombre: recibo.nombre, apellido: recibo.apellido, dui: recibo.dui, direccion: recibo.direccion,
+        es_extranjero: recibo.es_extranjero, pasaporte: recibo.pasaporte, nacionalidad: recibo.nacionalidad,
+        telefono: recibo.telefono,
+      },
+      items: det.rows,
+    });
     pdf.pipe(res);
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
