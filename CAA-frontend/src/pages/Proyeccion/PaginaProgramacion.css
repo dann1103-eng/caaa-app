@@ -18,6 +18,15 @@
 }
 
 /* ── Reset & Base ───────────────────────────────────────────────────────── */
+
+/* Mientras la proyección esté montada, el body entero es oscuro: el rebote
+   del scroll en iOS (rubber-band) y cualquier pixel fuera de .pp mostraban el
+   body blanco — el "límite raro" al deslizar en el celular. Navegadores sin
+   :has() ignoran la regla (quedan como antes, no peor). */
+body:has(.pp) {
+  background: var(--pp-bg, #0b0f19);
+}
+
 .pp {
   /* Scope: los widgets COMPARTIDOS (MetarWidget, EstadoFlota, Mantenimiento)
      heredan la paleta OSCURA de la proyección en vez de salir blancos. */
@@ -809,6 +818,10 @@
     height: auto;
     min-height: 100vh;
     overflow: visible;
+    /* Cualquier resto que sobresalga de lado se recorta SIN crear un scroll
+       container (clip ≠ hidden): la página solo scrollea vertical y nunca se
+       ve el body blanco al costado. */
+    overflow-x: clip;
   }
 
   /* Topbar: el METAR crudo no cabe en el ancho del teléfono (el decodificado
@@ -837,9 +850,13 @@
   .pp__clock-utc { font-size: 1.05rem; }
   .pp__clock-time { font-size: 1.35rem; }
 
-  /* Grid principal: una sola columna, altura natural (scrollea la página) */
+  /* Grid principal: una sola columna, altura natural (scrollea la página).
+     minmax(0,1fr) — NO `1fr` a secas: un track 1fr tiene min-width:auto y las
+     tablas anchas (min-width 560px) lo estiraban más allá del teléfono,
+     dejando el body blanco visible al costado. Con el track clavado al ancho
+     del viewport, el overflow-x:auto de .pp__tbl-wrap recién puede actuar. */
   .pp__dashboard-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     height: auto;
     gap: 14px;
   }
@@ -849,6 +866,9 @@
     overflow-y: visible;
     padding-right: 0;
     gap: 14px;
+    /* Ítems de grid también tienen min-width:auto — sin esto el contenido
+       ancho vuelve a empujar la columna. */
+    min-width: 0;
   }
 
   /* Tablas anchas: scroll horizontal DENTRO de la tarjeta (la página nunca
