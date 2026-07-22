@@ -201,3 +201,7 @@ export const abrirPyLPDF = async ({ desde, hasta, mensual, categorias }) => {
   });
   window.open(URL.createObjectURL(new Blob([res.data], { type: "application/pdf" })), "_blank", "noopener");
 };
+
+// ── Avisos (ticker + push, por perfil) ─────────────────────────────────
+export const publicarAviso = async ({ mensaje, destinatarios, enviarTicker, enviarPush }) =>
+  (await axios.post(`${BASE}/avisos`, { mensaje, destinatarios, enviarTicker, enviarPush })).data;

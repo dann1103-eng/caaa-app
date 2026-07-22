@@ -270,8 +270,8 @@ exports.avanzarEstadoVuelo = async (req, res) => {
         try {
           const info = await db.query(
             `SELECT ae.codigo AS aeronave,
-                    LEFT(u_al.nombre,1) || '. ' || u_al.apellido AS alumno,
-                    LEFT(u_ins.nombre,1) || '. ' || u_ins.apellido AS instructor
+                    LEFT(u_al.nombre,1) || '. ' || split_part(u_al.apellido,' ',1) AS alumno,
+                    LEFT(u_ins.nombre,1) || '. ' || split_part(u_ins.apellido,' ',1) AS instructor
                FROM vuelo v
                JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
                LEFT JOIN alumno al ON al.id_alumno = v.id_alumno
@@ -289,7 +289,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
             title: esSalida ? "🛫 Salida de hangar" : "🛬 Regreso a hangar",
             body: partes.join(" · "),
             url: "/turno", tag: "hangar",
-          }, { excluirUid: user?.id_usuario });
+          }, { excluirUid: user?.id_usuario, tipo: "VUELO_ESTADO" });
         } catch (e) { console.error("push hangar:", e.message); }
       })();
     }
@@ -453,11 +453,20 @@ exports.registrarInasistencia = async (req, res) => {
 
 exports.getTicker = async (req, res) => {
   try {
+    // destinatarios NULL = para todos (avisos de Turno, comportamiento de
+    // siempre). destinatarios = {..} = solo se muestra a esos roles — la
+    // pantalla pública de Proyección entra con la llave y por eso
+    // proyeccionMiddleware le pone req.user.rol='PROYECCION', así que un
+    // aviso dirigido a "Proyección" (Administración → Avisos) también se
+    // filtra con este mismo criterio, sin caso especial.
+    const rol = req.user?.rol || null;
     const r = await db.query(
       `SELECT id_mensaje, contenido, creado_en FROM mensaje_turno
        WHERE activo = true AND tipo = 'TURNO'
          AND (expira_en IS NULL OR expira_en > (NOW() AT TIME ZONE 'America/El_Salvador'))
-       ORDER BY creado_en ASC`
+         AND (destinatarios IS NULL OR $1 = ANY(destinatarios))
+       ORDER BY creado_en ASC`,
+      [rol]
     );
     res.json(r.rows);
   } catch (e) {
@@ -509,7 +518,7 @@ exports.publicarTicker = async (req, res) => {
     // Push a todo el staff: aviso del ticker.
     notificarStaff(
       { title: "📢 Aviso de Turno", body: mensaje.trim(), url: "/turno", tag: "ticker" },
-      { excluirUid: user?.id_usuario }
+      { excluirUid: user?.id_usuario, tipo: "TICKER" }
     );
 
     res.json(row);
@@ -730,7 +739,7 @@ exports.setEstadoOperaciones = async (req, res) => {
       estado_general === "INACTIVO"
         ? { title: "⛔ Operaciones suspendidas", body: `Motivo: ${motivo_inactivo || "—"}${explicacion_detallada ? " · " + explicacion_detallada : ""}`, url: "/turno", tag: "ops" }
         : { title: "✅ Operaciones activas", body: "Las operaciones fueron reactivadas.", url: "/turno", tag: "ops" },
-      { excluirUid: user?.id_usuario }
+      { excluirUid: user?.id_usuario, tipo: "OPERACIONES" }
     );
 
     res.json(payload);
@@ -1224,7 +1233,7 @@ exports.editarTripulacion = async (req, res) => {
       title: "Tripulación actualizada",
       body: `Vuelo #${vuelo.id_vuelo} — cambio hecho por Turno`,
       url: "/turno", tag: "tripulacion",
-    }, { excluirUid: user?.id_usuario }).catch(() => {});
+    }, { excluirUid: user?.id_usuario, tipo: "TRIPULACION" }).catch(() => {});
 
     res.json({ message: "Tripulación actualizada", id_vuelo: vuelo.id_vuelo });
   } catch (e) {

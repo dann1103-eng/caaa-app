@@ -635,6 +635,18 @@ export default function InstructorDashboard() {
     if (!porDia[v.dia_semana]) porDia[v.dia_semana] = [];
     porDia[v.dia_semana].push(v);
   }
+  // Dentro de cada día: los vuelos ya COMPLETADOS bajan al final (siguen
+  // ahí para el reporte/loadsheet pendiente, pero ya no compiten por
+  // atención con los que faltan por hacer). Entre sí, se mantiene el
+  // orden cronológico normal.
+  for (const dia of Object.keys(porDia)) {
+    porDia[dia].sort((a, b) => {
+      const doneA = a.estado === "COMPLETADO" ? 1 : 0;
+      const doneB = b.estado === "COMPLETADO" ? 1 : 0;
+      if (doneA !== doneB) return doneA - doneB;
+      return String(a.hora_inicio || "").localeCompare(String(b.hora_inicio || ""));
+    });
+  }
   const diasBase = Object.keys(porDia).map(Number).sort();
   const hoyNum = new Date().getDay();
   const diaHoyDb = hoyNum === 0 ? 7 : hoyNum; // Ajustar si domingo es 7

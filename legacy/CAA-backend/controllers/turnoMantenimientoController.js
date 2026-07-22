@@ -230,7 +230,7 @@ exports.iniciarMantenimientoAeronave = catchAsync(async (req, res) => {
         body: `${String(descripcion).trim()} · ${idsCancelados.length} vuelo(s) cancelado(s)`,
         url: "/turno", tag: `mant-${id}`,
       },
-      { excluirUid: user?.id_usuario }
+      { excluirUid: user?.id_usuario, tipo: "MANTENIMIENTO" }
     );
 
     res.json({ message: "Aeronave en mantenimiento", id_mantenimiento, vuelos_cancelados: idsCancelados.length });
@@ -295,7 +295,7 @@ exports.completarMantenimientoAeronave = catchAsync(async (req, res) => {
 
     notificarStaff(
       { title: `✅ ${codigo} operativa`, body: "Mantenimiento efectuado, la aeronave vuelve al servicio.", url: "/turno", tag: `mant-${id}` },
-      { excluirUid: user?.id_usuario }
+      { excluirUid: user?.id_usuario, tipo: "MANTENIMIENTO" }
     );
 
     res.json({ message: "Mantenimiento completado, aeronave operativa" });

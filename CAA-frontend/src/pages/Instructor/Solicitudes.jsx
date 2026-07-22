@@ -10,12 +10,16 @@ import {
   getSolicitudesResumenInstructor,
   guardarCambiosSolicitudInstructor,
   crearSolicitudInstructor,
+  crearSolicitudPracticaInstructor,
   eliminarSolicitudInstructor,
   guardarRemarksSolicitud,
   enviarSolicitudInstructor,
   enviarTodasSolicitudesInstructor,
+  getInstructoresVuelo,
 } from "../../services/instructorApi";
 import "./Solicitudes.css";
+
+const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
 const ESTADO_BADGE = {
   BORRADOR: { label: "Borrador", cls: "isol-badge--borrador" },
@@ -38,6 +42,9 @@ export default function InstructorSolicitudes() {
   const [loading, setLoading] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [agendarCell, setAgendarCell] = useState(null);
+  const [instructoresVuelo, setInstructoresVuelo] = useState([]);
+  const [practica, setPractica] = useState({ dia_semana: 1, id_bloque: "", id_aeronave: "", id_instructor_pic: "", tipo_instruccion: "CHEQUEO" });
+  const [enviandoPractica, setEnviandoPractica] = useState(false);
 
   const miIdInstructor = (() => {
     try { return JSON.parse(localStorage.getItem("user"))?.id_instructor || null; } catch { return null; }
@@ -46,11 +53,12 @@ export default function InstructorSolicitudes() {
   const reload = async () => {
     setLoading(true);
     try {
-      const [cal, res, b, blq] = await Promise.all([
+      const [cal, res, b, blq, ins] = await Promise.all([
         getSolicitudesCalendarioInstructor("next"),
         getSolicitudesResumenInstructor(),
         getBloquesHorario(),
         getBloquesBloqueados(),
+        getInstructoresVuelo(),
       ]);
       setItems(Array.isArray(cal?.items) ? cal.items : []);
       setAeronaves(Array.isArray(cal?.aeronaves) ? cal.aeronaves : []);
@@ -58,6 +66,7 @@ export default function InstructorSolicitudes() {
       setResumen(res || { semana: null, alumnos: [] });
       setBloques(Array.isArray(b) ? b : []);
       setBloqueos(Array.isArray(blq) ? blq : []);
+      setInstructoresVuelo(Array.isArray(ins) ? ins.filter((i) => Number(i.id_instructor) !== Number(miIdInstructor)) : []);
       setPendingMoves([]);
       setDragging(null);
     } catch (e) {
@@ -68,6 +77,29 @@ export default function InstructorSolicitudes() {
   };
 
   useEffect(() => { reload(); }, []);
+
+  const puedeSolicitarPractica = !publicada && practica.id_bloque && practica.id_aeronave && practica.id_instructor_pic && !enviandoPractica;
+
+  const solicitarPractica = async () => {
+    if (!puedeSolicitarPractica) return;
+    setEnviandoPractica(true);
+    try {
+      await crearSolicitudPracticaInstructor({
+        dia_semana: Number(practica.dia_semana),
+        id_bloque: Number(practica.id_bloque),
+        id_aeronave: Number(practica.id_aeronave),
+        id_instructor_pic: Number(practica.id_instructor_pic),
+        tipo_instruccion: practica.tipo_instruccion,
+      });
+      toast.success("Vuelo de práctica solicitado");
+      setPractica((p) => ({ ...p, id_bloque: "", id_aeronave: "", id_instructor_pic: "" }));
+      reload();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "No se pudo solicitar el vuelo de práctica");
+    } finally {
+      setEnviandoPractica(false);
+    }
+  };
 
   // Mover una tarjeta MÍA (drag & drop): se acumula y se guarda con el botón.
   const handleDrop = (target) => {
@@ -165,6 +197,81 @@ export default function InstructorSolicitudes() {
             <i className="bi bi-lock"></i> La semana ya fue publicada por programación — no se puede editar.
           </div>
         )}
+
+        <div className="isol__card" style={{ marginBottom: 18 }}>
+          <div className="isol__card-top">
+            <span className="isol__card-name"><i className="bi bi-mortarboard" style={{ marginRight: 6 }}></i>Vuelo de práctica (con otro instructor)</span>
+          </div>
+          <p className="isol__hint" style={{ marginTop: 4 }}>
+            ¿Vas a recibir instrucción de otro instructor (chequeo o refresh)? Solicitalo acá — vos sos el practicante, elegí quién será el PIC.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10, alignItems: "flex-end" }}>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--c-ink-3, #64748b)", display: "block", marginBottom: 4 }}>Día</label>
+              <select
+                value={practica.dia_semana}
+                disabled={publicada}
+                onChange={(e) => setPractica((p) => ({ ...p, dia_semana: Number(e.target.value) }))}
+                style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid var(--c-line-2, #e2e8f0)" }}
+              >
+                {[1, 2, 3, 4, 5, 6].map((d) => <option key={d} value={d}>{DIAS[d]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--c-ink-3, #64748b)", display: "block", marginBottom: 4 }}>Bloque</label>
+              <select
+                value={practica.id_bloque}
+                disabled={publicada}
+                onChange={(e) => setPractica((p) => ({ ...p, id_bloque: e.target.value }))}
+                style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid var(--c-line-2, #e2e8f0)" }}
+              >
+                <option value="">— Elegí —</option>
+                {bloques.map((b) => <option key={b.id_bloque} value={b.id_bloque}>{String(b.hora_inicio).slice(0,5)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--c-ink-3, #64748b)", display: "block", marginBottom: 4 }}>Aeronave</label>
+              <select
+                value={practica.id_aeronave}
+                disabled={publicada}
+                onChange={(e) => setPractica((p) => ({ ...p, id_aeronave: e.target.value }))}
+                style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid var(--c-line-2, #e2e8f0)" }}
+              >
+                <option value="">— Elegí —</option>
+                {aeronaves.map((a) => (
+                  <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} — {a.modelo}{a.en_mantenimiento ? " (en mantenimiento)" : ""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--c-ink-3, #64748b)", display: "block", marginBottom: 4 }}>PIC (instructor que instruye)</label>
+              <select
+                value={practica.id_instructor_pic}
+                disabled={publicada}
+                onChange={(e) => setPractica((p) => ({ ...p, id_instructor_pic: e.target.value }))}
+                style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid var(--c-line-2, #e2e8f0)" }}
+              >
+                <option value="">— Elegí al PIC —</option>
+                {instructoresVuelo.map((i) => <option key={i.id_instructor} value={i.id_instructor}>{i.nombre_completo}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--c-ink-3, #64748b)", display: "block", marginBottom: 4 }}>Sub-tipo</label>
+              <select
+                value={practica.tipo_instruccion}
+                disabled={publicada}
+                onChange={(e) => setPractica((p) => ({ ...p, tipo_instruccion: e.target.value }))}
+                style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid var(--c-line-2, #e2e8f0)" }}
+              >
+                <option value="CHEQUEO">Chequeo — lo paga la escuela</option>
+                <option value="REFRESH">Refresh — se me cobra manual</option>
+              </select>
+            </div>
+            <button className="isol__send-one" disabled={!puedeSolicitarPractica} onClick={solicitarPractica}>
+              <i className="bi bi-send"></i> {enviandoPractica ? "Solicitando…" : "Solicitar"}
+            </button>
+          </div>
+        </div>
 
         <div className="isol__grid">
           {/* Calendario */}

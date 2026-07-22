@@ -48,18 +48,47 @@ async function enviarA(rows, payloadObj) {
   }));
 }
 
-// Notifica a TODO el staff (usuarios activos que no son ALUMNO). Best-effort.
-async function notificarStaff(payloadObj, { excluirUid = null } = {}) {
+// Roles que pueden recibir push (todos salvo ALUMNO, que no tiene el toggle
+// en el Header). Fuente única — la usa también adminPushConfigController.
+const ROLES_STAFF = ["ADMIN", "ADMINISTRACION", "PROGRAMACION", "TURNO", "INSTRUCTOR", "TALLER", "DUENO"];
+
+// Tipos de evento que disparan push, con etiqueta para la UI de Administración.
+// Fuente única — nuevo call-site de notificarStaff debe sumar su tipo acá.
+const TIPOS_PUSH = [
+  { tipo: "CICLO_TURNO",   label: "Ciclo del turno (abrir/pausa/cambio/cierre)" },
+  { tipo: "VUELO_ESTADO",  label: "Salida/regreso de hangar, vuelo completado" },
+  { tipo: "TICKER",        label: "Aviso publicado en el ticker de Turno" },
+  { tipo: "OPERACIONES",   label: "Abrir/cerrar operaciones (suspensión clima/NOTAM)" },
+  { tipo: "TRIPULACION",   label: "Turno cambia la tripulación de un vuelo" },
+  { tipo: "MANTENIMIENTO", label: "Aeronave entra/sale de mantenimiento imprevisto" },
+];
+
+// Notifica al staff filtrando por rol según la config de `tipo` (Administración
+// → Notificaciones push). Si `tipo` no viene, o no tiene ninguna fila
+// configurada todavía, cae al comportamiento anterior (todo no-ALUMNO) — así
+// un tipo nuevo que alguien agregue sin sembrar su config no se queda mudo.
+async function notificarStaff(payloadObj, { excluirUid = null, tipo = null } = {}) {
   if (!habilitado) return;
   try {
     const params = [];
+    let rolFilter = `u.rol <> 'ALUMNO'`;
+    if (tipo) {
+      const cfg = await db.query(
+        `SELECT rol FROM push_notificacion_config WHERE tipo = $1 AND habilitado = true`,
+        [tipo]
+      );
+      if (cfg.rows.length > 0) {
+        params.push(cfg.rows.map((r) => r.rol));
+        rolFilter = `u.rol = ANY($${params.length}::text[])`;
+      }
+    }
     let extra = "";
-    if (excluirUid) { params.push(excluirUid); extra = `AND ps.id_usuario <> $1`; }
+    if (excluirUid) { params.push(excluirUid); extra = `AND ps.id_usuario <> $${params.length}`; }
     const r = await db.query(
       `SELECT ps.endpoint, ps.p256dh, ps.auth
          FROM push_subscription ps
          JOIN usuario u ON u.id_usuario = ps.id_usuario
-        WHERE u.rol <> 'ALUMNO' AND u.activo = true ${extra}`,
+        WHERE ${rolFilter} AND u.activo = true ${extra}`,
       params
     );
     await enviarA(r.rows, payloadObj);
@@ -68,4 +97,36 @@ async function notificarStaff(payloadObj, { excluirUid = null } = {}) {
   }
 }
 
-module.exports = { guardarSuscripcion, eliminarSuscripcion, notificarStaff, vapidPublicKey: PUB, habilitado };
+// Aviso puntual compuesto a mano (Administración → Avisos), dirigido a los
+// roles que el que lo compone elige EN ESE MOMENTO — a diferencia de
+// notificarStaff (rutea eventos automáticos según la matriz configurada), acá
+// no hay matriz: `roles=null` es "a todos" (incluido ALUMNO, si ya tiene el
+// toggle activado), un array es "solo a esos roles".
+async function notificarPorRol(payloadObj, roles = null, { excluirUid = null } = {}) {
+  if (!habilitado) return;
+  try {
+    const params = [];
+    let rolFilter = "";
+    if (Array.isArray(roles) && roles.length > 0) {
+      params.push(roles);
+      rolFilter = `AND u.rol = ANY($${params.length}::text[])`;
+    }
+    let extra = "";
+    if (excluirUid) { params.push(excluirUid); extra = `AND ps.id_usuario <> $${params.length}`; }
+    const r = await db.query(
+      `SELECT ps.endpoint, ps.p256dh, ps.auth
+         FROM push_subscription ps
+         JOIN usuario u ON u.id_usuario = ps.id_usuario
+        WHERE u.activo = true ${rolFilter} ${extra}`,
+      params
+    );
+    await enviarA(r.rows, payloadObj);
+  } catch (e) {
+    console.error("[webpush] notificarPorRol:", e.message);
+  }
+}
+
+module.exports = {
+  guardarSuscripcion, eliminarSuscripcion, notificarStaff, notificarPorRol,
+  vapidPublicKey: PUB, habilitado, ROLES_STAFF, TIPOS_PUSH,
+};

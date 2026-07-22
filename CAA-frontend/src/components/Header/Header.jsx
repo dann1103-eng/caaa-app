@@ -102,9 +102,8 @@ export default function Header() {
                     </Link>
                   )}
 
-                  {user.rol !== "ALUMNO" && (
-                    <PushToggle className="header__action-link" onDone={closeMenu} />
-                  )}
+                  <PushToggle className="header__action-link" onDone={closeMenu} />
+
 
                   <Link to="/perfil" className="header__action-link" onClick={closeMenu}>
                     <i className="bi bi-person header__action-icon" />

@@ -169,7 +169,8 @@ async function aplicarMovimientos(client, {
   const infoRes = await client.query(
     `SELECT sv.id_detalle, ss.id_alumno, ss.id_solicitud,
             sv.id_bloque AS orig_id_bloque, sv.id_bloque_fin AS orig_id_bloque_fin,
-            COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor
+            COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor,
+            al.id_usuario AS alumno_id_usuario
        FROM solicitud_vuelo sv
        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
        JOIN alumno al ON al.id_alumno = ss.id_alumno

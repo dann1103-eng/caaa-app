@@ -56,7 +56,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
         { label: "Agendar vuelos", path: "/admin/agendar", icon: "bi-calendar-plus" },
         // ADMIN entra al dashboard de Turno como super-usuario (p.ej. para
         // publicar avisos del ticker); ProtectedTurno ya lo permite.
-        { label: "Turno", path: "/turno/dashboard", icon: "bi-megaphone" },
+        { label: "Turno", path: "/turno", icon: "bi-megaphone" },
         { label: "Cancelaciones", path: "/admin/cancelaciones", icon: "bi-x-circle", badge: pendingCancelCount },
       ],
     },
@@ -73,6 +73,8 @@ export default function AdminSidebar({ isOpen, onClose }) {
         { label: "Aula Virtual", path: "/administracion/aula-virtual", icon: "bi-mortarboard-fill" },
         { label: "Voucheras", path: "/administracion/voucheras", icon: "bi-file-earmark-text" },
         { label: "Reportes", path: "/administracion/reportes", icon: "bi-bar-chart" },
+        { label: "Avisos", path: "/administracion/avisos", icon: "bi-megaphone" },
+        { label: "Notificaciones push", path: "/administracion/notificaciones-push", icon: "bi-bell" },
       ],
     },
     {

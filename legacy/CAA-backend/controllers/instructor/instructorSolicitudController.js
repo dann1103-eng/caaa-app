@@ -44,7 +44,11 @@ exports.getCalendario = async (req, res) => {
         i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
         LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
         COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular,
-        (COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) = $2) AS es_mio
+        -- "Mío" también cuando SOY el practicante (CHEQUEO_LINEA donde otro
+        -- instructor es el PIC): sv.id_instructor ahí es el PIC, no yo, así
+        -- que sin este OR mi propia solicitud de práctica quedaba invisible
+        -- e imposible de editar/quitar en mi propio calendario.
+        (COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) = $2 OR al.id_usuario = $3) AS es_mio
       FROM solicitud_vuelo sv
       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
       JOIN bloque_horario b ON b.id_bloque = sv.id_bloque
@@ -58,9 +62,9 @@ exports.getCalendario = async (req, res) => {
         AND ss.estado NOT IN ('RECHAZADA', 'CANCELADA')
         AND (sv.estado IS NULL OR sv.estado != 'RECHAZADA')
         AND (v.estado IS NULL OR v.estado != 'CANCELADO')
-        AND COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) = $2
+        AND (COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) = $2 OR al.id_usuario = $3)
       ORDER BY b.hora_inicio, sv.dia_semana, ae.modelo
-    `, [id_semana, idInstructor]);
+    `, [id_semana, idInstructor, req.user.id_usuario]);
 
     // Aeronaves para el popover (el instructor puede cambiar de avión). Se
     // devuelven TODAS (incluidas las que hoy están en el taller, con el detalle
@@ -181,10 +185,14 @@ exports.guardarCambios = async (req, res) => {
     await solicitudService.aplicarMovimientos(client, {
       id_semana,
       movimientos,
-      // Todos los detalles movidos deben tener como instructor efectivo a este.
+      // Todos los detalles movidos deben tener como instructor efectivo a este,
+      // o ser mi propia solicitud de práctica (donde el "instructor" de la fila
+      // es el PIC, no yo — ver mismo criterio en getCalendario).
       assertOwnership: (infoPorDetalle) => {
         for (const info of infoPorDetalle.values()) {
-          if (Number(info.id_instructor) !== Number(idInstructor)) {
+          const esMio = Number(info.id_instructor) === Number(idInstructor)
+            || Number(info.alumno_id_usuario) === Number(req.user.id_usuario);
+          if (!esMio) {
             throw Object.assign(new Error("Solo podés mover vuelos de tus alumnos"), { status: 403 });
           }
         }
@@ -282,6 +290,63 @@ exports.crearSolicitud = async (req, res) => {
 };
 
 /**
+ * POST /instructor/solicitudes/practica  { dia_semana, id_bloque, id_bloque_fin?, id_aeronave, tipo_vuelo?, id_instructor_pic, tipo_instruccion }
+ * Solicita un vuelo de práctica (CHEQUEO_LINEA) donde YO soy el practicante
+ * (instructor que recibe instrucción) y otro instructor es el PIC — mismo
+ * basket-por-semana que las solicitudes de mis alumnos, aditivo, semana
+ * próxima no publicada. Ocupa mi propia ficha espejo (es_practicante), que
+ * insertarSolicitudVuelo/resolverVueloEspecial ya sabe crear/reutilizar
+ * (mismo mecanismo que usa Programación al armar un CHEQUEO_LINEA).
+ */
+exports.crearSolicitudPractica = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const idInstructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!idInstructor) return res.status(403).json({ message: "No sos instructor" });
+
+    const { dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, id_instructor_pic, tipo_instruccion } = req.body;
+    if (!dia_semana || !id_bloque || !id_aeronave || !id_instructor_pic || !tipo_instruccion) {
+      return res.status(400).json({ message: "Faltan datos del vuelo (bloque, aeronave, PIC y sub-tipo son obligatorios)" });
+    }
+
+    const semana = await solicitudService.getNextSemana(client);
+    if (!semana) return res.status(404).json({ message: "No hay semana próxima" });
+    if (semana.publicada) return res.status(403).json({ message: "La semana ya está publicada" });
+
+    await client.query("BEGIN");
+    const out = await solicitudService.insertarSolicitudVuelo(client, {
+      id_semana: semana.id_semana, dia_semana, id_bloque, id_bloque_fin,
+      id_aeronave, tipo_vuelo,
+      id_instructor: Number(id_instructor_pic),
+      categoria: "CHEQUEO_LINEA",
+      id_usuario_practicante: req.user.id_usuario,
+      tipo_instruccion,
+      // Misma facultad que al pedir para un alumno: puede solicitar aunque la
+      // aeronave o el PIC ya estén pedidos en ese horario — el choque real lo
+      // resuelve Programación al publicar.
+      saltarConflictoAeronave: true,
+      saltarConflictoInstructor: true,
+    });
+    await client.query("COMMIT");
+
+    const io = req.app.get("io");
+    if (io) io.emit("guardar_cambios", { origen: "instructor" });
+
+    res.json({ message: "Vuelo de práctica solicitado", ...out });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "VALIDATION" || e.status === 400) return res.status(400).json({ message: e.message });
+    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23506") return res.status(409).json({ message: "Ya tenés un vuelo en ese horario" });
+    if (e.code === "23507") return res.status(409).json({ message: "El PIC ya tiene un vuelo en ese horario" });
+    console.error("instructorSolicitud.crearSolicitudPractica:", e);
+    res.status(500).json({ message: "Error al solicitar el vuelo de práctica" });
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * DELETE /instructor/solicitudes/:id_detalle
  * Quita un vuelo de un alumno mío (seguro pre-publicación: aún no hay vuelo).
  */
@@ -294,7 +359,8 @@ exports.eliminarSolicitud = async (req, res) => {
     const { id_detalle } = req.params;
     const info = await client.query(`
       SELECT sv.id_detalle, w.publicada,
-             COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor
+             COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor,
+             al.id_usuario AS alumno_id_usuario
       FROM solicitud_vuelo sv
       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
       JOIN alumno al ON al.id_alumno = ss.id_alumno
@@ -302,7 +368,10 @@ exports.eliminarSolicitud = async (req, res) => {
       WHERE sv.id_detalle = $1
     `, [id_detalle]);
     if (info.rows.length === 0) return res.status(404).json({ message: "Vuelo no encontrado" });
-    if (Number(info.rows[0].id_instructor) !== Number(idInstructor)) {
+    // Mío también si soy el practicante (ver comentario en getCalendario).
+    const esMio = Number(info.rows[0].id_instructor) === Number(idInstructor)
+      || Number(info.rows[0].alumno_id_usuario) === Number(req.user.id_usuario);
+    if (!esMio) {
       return res.status(403).json({ message: "Solo podés quitar vuelos de tus alumnos" });
     }
     if (info.rows[0].publicada) return res.status(403).json({ message: "La semana ya fue publicada" });
@@ -343,7 +412,8 @@ exports.guardarRemarks = async (req, res) => {
 
     const info = await db.query(`
       SELECT sv.id_detalle, w.publicada,
-             COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor
+             COALESCE(sv.id_instructor, al.id_instructor_vuelo, al.id_instructor) AS id_instructor,
+             al.id_usuario AS alumno_id_usuario
       FROM solicitud_vuelo sv
       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
       JOIN alumno al ON al.id_alumno = ss.id_alumno
@@ -351,7 +421,9 @@ exports.guardarRemarks = async (req, res) => {
       WHERE sv.id_detalle = $1
     `, [id_detalle]);
     if (info.rows.length === 0) return res.status(404).json({ message: "Vuelo no encontrado" });
-    if (Number(info.rows[0].id_instructor) !== Number(idInstructor)) {
+    const esMio = Number(info.rows[0].id_instructor) === Number(idInstructor)
+      || Number(info.rows[0].alumno_id_usuario) === Number(req.user.id_usuario);
+    if (!esMio) {
       return res.status(403).json({ message: "Solo podés comentar vuelos de tus alumnos" });
     }
     if (info.rows[0].publicada) return res.status(403).json({ message: "La semana ya fue publicada" });

@@ -24,6 +24,7 @@ const aula     = require("../controllers/administracion/aulaVirtualController");
 const adminUsuario = require("../controllers/admin/adminUsuarioController");
 const conceptos = require("../controllers/administracion/conceptoCobroController");
 const voucheras = require("../controllers/administracion/voucherasController");
+const avisos = require("../controllers/administracion/avisosController");
 
 // Upload de documentos: en memoria, para subir el buffer a Supabase Storage
 // (persistente). El disco de Railway es efímero y se borra en cada redeploy.
@@ -36,6 +37,11 @@ router.use(authMiddleware);
 // módulo. El ADMIN del sistema opera como super-usuario (admin + administración).
 const READ_ROLES = ["ADMINISTRACION", "ADMIN"];
 const WRITE_ROLES = ["ADMINISTRACION", "ADMIN"];
+
+// ── Avisos (ticker + push, por perfil) ────────────────────────────────
+// Solo ADMIN (no ADMINISTRACION) — a diferencia del resto del módulo, que
+// comparten WRITE_ROLES.
+router.post("/avisos", roleMiddleware(["ADMIN"]), avisos.publicarAviso);
 
 // ── Ficha de alumno (consolidada) ─────────────────────────────────────
 router.get("/licencias",                    roleMiddleware(READ_ROLES),  adminUsuario.listLicencias);

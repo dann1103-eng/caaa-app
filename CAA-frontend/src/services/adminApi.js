@@ -237,4 +237,15 @@ export const agregarBloquesMantenimientoAeronave = async (id_aeronave, id_manten
   return res.data;
 };
 
+// ── Configuración de notificaciones push por rol ──────────────────────────────
+export const getPushConfig = async () => {
+  const res = await axios.get(`${API_URL}/admin/push-config`);
+  return res.data;
+};
+
+export const updatePushConfig = async (cambios) => {
+  const res = await axios.put(`${API_URL}/admin/push-config`, { cambios });
+  return res.data;
+};
+
 
