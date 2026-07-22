@@ -117,12 +117,12 @@ exports.list = async (req, res) => {
  * fiscales aparte que se emiten manualmente cuando hace falta (emitirManual).
  *
  * @param {pg.Client} client - cliente dentro de transacción
- * @param {Object} params - { id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por, es_extracurricular }
+ * @param {Object} params - { id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por, es_extracurricular, horas_acumuladas_antes }
  * @returns {Object} { id_alumno, saldo_resultante, tarifa, total, es_extracurricular }
  */
 exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(client, {
   id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por,
-  es_extracurricular = false
+  es_extracurricular = false, horas_acumuladas_antes
 }) {
   // PRECIO ESPECIAL del alumno para este avión (si tiene uno asignado en su
   // perfil): tiene prioridad sobre el estándar. Ver alumno_tarifa_aeronave.
@@ -188,11 +188,20 @@ exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(c
   `, [id_vuelo]);
   const m = meta.rows[0] || {};
 
+  // Base de horas acumuladas ANTES de esta vouchera. El caller (instructorReporteController)
+  // la toma como snapshot al principio de la transacción, antes de tocar
+  // alumno.horas_acumuladas — así el H.T. impreso es siempre "horas previas + horas de
+  // esta vouchera", una sola vez. Si no llega el snapshot (por si algún día se llama desde
+  // otro lado), se cae a leer al.horas_acumuladas en vivo (comportamiento anterior).
+  const horasBase = horas_acumuladas_antes != null
+    ? Number(horas_acumuladas_antes)
+    : Number(m.horas_totales_alumno || 0);
+
   // Para vuelos extracurriculares: se cobra igual, pero NO se suma a las horas
   // totales (de licencia) ni se actualiza el avance del curso. Se etiqueta con nota.
   const horasTotalesMov = es_extracurricular
-    ? Number(m.horas_totales_alumno || 0)
-    : Number(m.horas_totales_alumno || 0) + Number(tacometro);
+    ? horasBase
+    : horasBase + Number(tacometro);
   const notaMov = es_extracurricular ? 'Extracurricular' : null;
   const descMov = es_extracurricular
     ? `Vuelo extracurricular #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`

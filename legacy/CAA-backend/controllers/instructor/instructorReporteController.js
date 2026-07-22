@@ -223,6 +223,21 @@ exports.firmarReporteVuelo = async (req, res) => {
     try {
       await client.query("BEGIN");
 
+      // Snapshot de horas_acumuladas del alumno ANTES de tocar nada en esta
+      // transacción. Más abajo, si el vuelo suma horas de licencia, se
+      // incrementa alumno.horas_acumuladas — pero el H.T. que se imprime en el
+      // extracto (movimiento_cuenta.horas_totales) se calcula SIEMPRE como
+      // "esta base + las horas de esta vouchera" una sola vez, sin importar en
+      // qué orden corran las cosas más abajo (ver cargarVueloACuentaDentroTx).
+      let horasAcumuladasAntes = null;
+      if (!esInasistencia) {
+        const alumnoSnap = await client.query(
+          `SELECT al.horas_acumuladas FROM vuelo v LEFT JOIN alumno al ON al.id_alumno = v.id_alumno WHERE v.id_vuelo = $1`,
+          [id]
+        );
+        horasAcumuladasAntes = Number(alumnoSnap.rows[0]?.horas_acumuladas || 0);
+      }
+
       // Validar checklist solo si NO es inasistencia y NO es simulador (el
       // checklist post-vuelo es de aeronave física — frenos, hélice, etc.).
       if (!esInasistencia && !esSimulador) {
@@ -378,7 +393,8 @@ exports.firmarReporteVuelo = async (req, res) => {
               modelo_aeronave: info.modelo_aeronave,
               fecha: info.fecha,
               emitida_por: req.user.id_usuario,
-              es_extracurricular: info.es_extracurricular
+              es_extracurricular: info.es_extracurricular,
+              horas_acumuladas_antes: horasAcumuladasAntes
             });
           }
         } catch (eFin) {
