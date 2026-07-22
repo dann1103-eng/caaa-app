@@ -29,8 +29,28 @@ exports.list = async (req, res) => {
 exports.create = async (req, res) => {
   const client = await db.connect();
   try {
-    const { id_alumno, monto_usd, metodo, referencia, descripcion, fecha } = req.body;
-    if (!id_alumno || !monto_usd || !metodo) {
+    const { id_alumno, monto_usd, metodo, referencia, descripcion, fecha, items } = req.body;
+
+    // Detalle por ítems (opcional): si viene, el TOTAL del recibo se calcula
+    // acá (cantidad × precio unitario por línea) — el monto del cliente se
+    // ignora para que nunca difiera de la suma del detalle.
+    let detalle = [];
+    if (Array.isArray(items) && items.length > 0) {
+      for (const it of items) {
+        const desc = String(it?.descripcion ?? "").trim();
+        const cant = Number(it?.cantidad);
+        const precio = Number(it?.precio_unitario);
+        if (!desc) return res.status(400).json({ ok: false, message: "Cada ítem necesita una descripción" });
+        if (!isFinite(cant) || cant <= 0) return res.status(400).json({ ok: false, message: `Cantidad inválida en "${desc}"` });
+        if (!isFinite(precio) || precio < 0) return res.status(400).json({ ok: false, message: `Precio unitario inválido en "${desc}"` });
+        detalle.push({ descripcion: desc.slice(0, 300), cantidad: cant, precio_unitario: precio, subtotal: Math.round(cant * precio * 100) / 100 });
+      }
+    }
+    const montoFinal = detalle.length
+      ? Math.round(detalle.reduce((s, d) => s + d.subtotal, 0) * 100) / 100
+      : Number(monto_usd);
+
+    if (!id_alumno || !montoFinal || montoFinal <= 0 || !metodo) {
       return res.status(400).json({ ok: false, message: "Datos incompletos" });
     }
     await client.query("BEGIN");
@@ -40,7 +60,14 @@ exports.create = async (req, res) => {
     const recibo = await client.query(`
       INSERT INTO recibo_pago (numero_correlativo, id_alumno, fecha, monto_usd, metodo, referencia, descripcion, registrado_por)
       VALUES ($1, $2, COALESCE($3, NOW()), $4, $5, $6, $7, $8) RETURNING *
-    `, [numero, id_alumno, fecha || null, monto_usd, metodo, referencia || null, descripcion || null, req.user?.id_usuario || null]);
+    `, [numero, id_alumno, fecha || null, montoFinal, metodo, referencia || null, descripcion || null, req.user?.id_usuario || null]);
+
+    for (const d of detalle) {
+      await client.query(`
+        INSERT INTO recibo_detalle (id_recibo, descripcion, cantidad, precio_unitario, subtotal)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [recibo.rows[0].id, d.descripcion, d.cantidad, d.precio_unitario, d.subtotal]);
+    }
 
     // Asegurar fila de cuenta
     let cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
@@ -48,13 +75,13 @@ exports.create = async (req, res) => {
       await client.query(`INSERT INTO cuenta_corriente_alumno (id_alumno, saldo_actual_usd) VALUES ($1, 0)`, [id_alumno]);
       cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
     }
-    const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) + Number(monto_usd);
+    const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) + montoFinal;
     await client.query(`UPDATE cuenta_corriente_alumno SET saldo_actual_usd = $2, ultimo_movimiento_en = NOW() WHERE id_alumno = $1`, [id_alumno, nuevo_saldo]);
 
     await client.query(`
       INSERT INTO movimiento_cuenta (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, id_recibo, registrado_por)
       VALUES ($1, 'DEPOSITO', $2, $3, $4, $5, $6)
-    `, [id_alumno, `Depósito - Recibo #${numero} (${metodo})`, Number(monto_usd), nuevo_saldo, recibo.rows[0].id, req.user?.id_usuario || null]);
+    `, [id_alumno, `Depósito - Recibo #${numero} (${metodo})`, montoFinal, nuevo_saldo, recibo.rows[0].id, req.user?.id_usuario || null]);
 
     await client.query("COMMIT");
 
@@ -118,9 +145,15 @@ exports.pdf = async (req, res) => {
     if (r.rows.length === 0) return res.status(404).json({ ok: false, message: "Recibo no encontrado" });
     const recibo = r.rows[0];
 
+    // Detalle por ítems (si el recibo se emitió detallado).
+    const det = await db.query(`
+      SELECT descripcion, cantidad, precio_unitario, subtotal
+      FROM recibo_detalle WHERE id_recibo = $1 ORDER BY id
+    `, [id]);
+
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="recibo-${recibo.numero_correlativo}.pdf"`);
-    const pdf = generarReciboPDF({ recibo, alumno: { username: recibo.alumno_username, correo: recibo.alumno_correo } });
+    const pdf = generarReciboPDF({ recibo, alumno: { username: recibo.alumno_username, correo: recibo.alumno_correo }, items: det.rows });
     pdf.pipe(res);
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
