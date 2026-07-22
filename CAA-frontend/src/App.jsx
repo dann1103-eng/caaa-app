@@ -349,7 +349,7 @@ function App() {
           <Route path="/administracion/medicos"       element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmMedicos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/reportes"      element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmReportes /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/voucheras"     element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmVoucheras /></AdministracionLayoutAuto></ProtectedAdministracion>} />
-          <Route path="/administracion/avisos"        element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAvisos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/avisos"        element={<ProtectedAdmin><AdministracionLayoutAuto><AdmAvisos /></AdministracionLayoutAuto></ProtectedAdmin>} />
           <Route path="/administracion/notificaciones-push" element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmNotificacionesPush /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/aula-virtual"  element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAulaVirtual /></AdministracionLayoutAuto></ProtectedAdministracion>} />
 

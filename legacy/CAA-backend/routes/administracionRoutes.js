@@ -39,7 +39,9 @@ const READ_ROLES = ["ADMINISTRACION", "ADMIN"];
 const WRITE_ROLES = ["ADMINISTRACION", "ADMIN"];
 
 // ── Avisos (ticker + push, por perfil) ────────────────────────────────
-router.post("/avisos", roleMiddleware(WRITE_ROLES), avisos.publicarAviso);
+// Solo ADMIN (no ADMINISTRACION) — a diferencia del resto del módulo, que
+// comparten WRITE_ROLES.
+router.post("/avisos", roleMiddleware(["ADMIN"]), avisos.publicarAviso);
 
 // ── Ficha de alumno (consolidada) ─────────────────────────────────────
 router.get("/licencias",                    roleMiddleware(READ_ROLES),  adminUsuario.listLicencias);
