@@ -370,8 +370,8 @@ exports.avanzarEstadoVuelo = async (req, res) => {
         try {
           const info = await db.query(
             `SELECT ae.codigo AS aeronave,
-                    LEFT(u_al.nombre,1) || '. ' || u_al.apellido AS alumno,
-                    LEFT(u_ins.nombre,1) || '. ' || u_ins.apellido AS instructor
+                    LEFT(u_al.nombre,1) || '. ' || split_part(u_al.apellido,' ',1) AS alumno,
+                    LEFT(u_ins.nombre,1) || '. ' || split_part(u_ins.apellido,' ',1) AS instructor
                FROM vuelo v
                JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
                LEFT JOIN alumno al ON al.id_alumno = v.id_alumno

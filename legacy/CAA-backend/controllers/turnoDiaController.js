@@ -58,6 +58,21 @@ async function registrarEvento(client, tipo, user, detalle = null) {
   );
 }
 
+// Nombres abreviados ("R. Flores": inicial del nombre en mayúscula + primer
+// apellido) para los avisos de ciclo de turno — antes solo mostraban la
+// cantidad ("3 instructor(es)"), sin decir quiénes.
+async function nombresAbreviados(ids) {
+  if (!ids || ids.length === 0) return "";
+  const r = await db.query(
+    `SELECT LEFT(u.nombre,1) || '. ' || split_part(u.apellido,' ',1) AS nombre
+       FROM instructor i JOIN usuario u ON u.id_usuario = i.id_usuario
+      WHERE i.id_instructor = ANY($1::int[])
+      ORDER BY u.apellido, u.nombre`,
+    [ids]
+  );
+  return r.rows.map((row) => row.nombre).join(", ");
+}
+
 function emitirCambio(req) {
   const io = req.app.get("io");
   if (io) {
@@ -136,7 +151,8 @@ exports.abrirTurno = catchAsync(async (req, res) => {
 
     await client.query("COMMIT");
     emitirCambio(req);
-    pushCicloTurno(user, "🟢 Turno abierto", `Operaciones abiertas con ${instructores.length} instructor(es).`);
+    const nombres = await nombresAbreviados(instructores);
+    pushCicloTurno(user, "🟢 Turno abierto", `Operaciones abiertas con ${instructores.length} instructor(es): ${nombres}.`);
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");
@@ -249,7 +265,8 @@ exports.cambioTurno = catchAsync(async (req, res) => {
 
     await client.query("COMMIT");
     emitirCambio(req);
-    pushCicloTurno(user, "🔄 Cambio de turno", `Entra el turno de la tarde (${instructores.length} instructor(es)).`);
+    const nombres = await nombresAbreviados(instructores);
+    pushCicloTurno(user, "🔄 Cambio de turno", `Entra el turno de la tarde (${instructores.length} instructor(es)): ${nombres}.`);
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");
@@ -343,7 +360,8 @@ exports.agregarInstructorTurno = catchAsync(async (req, res) => {
 
     await client.query("COMMIT");
     emitirCambio(req);
-    pushCicloTurno(user, "➕ Instructor agregado al turno", `Se sumaron ${instructores.length} instructor(es) al turno en curso.`);
+    const nombres = await nombresAbreviados(instructores);
+    pushCicloTurno(user, "➕ Instructor agregado al turno", `Se sumaron ${instructores.length} instructor(es) al turno en curso: ${nombres}.`);
     res.json(await getEstadoDia());
   } catch (e) {
     await client.query("ROLLBACK");
