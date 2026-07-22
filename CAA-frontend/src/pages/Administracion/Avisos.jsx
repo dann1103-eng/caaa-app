@@ -18,7 +18,7 @@ const PERFILES = [
 
 export default function Avisos() {
   const [mensaje, setMensaje] = useState("");
-  const [todos, setTodos] = useState(true);
+  const [todos, setTodos] = useState(false);
   const [seleccion, setSeleccion] = useState([]);
   const [enviarTicker, setEnviarTicker] = useState(true);
   const [enviarPush, setEnviarPush] = useState(true);
@@ -77,16 +77,14 @@ export default function Avisos() {
             <input type="checkbox" checked={todos} onChange={(e) => setTodos(e.target.checked)} />
             Todos (difusión general)
           </label>
-          {!todos && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, paddingLeft: 4 }}>
-              {PERFILES.map((p) => (
-                <label key={p.rol} style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                  <input type="checkbox" checked={seleccion.includes(p.rol)} onChange={() => toggleRol(p.rol)} />
-                  {p.label}
-                </label>
-              ))}
-            </div>
-          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, paddingLeft: 4, opacity: todos ? 0.45 : 1 }}>
+            {PERFILES.map((p) => (
+              <label key={p.rol} style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", gap: 8, cursor: todos ? "default" : "pointer" }}>
+                <input type="checkbox" disabled={todos} checked={seleccion.includes(p.rol)} onChange={() => toggleRol(p.rol)} />
+                {p.label}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div style={{ marginBottom: 20, display: "flex", gap: 20 }}>
