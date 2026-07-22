@@ -138,6 +138,12 @@ export const crearSolicitudInstructor = async (payload) => {
   return res.data;
 };
 
+// Solicito un vuelo de práctica para MÍ (chequeo/refresh con otro instructor de PIC).
+export const crearSolicitudPracticaInstructor = async (payload) => {
+  const res = await axios.post(`${API_URL}/instructor/solicitudes/practica`, payload);
+  return res.data;
+};
+
 export const eliminarSolicitudInstructor = async (id_detalle) => {
   const res = await axios.delete(`${API_URL}/instructor/solicitudes/${id_detalle}`);
   return res.data;

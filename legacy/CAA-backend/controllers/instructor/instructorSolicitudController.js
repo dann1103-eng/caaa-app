@@ -282,6 +282,63 @@ exports.crearSolicitud = async (req, res) => {
 };
 
 /**
+ * POST /instructor/solicitudes/practica  { dia_semana, id_bloque, id_bloque_fin?, id_aeronave, tipo_vuelo?, id_instructor_pic, tipo_instruccion }
+ * Solicita un vuelo de práctica (CHEQUEO_LINEA) donde YO soy el practicante
+ * (instructor que recibe instrucción) y otro instructor es el PIC — mismo
+ * basket-por-semana que las solicitudes de mis alumnos, aditivo, semana
+ * próxima no publicada. Ocupa mi propia ficha espejo (es_practicante), que
+ * insertarSolicitudVuelo/resolverVueloEspecial ya sabe crear/reutilizar
+ * (mismo mecanismo que usa Programación al armar un CHEQUEO_LINEA).
+ */
+exports.crearSolicitudPractica = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const idInstructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!idInstructor) return res.status(403).json({ message: "No sos instructor" });
+
+    const { dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, id_instructor_pic, tipo_instruccion } = req.body;
+    if (!dia_semana || !id_bloque || !id_aeronave || !id_instructor_pic || !tipo_instruccion) {
+      return res.status(400).json({ message: "Faltan datos del vuelo (bloque, aeronave, PIC y sub-tipo son obligatorios)" });
+    }
+
+    const semana = await solicitudService.getNextSemana(client);
+    if (!semana) return res.status(404).json({ message: "No hay semana próxima" });
+    if (semana.publicada) return res.status(403).json({ message: "La semana ya está publicada" });
+
+    await client.query("BEGIN");
+    const out = await solicitudService.insertarSolicitudVuelo(client, {
+      id_semana: semana.id_semana, dia_semana, id_bloque, id_bloque_fin,
+      id_aeronave, tipo_vuelo,
+      id_instructor: Number(id_instructor_pic),
+      categoria: "CHEQUEO_LINEA",
+      id_usuario_practicante: req.user.id_usuario,
+      tipo_instruccion,
+      // Misma facultad que al pedir para un alumno: puede solicitar aunque la
+      // aeronave o el PIC ya estén pedidos en ese horario — el choque real lo
+      // resuelve Programación al publicar.
+      saltarConflictoAeronave: true,
+      saltarConflictoInstructor: true,
+    });
+    await client.query("COMMIT");
+
+    const io = req.app.get("io");
+    if (io) io.emit("guardar_cambios", { origen: "instructor" });
+
+    res.json({ message: "Vuelo de práctica solicitado", ...out });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "VALIDATION" || e.status === 400) return res.status(400).json({ message: e.message });
+    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23506") return res.status(409).json({ message: "Ya tenés un vuelo en ese horario" });
+    if (e.code === "23507") return res.status(409).json({ message: "El PIC ya tiene un vuelo en ese horario" });
+    console.error("instructorSolicitud.crearSolicitudPractica:", e);
+    res.status(500).json({ message: "Error al solicitar el vuelo de práctica" });
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * DELETE /instructor/solicitudes/:id_detalle
  * Quita un vuelo de un alumno mío (seguro pre-publicación: aún no hay vuelo).
  */
