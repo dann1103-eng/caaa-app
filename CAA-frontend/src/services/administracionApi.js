@@ -133,6 +133,9 @@ export const resetPasswordPersonal = async (id, password) =>
 // Gemelo del de personal, pero por id_alumno (es lo que maneja la lista de Alumnos).
 export const resetPasswordAlumno = async (idAlumno, password) =>
   (await axios.post(`${BASE}/usuarios/alumnos/${idAlumno}/reset-password`, { password })).data;
+// Promueve al alumno a INSTRUCTOR (queda desactivado como alumno, se conserva su historial).
+export const promoverAlumnoInstructor = async (idAlumno, payload = {}) =>
+  (await axios.post(`${BASE}/usuarios/alumnos/${idAlumno}/promover-instructor`, payload)).data;
 export const getInstructorCursos  = async (idInstructor) => (await axios.get(`${BASE}/usuarios/instructores/${idInstructor}/cursos`)).data;
 export const setInstructorCursos  = async (idInstructor, ids) =>
   (await axios.put(`${BASE}/usuarios/instructores/${idInstructor}/cursos`, { ids })).data;

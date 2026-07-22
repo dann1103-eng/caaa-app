@@ -38,6 +38,7 @@ exports.listAlumnos = async (req, res) => {
   try {
     const r = await db.query(`
       SELECT a.id_alumno, a.id_usuario, u.username, u.nombre, u.apellido, u.correo, u.activo,
+             u.rol AS usuario_rol,
              a.numero_licencia, a.telefono,
              a.id_instructor, iu.username AS instructor_username,
              a.id_licencia, l.nombre AS licencia_nombre
@@ -419,6 +420,66 @@ exports.resetPasswordAlumno = async (req, res) => {
   } catch (e) {
     console.error("resetPasswordAlumno:", e);
     res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+/**
+ * Promueve a un ALUMNO a INSTRUCTOR (caso real: alumnos que ya se graduaron y
+ * ahora trabajan como instructores en la escuela). Convierte usuario.rol y le
+ * crea/reusa la ficha `instructor` — la ficha `alumno` vieja NO se borra (se
+ * desactiva con activo=false), así se conserva su cuenta corriente, horas y
+ * bitácora de vuelos como histórico, pero deja de aparecer en los selectores
+ * y rosters activos de alumno (todos ya filtran por `alumno.activo = true`).
+ */
+exports.promoverAlumnoInstructor = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id_alumno } = req.params;
+    const { es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones } = req.body;
+
+    const a = await client.query(`
+      SELECT a.id_usuario, a.es_practicante, a.es_externo, u.rol
+      FROM alumno a JOIN usuario u ON u.id_usuario = a.id_usuario
+      WHERE a.id_alumno = $1
+    `, [id_alumno]);
+    if (a.rows.length === 0) return res.status(404).json({ ok: false, message: "Alumno no encontrado" });
+    const alumno = a.rows[0];
+    if (alumno.es_practicante || alumno.es_externo) {
+      return res.status(400).json({ ok: false, message: "Esta ficha es una cuenta especial (practicante/externo), no se puede promover" });
+    }
+    if (alumno.rol !== 'ALUMNO') {
+      return res.status(400).json({ ok: false, message: "Este usuario ya no tiene rol ALUMNO" });
+    }
+    if (es_instructor_vuelo === false && es_instructor_teoria === false) {
+      return res.status(400).json({ ok: false, message: "El instructor debe ser de vuelo, de teoría o ambos" });
+    }
+
+    await client.query("BEGIN");
+    await client.query(`UPDATE usuario SET rol = 'INSTRUCTOR' WHERE id_usuario = $1`, [alumno.id_usuario]);
+    await client.query(`UPDATE alumno SET activo = FALSE WHERE id_alumno = $1`, [id_alumno]);
+    const id_instructor = await asegurarInstructorTx(client, alumno.id_usuario);
+    if (es_instructor_vuelo != null || es_instructor_teoria != null || puede_programar != null || puede_operaciones != null) {
+      await client.query(`
+        UPDATE instructor SET
+          es_instructor_vuelo  = COALESCE($2, es_instructor_vuelo),
+          es_instructor_teoria = COALESCE($3, es_instructor_teoria),
+          puede_programar      = COALESCE($4, puede_programar),
+          puede_operaciones    = COALESCE($5, puede_operaciones)
+        WHERE id_usuario = $1
+      `, [alumno.id_usuario,
+          es_instructor_vuelo != null ? !!es_instructor_vuelo : null,
+          es_instructor_teoria != null ? !!es_instructor_teoria : null,
+          puede_programar != null ? !!puede_programar : null,
+          puede_operaciones != null ? !!puede_operaciones : null]);
+    }
+    await client.query("COMMIT");
+    res.json({ ok: true, data: { id_usuario: alumno.id_usuario, id_instructor } });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    console.error("promoverAlumnoInstructor:", e);
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
   }
 };
 
