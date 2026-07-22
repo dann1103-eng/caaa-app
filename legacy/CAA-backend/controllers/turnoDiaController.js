@@ -10,7 +10,7 @@ const { logAuditoria } = require("../utils/auditoria");
 const { notificarStaff } = require("../utils/webpush");
 
 function pushCicloTurno(user, title, body) {
-  notificarStaff({ title, body, url: "/turno", tag: "turno-dia" }, { excluirUid: user?.id_usuario })
+  notificarStaff({ title, body, url: "/turno", tag: "turno-dia" }, { excluirUid: user?.id_usuario, tipo: "CICLO_TURNO" })
     .catch((e) => console.error("push turno-dia:", e.message));
 }
 

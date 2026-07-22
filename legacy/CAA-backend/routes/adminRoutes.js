@@ -11,6 +11,7 @@ const adminUsuario = require("../controllers/admin/adminUsuarioController");
 const adminAuditoria = require("../controllers/admin/adminAuditoriaController");
 const adminCancelacion = require("../controllers/admin/adminCancelacionController");
 const reservaAeronave = require("../controllers/admin/reservaAeronaveController");
+const adminPushConfig = require("../controllers/admin/adminPushConfigController");
 
 // Roles de operaciones, o un INSTRUCTOR activo con el toggle puede_programar
 // (capacidad PROGRAMAR = todo lo que hace el rol PROGRAMACION).
@@ -23,6 +24,9 @@ const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", 
 // actor de taller rompería el log de auditoría.
 const aeronaveLectura = [authMiddleware, roleMiddleware(["ADMIN", "TALLER"])];
 const aeronaveEscritura = [authMiddleware, roleMiddleware(["ADMIN"])];
+
+// Configuración de push por rol: es config de sistema, solo ADMIN.
+const soloAdmin = [authMiddleware, roleMiddleware(["ADMIN"])];
 
 // --- Semanas y Calendario ---
 router.get("/semanas", adminAccess, adminVuelo.getSemanas);
@@ -102,5 +106,9 @@ router.get("/standby/candidatos", adminAccess, standby.getCandidatos);
 router.get("/standby", adminAccess, standby.getLista);
 router.put("/standby", adminAccess, standby.setLista);
 router.delete("/standby/:id_standby", adminAccess, standby.quitarCandidato);
+
+// --- Notificaciones push por rol (qué perfil recibe qué tipo de aviso) ---
+router.get("/push-config", soloAdmin, adminPushConfig.listar);
+router.put("/push-config", soloAdmin, adminPushConfig.actualizar);
 
 module.exports = router;

@@ -25,6 +25,7 @@ export default function AdministracionSidebar({ isOpen, onClose }) {
     { label: "Aula Virtual",   path: "/administracion/aula-virtual",  icon: "bi-mortarboard-fill" },
     { label: "Voucheras",      path: "/administracion/voucheras",     icon: "bi-file-earmark-text" },
     { label: "Reportes",       path: "/administracion/reportes",      icon: "bi-bar-chart" },
+    { label: "Avisos",         path: "/administracion/avisos",        icon: "bi-megaphone" },
   ];
 
   return (

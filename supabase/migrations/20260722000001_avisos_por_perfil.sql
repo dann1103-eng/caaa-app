@@ -1,0 +1,15 @@
+-- ============================================================================
+-- Avisos "por perfil" desde Administración: un aviso (ticker + push) dirigido
+-- a uno o varios roles específicos, en vez de siempre a todos. Sesión
+-- 2026-07-22. Aditiva.
+--
+-- destinatarios = NULL  → se muestra a TODOS (comportamiento actual, sin
+--                          cambios: los avisos que ya publica Turno siguen
+--                          viéndose en todos lados exactamente igual).
+-- destinatarios = {..}  → array de roles/"PROYECCION". Un usuario ve el aviso
+--                          si su rol está en el array; la pantalla pública de
+--                          Proyección (que entra con la llave y por eso tiene
+--                          req.user.rol = 'PROYECCION', ver proyeccionMiddleware)
+--                          lo ve si 'PROYECCION' está en el array.
+-- ============================================================================
+ALTER TABLE public.mensaje_turno ADD COLUMN IF NOT EXISTS destinatarios text[];

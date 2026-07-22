@@ -393,7 +393,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
             title: titulos[nuevoEstado],
             body: partes.join(" · "),
             url: "/turno", tag: "vuelo-estado",
-          }, { excluirUid: user?.id_usuario });
+          }, { excluirUid: user?.id_usuario, tipo: "VUELO_ESTADO" });
         } catch (e) { console.error("push vuelo-estado (instructor):", e.message); }
       })();
     }

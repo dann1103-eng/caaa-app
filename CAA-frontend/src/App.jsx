@@ -46,6 +46,8 @@ import AdmDocumentacion from "./pages/Administracion/Documentacion";
 import AdmMedicos from "./pages/Administracion/Medicos";
 import AdmReportes from "./pages/Administracion/Reportes";
 import AdmVoucheras from "./pages/Administracion/Voucheras";
+import AdmAvisos from "./pages/Administracion/Avisos";
+import AdmNotificacionesPush from "./pages/Administracion/NotificacionesPush";
 import AdmAulaVirtual from "./pages/Administracion/AulaVirtual";
 
 // ── Módulo Taller (mantenimiento / aeronavegabilidad) ─────────────
@@ -347,6 +349,8 @@ function App() {
           <Route path="/administracion/medicos"       element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmMedicos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/reportes"      element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmReportes /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/voucheras"     element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmVoucheras /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/avisos"        element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAvisos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
+          <Route path="/administracion/notificaciones-push" element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmNotificacionesPush /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/aula-virtual"  element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAulaVirtual /></AdministracionLayoutAuto></ProtectedAdministracion>} />
 
           {/* ── Módulo Taller (mantenimiento / aeronavegabilidad) ── */}
