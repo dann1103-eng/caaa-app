@@ -117,12 +117,19 @@ exports.list = async (req, res) => {
  * fiscales aparte que se emiten manualmente cuando hace falta (emitirManual).
  *
  * @param {pg.Client} client - cliente dentro de transacción
- * @param {Object} params - { id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por, es_extracurricular, horas_acumuladas_antes }
+ * @param {Object} params - { id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por, es_extracurricular, horas_acumuladas_antes, modo_refresh, solo_si_saldo_cubre }
+ *   - modo_refresh: vuelo Refresh (instructor practicante que eligió "debitar de mi
+ *     saldo") — cobra como extracurricular (sin horas ni avance de curso) pero con
+ *     etiqueta propia 'Refresh'.
+ *   - solo_si_saldo_cubre: si true, NO debita cuando el saldo lockeado no cubre el
+ *     total; devuelve { skipped: true, motivo: 'saldo_insuficiente', ... } sin tocar nada.
  * @returns {Object} { id_alumno, saldo_resultante, tarifa, total, es_extracurricular }
+ *   o { skipped: true, motivo, id_alumno, saldo, total } si solo_si_saldo_cubre cortó el cobro.
  */
 exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(client, {
   id_vuelo, id_alumno, id_aeronave, tacometro, modelo_aeronave, fecha, emitida_por,
-  es_extracurricular = false, horas_acumuladas_antes
+  es_extracurricular = false, horas_acumuladas_antes,
+  modo_refresh = false, solo_si_saldo_cubre = false
 }) {
   // PRECIO ESPECIAL del alumno para este avión (si tiene uno asignado en su
   // perfil): tiene prioridad sobre el estándar. Ver alumno_tarifa_aeronave.
@@ -168,6 +175,15 @@ exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(c
     await client.query(`INSERT INTO cuenta_corriente_alumno (id_alumno, saldo_actual_usd) VALUES ($1, 0)`, [id_alumno]);
     cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
   }
+  // Refresh "debitar de mi saldo": NUNCA deja la cuenta en negativo. Si entre
+  // pedir y volar el saldo dejó de cubrir, NO se debita (queda como pago al
+  // momento y admin cobra a mano). El chequeo va acá adentro, con la cuenta
+  // lockeada, para ser atómico frente a movimientos concurrentes. Para vuelos
+  // de alumno normales NO aplica (ellos sí pueden quedar en negativo).
+  if (solo_si_saldo_cubre && Number(cuenta.rows[0].saldo_actual_usd) < total) {
+    return { skipped: true, motivo: "saldo_insuficiente", id_alumno, saldo: Number(cuenta.rows[0].saldo_actual_usd), total };
+  }
+
   const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) - total;
   await client.query(`
     UPDATE cuenta_corriente_alumno
@@ -197,15 +213,17 @@ exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(c
     ? Number(horas_acumuladas_antes)
     : Number(m.horas_totales_alumno || 0);
 
-  // Para vuelos extracurriculares: se cobra igual, pero NO se suma a las horas
-  // totales (de licencia) ni se actualiza el avance del curso. Se etiqueta con nota.
-  const horasTotalesMov = es_extracurricular
-    ? horasBase
-    : horasBase + Number(tacometro);
-  const notaMov = es_extracurricular ? 'Extracurricular' : null;
-  const descMov = es_extracurricular
-    ? `Vuelo extracurricular #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`
-    : `Vuelo #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`;
+  // Para vuelos extracurriculares y Refresh: se cobra igual, pero NO se suma a
+  // las horas totales (de licencia) ni se actualiza el avance del curso. Cada
+  // uno se etiqueta con su propia nota.
+  const sinHorasNiCurso = es_extracurricular || modo_refresh;
+  const horasTotalesMov = sinHorasNiCurso ? horasBase : horasBase + Number(tacometro);
+  const notaMov = modo_refresh ? 'Refresh' : (es_extracurricular ? 'Extracurricular' : null);
+  const descMov = modo_refresh
+    ? `Vuelo refresh #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`
+    : es_extracurricular
+      ? `Vuelo extracurricular #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`
+      : `Vuelo #${id_vuelo} ${modelo_aeronave} ${tacometro}h × $${tarifa}`;
 
   await client.query(`
     INSERT INTO movimiento_cuenta
@@ -219,8 +237,8 @@ exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(c
       horasTotalesMov, notaMov,
       emitida_por || null]);
 
-  // Avance de curso: solo para vuelos de licencia (NO extracurriculares).
-  if (!es_extracurricular) {
+  // Avance de curso: solo para vuelos de licencia (NO extracurriculares ni Refresh).
+  if (!sinHorasNiCurso) {
     await client.query(`
       UPDATE inscripcion_curso_avance
       SET horas_acumuladas = horas_acumuladas + $2

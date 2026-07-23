@@ -370,7 +370,7 @@ exports.firmarReporteVuelo = async (req, res) => {
             : parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
           const vueloInfo = await client.query(`
             SELECT v.id_vuelo, v.id_alumno, v.id_aeronave, v.fecha_vuelo AS fecha,
-                   v.es_extracurricular, v.categoria,
+                   v.es_extracurricular, v.categoria, v.tipo_instruccion, v.debitar_saldo,
                    COALESCE(a.modelo, a.tipo, 'Cessna 152') AS modelo_aeronave
             FROM vuelo v
             LEFT JOIN aeronave a ON a.id_aeronave = v.id_aeronave
@@ -382,7 +382,16 @@ exports.firmarReporteVuelo = async (req, res) => {
           // desde administración) NO se auto-debitan. NORMAL y CHEQUEO (alumno
           // real) sí, igual que siempre.
           const categoriaVuelo = vueloInfo.rows[0]?.categoria || "NORMAL";
-          const sinCobroAutomatico = categoriaVuelo === "DEMO" || categoriaVuelo === "PRUEBA" || categoriaVuelo === "CHEQUEO_LINEA";
+          const infoV = vueloInfo.rows[0] || {};
+          // Excepción nueva (spec 2026-07-22): un CHEQUEO_LINEA sub-tipo REFRESH
+          // donde el practicante eligió "debitar de mi saldo" SÍ se auto-cobra
+          // (si el saldo aún cubre — cargarVuelo lo revalida con la cuenta
+          // lockeada). El resto de CHEQUEO_LINEA + DEMO + PRUEBA siguen sin
+          // cobro automático.
+          const esRefreshDebitable = categoriaVuelo === "CHEQUEO_LINEA"
+            && infoV.tipo_instruccion === "REFRESH"
+            && infoV.debitar_saldo === true;
+          const sinCobroAutomatico = (categoriaVuelo === "DEMO" || categoriaVuelo === "PRUEBA" || categoriaVuelo === "CHEQUEO_LINEA") && !esRefreshDebitable;
           if (!sinCobroAutomatico && vueloInfo.rows.length > 0 && vueloInfo.rows[0].id_alumno) {
             const info = vueloInfo.rows[0];
             cargoAutomatico = await cargarVueloACuentaDentroTx(client, {
@@ -394,8 +403,14 @@ exports.firmarReporteVuelo = async (req, res) => {
               fecha: info.fecha,
               emitida_por: req.user.id_usuario,
               es_extracurricular: info.es_extracurricular,
-              horas_acumuladas_antes: horasAcumuladasAntes
+              horas_acumuladas_antes: horasAcumuladasAntes,
+              modo_refresh: esRefreshDebitable,
+              solo_si_saldo_cubre: esRefreshDebitable
             });
+            if (cargoAutomatico?.skipped) {
+              console.log(`[refresh] vuelo ${info.id_vuelo}: saldo dejó de cubrir ($${cargoAutomatico.saldo} < $${cargoAutomatico.total}) — queda como pago al momento`);
+              cargoAutomatico = null;
+            }
           }
         } catch (eFin) {
           // No abortar el cierre del vuelo si el módulo financiero falla;
