@@ -31,23 +31,23 @@ const EMPTY_PERSONAL = {
   es_instructor_vuelo: true, es_instructor_teoria: false, puede_programar: false, puede_operaciones: false
 };
 
-// Saldo de cuenta corriente del instructor (ficha de alumno espejo, ver §21 CLAUDE.md).
-// null = nunca tuvo ficha de alumno (no es practicante ni ex-alumno); 0/negativo/positivo son saldos reales.
+// Saldo de cuenta corriente de la ficha de alumno espejo (practicante/ex-alumno, ver §21
+// CLAUDE.md). Gatea SOLO por presencia de ficha (id_alumno_ficha), no por rol — un ex-alumno
+// promovido a un rol no-instructor (TURNO/ADMINISTRACION) conserva su ficha y su saldo.
+// null = nunca tuvo ficha de alumno; 0/negativo/positivo son saldos reales.
 function SaldoInstructorCell({ p }) {
-  if (p.rol !== "INSTRUCTOR") return <span style={{ color: "var(--c-ink-4)" }}>—</span>;
   const raw = p.saldo_instructor ?? (p.id_alumno_ficha ? 0 : null);
   if (raw == null) return <span style={{ color: "var(--c-ink-4)" }}>—</span>;
   const n = Number(raw);
   const neg = n < 0;
   return (
-    <span style={{ fontFamily: "var(--font-mono)", color: neg ? "var(--c-danger-700)" : undefined }}>
-      {neg ? "-" : ""}${Math.abs(n).toFixed(2)}
+    <span style={{ color: neg ? "var(--c-danger-700)" : undefined }}>
+      {neg ? "-" : ""}${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
     </span>
   );
 }
 
 // Sección colapsable (acordeón) reutilizable.
-
 function AccSection({ icon, title, count, open, onToggle, children }) {
   return (
     <div className="adf-acc">
@@ -678,7 +678,7 @@ export default function Usuarios() {
                       CUENTA CORRIENTE
                     </div>
                     <p style={{ fontSize: "0.8rem", color: "var(--c-ink-3)", marginTop: 0, marginBottom: 10 }}>
-                      Este instructor tiene ficha de alumno (practicante o ex-alumno) con cuenta corriente propia.
+                      Tiene ficha de alumno (practicante o ex-alumno) con cuenta corriente propia.
                     </p>
                     <Link to={`/administracion/cuentas/${editP.id_alumno_ficha}`} className="adf-btn secondary">
                       <i className="bi bi-wallet2 me-1"></i>Cuenta corriente
