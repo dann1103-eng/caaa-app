@@ -50,7 +50,11 @@ exports.getReporteVueloInstructor = async (req, res) => {
               rv.cantidad_combustible, rv.horas_cobradas, rv.firma_alumno, rv.firma_instructor,
               rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia,
               v.categoria, v.tipo_instruccion, v.debitar_saldo,
-              EXISTS(SELECT 1 FROM movimiento_cuenta mc WHERE mc.id_vuelo = v.id_vuelo AND mc.tipo='CARGO_VUELO') AS se_debito
+              EXISTS(
+                SELECT 1 FROM movimiento_cuenta mc
+                WHERE mc.id_vuelo = v.id_vuelo AND mc.tipo = 'CARGO_VUELO'
+                  AND COALESCE(mc.anulado, false) = false
+              ) AS se_debito
        FROM vuelo v
        JOIN aeronave a ON a.id_aeronave = v.id_aeronave
        JOIN alumno al ON al.id_alumno = v.id_alumno
