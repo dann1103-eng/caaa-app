@@ -244,7 +244,12 @@ exports.getCalendario = catchAsync(async (req, res) => {
       -- Advertencia de saldo bajo: el saldo del alumno no cubre el costo
       -- estimado de ESE vuelo (tarifa efectiva × 1h; el precio especial del
       -- alumno manda sobre el estándar). Se excluyen las categorías que no
-      -- auto-cobran al alumno (DEMO / CHEQUEO_LINEA / PRUEBA).
+      -- auto-cobran (DEMO / PRUEBA / CHEQUEO_LINEA), CON UNA EXCEPCIÓN
+      -- (spec 2026-07-22): el CHEQUEO_LINEA sub-tipo REFRESH con
+      -- debitar_saldo=TRUE SÍ se evalúa, porque ese vuelo va a debitarse de
+      -- la cuenta del practicante (la ficha espejo del instructor, que vive
+      -- en la misma tabla alumno). Las 2 copias de programacionController
+      -- refieren a este comentario.
       COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
       COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
       COALESCE(v.categoria, sv.categoria) AS categoria,
