@@ -144,6 +144,12 @@ export const crearSolicitudPracticaInstructor = async (payload) => {
   return res.data;
 };
 
+// Saldo de mi ficha de practicante + costo estimado del vuelo en esa aeronave (para REFRESH).
+export const getPracticaSaldo = async (idAeronave) => {
+  const res = await axios.get(`${API_URL}/instructor/solicitudes/practica/saldo`, { params: { id_aeronave: idAeronave } });
+  return res.data;
+};
+
 export const eliminarSolicitudInstructor = async (id_detalle) => {
   const res = await axios.delete(`${API_URL}/instructor/solicitudes/${id_detalle}`);
   return res.data;

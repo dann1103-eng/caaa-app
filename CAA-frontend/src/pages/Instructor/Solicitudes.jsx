@@ -11,6 +11,7 @@ import {
   guardarCambiosSolicitudInstructor,
   crearSolicitudInstructor,
   crearSolicitudPracticaInstructor,
+  getPracticaSaldo,
   eliminarSolicitudInstructor,
   guardarRemarksSolicitud,
   enviarSolicitudInstructor,
@@ -43,8 +44,9 @@ export default function InstructorSolicitudes() {
   const [enviando, setEnviando] = useState(false);
   const [agendarCell, setAgendarCell] = useState(null);
   const [instructoresVuelo, setInstructoresVuelo] = useState([]);
-  const [practica, setPractica] = useState({ dia_semana: 1, id_bloque: "", id_aeronave: "", id_instructor_pic: "", tipo_instruccion: "CHEQUEO" });
+  const [practica, setPractica] = useState({ dia_semana: 1, id_bloque: "", id_aeronave: "", id_instructor_pic: "", tipo_instruccion: "CHEQUEO", debitar_saldo: true });
   const [enviandoPractica, setEnviandoPractica] = useState(false);
+  const [saldoPractica, setSaldoPractica] = useState(null);
 
   const miIdInstructor = (() => {
     try { return JSON.parse(localStorage.getItem("user"))?.id_instructor || null; } catch { return null; }
@@ -78,21 +80,33 @@ export default function InstructorSolicitudes() {
 
   useEffect(() => { reload(); }, []);
 
+  useEffect(() => {
+    if (practica.id_aeronave && practica.tipo_instruccion === "REFRESH") {
+      getPracticaSaldo(practica.id_aeronave)
+        .then((data) => setSaldoPractica(data))
+        .catch(() => setSaldoPractica(null));
+    } else {
+      setSaldoPractica(null);
+    }
+  }, [practica.id_aeronave, practica.tipo_instruccion]);
+
   const puedeSolicitarPractica = !publicada && practica.id_bloque && practica.id_aeronave && practica.id_instructor_pic && !enviandoPractica;
 
   const solicitarPractica = async () => {
     if (!puedeSolicitarPractica) return;
     setEnviandoPractica(true);
     try {
-      await crearSolicitudPracticaInstructor({
+      const r = await crearSolicitudPracticaInstructor({
         dia_semana: Number(practica.dia_semana),
         id_bloque: Number(practica.id_bloque),
         id_aeronave: Number(practica.id_aeronave),
         id_instructor_pic: Number(practica.id_instructor_pic),
         tipo_instruccion: practica.tipo_instruccion,
+        debitar_saldo: practica.tipo_instruccion === "REFRESH" ? practica.debitar_saldo === true : undefined,
       });
       toast.success("Vuelo de práctica solicitado");
-      setPractica((p) => ({ ...p, id_bloque: "", id_aeronave: "", id_instructor_pic: "" }));
+      if (r?.debitar_saldo_ajustado) toast.warning(r.aviso);
+      setPractica((p) => ({ ...p, id_bloque: "", id_aeronave: "", id_instructor_pic: "", debitar_saldo: true }));
       reload();
     } catch (e) {
       toast.error(e?.response?.data?.message || "No se pudo solicitar el vuelo de práctica");
@@ -264,12 +278,59 @@ export default function InstructorSolicitudes() {
                 style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid var(--c-line-2, #e2e8f0)" }}
               >
                 <option value="CHEQUEO">Chequeo — lo paga la escuela</option>
-                <option value="REFRESH">Refresh — se me cobra manual</option>
+                <option value="REFRESH">Refresh — lo pago yo</option>
               </select>
             </div>
             <button className="isol__send-one" disabled={!puedeSolicitarPractica} onClick={solicitarPractica}>
               <i className="bi bi-send"></i> {enviandoPractica ? "Solicitando…" : "Solicitar"}
             </button>
+
+            {practica.tipo_instruccion === "REFRESH" && saldoPractica != null && (
+              <div style={{ flexBasis: "100%" }}>
+                {saldoPractica.cubre ? (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    fontSize: "0.85rem", color: "var(--c-ink-3, #64748b)", marginTop: 4,
+                  }}>
+                    <span>
+                      Saldo: <strong>${Number(saldoPractica.saldo).toFixed(2)}</strong>
+                      {" · "}este vuelo cuesta aprox. <strong>${Number(saldoPractica.costo_estimado).toFixed(2)}</strong>
+                    </span>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 500, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={practica.debitar_saldo}
+                        onChange={(e) => setPractica((p) => ({ ...p, debitar_saldo: e.target.checked }))}
+                      />
+                      Debitar de mi saldo al completarse el vuelo
+                    </label>
+                  </div>
+                ) : Number(saldoPractica.costo_estimado) > 0 ? (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: "var(--c-warn-50, #fdf6e3)", border: "1px solid var(--c-warn-700, #b8860b)",
+                    color: "var(--c-warn-700, #7a5a00)", borderRadius: 10,
+                    padding: "8px 12px", marginTop: 8, fontSize: "0.85rem", fontWeight: 600,
+                  }}>
+                    <i className="bi bi-exclamation-triangle-fill"></i>
+                    <span>
+                      Tu saldo (${Number(saldoPractica.saldo).toFixed(2)}) no cubre este vuelo (~${Number(saldoPractica.costo_estimado).toFixed(2)}):
+                      se paga al momento del vuelo o coordinalo con Administración.
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    background: "var(--c-surface-2, #f1f5f9)", border: "1px solid var(--c-line-2, #e2e8f0)",
+                    color: "var(--c-ink-3, #64748b)", borderRadius: 10,
+                    padding: "8px 12px", marginTop: 8, fontSize: "0.85rem", fontWeight: 600,
+                  }}>
+                    <i className="bi bi-exclamation-triangle-fill"></i>
+                    <span>Este avión no tiene tarifa configurada — el pago se coordina con Administración.</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
