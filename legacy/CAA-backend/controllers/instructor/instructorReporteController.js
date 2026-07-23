@@ -378,11 +378,11 @@ exports.firmarReporteVuelo = async (req, res) => {
           `, [id]);
           // DEMO (pasajero externo, se factura manual), PRUEBA (vuelo interno
           // sin pasajero, nunca se factura) y CHEQUEO_LINEA (instructor-con-
-          // instructor: CHEQUEO lo paga la escuela, REFRESH se cobra MANUAL
-          // desde administración) NO se auto-debitan. NORMAL y CHEQUEO (alumno
-          // real) sí, igual que siempre.
-          const categoriaVuelo = vueloInfo.rows[0]?.categoria || "NORMAL";
+          // instructor: CHEQUEO lo paga la escuela, REFRESH sin debitar_saldo
+          // se cobra manual desde administración) NO se auto-debitan. NORMAL y
+          // CHEQUEO (alumno real) sí, igual que siempre.
           const infoV = vueloInfo.rows[0] || {};
+          const categoriaVuelo = infoV.categoria || "NORMAL";
           // Excepción nueva (spec 2026-07-22): un CHEQUEO_LINEA sub-tipo REFRESH
           // donde el practicante eligió "debitar de mi saldo" SÍ se auto-cobra
           // (si el saldo aún cubre — cargarVuelo lo revalida con la cuenta
@@ -408,7 +408,11 @@ exports.firmarReporteVuelo = async (req, res) => {
               solo_si_saldo_cubre: esRefreshDebitable
             });
             if (cargoAutomatico?.skipped) {
-              console.log(`[refresh] vuelo ${info.id_vuelo}: saldo dejó de cubrir ($${cargoAutomatico.saldo} < $${cargoAutomatico.total}) — queda como pago al momento`);
+              console.warn(`[refresh] vuelo ${info.id_vuelo}: saldo dejó de cubrir ($${cargoAutomatico.saldo} < $${cargoAutomatico.total}) — queda como pago al momento`);
+              // El débito no ocurrió → el vuelo deja de decir "debita de saldo":
+              // así calendario y vouchera reflejan la realidad (pago al momento)
+              // y administración sabe que tiene que cobrarlo a mano.
+              await client.query(`UPDATE vuelo SET debitar_saldo = false WHERE id_vuelo = $1`, [info.id_vuelo]);
               cargoAutomatico = null;
             }
           }

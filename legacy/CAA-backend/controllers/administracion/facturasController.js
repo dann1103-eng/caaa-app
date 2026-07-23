@@ -175,16 +175,18 @@ exports.cargarVueloACuentaDentroTx = async function cargarVueloACuentaDentroTx(c
     await client.query(`INSERT INTO cuenta_corriente_alumno (id_alumno, saldo_actual_usd) VALUES ($1, 0)`, [id_alumno]);
     cuenta = await client.query(`SELECT * FROM cuenta_corriente_alumno WHERE id_alumno = $1 FOR UPDATE`, [id_alumno]);
   }
+  const saldoActual = Number(cuenta.rows[0].saldo_actual_usd);
+
   // Refresh "debitar de mi saldo": NUNCA deja la cuenta en negativo. Si entre
   // pedir y volar el saldo dejó de cubrir, NO se debita (queda como pago al
   // momento y admin cobra a mano). El chequeo va acá adentro, con la cuenta
   // lockeada, para ser atómico frente a movimientos concurrentes. Para vuelos
   // de alumno normales NO aplica (ellos sí pueden quedar en negativo).
-  if (solo_si_saldo_cubre && Number(cuenta.rows[0].saldo_actual_usd) < total) {
-    return { skipped: true, motivo: "saldo_insuficiente", id_alumno, saldo: Number(cuenta.rows[0].saldo_actual_usd), total };
+  if (solo_si_saldo_cubre && saldoActual < total) {
+    return { skipped: true, motivo: "saldo_insuficiente", id_alumno, saldo: saldoActual, total };
   }
 
-  const nuevo_saldo = Number(cuenta.rows[0].saldo_actual_usd) - total;
+  const nuevo_saldo = saldoActual - total;
   await client.query(`
     UPDATE cuenta_corriente_alumno
     SET saldo_actual_usd = $2, ultimo_movimiento_en = NOW()
