@@ -43,7 +43,8 @@ exports.getVuelosFuturosAeronave = catchAsync(async (req, res) => {
 });
 
 exports.registrarHorasManuales = catchAsync(async (req, res) => {
-  const { id_aeronave, horas, descripcion: desc } = req.body;
+  const { id_aeronave, horas, descripcion: desc, modo } = req.body;
+  const esFijar = modo === "fijar";
   const client = await db.connect();
   try {
     await client.query("BEGIN");
@@ -51,18 +52,18 @@ exports.registrarHorasManuales = catchAsync(async (req, res) => {
     if (aeronaveRes.rows.length === 0) throw new Error("Aeronave no encontrada");
 
     const horasAntes = parseFloat(aeronaveRes.rows[0].horas_acumuladas);
-    const nuevasHoras = horasAntes + parseFloat(horas);
+    const nuevasHoras = esFijar ? parseFloat(horas) : horasAntes + parseFloat(horas);
 
     await client.query(`UPDATE aeronave SET horas_acumuladas = $1 WHERE id_aeronave = $2`, [nuevasHoras, id_aeronave]);
-    
+
     await logAuditoria(client, {
       accion: "OTRO",
       entidad: "aeronave",
       id_entidad: Number(id_aeronave),
       actor: req.user,
       req,
-      descripcion: desc || `Registro manual de horas: +${horas}h`,
-      metadata: { before: horasAntes, after: nuevasHoras }
+      descripcion: desc || (esFijar ? `Horas fijadas manualmente a ${nuevasHoras}h (reinicio)` : `Registro manual de horas: +${horas}h`),
+      metadata: { before: horasAntes, after: nuevasHoras, modo: esFijar ? "fijar" : "sumar" }
     });
 
     await client.query("COMMIT");

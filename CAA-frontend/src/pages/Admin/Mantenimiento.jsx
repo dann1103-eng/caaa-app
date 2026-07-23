@@ -46,15 +46,18 @@ function BarraHoras({ acumuladas, proxima, ultima }) {
 // ── Modal horas manuales ───────────────────────────────────────────────────
 function HorasManualModal({ aeronaves, onClose, onGuardado }) {
   const [idAeronave, setIdAeronave] = useState(aeronaves[0]?.id_aeronave ?? "");
+  const [modo, setModo] = useState("sumar"); // "sumar" | "fijar"
   const [horas, setHoras] = useState("");
   const [desc, setDesc] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const aeronaveSel = aeronaves.find((a) => String(a.id_aeronave) === String(idAeronave));
+
   const handleGuardar = async () => {
     const h = parseFloat(horas);
-    if (!horas.trim() || isNaN(h) || h <= 0) {
-      setError("Ingresá un valor positivo");
+    if (!horas.trim() || isNaN(h) || h < 0 || (modo === "sumar" && h <= 0)) {
+      setError(modo === "sumar" ? "Ingresá un valor positivo" : "Ingresá un valor válido (0 o más)");
       return;
     }
     setSaving(true);
@@ -63,7 +66,8 @@ function HorasManualModal({ aeronaves, onClose, onGuardado }) {
       await registrarHorasManuales({
         id_aeronave: Number(idAeronave),
         horas: h,
-        descripcion: desc
+        descripcion: desc,
+        modo,
       });
       onGuardado();
       onClose();
@@ -97,16 +101,34 @@ function HorasManualModal({ aeronaves, onClose, onGuardado }) {
             </select>
           </div>
           <div className="mnt__field">
-            <label className="mnt__label">Horas a agregar</label>
+            <label className="mnt__label">Modo</label>
+            <select
+              className="mnt__input"
+              value={modo}
+              onChange={(e) => { setModo(e.target.value); setHoras(""); setError(""); }}
+            >
+              <option value="sumar">Agregar horas al valor actual</option>
+              <option value="fijar">Fijar horas totales (reinicio limpio)</option>
+            </select>
+          </div>
+          <div className="mnt__field">
+            <label className="mnt__label">
+              {modo === "fijar" ? "Horas totales (TAC real de hoy)" : "Horas a agregar"}
+            </label>
             <input
               className="mnt__input"
               type="number"
-              min="0.1"
+              min="0"
               step="0.1"
-              placeholder="Ej: 1.5"
+              placeholder={modo === "fijar" ? "Ej: 452.3" : "Ej: 1.5"}
               value={horas}
               onChange={(e) => { setHoras(e.target.value); setError(""); }}
             />
+            {modo === "fijar" && aeronaveSel && (
+              <p className="mnt__hint">
+                Actualmente el sistema tiene {parseFloat(aeronaveSel.horas_acumuladas).toFixed(1)}h para {aeronaveSel.codigo}. Este valor lo reemplaza por completo.
+              </p>
+            )}
           </div>
           <div className="mnt__field">
             <label className="mnt__label">Descripción (opcional)</label>
