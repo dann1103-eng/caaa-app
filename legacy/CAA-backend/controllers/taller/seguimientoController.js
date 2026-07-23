@@ -142,6 +142,10 @@ exports.crearTarea = catchAsync(async (req, res) => {
     recurrente: esRec, intervalo_horas, intervalo_dias, intervalo_ciclos,
     ultima_horas: baseHoras, ultima_fecha: baseFecha, ultima_ciclos,
   });
+  // Si vino proxima_horas explícito, manda siempre — con o sin intervalo_horas
+  // (proximos() solo lo calcula cuando hay intervalo; sin esto, un cupo
+  // periódico creado sin intervalo quedaba con proxima_horas NULL).
+  if (proxima_horas != null) prox.proxima_horas = Number(proxima_horas);
 
   const r = await db.query(`
     INSERT INTO taller_tarea_programada
@@ -202,6 +206,8 @@ exports.editarTarea = catchAsync(async (req, res) => {
     ultima_horas: nuevaUltimaHoras, ultima_fecha: nuevaUltimaFecha, ultima_ciclos: t.ultima_ciclos,
   };
   const prox = proximos(merged);
+  // Mismo criterio que crearTarea: proxima_horas explícito manda siempre.
+  if (proxima_horas != null) prox.proxima_horas = Number(proxima_horas);
 
   const r = await db.query(`
     UPDATE taller_tarea_programada SET
