@@ -83,13 +83,16 @@ export default function EstadoFlotaWidget() {
                 <div className="pw__card-row">
                   <span className="pw__card-aeronave">{a.codigo}</span>
                   <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                    {a.estado === "MANTENIMIENTO" && (
+                    {/* "En vuelo" manda siempre: un avión operando no debería
+                        mostrar "Próx. mant." en su lugar solo porque además
+                        esté por vencer su revisión. */}
+                    {a.estado_actual === "VOLANDO" ? (
+                      <span className={`pw__tag ${ESTADO_CLS.VOLANDO}`}>{ESTADO_LABEL.VOLANDO}</span>
+                    ) : a.estado === "MANTENIMIENTO" ? (
                       <span className="pw__tag pw__tag--rojo">Mantenimiento</span>
-                    )}
-                    {proxima5 && (
+                    ) : proxima5 ? (
                       <span className="pw__tag pw__tag--naranja">Próx. mant.</span>
-                    )}
-                    {a.estado !== "MANTENIMIENTO" && !proxima5 && (
+                    ) : (
                       <span className={`pw__tag ${cls}`}>
                         {ESTADO_LABEL[a.estado_actual] ?? a.estado_actual}
                       </span>
