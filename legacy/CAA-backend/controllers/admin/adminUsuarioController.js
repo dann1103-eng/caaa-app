@@ -58,9 +58,21 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
     seguro_vida, seguro_vida_vencimiento, seguro_vida_numero,
     limite_vuelos_avion, limite_vuelos_simulador,
     id_instructor,
+    horas_acumuladas,
     // Datos fiscales / facturación (viven en `usuario`)
     correo, dui, direccion, es_extranjero, pasaporte, nacionalidad,
   } = req.body;
+
+  // Horas totales acumuladas: seteo manual del "saldo inicial" de horas (para
+  // alumnos cuyo historial arrancó fuera de la plataforma). Solo se toca si
+  // viene en el body; el cierre de vuelos sigue sumando encima con normalidad.
+  let horasSet = null;
+  if (horas_acumuladas != null && horas_acumuladas !== "") {
+    horasSet = Number(horas_acumuladas);
+    if (!Number.isFinite(horasSet) || horasSet < 0 || horasSet > 100000) {
+      return res.status(400).json({ message: "Horas totales inválidas (0 a 100000)" });
+    }
+  }
 
   const r = await db.query(`
     UPDATE alumno SET
@@ -75,7 +87,8 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
       seguro_vida_numero        = COALESCE($10, seguro_vida_numero),
       limite_vuelos_avion       = COALESCE($11, limite_vuelos_avion),
       limite_vuelos_simulador   = COALESCE($12, limite_vuelos_simulador),
-      id_instructor             = COALESCE($13, id_instructor)
+      id_instructor             = COALESCE($13, id_instructor),
+      horas_acumuladas          = COALESCE($14, horas_acumuladas)
     WHERE id_alumno = $1
     RETURNING id_alumno
   `, [
@@ -86,6 +99,7 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
     seguro_vida ?? null, seguro_vida_vencimiento || null, seguro_vida_numero ?? null,
     limite_vuelos_avion ?? null, limite_vuelos_simulador ?? null,
     id_instructor ?? null,
+    horasSet,
   ]);
   if (r.rows.length === 0) return res.status(404).json({ message: "Alumno no encontrado" });
 

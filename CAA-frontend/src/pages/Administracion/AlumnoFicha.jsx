@@ -82,6 +82,7 @@ export default function AlumnoFicha() {
         seguro_vida_numero: f.seguro_vida_numero || "",
         limite_vuelos_avion: f.limite_vuelos_avion ?? "",
         limite_vuelos_simulador: f.limite_vuelos_simulador ?? "",
+        horas_acumuladas: f.horas_acumuladas != null ? String(Number(f.horas_acumuladas)) : "",
         // Datos fiscales / facturación (viven en usuario)
         correo: f.correo || "",
         direccion: f.direccion || "",
@@ -111,6 +112,13 @@ export default function AlumnoFicha() {
         id_instructor: form.id_instructor ? Number(form.id_instructor) : null,
         limite_vuelos_avion: form.limite_vuelos_avion === "" ? null : Number(form.limite_vuelos_avion),
         limite_vuelos_simulador: form.limite_vuelos_simulador === "" ? null : Number(form.limite_vuelos_simulador),
+        // Solo mandar horas si el admin las CAMBIÓ: si un vuelo firmado sumó horas
+        // entre cargar la ficha y guardar, un valor sin tocar no debe pisarlas.
+        horas_acumuladas:
+          form.horas_acumuladas !== "" &&
+          Number(form.horas_acumuladas) !== Number(ficha?.horas_acumuladas ?? NaN)
+            ? Number(form.horas_acumuladas)
+            : null,
       };
       await actualizarAlumnoFicha(id_alumno, payload);
       toast.success("Ficha actualizada");
@@ -252,6 +260,14 @@ export default function AlumnoFicha() {
                 <label>Límite simulador / semana</label>
                 <input type="number" min="0" max="6" value={form.limite_vuelos_simulador}
                   onChange={(e) => setForm({ ...form, limite_vuelos_simulador: e.target.value })} />
+              </div>
+              <div className="adf-form-field">
+                <label>Horas totales acumuladas</label>
+                <input type="number" min="0" step="0.1" value={form.horas_acumuladas}
+                  onChange={(e) => setForm({ ...form, horas_acumuladas: e.target.value })} />
+                <small style={{ color: "var(--c-ink-3)", fontSize: "0.72rem" }}>
+                  Saldo inicial de horas (los vuelos siguen sumando encima)
+                </small>
               </div>
               <div className="adf-form-field">
                 <label>Estado de vuelo</label>
