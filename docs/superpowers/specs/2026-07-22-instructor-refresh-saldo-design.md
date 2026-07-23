@@ -53,8 +53,11 @@
   `debitar_saldo=false`.
 - Sub-tipo **CHEQUEO** → nada de esto (paga la escuela).
 - Datos de saldo/costo: nuevo `GET /instructor/practica/saldo?id_aeronave=N` → `{ saldo,
-  costo_estimado, cubre }` (usa la ficha espejo si existe; sin ficha → saldo 0, no cubre).
+  costo_estimado, cubre }` (usa la ficha espejo si existe; sin ficha O ficha sin fila de
+  `cuenta_corriente_alumno` → saldo 0, no cubre — COALESCE a 0 en ambos casos).
   Se consulta al cambiar el avión seleccionado.
+- El costo estimado es **tarifa × 1h a propósito** (misma convención que el badge de
+  saldo-bajo del calendario staff); no se estima por rango de bloques.
 
 ### 2. Modelo de datos (migración aditiva)
 
@@ -65,7 +68,8 @@
   semana publicada quedan NULL (= manual, comportamiento actual).
 - `crearSolicitudPractica` acepta `debitar_saldo` en el body; el backend **revalida** el umbral
   (no confía en el cliente): si `debitar_saldo=true` pero el saldo no cubre el costo estimado,
-  lo guarda como `false` y lo dice en la respuesta.
+  lo guarda como `false` y devuelve `debitar_saldo_ajustado: true` + mensaje — el frontend lo
+  muestra como toast de advertencia para que el instructor sepa que quedó "pago al momento".
 
 ### 3. Cobro al cerrar (`instructorReporteController.firmarReporteVuelo`)
 
@@ -77,6 +81,10 @@ El gate actual "categoria IN (DEMO, CHEQUEO_LINEA) → sin auto-cobro" gana una 
 | Ídem pero el saldo YA NO cubre (gastó entre pedir y volar) | **No debita** — queda como pago al momento (regla: nunca negativo por esta vía) |
 | REFRESH sin debitar / CHEQUEO / staff-created (NULL) | Sin auto-cobro (como hoy) |
 
+⚠️ El chequeo "saldo cubre el total" corre **ANTES** de llamar a `cargarVueloACuentaDentroTx`:
+esa función debita incondicionalmente (para alumnos normales se permite quedar en negativo).
+Acá la regla es la inversa — si no cubre, ni se llama.
+
 Sin cambios: no suma horas de licencia ni avance de curso; el PIC cobra su hora en nómina igual.
 
 ### 4. Visibilidad staff
@@ -85,8 +93,12 @@ Sin cambios: no suma horas de licencia ni avance de curso; el PIC cobra su hora 
   usuario → `cuenta_corriente_alumno`; "—" sin ficha). En el modal de edición del instructor,
   botón **"Cuenta corriente"** → `/administracion/cuentas/:id_alumno` (solo si tiene ficha).
 - **Calendario staff** (admin + programación): los CHEQUEO_LINEA Refresh exponen
-  `debitar_saldo` y el popover/tooltip dice "debita de saldo" o "paga al momento". El badge de
-  saldo-bajo de hoy ya les aplica (su ficha tiene cuenta).
+  `debitar_saldo` y el popover/tooltip dice "debita de saldo" o "paga al momento". ⚠️ El badge
+  de saldo-bajo actual **NO les aplica hoy**: las 3 queries que calculan `saldo_bajo`
+  (`adminVueloController.getCalendario` y las 2 de `programacionController.getCalendario`)
+  excluyen `CHEQUEO_LINEA` explícitamente. **Trabajo requerido:** ampliar esa condición para
+  que un CHEQUEO_LINEA con `tipo_instruccion='REFRESH'` y `debitar_saldo=true` SÍ evalúe
+  saldo-bajo (los demás CHEQUEO_LINEA siguen excluidos — no se cobran).
 - **Vouchera / reporte del vuelo**: línea de modo de pago para Refresh ("Se debitó de saldo" /
   "Pago al momento") para que admin sepa si cobra a mano.
 
