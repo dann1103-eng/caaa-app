@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   getUsuariosAlumnos, crearUsuarioAlumno, editarUsuarioAlumno, reasignarAlumnoInstructor,
   getUsuariosPersonal, crearUsuarioPersonal, editarUsuarioPersonal,
-  resetPasswordPersonal, resetPasswordAlumno, getInstructorCursos, setInstructorCursos,
+  resetPasswordPersonal, resetPasswordAlumno, promoverAlumnoInstructor, getInstructorCursos, setInstructorCursos,
   getHistorialInstructor, getInstructoresDisponibles, getLicencias
 } from "../../services/administracionApi";
 
@@ -239,6 +239,26 @@ export default function Usuarios() {
     } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
   };
 
+  // Alumno que ya se graduó y ahora trabaja como instructor: convierte su
+  // cuenta a INSTRUCTOR (nace solo-vuelo, igual que un instructor nuevo desde
+  // cero; después se ajustan sus capacidades desde la pestaña Personal). Su
+  // ficha de alumno se desactiva pero NO se borra — conserva cuenta corriente,
+  // horas y bitácora de vuelos como histórico.
+  const handlePromover = async (a) => {
+    if (!window.confirm(
+      `¿Promover a ${a.nombre} ${a.apellido} (${a.username}) a INSTRUCTOR?\n\n` +
+      `Su cuenta de alumno queda desactivada (se conserva el historial de horas y cuenta corriente) ` +
+      `y podrá iniciar sesión como instructor. Después ajustá sus capacidades (vuelo/teoría/programar) ` +
+      `desde la pestaña Personal.`
+    )) return;
+    try {
+      await promoverAlumnoInstructor(a.id_alumno);
+      toast.success(`${a.username} ahora es instructor`);
+      loadAlumnos();
+      loadPersonal();
+    } catch (e) { toast.error(e?.response?.data?.message || "Error al promover"); }
+  };
+
   const handleReasignar = async (id_alumno, id_instructor) => {
     if (!id_instructor) return;
     try {
@@ -435,7 +455,12 @@ export default function Usuarios() {
                 return `${a.nombre} ${a.apellido} ${a.username || ""} ${a.instructor_username || ""}`.toLowerCase().includes(q);
               }).map(a => (
                 <tr key={a.id_alumno}>
-                  <td><i className="bi bi-person-circle me-2"></i><strong>{a.nombre} {a.apellido}</strong></td>
+                  <td>
+                    <i className="bi bi-person-circle me-2"></i><strong>{a.nombre} {a.apellido}</strong>
+                    {a.usuario_rol && a.usuario_rol !== "ALUMNO" && (
+                      <span className="adf-tag blue" style={{ marginLeft: 8 }}>Ahora {a.usuario_rol.toLowerCase()}</span>
+                    )}
+                  </td>
                   <td>{a.username}</td>
                   <td style={{ color: "var(--c-ink-3)" }}>{a.instructor_username || "—"}</td>
                   <td>{a.licencia_nombre || "—"}{a.numero_licencia ? ` · ${a.numero_licencia}` : ""}</td>
@@ -444,9 +469,14 @@ export default function Usuarios() {
                     <button className="adf-btn small secondary" style={{ marginRight: 6 }} onClick={() => openEditA(a)}>
                       <i className="bi bi-pencil"></i>Editar
                     </button>
-                    <Link className="adf-btn small secondary" to={`/administracion/alumnos/${a.id_alumno}`}>
+                    <Link className="adf-btn small secondary" to={`/administracion/alumnos/${a.id_alumno}`} style={{ marginRight: 6 }}>
                       <i className="bi bi-folder2-open"></i>Ficha
                     </Link>
+                    {(!a.usuario_rol || a.usuario_rol === "ALUMNO") && (
+                      <button className="adf-btn small secondary" title="Convertir a instructor" onClick={() => handlePromover(a)}>
+                        <i className="bi bi-mortarboard"></i>Promover a instructor
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
