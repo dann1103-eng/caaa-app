@@ -833,15 +833,16 @@ exports.agendarVueloDirecto = async (req, res) => {
     const fin = Number(id_bloque_fin || id_bloque);
 
     // Conflictos contra vuelos reales (no cancelados), por rango de bloques.
+    // Un vuelo marcado como inasistencia (reporte_vuelo.es_inasistencia) nunca
+    // llegó a ocupar la aeronave/al alumno/al instructor de verdad — no debe
+    // seguir bloqueando ese horario para un reemplazo (aplica también a RUTAs
+    // que abarcan varios bloques: el no-show libera todos los que reservaba).
     const conflicto = async (campo, valor, label, code) => {
-      const q = campo === "aeronave"
-        ? `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND id_aeronave=$3 AND estado <> 'CANCELADO'
-             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`
-        : campo === "alumno"
-        ? `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND id_alumno=$3 AND estado <> 'CANCELADO'
-             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`
-        : `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND id_instructor=$3 AND estado <> 'CANCELADO'
-             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`;
+      const columna = campo === "aeronave" ? "id_aeronave" : campo === "alumno" ? "id_alumno" : "id_instructor";
+      const q = `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado <> 'CANCELADO'
+             AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque))
+             AND NOT EXISTS (SELECT 1 FROM reporte_vuelo rv WHERE rv.id_vuelo = vuelo.id_vuelo AND rv.es_inasistencia = true)
+             LIMIT 1`;
       const r = await client.query(q, [id_semana, dia_semana, valor, id_bloque, fin]);
       if (r.rows.length) throw Object.assign(new Error(label), { code });
     };

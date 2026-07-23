@@ -1139,12 +1139,16 @@ exports.editarTripulacion = async (req, res) => {
     // Conflictos contra otros vuelos reales (mismo patrón que agendarVueloDirecto),
     // evaluados contra el bloque NUEVO. Se disparan también si solo cambió el
     // horario (aunque la tripulación se mantenga) para no mover un vuelo a un
-    // slot donde esa aeronave/instructor/alumno ya está ocupado.
+    // slot donde esa aeronave/instructor/alumno ya está ocupado. Un no-show
+    // (reporte_vuelo.es_inasistencia) nunca ocupó de verdad ese horario, así
+    // que no debe bloquear un reemplazo (incluye RUTAs de varios bloques).
     const conflicto = async (columna, valor, label, code) => {
       const r = await client.query(
         `SELECT 1 FROM vuelo
           WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado <> 'CANCELADO' AND id_vuelo <> $6
-            AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`,
+            AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque))
+            AND NOT EXISTS (SELECT 1 FROM reporte_vuelo rv WHERE rv.id_vuelo = vuelo.id_vuelo AND rv.es_inasistencia = true)
+          LIMIT 1`,
         [vuelo.id_semana, nuevoDia, valor, nuevoBloque, nuevoFin, vuelo.id_vuelo]
       );
       if (r.rows.length) throw Object.assign(new Error(label), { code });
