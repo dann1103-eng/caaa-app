@@ -14,6 +14,11 @@ const TIPO_TAREA = [
   { v: "INSPECCION", t: "Inspección" }, { v: "AD", t: "Directiva (AD)" },
   { v: "SB", t: "Boletín (SB)" }, { v: "VIDA_LIMITE", t: "Vida límite" }, { v: "OTRO", t: "Otro" },
 ];
+// Cupo único de mantenimiento periódico: como mucho una tarea tipo='INSPECCION'
+// activa por avión (25/50/100h, Anual, Overhaul). Estos nombres son los que
+// entiende aeronaveUtils.js del backend para derivar aeronave.tipo_proxima_revision
+// — no cambiar sin cambiar también ese mapeo.
+const TIPOS_PERIODICOS = ["Inspección 25 horas", "Inspección 50 horas", "Inspección 100 horas", "Anual", "Overhaul"];
 
 function num(v, d = 1) { const n = parseFloat(v); return isNaN(n) ? "—" : n.toFixed(d); }
 
@@ -77,6 +82,7 @@ export default function Aeronavegabilidad() {
   }, [idAeronave, cargar, setParams]);
 
   const aeronaveSel = aeronaves.find((a) => String(a.id_aeronave) === String(idAeronave));
+  const yaHayInspeccionActiva = tareas.some((t) => t.tipo === "INSPECCION");
 
   return (
     <>
@@ -195,6 +201,7 @@ export default function Aeronavegabilidad() {
         <ModalTarea
           idAeronave={idAeronave}
           componentes={componentes}
+          yaHayInspeccionActiva={yaHayInspeccionActiva}
           onClose={() => setModalTarea(false)}
           onSaved={() => { setModalTarea(false); cargar(idAeronave); }}
         />
@@ -204,6 +211,7 @@ export default function Aeronavegabilidad() {
           idAeronave={idAeronave}
           componentes={componentes}
           tarea={editarTarea}
+          yaHayInspeccionActiva={yaHayInspeccionActiva}
           onClose={() => setEditarTarea(null)}
           onSaved={() => { setEditarTarea(null); cargar(idAeronave); }}
         />
@@ -211,6 +219,7 @@ export default function Aeronavegabilidad() {
       {cumplir && (
         <ModalCumplir
           tarea={cumplir}
+          aeronaveSel={aeronaveSel}
           onClose={() => setCumplir(null)}
           onSaved={() => { setCumplir(null); cargar(idAeronave); }}
         />
@@ -278,28 +287,64 @@ function ModalComponente({ idAeronave, onClose, onSaved }) {
 }
 
 // ── Modal: nueva tarea programada / editar tarea existente ────────────────
-// Sin `tarea` = crear; con `tarea` = editar. El modo "Próxima revisión
-// (horas)" permite fijar directamente a qué horas vence, sin necesitar saber
-// cuándo se hizo la última vez — útil para sembrar/corregir "en limpio"
-// cuando no hay historial confiable de fechas.
-function ModalTarea({ idAeronave, componentes, tarea, onClose, onSaved }) {
+// Sin `tarea` = crear; con `tarea` = editar. Para tipo='INSPECCION' (el cupo
+// único periódico: 25/50/100h, Anual, Overhaul) el formulario se reduce a
+// "qué tipo" + "a qué TAC le toca" — sin intervalos ni última realización,
+// porque ese cupo se define y avanza siempre a mano (ver "Cumplir"). Para
+// AD/SB/VIDA_LIMITE/OTRO se conserva el formulario completo de siempre.
+function ModalTarea({ idAeronave, componentes, tarea, yaHayInspeccionActiva, onClose, onSaved }) {
   const editando = !!tarea;
+  const nombreEsPeriodico = tarea && TIPOS_PERIODICOS.includes(tarea.nombre);
   const [f, setF] = useState(() => tarea ? {
-    tipo: tarea.tipo, nombre: tarea.nombre || "", referencia: tarea.referencia || "",
-    id_componente: tarea.id_componente || "", descripcion: tarea.descripcion || "",
+    tipo: tarea.tipo, nombre: nombreEsPeriodico ? tarea.nombre : (tarea.tipo === "INSPECCION" ? "OTRO" : tarea.nombre || ""),
+    nombreOtro: nombreEsPeriodico ? "" : (tarea.nombre || ""),
+    referencia: tarea.referencia || "", id_componente: tarea.id_componente || "", descripcion: tarea.descripcion || "",
     recurrente: tarea.recurrente,
     intervalo_horas: tarea.intervalo_horas ?? "", intervalo_dias: tarea.intervalo_dias ?? "", intervalo_ciclos: tarea.intervalo_ciclos ?? "",
     modoHoras: "proxima", horasCampo: tarea.proxima_horas ?? "", ultima_fecha: "",
   } : {
-    tipo: "INSPECCION", nombre: "", referencia: "", id_componente: "", descripcion: "",
+    tipo: "INSPECCION", nombre: "Inspección 25 horas", nombreOtro: "",
+    referencia: "", id_componente: "", descripcion: "",
     recurrente: true, intervalo_horas: "", intervalo_dias: "", intervalo_ciclos: "",
     modoHoras: "proxima", horasCampo: "", ultima_fecha: "",
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setF({ ...f, [k]: v });
 
+  const esPeriodico = f.tipo === "INSPECCION";
+  // Al crear (no al editar), no se puede abrir una segunda mientras haya una activa.
+  const bloqueadoPorCupo = esPeriodico && !editando && yaHayInspeccionActiva;
+
   const guardar = async (e) => {
     e.preventDefault();
+    if (bloqueadoPorCupo) return;
+
+    if (esPeriodico) {
+      const nombreFinal = f.nombre === "OTRO" ? f.nombreOtro.trim() : f.nombre;
+      if (!nombreFinal) return toast.error("Ingresá el nombre del mantenimiento");
+      if (f.horasCampo === "") return toast.error("Ingresá el TAC al que le toca");
+      setSaving(true);
+      try {
+        const payload = {
+          id_componente: f.id_componente ? Number(f.id_componente) : null,
+          nombre: nombreFinal, referencia: f.referencia, descripcion: f.descripcion,
+          tipo: "INSPECCION", recurrente: true,
+          proxima_horas: Number(f.horasCampo),
+        };
+        if (editando) {
+          await actualizarTarea(tarea.id_tarea, payload);
+          toast.success("Tarea actualizada");
+        } else {
+          await crearTarea({ id_aeronave: Number(idAeronave), ...payload });
+          toast.success("Tarea programada creada");
+        }
+        onSaved();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Error al guardar");
+      } finally { setSaving(false); }
+      return;
+    }
+
     if (!f.nombre.trim()) return toast.error("Ingresá un nombre");
     if (f.intervalo_horas === "" && f.intervalo_dias === "" && f.intervalo_ciclos === "") {
       return toast.error("Definí al menos un intervalo (horas, días o ciclos)");
@@ -341,44 +386,73 @@ function ModalTarea({ idAeronave, componentes, tarea, onClose, onSaved }) {
         <div className="adf-edit-head">
           <span className="adf-edit-head__title"><span className="adf-edit-head__chip"><i className="bi bi-clipboard-plus"></i></span>{editando ? `Editar tarea: ${tarea.nombre}` : "Nueva tarea programada"}</span>
           <div style={{ display: "flex", gap: 10 }}>
-            <button type="submit" form="formTarea" className="adf-btn" disabled={saving}><i className="bi bi-check"></i>Guardar</button>
+            <button type="submit" form="formTarea" className="adf-btn" disabled={saving || bloqueadoPorCupo}><i className="bi bi-check"></i>Guardar</button>
             <button type="button" className="adf-btn secondary" onClick={onClose}>Cerrar</button>
           </div>
         </div>
         <div style={{ padding: "0 var(--sp-5) var(--sp-5)" }}>
+          {bloqueadoPorCupo && (
+            <p className="adf-note" style={{ marginBottom: 12 }}>
+              Esta aeronave ya tiene una inspección periódica activa. Editala o usá "Cumplir" para pasar a la siguiente, en vez de crear otra.
+            </p>
+          )}
           <form id="formTarea" onSubmit={guardar}>
             <div className="adf-form-grid">
               <div className="adf-form-field"><label>Tipo</label>
-                <select value={f.tipo} onChange={(e) => set("tipo", e.target.value)}>{TIPO_TAREA.map(t => <option key={t.v} value={t.v}>{t.t}</option>)}</select></div>
-              <div className="adf-form-field"><label>Nombre</label><input value={f.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej. Inspección 100 horas" /></div>
-              <div className="adf-form-field"><label>Referencia (AD/SB)</label><input value={f.referencia} onChange={(e) => set("referencia", e.target.value)} placeholder="Ej. AD 2020-12-05" /></div>
+                <select value={f.tipo} onChange={(e) => set("tipo", e.target.value)} disabled={editando} title={editando ? "El tipo no se puede cambiar al editar" : undefined}>
+                  {TIPO_TAREA.map(t => <option key={t.v} value={t.v}>{t.t}</option>)}
+                </select></div>
+
+              {esPeriodico ? (
+                <>
+                  <div className="adf-form-field"><label>Cuál (25/50/100h, Anual, Overhaul)</label>
+                    <select value={f.nombre} onChange={(e) => set("nombre", e.target.value)}>
+                      {TIPOS_PERIODICOS.map(n => <option key={n} value={n}>{n}</option>)}
+                      <option value="OTRO">Otro…</option>
+                    </select></div>
+                  {f.nombre === "OTRO" && (
+                    <div className="adf-form-field"><label>Nombre</label>
+                      <input value={f.nombreOtro} onChange={(e) => set("nombreOtro", e.target.value)} placeholder="Ej. Cambio de aceite mayor" /></div>
+                  )}
+                  <div className="adf-form-field"><label>TAC al que le toca</label>
+                    <input type="number" step="0.1" value={f.horasCampo} onChange={(e) => set("horasCampo", e.target.value)} placeholder="Ej. 150" /></div>
+                </>
+              ) : (
+                <>
+                  <div className="adf-form-field"><label>Nombre</label><input value={f.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej. AD magnetos" /></div>
+                  <div className="adf-form-field"><label>Referencia (AD/SB)</label><input value={f.referencia} onChange={(e) => set("referencia", e.target.value)} placeholder="Ej. AD 2020-12-05" /></div>
+                  <div className="adf-form-field"><label>Intervalo (horas)</label><input type="number" step="0.1" value={f.intervalo_horas} onChange={(e) => set("intervalo_horas", e.target.value)} placeholder="Ej. 100" /></div>
+                  <div className="adf-form-field"><label>Intervalo (días)</label><input type="number" value={f.intervalo_dias} onChange={(e) => set("intervalo_dias", e.target.value)} placeholder="Ej. 365" /></div>
+                  <div className="adf-form-field"><label>Intervalo (ciclos)</label><input type="number" value={f.intervalo_ciclos} onChange={(e) => set("intervalo_ciclos", e.target.value)} /></div>
+                  <div className="adf-form-field"><label>¿Qué dato tenés?</label>
+                    <select value={f.modoHoras} onChange={(e) => set("modoHoras", e.target.value)}>
+                      <option value="proxima">Próxima revisión (horas)</option>
+                      <option value="ultima">Última realización (horas)</option>
+                    </select></div>
+                  <div className="adf-form-field">
+                    <label>{f.modoHoras === "proxima" ? "Próxima revisión (horas)" : "Última realización (horas)"}</label>
+                    <input
+                      type="number" step="0.1" value={f.horasCampo}
+                      onChange={(e) => set("horasCampo", e.target.value)}
+                      placeholder={f.modoHoras === "proxima" ? "Ej. 150" : "Horas actuales si vacío"}
+                    />
+                  </div>
+                  <div className="adf-form-field"><label>Fecha de referencia (opcional)</label><input type="date" value={f.ultima_fecha} onChange={(e) => set("ultima_fecha", e.target.value)} /></div>
+                </>
+              )}
+
               <div className="adf-form-field"><label>Componente (opcional)</label>
                 <select value={f.id_componente} onChange={(e) => set("id_componente", e.target.value)} disabled={editando} title={editando ? "El componente no se puede cambiar al editar" : undefined}>
                   <option value="">— Aeronave completa —</option>
                   {componentes.map(c => <option key={c.id_componente} value={c.id_componente}>{c.nombre}</option>)}
                 </select></div>
-              <div className="adf-form-field"><label>Intervalo (horas)</label><input type="number" step="0.1" value={f.intervalo_horas} onChange={(e) => set("intervalo_horas", e.target.value)} placeholder="Ej. 100" /></div>
-              <div className="adf-form-field"><label>Intervalo (días)</label><input type="number" value={f.intervalo_dias} onChange={(e) => set("intervalo_dias", e.target.value)} placeholder="Ej. 365" /></div>
-              <div className="adf-form-field"><label>Intervalo (ciclos)</label><input type="number" value={f.intervalo_ciclos} onChange={(e) => set("intervalo_ciclos", e.target.value)} /></div>
-              <div className="adf-form-field"><label>¿Qué dato tenés?</label>
-                <select value={f.modoHoras} onChange={(e) => set("modoHoras", e.target.value)}>
-                  <option value="proxima">Próxima revisión (horas)</option>
-                  <option value="ultima">Última realización (horas)</option>
-                </select></div>
-              <div className="adf-form-field">
-                <label>{f.modoHoras === "proxima" ? "Próxima revisión (horas)" : "Última realización (horas)"}</label>
-                <input
-                  type="number" step="0.1" value={f.horasCampo}
-                  onChange={(e) => set("horasCampo", e.target.value)}
-                  placeholder={f.modoHoras === "proxima" ? "Ej. 150" : "Horas actuales si vacío"}
-                />
-              </div>
-              <div className="adf-form-field"><label>Fecha de referencia (opcional)</label><input type="date" value={f.ultima_fecha} onChange={(e) => set("ultima_fecha", e.target.value)} /></div>
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer", marginTop: 10 }}>
-              <input type="checkbox" checked={f.recurrente} onChange={(e) => set("recurrente", e.target.checked)} />
-              Recurrente (vuelve a vencer tras cada cumplimiento)
-            </label>
+            {!esPeriodico && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer", marginTop: 10 }}>
+                <input type="checkbox" checked={f.recurrente} onChange={(e) => set("recurrente", e.target.checked)} />
+                Recurrente (vuelve a vencer tras cada cumplimiento)
+              </label>
+            )}
           </form>
         </div>
       </div>
@@ -387,13 +461,51 @@ function ModalTarea({ idAeronave, componentes, tarea, onClose, onSaved }) {
 }
 
 // ── Modal: registrar cumplimiento ──────────────────────────────────────────
-function ModalCumplir({ tarea, onClose, onSaved }) {
-  const [f, setF] = useState({ fecha: new Date().toISOString().slice(0, 10), horas_aeronave: "", ciclos: "", realizado_por: "", descripcion: "" });
+// Para tipo='INSPECCION' (el cupo único periódico), cumplir y abrir la
+// siguiente pasan en un solo paso: además del TAC en que se hizo esta, se
+// pide de una vez el próximo tipo y a qué TAC le toca — nunca queda el cupo
+// vacío ni hay que volver a entrar para programar la siguiente.
+function ModalCumplir({ tarea, aeronaveSel, onClose, onSaved }) {
+  const esPeriodico = tarea.tipo === "INSPECCION";
+  const tacActualAvion = aeronaveSel ? parseFloat(aeronaveSel.horas_acumuladas) : null;
+  const [f, setF] = useState({
+    fecha: new Date().toISOString().slice(0, 10),
+    horas_aeronave: Number.isFinite(tacActualAvion) ? String(tacActualAvion) : "",
+    ciclos: "", realizado_por: "", descripcion: "",
+    nombreSiguiente: TIPOS_PERIODICOS.includes(tarea.nombre) ? tarea.nombre : TIPOS_PERIODICOS[0],
+    nombreSiguienteOtro: "", proximaHorasSiguiente: "",
+  });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setF({ ...f, [k]: v });
 
   const guardar = async (e) => {
     e.preventDefault();
+
+    if (esPeriodico) {
+      const nombreSiguienteFinal = f.nombreSiguiente === "OTRO" ? f.nombreSiguienteOtro.trim() : f.nombreSiguiente;
+      if (!nombreSiguienteFinal) return toast.error("Indicá el próximo tipo de mantenimiento");
+      if (f.proximaHorasSiguiente === "") return toast.error("Indicá a qué TAC le toca la próxima");
+      const tacActual = f.horas_aeronave === "" ? tacActualAvion : Number(f.horas_aeronave);
+      if (Number(f.proximaHorasSiguiente) <= tacActual) {
+        return toast.error("El TAC de la próxima revisión debe ser mayor al TAC actual");
+      }
+      setSaving(true);
+      try {
+        const upd = await registrarCumplimiento(tarea.id_tarea, {
+          fecha: f.fecha || null,
+          horas_aeronave: f.horas_aeronave === "" ? null : Number(f.horas_aeronave),
+          descripcion: f.descripcion, realizado_por: f.realizado_por,
+          nombre_siguiente: nombreSiguienteFinal,
+          proxima_horas_siguiente: Number(f.proximaHorasSiguiente),
+        });
+        toast.success(`Cumplido. Próximo: ${upd.nombre} a ${num(upd.proxima_horas)}h`);
+        onSaved();
+      } catch (err) {
+        toast.error(err.response?.data?.message || "Error al registrar");
+      } finally { setSaving(false); }
+      return;
+    }
+
     setSaving(true);
     try {
       const upd = await registrarCumplimiento(tarea.id_tarea, {
@@ -427,10 +539,33 @@ function ModalCumplir({ tarea, onClose, onSaved }) {
           <form id="formCump" onSubmit={guardar}>
             <div className="adf-form-grid">
               <div className="adf-form-field"><label>Fecha</label><input type="date" value={f.fecha} onChange={(e) => set("fecha", e.target.value)} /></div>
-              <div className="adf-form-field"><label>Horas de la aeronave</label><input type="number" step="0.1" value={f.horas_aeronave} onChange={(e) => set("horas_aeronave", e.target.value)} placeholder="Actuales si vacío" /></div>
-              <div className="adf-form-field"><label>Ciclos</label><input type="number" value={f.ciclos} onChange={(e) => set("ciclos", e.target.value)} /></div>
+              <div className="adf-form-field"><label>TAC actual</label><input type="number" step="0.1" value={f.horas_aeronave} onChange={(e) => set("horas_aeronave", e.target.value)} placeholder="Actuales si vacío" /></div>
+              {!esPeriodico && (
+                <div className="adf-form-field"><label>Ciclos</label><input type="number" value={f.ciclos} onChange={(e) => set("ciclos", e.target.value)} /></div>
+              )}
               <div className="adf-form-field"><label>Realizado por (mecánico/licencia)</label><input value={f.realizado_por} onChange={(e) => set("realizado_por", e.target.value)} /></div>
             </div>
+
+            {esPeriodico && (
+              <>
+                <hr style={{ margin: "14px 0", border: "none", borderTop: "1px solid var(--c-line-1)" }} />
+                <p className="adf-note" style={{ marginBottom: 10 }}>Al cumplir se abre de una vez el próximo mantenimiento periódico de este avión.</p>
+                <div className="adf-form-grid">
+                  <div className="adf-form-field"><label>Próximo tipo</label>
+                    <select value={f.nombreSiguiente} onChange={(e) => set("nombreSiguiente", e.target.value)}>
+                      {TIPOS_PERIODICOS.map(n => <option key={n} value={n}>{n}</option>)}
+                      <option value="OTRO">Otro…</option>
+                    </select></div>
+                  {f.nombreSiguiente === "OTRO" && (
+                    <div className="adf-form-field"><label>Nombre</label>
+                      <input value={f.nombreSiguienteOtro} onChange={(e) => set("nombreSiguienteOtro", e.target.value)} placeholder="Ej. Cambio de aceite mayor" /></div>
+                  )}
+                  <div className="adf-form-field"><label>Próximo TAC objetivo</label>
+                    <input type="number" step="0.1" value={f.proximaHorasSiguiente} onChange={(e) => set("proximaHorasSiguiente", e.target.value)} placeholder="Ej. 150" /></div>
+                </div>
+              </>
+            )}
+
             <div className="adf-form-field" style={{ marginTop: 10 }}><label>Descripción / notas</label>
               <textarea rows={3} value={f.descripcion} onChange={(e) => set("descripcion", e.target.value)} /></div>
           </form>

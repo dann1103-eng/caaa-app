@@ -85,6 +85,24 @@ function proximos({ recurrente, intervalo_horas, intervalo_dias, intervalo_ciclo
   return { proxima_horas, proxima_fecha, proxima_ciclos };
 }
 
+// Cupo único: como mucho una fila tipo='INSPECCION' activa por avión (25/50/
+// 100h, Anual, Overhaul — el ciclo preventivo periódico). AD/SB/VIDA_LIMITE/OTRO
+// no tienen este límite. Hay también un índice único parcial en BD
+// (uq_taller_tarea_inspeccion_activa) como red de seguridad; este chequeo
+// solo existe para devolver un 409 legible en vez de un error crudo de constraint.
+async function hayInspeccionActiva(id_aeronave, excluirIdTarea) {
+  const params = [id_aeronave];
+  let excl = "";
+  if (excluirIdTarea != null) { params.push(excluirIdTarea); excl = `AND id_tarea <> $${params.length}`; }
+  const r = await db.query(
+    `SELECT id_tarea FROM taller_tarea_programada
+      WHERE id_aeronave = $1 AND tipo = 'INSPECCION' AND activo = true ${excl}
+      LIMIT 1`,
+    params
+  );
+  return r.rows.length > 0;
+}
+
 // ── Crear tarea programada ────────────────────────────────────────────────
 exports.crearTarea = catchAsync(async (req, res) => {
   const {
@@ -95,6 +113,11 @@ exports.crearTarea = catchAsync(async (req, res) => {
 
   if (!id_aeronave || !nombre) {
     return res.status(400).json({ message: "Aeronave y nombre son obligatorios" });
+  }
+
+  const tipoResuelto = tipo || "INSPECCION";
+  if (tipoResuelto === "INSPECCION" && await hayInspeccionActiva(id_aeronave)) {
+    return res.status(409).json({ message: "Esta aeronave ya tiene una inspección periódica activa. Editala o cumplila en vez de crear otra." });
   }
 
   // Baseline de horas: prioridad a "última realización" si se da explícita.
@@ -152,6 +175,12 @@ exports.editarTarea = catchAsync(async (req, res) => {
   if (!cur.rows.length) return res.status(404).json({ message: "Tarea no encontrada" });
   const t = cur.rows[0];
 
+  const tipoResuelto = tipo != null ? tipo : t.tipo;
+  const activoResuelto = activo != null ? activo : t.activo;
+  if (tipoResuelto === "INSPECCION" && activoResuelto && await hayInspeccionActiva(t.id_aeronave, t.id_tarea)) {
+    return res.status(409).json({ message: "Esta aeronave ya tiene otra inspección periódica activa." });
+  }
+
   const nuevoIntervaloHoras = intervalo_horas != null ? intervalo_horas : t.intervalo_horas;
 
   // Base de horas: prioridad a lo que mande el cliente. `proxima_horas` deja
@@ -203,9 +232,15 @@ exports.editarTarea = catchAsync(async (req, res) => {
 });
 
 // ── Registrar cumplimiento (resetea el reloj de la tarea) ─────────────────
+//
+// Para tipo='INSPECCION' (el cupo único periódico) esto NO recalcula por
+// intervalo: quien cumple define de una vez el próximo tipo (nombre_siguiente)
+// y a qué TAC le toca (proxima_horas_siguiente) — así nunca hay que adivinar,
+// y jamás quedan dos filas abiertas en paralelo. Para AD/SB/VIDA_LIMITE/OTRO
+// el comportamiento es exactamente el de siempre (recompute por intervalo).
 exports.registrarCumplimiento = catchAsync(async (req, res) => {
   const { id } = req.params; // id_tarea
-  const { fecha, horas_aeronave, ciclos, descripcion, realizado_por } = req.body;
+  const { fecha, horas_aeronave, ciclos, descripcion, realizado_por, nombre_siguiente, proxima_horas_siguiente } = req.body;
 
   const client = await db.connect();
   try {
@@ -220,6 +255,37 @@ exports.registrarCumplimiento = catchAsync(async (req, res) => {
     const cumpHoras = horas_aeronave != null ? horas_aeronave : horasActuales;
     const cumpFecha = fecha || new Date().toISOString().slice(0, 10);
 
+    if (t.tipo === "INSPECCION") {
+      if (!nombre_siguiente || proxima_horas_siguiente == null) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "Indicá el próximo tipo de inspección y a qué TAC le toca." });
+      }
+      if (Number(proxima_horas_siguiente) <= Number(cumpHoras)) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "El TAC de la próxima revisión debe ser mayor al TAC actual." });
+      }
+
+      await client.query(`
+        INSERT INTO taller_cumplimiento
+          (id_tarea, fecha, horas_aeronave, ciclos, descripcion, realizado_por, id_usuario)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `, [id, cumpFecha, cumpHoras, ciclos ?? null, descripcion || null, realizado_por || null, req.user?.id_usuario || null]);
+
+      const upd = await client.query(`
+        UPDATE taller_tarea_programada SET
+          nombre = $2, ultima_fecha = $3, ultima_horas = $4, ultima_ciclos = $5,
+          proxima_fecha = NULL, proxima_horas = $6, proxima_ciclos = NULL,
+          activo = true
+        WHERE id_tarea = $1
+        RETURNING *
+      `, [id, nombre_siguiente, cumpFecha, cumpHoras, ciclos ?? null, Number(proxima_horas_siguiente)]);
+
+      await syncProximaRevisionAeronave(client, t.id_aeronave);
+      await client.query("COMMIT");
+      return res.json(upd.rows[0]);
+    }
+
+    // AD / SB / VIDA_LIMITE / OTRO: comportamiento sin cambios (recompute por intervalo).
     await client.query(`
       INSERT INTO taller_cumplimiento
         (id_tarea, fecha, horas_aeronave, ciclos, descripcion, realizado_por, id_usuario)

@@ -1,6 +1,20 @@
 const db = require("../config/db");
 const transporter = require("./mailer");
 
+// Mapeo fijo nombre → código corto de aeronave.tipo_proxima_revision. Los 5
+// nombres vienen del <select> de "Próximo tipo" en Taller (ModalCumplir/ModalTarea)
+// — cualquier otro texto (el caso "Otro" libre) cae en 'OTRO'.
+const NOMBRE_A_TIPO_REVISION = {
+  "Inspección 25 horas": "25HR",
+  "Inspección 50 horas": "50HR",
+  "Inspección 100 horas": "100HR",
+  "Anual": "ANUAL",
+  "Overhaul": "OVERHAUL",
+};
+function derivarTipoRevision(nombre) {
+  return NOMBRE_A_TIPO_REVISION[nombre] || "OTRO";
+}
+
 /**
  * Actualiza las horas de una aeronave y verifica si debe disparar mantenimientos o alertas.
  * @param {Object} client - Cliente de la base de datos (con transacción)
@@ -192,10 +206,11 @@ async function actualizarHorasAeronave(client, id_vuelo, id_aeronave, horasAAgre
  */
 async function syncProximaRevisionAeronave(client, id_aeronave) {
   try {
-    // Inspección por horas más próxima (menor proxima_horas) → su intervalo
-    // [ultima_horas, proxima_horas] alimenta el cache que lee /mantenimiento.
+    // Con el cupo único (una fila activa tipo='INSPECCION' por avión) esto ya
+    // no necesita elegir entre varias — igual se deja el ORDER BY/LIMIT 1 como
+    // red de seguridad si por algún motivo hubiera más de una.
     const r = await client.query(
-      `SELECT proxima_horas, ultima_horas
+      `SELECT nombre, proxima_horas, ultima_horas
          FROM taller_tarea_programada
         WHERE id_aeronave = $1 AND activo = true
           AND tipo = 'INSPECCION' AND proxima_horas IS NOT NULL
@@ -207,9 +222,10 @@ async function syncProximaRevisionAeronave(client, id_aeronave) {
       await client.query(
         `UPDATE aeronave
             SET horas_proxima_revision = $2,
-                horas_ultima_revision  = $3
+                horas_ultima_revision  = $3,
+                tipo_proxima_revision  = $4
           WHERE id_aeronave = $1`,
-        [id_aeronave, r.rows[0].proxima_horas, r.rows[0].ultima_horas]
+        [id_aeronave, r.rows[0].proxima_horas, r.rows[0].ultima_horas, derivarTipoRevision(r.rows[0].nombre)]
       );
     }
   } catch (e) {

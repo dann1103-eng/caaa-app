@@ -201,6 +201,7 @@ export default function MantenimientoAdmin() {
           try {
             await completarMantenimiento(aeronaveId);
             await cargar();
+            toast.info("Mantenimiento completado. Si correspondía una inspección periódica (25/50/100h, Anual, Overhaul), recordá actualizarla en Taller → Aeronavegabilidad.");
           } catch (e) {
             toast.error(e.response?.data?.message || "Error al completar");
           } finally {
