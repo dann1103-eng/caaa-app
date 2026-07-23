@@ -571,9 +571,19 @@ export default function AgendarVuelo() {
                   <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--c-ink-3)', textTransform: 'uppercase', letterSpacing: 'var(--tracking-wide)' }}>Aeronave</label>
                   <select value={extraAero} onChange={e => setExtraAero(e.target.value)} disabled={calendarBloqueado} style={{ padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--c-line-2)' }}>
                     <option value="">Seleccione...</option>
-                    {extraAeronaves.map(a => (
-                      <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} - {a.modelo}</option>
-                    ))}
+                    {extraAeronaves.map(a => {
+                      // No se deshabilita ni se oculta: mantenimiento es
+                      // advertencia, no bloqueo (mismo criterio que el modo normal).
+                      const enMant = bloqueadoEseDia(a, extraDia);
+                      return (
+                        <option key={a.id_aeronave} value={a.id_aeronave}>
+                          {a.codigo} - {a.modelo}
+                          {enMant && (a.mantenimiento_hasta
+                            ? ` — en mantenimiento hasta el ${fmtFecha(a.mantenimiento_hasta)}`
+                            : ' — en mantenimiento')}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
