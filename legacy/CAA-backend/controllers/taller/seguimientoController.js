@@ -90,17 +90,28 @@ exports.crearTarea = catchAsync(async (req, res) => {
   const {
     id_aeronave, id_componente, nombre, descripcion, tipo, referencia, recurrente,
     intervalo_horas, intervalo_ciclos, intervalo_dias,
-    ultima_fecha, ultima_horas, ultima_ciclos,
+    ultima_fecha, ultima_horas, ultima_ciclos, proxima_horas,
   } = req.body;
 
   if (!id_aeronave || !nombre) {
     return res.status(400).json({ message: "Aeronave y nombre son obligatorios" });
   }
 
-  // Baseline: si no se da última realización, usar horas actuales de la aeronave y hoy.
+  // Baseline de horas: prioridad a "última realización" si se da explícita.
+  // Si en cambio se conoce la PRÓXIMA revisión (y no cuándo se hizo la última —
+  // caso típico de sembrar "en limpio" sin historial confiable), se deriva
+  // ultima_horas hacia atrás con el intervalo. Sin ninguno de los dos, se usan
+  // las horas actuales de la aeronave.
   const aRes = await db.query(`SELECT COALESCE(horas_acumuladas,0) AS h FROM aeronave WHERE id_aeronave = $1`, [id_aeronave]);
   const horasActuales = aRes.rows.length ? parseFloat(aRes.rows[0].h) : 0;
-  const baseHoras = ultima_horas != null ? ultima_horas : horasActuales;
+  let baseHoras;
+  if (ultima_horas != null) {
+    baseHoras = ultima_horas;
+  } else if (proxima_horas != null && intervalo_horas != null) {
+    baseHoras = Number(proxima_horas) - Number(intervalo_horas);
+  } else {
+    baseHoras = horasActuales;
+  }
   const baseFecha = ultima_fecha || new Date().toISOString().slice(0, 10);
   const esRec = recurrente !== false;
 
@@ -134,18 +145,32 @@ exports.editarTarea = catchAsync(async (req, res) => {
   const {
     nombre, descripcion, tipo, referencia, recurrente,
     intervalo_horas, intervalo_ciclos, intervalo_dias, activo,
+    ultima_horas, ultima_fecha, proxima_horas,
   } = req.body;
 
   const cur = await db.query(`SELECT * FROM taller_tarea_programada WHERE id_tarea = $1`, [id]);
   if (!cur.rows.length) return res.status(404).json({ message: "Tarea no encontrada" });
   const t = cur.rows[0];
 
+  const nuevoIntervaloHoras = intervalo_horas != null ? intervalo_horas : t.intervalo_horas;
+
+  // Base de horas: prioridad a lo que mande el cliente. `proxima_horas` deja
+  // fijar directamente el próximo vencimiento sin saber cuándo se hizo la
+  // última — reinicio "en limpio" de una tarea cuyo historial no es confiable.
+  let nuevaUltimaHoras = t.ultima_horas;
+  if (ultima_horas != null) {
+    nuevaUltimaHoras = ultima_horas;
+  } else if (proxima_horas != null && nuevoIntervaloHoras != null) {
+    nuevaUltimaHoras = Number(proxima_horas) - Number(nuevoIntervaloHoras);
+  }
+  const nuevaUltimaFecha = ultima_fecha || t.ultima_fecha;
+
   const merged = {
     recurrente: recurrente != null ? recurrente : t.recurrente,
-    intervalo_horas: intervalo_horas != null ? intervalo_horas : t.intervalo_horas,
+    intervalo_horas: nuevoIntervaloHoras,
     intervalo_dias: intervalo_dias != null ? intervalo_dias : t.intervalo_dias,
     intervalo_ciclos: intervalo_ciclos != null ? intervalo_ciclos : t.intervalo_ciclos,
-    ultima_horas: t.ultima_horas, ultima_fecha: t.ultima_fecha, ultima_ciclos: t.ultima_ciclos,
+    ultima_horas: nuevaUltimaHoras, ultima_fecha: nuevaUltimaFecha, ultima_ciclos: t.ultima_ciclos,
   };
   const prox = proximos(merged);
 
@@ -159,15 +184,18 @@ exports.editarTarea = catchAsync(async (req, res) => {
       intervalo_horas = $7,
       intervalo_ciclos = $8,
       intervalo_dias = $9,
-      proxima_fecha = $10,
-      proxima_horas = $11,
-      proxima_ciclos = $12,
-      activo = COALESCE($13, activo)
+      ultima_horas = $10,
+      ultima_fecha = $11,
+      proxima_fecha = $12,
+      proxima_horas = $13,
+      proxima_ciclos = $14,
+      activo = COALESCE($15, activo)
     WHERE id_tarea = $1
     RETURNING *
   `, [
     id, nombre, descripcion || null, tipo, referencia || null, merged.recurrente,
     merged.intervalo_horas, merged.intervalo_ciclos, merged.intervalo_dias,
+    merged.ultima_horas, merged.ultima_fecha,
     prox.proxima_fecha, prox.proxima_horas, prox.proxima_ciclos, activo,
   ]);
   await syncProximaRevisionAeronave(db, t.id_aeronave);
