@@ -22,6 +22,8 @@ import "./Solicitudes.css";
 
 const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+const fmtUsd = (n) => `${n < 0 ? "-" : ""}$${Math.abs(Number(n)).toFixed(2)}`;
+
 const ESTADO_BADGE = {
   BORRADOR: { label: "Borrador", cls: "isol-badge--borrador" },
   EN_REVISION: { label: "Enviada a programación", cls: "isol-badge--enviada" },
@@ -81,13 +83,16 @@ export default function InstructorSolicitudes() {
   useEffect(() => { reload(); }, []);
 
   useEffect(() => {
+    let ignore = false;
     if (practica.id_aeronave && practica.tipo_instruccion === "REFRESH") {
+      setSaldoPractica(null); // no mostrar el dato del avión anterior mientras carga
       getPracticaSaldo(practica.id_aeronave)
-        .then((data) => setSaldoPractica(data))
-        .catch(() => setSaldoPractica(null));
+        .then((data) => { if (!ignore) setSaldoPractica(data); })
+        .catch(() => { if (!ignore) setSaldoPractica(null); });
     } else {
       setSaldoPractica(null);
     }
+    return () => { ignore = true; };
   }, [practica.id_aeronave, practica.tipo_instruccion]);
 
   const puedeSolicitarPractica = !publicada && practica.id_bloque && practica.id_aeronave && practica.id_instructor_pic && !enviandoPractica;
@@ -293,8 +298,8 @@ export default function InstructorSolicitudes() {
                     fontSize: "0.85rem", color: "var(--c-ink-3, #64748b)", marginTop: 4,
                   }}>
                     <span>
-                      Saldo: <strong>${Number(saldoPractica.saldo).toFixed(2)}</strong>
-                      {" · "}este vuelo cuesta aprox. <strong>${Number(saldoPractica.costo_estimado).toFixed(2)}</strong>
+                      Saldo: <strong>{fmtUsd(saldoPractica.saldo)}</strong>
+                      {" · "}este vuelo cuesta aprox. <strong>{fmtUsd(saldoPractica.costo_estimado)}</strong>
                     </span>
                     <label style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 500, cursor: "pointer" }}>
                       <input
@@ -314,7 +319,7 @@ export default function InstructorSolicitudes() {
                   }}>
                     <i className="bi bi-exclamation-triangle-fill"></i>
                     <span>
-                      Tu saldo (${Number(saldoPractica.saldo).toFixed(2)}) no cubre este vuelo (~${Number(saldoPractica.costo_estimado).toFixed(2)}):
+                      Tu saldo ({fmtUsd(saldoPractica.saldo)}) no cubre este vuelo (~{fmtUsd(saldoPractica.costo_estimado)}):
                       se paga al momento del vuelo o coordinalo con Administración.
                     </span>
                   </div>
