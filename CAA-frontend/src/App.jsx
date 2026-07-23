@@ -193,6 +193,18 @@ function App() {
               </ProtectedProgramacion>
             }
           />
+          {/* Mismo componente que /admin/cancelaciones (sin el shell de ADMIN):
+              rol PROGRAMACION real, o un INSTRUCTOR con puede_programar (ej. jefe/
+              sub-jefe de instrucción) — antes no tenían NINGUNA forma de ver estas
+              solicitudes desde la UI, aunque el backend ya se lo permitía. */}
+          <Route
+            path="/programacion/cancelaciones"
+            element={
+              <ProtectedProgramacion>
+                <CancelacionesAdmin standalone />
+              </ProtectedProgramacion>
+            }
+          />
 
           <Route
             path="/admin/dashboard"

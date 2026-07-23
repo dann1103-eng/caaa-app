@@ -88,6 +88,13 @@ export default function Header() {
                     </Link>
                   )}
 
+                  {(user.rol === "PROGRAMACION" || (user.rol === "INSTRUCTOR" && user.puede_programar)) && (
+                    <Link to="/programacion/cancelaciones" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-x-circle header__action-icon" />
+                      <span>Cancelaciones</span>
+                    </Link>
+                  )}
+
                   {user.rol === "INSTRUCTOR" && user.puede_operaciones && (
                     <Link to="/turno" className="header__action-link" onClick={closeMenu}>
                       <i className="bi bi-clipboard-check header__action-icon" />
