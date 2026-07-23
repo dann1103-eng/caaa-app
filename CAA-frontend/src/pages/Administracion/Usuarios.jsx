@@ -31,7 +31,23 @@ const EMPTY_PERSONAL = {
   es_instructor_vuelo: true, es_instructor_teoria: false, puede_programar: false, puede_operaciones: false
 };
 
+// Saldo de cuenta corriente del instructor (ficha de alumno espejo, ver §21 CLAUDE.md).
+// null = nunca tuvo ficha de alumno (no es practicante ni ex-alumno); 0/negativo/positivo son saldos reales.
+function SaldoInstructorCell({ p }) {
+  if (p.rol !== "INSTRUCTOR") return <span style={{ color: "var(--c-ink-4)" }}>—</span>;
+  const raw = p.saldo_instructor ?? (p.id_alumno_ficha ? 0 : null);
+  if (raw == null) return <span style={{ color: "var(--c-ink-4)" }}>—</span>;
+  const n = Number(raw);
+  const neg = n < 0;
+  return (
+    <span style={{ fontFamily: "var(--font-mono)", color: neg ? "var(--c-danger-700)" : undefined }}>
+      {neg ? "-" : ""}${Math.abs(n).toFixed(2)}
+    </span>
+  );
+}
+
 // Sección colapsable (acordeón) reutilizable.
+
 function AccSection({ icon, title, count, open, onToggle, children }) {
   return (
     <div className="adf-acc">
@@ -656,6 +672,20 @@ export default function Usuarios() {
                   </label>
                 </div>
 
+                {editP.id_alumno_ficha && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--c-line-2)" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
+                      CUENTA CORRIENTE
+                    </div>
+                    <p style={{ fontSize: "0.8rem", color: "var(--c-ink-3)", marginTop: 0, marginBottom: 10 }}>
+                      Este instructor tiene ficha de alumno (practicante o ex-alumno) con cuenta corriente propia.
+                    </p>
+                    <Link to={`/administracion/cuentas/${editP.id_alumno_ficha}`} className="adf-btn secondary">
+                      <i className="bi bi-wallet2 me-1"></i>Cuenta corriente
+                    </Link>
+                  </div>
+                )}
+
                 {editP.id_instructor && (
                   <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--c-line-2)" }}>
                     <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
@@ -850,7 +880,8 @@ export default function Usuarios() {
             <thead>
               <tr>
                 <th>Personal</th><th>Usuario</th><th>Rol</th><th>Alumnos</th>
-                <th>Planilla</th><th style={{ textAlign: "right" }}>Sueldo base</th><th></th>
+                <th>Planilla</th><th style={{ textAlign: "right" }}>Sueldo base</th>
+                <th style={{ textAlign: "right" }}>Saldo</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -876,6 +907,9 @@ export default function Usuarios() {
                   <td className="amount" style={{ textAlign: "right" }}>
                     {p.id_empleado != null ? `$${Number(p.sueldo_base || 0).toFixed(2)}` : "—"}
                   </td>
+                  <td className="amount" style={{ textAlign: "right" }}>
+                    <SaldoInstructorCell p={p} />
+                  </td>
                   <td style={{ textAlign: "right" }}>
                     <button className="adf-btn small secondary" onClick={() => openEditP(p)}>
                       <i className="bi bi-pencil"></i>Editar
@@ -887,7 +921,7 @@ export default function Usuarios() {
                 const q = busqPersonal.trim().toLowerCase();
                 return !q || `${p.nombre} ${p.apellido} ${p.username || ""} ${p.rol || ""} ${p.cargo || ""}`.toLowerCase().includes(q);
               }).length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
+                <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
                   {busqPersonal ? "Ningún miembro del personal coincide con la búsqueda." : "No hay personal registrado. Crea el primero con el botón verde."}
                 </td></tr>
               )}

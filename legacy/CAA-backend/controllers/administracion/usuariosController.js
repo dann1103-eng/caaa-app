@@ -111,10 +111,14 @@ exports.listPersonal = async (req, res) => {
              e.id AS id_empleado, e.cargo, e.sueldo_base, e.es_servicios_profesionales,
              e.dui, e.nit, e.isss_num, e.afp_num,
              ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar, ins.puede_operaciones,
-             (SELECT COUNT(*) FROM alumno a WHERE a.id_instructor = ins.id_instructor) AS num_alumnos
+             (SELECT COUNT(*) FROM alumno a WHERE a.id_instructor = ins.id_instructor) AS num_alumnos,
+             af.id_alumno AS id_alumno_ficha,
+             cc.saldo_actual_usd AS saldo_instructor
       FROM usuario u
       LEFT JOIN empleado e     ON e.id_usuario   = u.id_usuario
       LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
+      LEFT JOIN alumno af ON af.id_usuario = u.id_usuario
+      LEFT JOIN cuenta_corriente_alumno cc ON cc.id_alumno = af.id_alumno
       WHERE u.rol = ANY($1)
       ORDER BY u.nombre, u.apellido
     `, [ROLES_PERSONAL]);
