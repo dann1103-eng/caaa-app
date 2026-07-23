@@ -3,6 +3,7 @@ const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
 const { sincronizarEstadoFlota } = require("../../utils/mantenimientoUtils");
+const { syncProximaRevisionAeronave } = require("../../utils/aeronaveUtils");
 
 exports.getMantenimientoAeronaves = catchAsync(async (req, res) => {
   const aeronavesRes = await db.query(`
@@ -64,6 +65,11 @@ exports.iniciarMantenimiento = catchAsync(async (req, res) => {
   }
 });
 
+// Tipos de mantenimiento que corresponden a una inspección por horas del
+// Taller (25/50/100HR) — mapeo tipo → intervalo de horas para encontrar la
+// tarea programada equivalente.
+const INTERVALO_POR_TIPO = { "25HR": 25, "50HR": 50, "100HR": 100 };
+
 exports.completarMantenimiento = catchAsync(async (req, res) => {
   const { id } = req.params;
   const client = await db.connect();
@@ -71,10 +77,66 @@ exports.completarMantenimiento = catchAsync(async (req, res) => {
     await client.query("BEGIN");
     const mantRes = await client.query(`SELECT id_mantenimiento, tipo FROM mantenimiento_aeronave WHERE id_aeronave = $1 AND estado = 'EN_CURSO' LIMIT 1 FOR UPDATE`, [id]);
     if (mantRes.rows.length === 0) throw new Error("No hay mantenimiento en curso");
+    const { id_mantenimiento, tipo } = mantRes.rows[0];
 
-    await client.query(`UPDATE mantenimiento_aeronave SET estado = 'COMPLETADO', completado = true, fecha_completado = NOW() WHERE id_mantenimiento = $1`, [mantRes.rows[0].id_mantenimiento]);
+    await client.query(`UPDATE mantenimiento_aeronave SET estado = 'COMPLETADO', completado = true, fecha_completado = NOW() WHERE id_mantenimiento = $1`, [id_mantenimiento]);
     // Reactiva el avión solo si ya no le queda otro mantenimiento vigente hoy.
     await sincronizarEstadoFlota(client, Number(id));
+
+    // Si este mantenimiento es una inspección por horas (25/50/100HR), también
+    // se marca cumplida la tarea programada del Taller que hoy alimenta el
+    // cache de esta aeronave (mismo cálculo que
+    // taller/seguimientoController.registrarCumplimiento: ultima_horas = horas
+    // actuales, proxima_horas = ultima + intervalo). Sin esto, "Completar"
+    // solo cerraba el bloqueo operativo — el contador de /mantenimiento
+    // (que el Taller alimenta en exclusiva) seguía vencido.
+    //
+    // ⚠️ NO se matchea por número de intervalo contra `tipo` (25/50/100): la
+    // etiqueta `aeronave.tipo_proxima_revision` que ve el admin al elegir el
+    // tipo es un campo legado que puede no coincidir con el intervalo real de
+    // la tarea del Taller (confirmado en producción: una aeronave mostraba
+    // "100HR" con ultima=47/proxima=97, o sea intervalo real de 50). Se toma
+    // en cambio la MISMA tarea que syncProximaRevisionAeronave usa para
+    // alimentar el cache (la de proxima_horas más próxima) — así se cumple
+    // exactamente la que el admin está viendo en pantalla, sin adivinar.
+    if (INTERVALO_POR_TIPO[tipo]) {
+      const tareaRes = await client.query(
+        `SELECT id_tarea, intervalo_horas, intervalo_dias
+           FROM taller_tarea_programada
+          WHERE id_aeronave = $1 AND activo = true AND tipo = 'INSPECCION' AND proxima_horas IS NOT NULL
+          ORDER BY proxima_horas ASC
+          LIMIT 1
+          FOR UPDATE`,
+        [id]
+      );
+
+      if (tareaRes.rows.length > 0) {
+        const t = tareaRes.rows[0];
+        const aRes = await client.query(`SELECT COALESCE(horas_acumuladas, 0) AS h FROM aeronave WHERE id_aeronave = $1`, [id]);
+        const horasActuales = parseFloat(aRes.rows[0].h);
+        const hoy = new Date().toISOString().slice(0, 10);
+        const proximaHoras = t.intervalo_horas != null ? horasActuales + Number(t.intervalo_horas) : null;
+        let proximaFecha = null;
+        if (t.intervalo_dias != null) {
+          const d = new Date(hoy);
+          d.setDate(d.getDate() + Number(t.intervalo_dias));
+          proximaFecha = d.toISOString().slice(0, 10);
+        }
+
+        await client.query(
+          `INSERT INTO taller_cumplimiento (id_tarea, fecha, horas_aeronave, descripcion, id_usuario)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [t.id_tarea, hoy, horasActuales, `Cumplida vía mantenimiento (${tipo})`, req.user?.id_usuario || null]
+        );
+        await client.query(
+          `UPDATE taller_tarea_programada
+              SET ultima_fecha = $2, ultima_horas = $3, proxima_fecha = $4, proxima_horas = $5
+            WHERE id_tarea = $1`,
+          [t.id_tarea, hoy, horasActuales, proximaFecha, proximaHoras]
+        );
+        await syncProximaRevisionAeronave(client, Number(id));
+      }
+    }
 
     await client.query("COMMIT");
     res.json({ message: "Mantenimiento completado" });
