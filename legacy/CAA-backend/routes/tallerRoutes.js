@@ -8,6 +8,7 @@ const dashboard = require("../controllers/taller/dashboardController");
 const componente = require("../controllers/taller/componenteController");
 const seguimiento = require("../controllers/taller/seguimientoController");
 const inventario = require("../controllers/taller/inventarioController");
+const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
 router.use(authMiddleware);
@@ -23,6 +24,11 @@ router.get("/dashboard", roleMiddleware(READ), dashboard.dashboard);
 router.get("/componentes", roleMiddleware(READ), componente.list);
 router.post("/componentes", roleMiddleware(WRITE), componente.create);
 router.patch("/componentes/:id", roleMiddleware(WRITE), componente.update);
+
+// Corregir el TAC actual del avión (mismo endpoint auditado que usa Admin →
+// Mantenimiento) — el Taller necesita poder ajustarlo al sembrar/corregir
+// una inspección periódica, no solo verlo.
+router.post("/horas-manuales", roleMiddleware(WRITE), adminAeronave.registrarHorasManuales);
 
 // ── Seguimiento programado (inspecciones, AD, SB, vida límite) ────────────
 router.get("/tareas", roleMiddleware(READ), seguimiento.listTareas);

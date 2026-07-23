@@ -21,6 +21,13 @@ export const actualizarComponente = async (id, datos) => {
   return res.data;
 };
 
+// Fija el TAC actual del avión a un valor absoluto (para corregir/sembrar en
+// limpio junto con una inspección periódica).
+export const fijarHorasAeronave = async (id_aeronave, horas, descripcion) => {
+  const res = await axios.post(`${API_URL}/taller/horas-manuales`, { id_aeronave, horas, modo: "fijar", descripcion });
+  return res.data;
+};
+
 // ── Seguimiento programado (inspecciones, AD, SB, vida límite) ────────────
 export const getTareas = async (params = {}) => {
   const res = await axios.get(`${API_URL}/taller/tareas`, { params });

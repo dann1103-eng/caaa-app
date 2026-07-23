@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import {
   getDashboardTaller, getComponentes, crearComponente,
   getTareas, crearTarea, actualizarTarea, registrarCumplimiento, getHistorialAeronave,
+  fijarHorasAeronave,
 } from "../../services/tallerApi";
 
 const TIPO_COMP = [
@@ -201,6 +202,7 @@ export default function Aeronavegabilidad() {
         <ModalTarea
           idAeronave={idAeronave}
           componentes={componentes}
+          aeronaveSel={aeronaveSel}
           yaHayInspeccionActiva={yaHayInspeccionActiva}
           onClose={() => setModalTarea(false)}
           onSaved={() => { setModalTarea(false); cargar(idAeronave); }}
@@ -211,6 +213,7 @@ export default function Aeronavegabilidad() {
           idAeronave={idAeronave}
           componentes={componentes}
           tarea={editarTarea}
+          aeronaveSel={aeronaveSel}
           yaHayInspeccionActiva={yaHayInspeccionActiva}
           onClose={() => setEditarTarea(null)}
           onSaved={() => { setEditarTarea(null); cargar(idAeronave); }}
@@ -292,9 +295,10 @@ function ModalComponente({ idAeronave, onClose, onSaved }) {
 // "qué tipo" + "a qué TAC le toca" — sin intervalos ni última realización,
 // porque ese cupo se define y avanza siempre a mano (ver "Cumplir"). Para
 // AD/SB/VIDA_LIMITE/OTRO se conserva el formulario completo de siempre.
-function ModalTarea({ idAeronave, componentes, tarea, yaHayInspeccionActiva, onClose, onSaved }) {
+function ModalTarea({ idAeronave, componentes, tarea, aeronaveSel, yaHayInspeccionActiva, onClose, onSaved }) {
   const editando = !!tarea;
   const nombreEsPeriodico = tarea && TIPOS_PERIODICOS.includes(tarea.nombre);
+  const tacActualAvion = aeronaveSel ? parseFloat(aeronaveSel.horas_acumuladas) : null;
   const [f, setF] = useState(() => tarea ? {
     tipo: tarea.tipo, nombre: nombreEsPeriodico ? tarea.nombre : (tarea.tipo === "INSPECCION" ? "OTRO" : tarea.nombre || ""),
     nombreOtro: nombreEsPeriodico ? "" : (tarea.nombre || ""),
@@ -302,11 +306,13 @@ function ModalTarea({ idAeronave, componentes, tarea, yaHayInspeccionActiva, onC
     recurrente: tarea.recurrente,
     intervalo_horas: tarea.intervalo_horas ?? "", intervalo_dias: tarea.intervalo_dias ?? "", intervalo_ciclos: tarea.intervalo_ciclos ?? "",
     modoHoras: "proxima", horasCampo: tarea.proxima_horas ?? "", ultima_fecha: "",
+    tacActual: Number.isFinite(tacActualAvion) ? String(tacActualAvion) : "",
   } : {
     tipo: "INSPECCION", nombre: "Inspección 25 horas", nombreOtro: "",
     referencia: "", id_componente: "", descripcion: "",
     recurrente: true, intervalo_horas: "", intervalo_dias: "", intervalo_ciclos: "",
     modoHoras: "proxima", horasCampo: "", ultima_fecha: "",
+    tacActual: Number.isFinite(tacActualAvion) ? String(tacActualAvion) : "",
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setF({ ...f, [k]: v });
@@ -323,8 +329,14 @@ function ModalTarea({ idAeronave, componentes, tarea, yaHayInspeccionActiva, onC
       const nombreFinal = f.nombre === "OTRO" ? f.nombreOtro.trim() : f.nombre;
       if (!nombreFinal) return toast.error("Ingresá el nombre del mantenimiento");
       if (f.horasCampo === "") return toast.error("Ingresá el TAC al que le toca");
+      if (f.tacActual === "") return toast.error("Ingresá el TAC actual del avión");
       setSaving(true);
       try {
+        // Si el TAC actual cambió respecto al que tiene el sistema, corregirlo
+        // primero — así queda todo consistente antes de fijar el próximo cupo.
+        if (Number(f.tacActual) !== tacActualAvion) {
+          await fijarHorasAeronave(Number(idAeronave), Number(f.tacActual), "Corrección de TAC desde Taller (Aeronavegabilidad)");
+        }
         const payload = {
           id_componente: f.id_componente ? Number(f.id_componente) : null,
           nombre: nombreFinal, referencia: f.referencia, descripcion: f.descripcion,
@@ -414,6 +426,8 @@ function ModalTarea({ idAeronave, componentes, tarea, yaHayInspeccionActiva, onC
                     <div className="adf-form-field"><label>Nombre</label>
                       <input value={f.nombreOtro} onChange={(e) => set("nombreOtro", e.target.value)} placeholder="Ej. Cambio de aceite mayor" /></div>
                   )}
+                  <div className="adf-form-field"><label>TAC actual del avión</label>
+                    <input type="number" step="0.1" value={f.tacActual} onChange={(e) => set("tacActual", e.target.value)} placeholder="Ej. 100.99" /></div>
                   <div className="adf-form-field"><label>TAC al que le toca</label>
                     <input type="number" step="0.1" value={f.horasCampo} onChange={(e) => set("horasCampo", e.target.value)} placeholder="Ej. 150" /></div>
                 </>
