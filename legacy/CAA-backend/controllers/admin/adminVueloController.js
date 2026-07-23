@@ -247,8 +247,18 @@ exports.getCalendario = catchAsync(async (req, res) => {
       -- auto-cobran al alumno (DEMO / CHEQUEO_LINEA / PRUEBA).
       COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
       COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
+      COALESCE(v.categoria, sv.categoria) AS categoria,
+      COALESCE(v.tipo_instruccion, sv.tipo_instruccion) AS tipo_instruccion,
+      COALESCE(v.debitar_saldo, sv.debitar_saldo) AS debitar_saldo,
       (
-        COALESCE(v.categoria, sv.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+        (
+          COALESCE(v.categoria, sv.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+          OR (
+            COALESCE(v.categoria, sv.categoria, 'NORMAL') = 'CHEQUEO_LINEA'
+            AND COALESCE(v.tipo_instruccion, sv.tipo_instruccion) = 'REFRESH'
+            AND COALESCE(v.debitar_saldo, sv.debitar_saldo) = TRUE
+          )
+        )
         AND COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) IS NOT NULL
         AND COALESCE(cc.saldo_actual_usd, 0) < COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd)
       ) AS saldo_bajo

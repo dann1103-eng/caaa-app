@@ -123,8 +123,18 @@ exports.getCalendario = async (req, res) => {
           -- Advertencia de saldo bajo (ver adminVueloController.getCalendario)
           COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
           COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
+          v.categoria,
+          v.tipo_instruccion,
+          v.debitar_saldo,
           (
-            COALESCE(v.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+            (
+              COALESCE(v.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+              OR (
+                COALESCE(v.categoria, 'NORMAL') = 'CHEQUEO_LINEA'
+                AND v.tipo_instruccion = 'REFRESH'
+                AND v.debitar_saldo = TRUE
+              )
+            )
             AND COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) IS NOT NULL
             AND COALESCE(cc.saldo_actual_usd, 0) < COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd)
           ) AS saldo_bajo
@@ -200,8 +210,18 @@ exports.getCalendario = async (req, res) => {
         -- Advertencia de saldo bajo (ver adminVueloController.getCalendario)
         COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
         COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
+        sv.categoria,
+        sv.tipo_instruccion,
+        sv.debitar_saldo,
         (
-          COALESCE(sv.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+          (
+            COALESCE(sv.categoria, 'NORMAL') NOT IN ('DEMO','CHEQUEO_LINEA','PRUEBA')
+            OR (
+              COALESCE(sv.categoria, 'NORMAL') = 'CHEQUEO_LINEA'
+              AND sv.tipo_instruccion = 'REFRESH'
+              AND sv.debitar_saldo = TRUE
+            )
+          )
           AND COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) IS NOT NULL
           AND COALESCE(cc.saldo_actual_usd, 0) < COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd)
         ) AS saldo_bajo
