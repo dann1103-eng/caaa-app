@@ -55,6 +55,7 @@ router.post("/solicitudes/:id_solicitud/enviar",              accessVuelo, instr
 router.post("/solicitudes",                                   accessVuelo, instructorSolicitud.crearSolicitud);
 // Solicito un vuelo de práctica para MÍ (chequeo/refresh con otro instructor de PIC).
 router.post("/solicitudes/practica",                          accessVuelo, instructorSolicitud.crearSolicitudPractica);
+router.get("/solicitudes/practica/saldo",                     accessVuelo, instructorSolicitud.getPracticaSaldo);
 router.patch("/solicitudes/:id_detalle/remarks",              accessVuelo, instructorSolicitud.guardarRemarks);
 router.delete("/solicitudes/:id_detalle",                     accessVuelo, instructorSolicitud.eliminarSolicitud);
 

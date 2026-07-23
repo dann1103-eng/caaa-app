@@ -3,6 +3,7 @@ const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor } = require("../../utils/instructorHelpers");
 const solicitudService = require("../../services/solicitudService");
 const { mantenimientoCubreFechaSQL } = require("../../utils/mantenimientoUtils");
+const { getSaldoAlumno, estimarCostoVuelos } = require("../../utils/saldoHelper");
 
 // "Mío" = el instructor efectivo del vuelo soy yo: override puntual del
 // vuelo/solicitud, si no el instructor de VUELO asignado al alumno (puede no
@@ -304,7 +305,7 @@ exports.crearSolicitudPractica = async (req, res) => {
     const idInstructor = await resolverIdInstructor(req.user.id_usuario);
     if (!idInstructor) return res.status(403).json({ message: "No sos instructor" });
 
-    const { dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, id_instructor_pic, tipo_instruccion } = req.body;
+    const { dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, id_instructor_pic, tipo_instruccion, debitar_saldo } = req.body;
     if (!dia_semana || !id_bloque || !id_aeronave || !id_instructor_pic || !tipo_instruccion) {
       return res.status(400).json({ message: "Faltan datos del vuelo (bloque, aeronave, PIC y sub-tipo son obligatorios)" });
     }
@@ -327,12 +328,38 @@ exports.crearSolicitudPractica = async (req, res) => {
       saltarConflictoAeronave: true,
       saltarConflictoInstructor: true,
     });
+
+    // debitar_saldo: solo tiene sentido en REFRESH. El servidor REVALIDA el
+    // umbral (no confía en el cliente): si pidió debitar pero su saldo no
+    // cubre el costo estimado, queda en false ("pago al momento") y se avisa.
+    let debitarFinal = null;
+    let debitarAjustado = false;
+    if (String(tipo_instruccion).toUpperCase() === "REFRESH") {
+      debitarFinal = debitar_saldo === true;
+      if (debitarFinal) {
+        const ficha = await client.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1 LIMIT 1`, [req.user.id_usuario]);
+        const idAlumnoFicha = ficha.rows[0]?.id_alumno || null;
+        const saldoFicha = idAlumnoFicha ? ((await getSaldoAlumno(idAlumnoFicha, client)) ?? 0) : 0;
+        const costoEst = await estimarCostoVuelos([{ id_aeronave: Number(id_aeronave) }], new Date(), client, idAlumnoFicha);
+        if (!(saldoFicha >= costoEst && costoEst > 0)) {
+          debitarFinal = false;
+          debitarAjustado = true;
+        }
+      }
+      await client.query(`UPDATE solicitud_vuelo SET debitar_saldo = $1 WHERE id_detalle = $2`, [debitarFinal, out.id_detalle]);
+    }
+
     await client.query("COMMIT");
 
     const io = req.app.get("io");
     if (io) io.emit("guardar_cambios", { origen: "instructor" });
 
-    res.json({ message: "Vuelo de práctica solicitado", ...out });
+    res.json({
+      message: "Vuelo de práctica solicitado",
+      ...out,
+      debitar_saldo: debitarFinal,
+      ...(debitarAjustado ? { debitar_saldo_ajustado: true, aviso: "Tu saldo no cubre el costo estimado: el vuelo quedó como pago al momento (o coordinalo con Administración)." } : {}),
+    });
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.code === "VALIDATION" || e.status === 400) return res.status(400).json({ message: e.message });
@@ -534,5 +561,33 @@ exports.enviarTodas = async (req, res) => {
     res.status(500).json({ message: "Error al enviar las solicitudes" });
   } finally {
     client.release();
+  }
+};
+
+/**
+ * GET /instructor/solicitudes/practica/saldo?id_aeronave=N
+ * Saldo de MI ficha espejo + costo estimado de 1h en esa aeronave (tarifa
+ * efectiva: precio especial de la ficha → estándar). Convención ×1h a
+ * propósito (la misma del badge saldo_bajo del calendario staff).
+ * Sin ficha, o ficha sin fila de cuenta_corriente_alumno → saldo 0, no cubre.
+ */
+exports.getPracticaSaldo = async (req, res) => {
+  try {
+    const idInstructor = await resolverIdInstructor(req.user.id_usuario);
+    if (!idInstructor) return res.status(403).json({ message: "No sos instructor" });
+    const idAeronave = Number(req.query.id_aeronave);
+    if (!idAeronave) return res.status(400).json({ message: "id_aeronave requerido" });
+
+    const ficha = await db.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1 LIMIT 1`, [req.user.id_usuario]);
+    const idAlumno = ficha.rows[0]?.id_alumno || null;
+    let saldo = 0;
+    if (idAlumno) saldo = (await getSaldoAlumno(idAlumno)) ?? 0;
+    const costo_estimado = await estimarCostoVuelos(
+      [{ id_aeronave: idAeronave }], new Date(), db, idAlumno
+    );
+    res.json({ saldo, costo_estimado, cubre: saldo >= costo_estimado && costo_estimado > 0 });
+  } catch (e) {
+    console.error("instructorSolicitud.getPracticaSaldo:", e);
+    res.status(500).json({ message: "Error al consultar el saldo" });
   }
 };
