@@ -111,6 +111,7 @@ function buildVoucheraContent({
     : "—";
 
   const isSim = v.aeronave_tipo === "SIMULADOR";
+  const esRefreshLinea = v.categoria === "CHEQUEO_LINEA" && v.tipo_instruccion === "REFRESH";
 
   // Bloque central según el caso. Columnas balanceadas para que la banda
   // completa quede baja y pareja.
@@ -214,6 +215,22 @@ function buildVoucheraContent({
             cell(correlativo), cell(horaStr), cell(fechaStr),
             cell(v.aeronave_modelo ?? "—"), cell(v.aeronave_codigo ?? "—"), cell(correlativo),
           ],
+          // Refresh (instructor-con-instructor, lo paga el practicante): deja
+          // constancia de si el cargo ya se debitó del saldo o si queda
+          // pendiente de cobrar a mano. Se basa en `se_debito` (lo que
+          // realmente pasó al firmar), no en `debitar_saldo` (la intención).
+          ...(esRefreshLinea ? [[
+            {
+              text: `Pago: ${v.se_debito ? "Debitado de saldo" : "Al momento / coordinar con Administración"}`,
+              colSpan: 6,
+              fontSize: 6.5,
+              bold: true,
+              color: v.se_debito ? "#065f46" : "#92400e",
+              fillColor: v.se_debito ? "#d1fae5" : "#fef3c7",
+              margin: [4, 2, 4, 2],
+            },
+            {}, {}, {}, {}, {},
+          ]] : []),
         ],
       },
       layout: "lightHorizontalLines",

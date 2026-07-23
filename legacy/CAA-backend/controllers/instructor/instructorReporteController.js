@@ -48,7 +48,9 @@ exports.getReporteVueloInstructor = async (req, res) => {
               rv.id_reporte, rv.tipo_vuelo, rv.tacometro_salida, rv.tacometro_llegada,
               rv.hobbs_salida, rv.hobbs_llegada, rv.combustible_salida, rv.combustible_llegada,
               rv.cantidad_combustible, rv.horas_cobradas, rv.firma_alumno, rv.firma_instructor,
-              rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia
+              rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia,
+              v.categoria, v.tipo_instruccion, v.debitar_saldo,
+              EXISTS(SELECT 1 FROM movimiento_cuenta mc WHERE mc.id_vuelo = v.id_vuelo AND mc.tipo='CARGO_VUELO') AS se_debito
        FROM vuelo v
        JOIN aeronave a ON a.id_aeronave = v.id_aeronave
        JOIN alumno al ON al.id_alumno = v.id_alumno
@@ -76,6 +78,10 @@ exports.getReporteVueloInstructor = async (req, res) => {
       alumno_licencia: row.alumno_licencia,
       instructor_nombre: row.instructor_nombre,
       instructor_apellido: row.instructor_apellido,
+      categoria: row.categoria,
+      tipo_instruccion: row.tipo_instruccion,
+      debitar_saldo: row.debitar_saldo,
+      se_debito: row.se_debito,
     };
     const reporte = row.id_reporte ? {
       id_reporte: row.id_reporte,
@@ -412,8 +418,8 @@ exports.firmarReporteVuelo = async (req, res) => {
               // El débito no ocurrió → el vuelo deja de decir "debita de saldo":
               // así calendario y vouchera reflejan la realidad (pago al momento)
               // y administración sabe que tiene que cobrarlo a mano.
-              await client.query(`UPDATE vuelo SET debitar_saldo = false WHERE id_vuelo = $1`, [info.id_vuelo]);
               cargoAutomatico = null;
+              await client.query(`UPDATE vuelo SET debitar_saldo = false WHERE id_vuelo = $1`, [info.id_vuelo]);
             }
           }
         } catch (eFin) {
