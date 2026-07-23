@@ -934,6 +934,16 @@ function PopoverContent({
           </div>
         )}
 
+        {activePopover.item.saldo_bajo && (
+          <div className="pop-alert" style={{ background: 'var(--c-warn-50, #fffbeb)', color: 'var(--c-warn-700, #b45309)', border: '1px solid var(--c-warn-700, #b45309)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+            <span style={{ fontWeight: 800 }}>$</span>
+            <span>
+              <strong>Saldo bajo:</strong> el alumno tiene ${Number(activePopover.item.saldo_alumno ?? 0).toFixed(2)} y
+              este vuelo cuesta aprox. ${Number(activePopover.item.tarifa_estimada ?? 0).toFixed(2)}/h.
+            </span>
+          </div>
+        )}
+
         <div className={`pop-field ${popoverConflict.aero ? 'pop-field--error' : ''}`}>
           <label>Aeronave</label>
           <select value={tempAeronaveId} disabled={!isEditable} onChange={e => setTempAeronaveId(e.target.value)}>
