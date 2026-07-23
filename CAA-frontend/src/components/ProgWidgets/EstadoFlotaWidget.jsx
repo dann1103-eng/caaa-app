@@ -74,6 +74,10 @@ export default function EstadoFlotaWidget() {
             const horas = parseFloat(a.horas_acumuladas || 0);
             const proxima = parseFloat(a.horas_proxima_revision || 50);
             const proxima5 = a.estado !== "MANTENIMIENTO" && horas >= proxima - 5;
+            const restantes = proxima - horas;
+            let restantesCls = "pw__restantes--verde";
+            if (restantes <= 5) restantesCls = "pw__restantes--rojo";
+            else if (restantes <= 20) restantesCls = "pw__restantes--amarillo";
             return (
               <div className="pw__card pw__card--flota" key={a.id_aeronave}>
                 <div className="pw__card-row">
@@ -93,7 +97,7 @@ export default function EstadoFlotaWidget() {
                   </div>
                 </div>
                 <div className="pw__card-sub">
-                  {a.modelo} · {horas.toFixed(1)} hs acum.
+                  {a.modelo} · <span className={restantesCls}>{restantes.toFixed(1)}h para próx. revisión</span>
                 </div>
               </div>
             );

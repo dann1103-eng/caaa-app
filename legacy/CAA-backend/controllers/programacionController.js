@@ -586,7 +586,6 @@ exports.getMantenimientoResumen = async (req, res) => {
       WHERE a.activa = true
         AND a.tipo != 'SIMULADOR'
       ORDER BY horas_restantes ASC
-      LIMIT 3
     `);
 
     res.json(r.rows);

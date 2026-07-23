@@ -27,7 +27,7 @@ export default function MantenimientoResumenWidget() {
     <div className="pw__widget">
       <div className="pw__widget-header">
         <span className="pw__widget-title">Próximo mantenimiento</span>
-        <span className="pw__widget-badge pw__widget-badge--naranja">top 3</span>
+        <span className="pw__widget-badge pw__widget-badge--naranja">{items.length} aeronaves</span>
       </div>
 
       {loading ? (
