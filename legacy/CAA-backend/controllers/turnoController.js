@@ -1229,11 +1229,23 @@ exports.editarTripulacion = async (req, res) => {
 
     if (io) io.emit("vuelo_estado_changed", { id_vuelo: vuelo.id_vuelo });
 
-    notificarStaff({
-      title: "Tripulación actualizada",
-      body: `Vuelo #${vuelo.id_vuelo} — cambio hecho por Turno`,
-      url: "/turno", tag: "tripulacion",
-    }, { excluirUid: user?.id_usuario, tipo: "TRIPULACION" }).catch(() => {});
+    (async () => {
+      try {
+        const notifInfo = await db.query(
+          `SELECT a.codigo AS aeronave_codigo, b.hora_inicio
+             FROM aeronave a, bloque_horario b
+            WHERE a.id_aeronave = $1 AND b.id_bloque = $2`,
+          [nuevaAeronave, nuevoBloque]
+        );
+        const { aeronave_codigo, hora_inicio } = notifInfo.rows[0] || {};
+        const horaFmt = hora_inicio ? String(hora_inicio).slice(0, 5) : "";
+        await notificarStaff({
+          title: "Tripulación actualizada",
+          body: `${aeronave_codigo || "Aeronave"}${horaFmt ? " — salida " + horaFmt : ""} — cambio hecho por Turno`,
+          url: "/turno", tag: "tripulacion",
+        }, { excluirUid: user?.id_usuario, tipo: "TRIPULACION" });
+      } catch (e) { console.error("push tripulacion:", e.message); }
+    })();
 
     res.json({ message: "Tripulación actualizada", id_vuelo: vuelo.id_vuelo });
   } catch (e) {
