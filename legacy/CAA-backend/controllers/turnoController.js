@@ -858,6 +858,49 @@ exports.agregarBloquesSuspension = async (req, res) => {
 };
 
 
+// Vuelos CANCELADOS e INASISTENCIAS del día — compartido por los dos reportes
+// de cierre (con y sin montos): ninguna de las dos categorías tiene monto que
+// filtrar, así que un solo query basta para ambos. Antes ambos reportes solo
+// miraban vuelos COMPLETADOS sin inasistencia, así que un vuelo cancelado o un
+// no-show desaparecía sin dejar rastro del cierre del día.
+async function getCanceladosEInasistenciasDia(fecha) {
+  const [canceladosRes, inasistenciasRes] = await Promise.all([
+    db.query(`
+      SELECT v.id_vuelo,
+             a.codigo AS avion_codigo, a.modelo AS avion_modelo,
+             TRIM(ua.nombre || ' ' || COALESCE(ua.apellido, '')) AS alumno,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido, '')) AS instructor,
+             (v.fecha_cancelacion AT TIME ZONE 'America/El_Salvador') AS fecha_cancelacion,
+             v.tipo_cancelacion
+        FROM vuelo v
+        JOIN aeronave a   ON a.id_aeronave = v.id_aeronave
+        JOIN alumno  al   ON al.id_alumno = v.id_alumno
+        JOIN usuario ua   ON ua.id_usuario = al.id_usuario
+        LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+        LEFT JOIN usuario ui   ON ui.id_usuario = i.id_usuario
+       WHERE v.fecha_vuelo = $1::date AND v.estado = 'CANCELADO'
+       ORDER BY a.codigo, v.fecha_cancelacion
+    `, [fecha]),
+    db.query(`
+      SELECT v.id_vuelo,
+             a.codigo AS avion_codigo, a.modelo AS avion_modelo,
+             TRIM(ua.nombre || ' ' || COALESCE(ua.apellido, '')) AS alumno,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido, '')) AS instructor,
+             rv.motivo_inasistencia
+        FROM vuelo v
+        JOIN aeronave a   ON a.id_aeronave = v.id_aeronave
+        JOIN alumno  al   ON al.id_alumno = v.id_alumno
+        JOIN usuario ua   ON ua.id_usuario = al.id_usuario
+        LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+        LEFT JOIN usuario ui   ON ui.id_usuario = i.id_usuario
+        JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+       WHERE v.fecha_vuelo = $1::date AND v.estado = 'COMPLETADO' AND rv.es_inasistencia = true
+       ORDER BY a.codigo
+    `, [fecha]),
+  ]);
+  return { cancelados: canceladosRes.rows, inasistencias: inasistenciasRes.rows };
+}
+
 // ── Reporte "VUELOS POR AVIÓN" del día (cierre de ventas del turno) ─────────
 // PDF con todos los vuelos COMPLETADOS de la fecha, agrupados por aeronave:
 // tacómetro/hobbs inicial-final-horas, monto devengado (cargo a cuenta corriente)
@@ -948,10 +991,13 @@ exports.getReporteVuelosDia = async (req, res) => {
       `, [fecha]),
     ]);
 
+    const { cancelados, inasistencias } = await getCanceladosEInasistenciasDia(fecha);
+
     const doc = generarReporteVuelosDiaPDF({
       fecha, vuelos: r.rows,
       turnoDia: turnoDiaRes.rows[0] || null,
       asistencias: asistenciasRes.rows,
+      cancelados, inasistencias,
     });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="vuelos-por-avion-${fecha}.pdf"`);
@@ -1040,10 +1086,13 @@ exports.getReporteOperacionesDia = async (req, res) => {
       `, [fecha]),
     ]);
 
+    const { cancelados, inasistencias } = await getCanceladosEInasistenciasDia(fecha);
+
     const doc = generarReporteOperacionesDiaPDF({
       fecha, vuelos: r.rows,
       turnoDia: turnoDiaRes.rows[0] || null,
       asistencias: asistenciasRes.rows,
+      cancelados, inasistencias,
     });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="operaciones-${fecha}.pdf"`);
