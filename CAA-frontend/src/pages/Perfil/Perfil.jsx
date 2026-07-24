@@ -4,7 +4,7 @@ import {
   getMiInfo, getMiCuenta, getMiExtracto, getMisDocumentos,
   getMiDocumentoArchivoUrl, getMiHistorial,
 } from "../../services/alumnoApi";
-import { getMiFichaInstructor, getMiHistorialInstructor, firmarMiReciboNomina, abrirMiReciboNomina } from "../../services/instructorApi";
+import { getMiFichaInstructor, getMiHistorialInstructor, firmarMiReciboNomina, abrirMiReciboNomina, actualizarMiLicenciaInstructor } from "../../services/instructorApi";
 import { toast } from "sonner";
 import Header from "../../components/Header/Header";
 import { useNavigate } from "react-router-dom";
@@ -51,6 +51,10 @@ export default function Perfil() {
   const [historial, setHistorial] = useState(null);   // alumno: vuelos/cursos/notas/facturas/recibos
   const [insFicha, setInsFicha]   = useState(null);   // instructor: datos/nómina/cursos/alumnos
   const [insHist, setInsHist]     = useState(null);   // instructor: planillas/horas/clases/etc.
+  const [licenciaInstructor, setLicenciaInstructor] = useState("");
+  const [licenciaMsg, setLicenciaMsg] = useState("");
+  const [licenciaMsgError, setLicenciaMsgError] = useState(false);
+  const [savingLicencia, setSavingLicencia] = useState(false);
 
   const navigate = useNavigate();
 
@@ -102,7 +106,7 @@ export default function Perfil() {
       getMiExtracto().then((r) => setExtracto(r.data || [])).catch(() => {});
       getMiHistorial().then((r) => setHistorial(r.data)).catch(() => {});
     } else if (perfil.rol === "INSTRUCTOR") {
-      getMiFichaInstructor().then((r) => setInsFicha(r.data)).catch(() => {});
+      getMiFichaInstructor().then((r) => { setInsFicha(r.data); setLicenciaInstructor(r.data?.licencia || ""); }).catch(() => {});
       getMiHistorialInstructor().then((r) => setInsHist(r.data)).catch(() => {});
     }
   }, [perfil?.rol]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -115,6 +119,24 @@ export default function Perfil() {
       setInsHist(r.data);
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudo firmar");
+    }
+  };
+
+  const handleGuardarLicenciaInstructor = async () => {
+    if (savingLicencia) return;
+    try {
+      setSavingLicencia(true);
+      setLicenciaMsg("");
+      await actualizarMiLicenciaInstructor(licenciaInstructor);
+      setLicenciaMsgError(false);
+      setLicenciaMsg("Licencia actualizada");
+      const r = await getMiFichaInstructor();
+      setInsFicha(r.data);
+    } catch (e) {
+      setLicenciaMsgError(true);
+      setLicenciaMsg(e.response?.data?.message || "Error al actualizar");
+    } finally {
+      setSavingLicencia(false);
     }
   };
 
@@ -619,9 +641,27 @@ export default function Perfil() {
   const SeccionFichaInstructor = (
     <>
       <section className="perfil-section full">
+        <h3>Mi licencia</h3>
+        <div className="perfil-kv">
+          <div className="perfil-field-group">
+            <label className="perfil-label">N° de licencia de instructor</label>
+            <input
+              className="perfil-input"
+              value={licenciaInstructor}
+              onChange={(e) => setLicenciaInstructor(e.target.value)}
+              placeholder="Ej. CFI-12345"
+            />
+          </div>
+        </div>
+        <button className="btn-primary" disabled={savingLicencia} onClick={handleGuardarLicenciaInstructor}>
+          {savingLicencia ? "Guardando…" : "Guardar licencia"}
+        </button>
+        {licenciaMsg && <span className={licenciaMsgError ? "msg error" : "msg"}>{licenciaMsg}</span>}
+      </section>
+
+      <section className="perfil-section full">
         <h3>Datos del instructor <span className="perfil-ro-tag">solo lectura</span></h3>
         <div className="perfil-kv">
-          <div className="perfil-field-group"><label className="perfil-label">Licencia</label><input className="perfil-input" readOnly value={insFicha?.licencia || "—"} /></div>
           <div className="perfil-field-group"><label className="perfil-label">Cargo</label><input className="perfil-input" readOnly value={insFicha?.cargo || "—"} /></div>
           <div className="perfil-field-group"><label className="perfil-label">Alumnos asignados</label><input className="perfil-input" readOnly value={insFicha?.num_alumnos ?? "—"} /></div>
           <div className="perfil-field-group"><label className="perfil-label">Estado</label>

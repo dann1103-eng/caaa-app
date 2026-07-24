@@ -24,6 +24,7 @@ router.get("/vuelos-semana",                                  access, instructor
 router.get("/mis-vuelos-practica",                            access, instructorVuelo.getMisVuelosPractica);
 router.get("/mis-alumnos",                                    access, instructorAlumno.getMisAlumnos);
 router.get("/mi-ficha",                                       access, instructorAlumno.miFicha);
+router.patch("/mi-ficha/licencia",                            access, instructorAlumno.actualizarMiLicencia);
 router.get("/mi-historial",                                   access, instructorAlumno.miHistorial);
 router.get("/recibo/:idDet",                                  access, instructorAlumno.descargarMiRecibo);
 router.patch("/recibo/:idDet/firmar",                         access, instructorAlumno.firmarMiRecibo);

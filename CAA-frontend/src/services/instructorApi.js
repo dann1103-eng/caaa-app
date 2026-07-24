@@ -33,6 +33,11 @@ export const getMiHistorialInstructor = async () => {
   return res.data;
 };
 
+export const actualizarMiLicenciaInstructor = async (licencia) => {
+  const res = await axios.patch(`${API_URL}/instructor/mi-ficha/licencia`, { licencia });
+  return res.data;
+};
+
 export const firmarMiReciboNomina = async (idDet) => {
   const res = await axios.patch(`${API_URL}/instructor/recibo/${idDet}/firmar`);
   return res.data;
