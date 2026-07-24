@@ -94,6 +94,10 @@ export default function DuenoDashboard() {
 
   const turnoMeta = turnoDia?.dia?.estado ? TURNO_META[turnoDia.dia.estado] : null;
   const presentes = (turnoDia?.asistencias || []).filter((a) => !a.salida_en);
+  // Una operación queda "realizada" en el momento en que Turno/instructor marca
+  // la salida de hangar (`salida_real`, timestamp real del evento) — de ahí en
+  // adelante, aunque el vuelo siga en curso o ya haya cerrado, cuenta como uno.
+  const operacionesRealizadas = vuelosHoy.filter((v) => v.salida_real).length;
 
   return (
     <div className="pp duo">
@@ -131,6 +135,11 @@ export default function DuenoDashboard() {
         )}
 
         <OperacionesWidget />
+
+        <div className="pp__card duo__stat-card">
+          <span className="duo__stat-num">{operacionesRealizadas}</span>
+          <span className="duo__stat-label">Operaciones realizadas hoy</span>
+        </div>
 
         <div className="pp__card">
           <div className="pp__card-head">

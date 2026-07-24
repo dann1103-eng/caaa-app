@@ -105,3 +105,26 @@
   padding: 8px 0;
   color: var(--pp-text-muted);
 }
+
+.duo__stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 16px;
+}
+
+.duo__stat-num {
+  font-family: var(--font-mono);
+  font-size: 2.6rem;
+  font-weight: 800;
+  color: var(--pp-text-bright);
+  line-height: 1;
+}
+
+.duo__stat-label {
+  font-size: 0.9rem;
+  color: var(--pp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
