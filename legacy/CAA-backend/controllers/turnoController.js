@@ -1284,17 +1284,48 @@ exports.editarTripulacion = async (req, res) => {
 
     (async () => {
       try {
-        const notifInfo = await db.query(
-          `SELECT a.codigo AS aeronave_codigo, b.hora_inicio
-             FROM aeronave a, bloque_horario b
-            WHERE a.id_aeronave = $1 AND b.id_bloque = $2`,
-          [nuevaAeronave, nuevoBloque]
-        );
+        const [notifInfo, nombresNuevos, nombresViejos] = await Promise.all([
+          db.query(
+            `SELECT a.codigo AS aeronave_codigo, b.hora_inicio
+               FROM aeronave a, bloque_horario b
+              WHERE a.id_aeronave = $1 AND b.id_bloque = $2`,
+            [nuevaAeronave, nuevoBloque]
+          ),
+          db.query(
+            `SELECT ua.nombre || ' ' || ua.apellido AS alumno_nombre,
+                    ui.nombre || ' ' || ui.apellido AS instructor_nombre
+               FROM alumno al, usuario ua, instructor ins, usuario ui
+              WHERE al.id_alumno = $1 AND ua.id_usuario = al.id_usuario
+                AND ins.id_instructor = $2 AND ui.id_usuario = ins.id_usuario`,
+            [nuevoAlumno, nuevoInstructor]
+          ),
+          db.query(
+            `SELECT ua.nombre || ' ' || ua.apellido AS alumno_nombre,
+                    ui.nombre || ' ' || ui.apellido AS instructor_nombre
+               FROM alumno al, usuario ua, instructor ins, usuario ui
+              WHERE al.id_alumno = $1 AND ua.id_usuario = al.id_usuario
+                AND ins.id_instructor = $2 AND ui.id_usuario = ins.id_usuario`,
+            [vuelo.id_alumno, vuelo.id_instructor]
+          ),
+        ]);
         const { aeronave_codigo, hora_inicio } = notifInfo.rows[0] || {};
         const horaFmt = hora_inicio ? String(hora_inicio).slice(0, 5) : "";
+        const nuevos = nombresNuevos.rows[0] || {};
+        const viejos = nombresViejos.rows[0] || {};
+
+        // Detalle de QUIÉN sale y quién entra — antes el push solo decía
+        // "cambio hecho por Turno" sin decir el cambio en sí, así que el
+        // staff tenía que abrir /turno para enterarse de qué había cambiado.
+        const detalles = [];
+        if (alumnoCambio) detalles.push(`Alumno: ${viejos.alumno_nombre || "?"} → ${nuevos.alumno_nombre || "?"}`);
+        if (instructorCambio) detalles.push(`Instructor: ${viejos.instructor_nombre || "?"} → ${nuevos.instructor_nombre || "?"}`);
+
+        const prefijo = `${aeronave_codigo || "Aeronave"}${horaFmt ? " — salida " + horaFmt : ""}`;
+        const body = detalles.length ? `${prefijo} — ${detalles.join(" · ")}` : `${prefijo} — cambio hecho por Turno`;
+
         await notificarStaff({
           title: "Tripulación actualizada",
-          body: `${aeronave_codigo || "Aeronave"}${horaFmt ? " — salida " + horaFmt : ""} — cambio hecho por Turno`,
+          body,
           url: "/turno", tag: "tripulacion",
         }, { excluirUid: user?.id_usuario, tipo: "TRIPULACION" });
       } catch (e) { console.error("push tripulacion:", e.message); }
