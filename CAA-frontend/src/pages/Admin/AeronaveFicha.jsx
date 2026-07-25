@@ -522,6 +522,20 @@ function WBEditor({ a, onSaved }) {
   const previewUtility = useMemo(() => (f ? limitsParaPreview(f.limits_utility) : []), [f]);
 
   const guardar = async () => {
+    // Campos obligatorios (los mismos que exige validarWbPlantilla en el backend):
+    // así el usuario ve qué falta sin depender del 400 del server.
+    const vacio = (v) => v === "" || v == null || String(v).trim() === "";
+    const requeridos = [
+      f.nombre, f.empty_weight, f.empty_arm, f.max_gross, f.max_landing,
+      f.fuel_cap_gal, f.fuel_usable_gal, f.default_flow_gal,
+    ];
+    if (requeridos.some(vacio)) return toast.error("Completá los campos obligatorios (*)");
+
+    // Aceite: si está activo, su brazo y su peso deben venir (si no, NaN en el CG).
+    if (f.oil && (vacio(f.oil.arm) || vacio(f.oil.weight))) {
+      return toast.error("Si el avión tiene aceite, completá su brazo y su peso (o desmarcá 'Tiene aceite').");
+    }
+
     // Guarda de ids de estación (el wizard del loadsheet los usa como key).
     const ids = f.stations.filter((s) => !estacionVacia(s)).map((s) => (s.id || "").trim());
     if (ids.some((id) => id === "")) return toast.error("Cada estación necesita un 'id' (podés usar el sugerido).");
@@ -593,7 +607,7 @@ function WBEditor({ a, onSaved }) {
             <input type="number" step="any" value={f.max_gross} onChange={(e) => set("max_gross", e.target.value)} />
           </div>
           <div className="adf-form-field">
-            <label>Peso máx. aterrizaje (lb)</label>
+            <label>Peso máx. aterrizaje (lb) *</label>
             <input type="number" step="any" value={f.max_landing} onChange={(e) => set("max_landing", e.target.value)} />
           </div>
           <div className="adf-form-field">
@@ -601,11 +615,11 @@ function WBEditor({ a, onSaved }) {
             <input type="number" step="any" value={f.max_useful_load} onChange={(e) => set("max_useful_load", e.target.value)} />
           </div>
           <div className="adf-form-field">
-            <label>Capacidad combustible (gal)</label>
+            <label>Capacidad combustible (gal) *</label>
             <input type="number" step="any" value={f.fuel_cap_gal} onChange={(e) => set("fuel_cap_gal", e.target.value)} />
           </div>
           <div className="adf-form-field">
-            <label>Combustible usable (gal)</label>
+            <label>Combustible usable (gal) *</label>
             <input type="number" step="any" value={f.fuel_usable_gal} onChange={(e) => set("fuel_usable_gal", e.target.value)} />
           </div>
           <div className="adf-form-field">
