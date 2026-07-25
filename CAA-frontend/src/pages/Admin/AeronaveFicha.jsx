@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   getAeronaveFicha, actualizarAeronave, getVuelosAeronave, setFotoAeronave,
-  setLicenciasAeronave, listLicencias,
+  setLicenciasAeronave, listLicencias, getWbPlantilla, guardarWbPlantilla,
 } from "../../services/adminApi";
+import EnvelopeCanvas from "../../loadsheet/components/wb/EnvelopeCanvas";
 
 const TABS = [
   { key: "datos", label: "Datos", icon: "bi-airplane" },
@@ -97,7 +98,7 @@ export default function AeronaveFicha() {
       </div>
 
       {tab === "datos" && <TabDatos a={a} onSaved={cargar} />}
-      {tab === "wb" && <TabWB a={a} />}
+      {tab === "wb" && <TabWB a={a} onSaved={cargar} />}
       {tab === "documentos" && <TabDocumentos />}
       {tab === "vuelos" && <TabVuelos vuelos={vuelos} />}
     </>
@@ -317,7 +318,145 @@ function LicenciasCard({ a, onSaved }) {
 }
 
 // ── Peso y balance ───────────────────────────────────────────────────────────
-function TabWB({ a }) {
+// Helpers de conversión entre el estado del form (todo string, para poder tipear
+// parcial) y la forma AIRCRAFT que espera/devuelve el backend.
+
+// String de input -> número para el PAYLOAD. Vacío/nulo -> null (el backend lo
+// convierte a NaN y responde 400 con el mensaje del campo). NUNCA usar Number("")
+// que da 0 y colaría un valor falso (p.ej. fwd=0 en un límite a medio llenar).
+const toPayloadNum = (s) => (s === "" || s == null ? null : Number(s));
+
+// Filtra filas de límites/estaciones totalmente vacías (aún no agregadas) para
+// que una fila en blanco al final no bloquee el guardado.
+const limitVacio = (r) => r.w === "" && r.fwd === "" && r.aft === "";
+const estacionVacia = (s) =>
+  (s.label ?? "").toString().trim() === "" && s.arm === "" && s.max === "" && s.max_gal === "" && !s.is_fuel;
+
+// Fila de límite AIRCRAFT -> fila del form (strings).
+const limitToRow = (l) => ({ w: l?.w ?? "", fwd: l?.fwd ?? "", aft: l?.aft ?? "" });
+// Estación AIRCRAFT -> fila del form (todas las columnas presentes).
+const stationToRow = (s) => ({
+  id: s?.id ?? "",
+  label: s?.label ?? "",
+  arm: s?.arm ?? "",
+  max: s?.max ?? "",
+  max_gal: s?.max_gal ?? "",
+  is_fuel: !!s?.is_fuel,
+});
+
+// Objeto AIRCRAFT (del GET) -> estado del form.
+function plantillaToForm(p) {
+  return {
+    nombre: p.nombre ?? p.sheet ?? p.model ?? "",
+    model: p.model ?? "",
+    sheet: p.sheet ?? "",
+    empty_weight: p.empty_weight ?? "",
+    empty_arm: p.empty_arm ?? "",
+    max_gross: p.max_gross ?? "",
+    max_landing: p.max_landing ?? "",
+    max_useful_load: p.max_useful_load ?? "",
+    fuel_cap_gal: p.fuel_cap_gal ?? "",
+    fuel_usable_gal: p.fuel_usable_gal ?? "",
+    default_flow_gal: p.default_flow_gal ?? "",
+    fuel_lb_gal: p.fuel_lb_gal ?? 6,
+    default_power: p.default_power ?? "",
+    fuel_burn_note: p.fuel_burn_note ?? "",
+    moment_div1000: !!p.moment_div1000,
+    oil: p.oil
+      ? { label: p.oil.label ?? "", arm: p.oil.arm ?? "", weight: p.oil.weight ?? "" }
+      : null,
+    stations: (p.stations || []).map(stationToRow),
+    limits_normal: (p.limits_normal || []).map(limitToRow),
+    limits_utility: (p.limits_utility || []).map(limitToRow),
+  };
+}
+
+// Plantilla vacía editable para empezar de cero (defaults sensatos).
+function emptyForm(a) {
+  return {
+    nombre: a.modelo || "",
+    model: a.modelo || "",
+    sheet: "",
+    empty_weight: "",
+    empty_arm: "",
+    max_gross: "",
+    max_landing: "",
+    max_useful_load: "",
+    fuel_cap_gal: "",
+    fuel_usable_gal: "",
+    default_flow_gal: "",
+    fuel_lb_gal: 6,
+    default_power: "",
+    fuel_burn_note: "",
+    moment_div1000: false,
+    oil: null,
+    stations: [{ id: "fuel", label: "Fuel", arm: "", max: "", max_gal: "", is_fuel: true }],
+    limits_normal: [{ w: "", fwd: "", aft: "" }],
+    limits_utility: [],
+  };
+}
+
+// Estado del form -> payload AIRCRAFT para el PUT. No incluye empty_moment (el
+// backend lo deriva de empty_weight * empty_arm).
+function formToPayload(f) {
+  const stations = f.stations.filter((s) => !estacionVacia(s)).map((s) => {
+    const st = { id: (s.id || "").trim(), label: s.label, arm: toPayloadNum(s.arm) };
+    if (s.is_fuel) {
+      st.is_fuel = true;
+      if (s.max_gal !== "" && s.max_gal != null) st.max_gal = toPayloadNum(s.max_gal);
+    } else if (s.max !== "" && s.max != null) {
+      st.max = toPayloadNum(s.max);
+    }
+    return st;
+  });
+  const parseLimits = (rows) =>
+    rows.filter((r) => !limitVacio(r)).map((r) => ({
+      w: toPayloadNum(r.w),
+      fwd: toPayloadNum(r.fwd),
+      aft: toPayloadNum(r.aft),
+    }));
+  return {
+    nombre: f.nombre,
+    model: f.model || undefined,
+    sheet: f.sheet || undefined,
+    empty_weight: toPayloadNum(f.empty_weight),
+    empty_arm: toPayloadNum(f.empty_arm),
+    max_gross: toPayloadNum(f.max_gross),
+    max_landing: toPayloadNum(f.max_landing),
+    max_useful_load: toPayloadNum(f.max_useful_load),
+    fuel_cap_gal: toPayloadNum(f.fuel_cap_gal),
+    fuel_usable_gal: toPayloadNum(f.fuel_usable_gal),
+    default_flow_gal: toPayloadNum(f.default_flow_gal),
+    fuel_lb_gal: toPayloadNum(f.fuel_lb_gal),
+    default_power: toPayloadNum(f.default_power),
+    fuel_burn_note: f.fuel_burn_note || undefined,
+    moment_div1000: !!f.moment_div1000,
+    oil: f.oil
+      ? { label: f.oil.label, arm: toPayloadNum(f.oil.arm), weight: toPayloadNum(f.oil.weight) }
+      : null,
+    stations,
+    limits_normal: parseLimits(f.limits_normal),
+    limits_utility: parseLimits(f.limits_utility),
+  };
+}
+
+// Parsea filas de límites del form a números para la vista previa, descartando
+// las incompletas para que drawEnvelope no dibuje un punto fantasma en 0.
+const limitsParaPreview = (rows) =>
+  rows
+    .filter((r) => r.w !== "" && r.w != null && r.fwd !== "" && r.fwd != null && r.aft !== "" && r.aft != null)
+    .map((r) => ({ w: Number(r.w), fwd: Number(r.fwd), aft: Number(r.aft) }))
+    .filter((r) => Number.isFinite(r.w) && Number.isFinite(r.fwd) && Number.isFinite(r.aft));
+
+// slug simple para autocompletar el id de una estación desde su label.
+const slugify = (s) =>
+  (s || "")
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+function TabWB({ a, onSaved }) {
   if (a.tipo === "SIMULADOR") {
     return (
       <div className="adf-card">
@@ -326,29 +465,350 @@ function TabWB({ a }) {
       </div>
     );
   }
+  return <WBEditor a={a} onSaved={onSaved} />;
+}
+
+function WBEditor({ a, onSaved }) {
+  const [f, setF] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [matricula, setMatricula] = useState(a.codigo);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    getWbPlantilla(a.id_aeronave)
+      .then((res) => {
+        if (!alive) return;
+        setMatricula(res.matricula || a.codigo);
+        setF(res.plantilla ? plantillaToForm(res.plantilla) : emptyForm(a));
+      })
+      .catch((e) => {
+        if (!alive) return;
+        toast.error(e?.response?.data?.message || "No se pudo cargar el peso y balance");
+        setF(emptyForm(a));
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a.id_aeronave]);
+
+  // Setters ----------------------------------------------------------------
+  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  const setStation = (i, k, v) =>
+    setF((p) => ({ ...p, stations: p.stations.map((s, j) => (j === i ? { ...s, [k]: v } : s)) }));
+  const addStation = () =>
+    setF((p) => ({ ...p, stations: [...p.stations, { id: "", label: "", arm: "", max: "", max_gal: "", is_fuel: false }] }));
+  const removeStation = (i) =>
+    setF((p) => ({ ...p, stations: p.stations.filter((_, j) => j !== i) }));
+
+  const setLimit = (key, i, k, v) =>
+    setF((p) => ({ ...p, [key]: p[key].map((r, j) => (j === i ? { ...r, [k]: v } : r)) }));
+  const addLimit = (key) =>
+    setF((p) => ({ ...p, [key]: [...p[key], { w: "", fwd: "", aft: "" }] }));
+  const removeLimit = (key, i) =>
+    setF((p) => ({ ...p, [key]: p[key].filter((_, j) => j !== i) }));
+
+  // Momento vacío derivado (solo lectura).
+  const emptyMoment = useMemo(() => {
+    if (!f) return null;
+    const w = Number(f.empty_weight), arm = Number(f.empty_arm);
+    if (!Number.isFinite(w) || !Number.isFinite(arm) || f.empty_weight === "" || f.empty_arm === "") return null;
+    return w * arm;
+  }, [f]);
+
+  const previewNormal = useMemo(() => (f ? limitsParaPreview(f.limits_normal) : []), [f]);
+  const previewUtility = useMemo(() => (f ? limitsParaPreview(f.limits_utility) : []), [f]);
+
+  const guardar = async () => {
+    // Guarda de ids de estación (el wizard del loadsheet los usa como key).
+    const ids = f.stations.filter((s) => !estacionVacia(s)).map((s) => (s.id || "").trim());
+    if (ids.some((id) => id === "")) return toast.error("Cada estación necesita un 'id' (podés usar el sugerido).");
+    if (new Set(ids).size !== ids.length) return toast.error("Los 'id' de estación no pueden repetirse.");
+
+    setSaving(true);
+    try {
+      const res = await guardarWbPlantilla(a.id_aeronave, formToPayload(f));
+      toast.success("Peso y balance guardado");
+      if (res?.plantilla) setF(plantillaToForm(res.plantilla));
+      onSaved?.(); // refresca la ficha (id_wb_plantilla pudo pasar de null a un id)
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading || !f) return <p style={{ color: "var(--c-ink-3)" }}>Cargando peso y balance…</p>;
+
+  const oilOn = !!f.oil;
+
   return (
-    <div className="adf-card">
-      <h3><i className="bi bi-speedometer2 me-2"></i>Peso y balance</h3>
-      {a.id_wb_plantilla ? (
-        <p className="adf-note" style={{ marginTop: 8 }}>
-          <i className="bi bi-check-circle"></i>
-          <span>Esta aeronave tiene plantilla de peso y balance cargada (#{a.id_wb_plantilla}), así que su loadsheet digital funciona.</span>
-        </p>
-      ) : (
-        <p className="adf-note" style={{ marginTop: 8 }}>
-          <i className="bi bi-exclamation-triangle"></i>
+    <>
+      {/* Cabecera + acción */}
+      <div className="adf-card" style={{ marginBottom: "var(--sp-5)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h3 style={{ margin: 0 }}><i className="bi bi-speedometer2 me-2"></i>Plantilla de peso y balance</h3>
+          <button className="adf-btn small" onClick={guardar} disabled={saving}>
+            <i className="bi bi-check"></i>{saving ? "Guardando…" : "Guardar plantilla"}
+          </button>
+        </div>
+        <p className="adf-note">
+          <i className="bi bi-info-circle"></i>
           <span>
-            <strong>Sin plantilla de peso y balance.</strong> El avión se agenda y vuela con
-            normalidad, pero su loadsheet digital no está disponible y por ahora se completa a mano.
-            Para activarlo hace falta el <strong>peso vacío</strong> y el <strong>CG vacío</strong> de
-            su última pesada, más los brazos y la envolvente de su hoja de P&B.
+            Estos son los datos de la hoja de pesada del avión ({matricula}). Con la plantilla
+            cargada, el <strong>loadsheet digital</strong> del alumno queda disponible. Los valores
+            vacíos u obligatorios se avisan al guardar.
           </span>
         </p>
-      )}
-      <p className="adf-note" style={{ marginTop: 12 }}>
-        El editor de plantillas (estaciones, brazos, límites y envolvente) todavía no está construido
-        — es el siguiente paso de este módulo. Mientras tanto las plantillas se cargan por código.
-      </p>
+
+        <div className="adf-form-grid" style={{ marginTop: 12 }}>
+          <div className="adf-form-field">
+            <label>Nombre de la plantilla *</label>
+            <input value={f.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="PA-28-140 Cherokee" />
+          </div>
+          <div className="adf-form-field">
+            <label>Modelo</label>
+            <input value={f.model} onChange={(e) => set("model", e.target.value)} placeholder="PA-28-140" />
+          </div>
+          <div className="adf-form-field">
+            <label>Hoja (sheet)</label>
+            <input value={f.sheet} onChange={(e) => set("sheet", e.target.value)} placeholder="PA-28R-180 & PA-28" />
+          </div>
+          <div className="adf-form-field">
+            <label>Peso vacío (lb) *</label>
+            <input type="number" step="any" value={f.empty_weight} onChange={(e) => set("empty_weight", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Brazo vacío (in) *</label>
+            <input type="number" step="any" value={f.empty_arm} onChange={(e) => set("empty_arm", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Momento vacío (derivado)</label>
+            <input value={emptyMoment == null ? "—" : emptyMoment.toLocaleString("en-US", { maximumFractionDigits: 1 })} disabled />
+          </div>
+          <div className="adf-form-field">
+            <label>Peso máx. despegue (lb) *</label>
+            <input type="number" step="any" value={f.max_gross} onChange={(e) => set("max_gross", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Peso máx. aterrizaje (lb)</label>
+            <input type="number" step="any" value={f.max_landing} onChange={(e) => set("max_landing", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Carga útil máx. (lb, opcional)</label>
+            <input type="number" step="any" value={f.max_useful_load} onChange={(e) => set("max_useful_load", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Capacidad combustible (gal)</label>
+            <input type="number" step="any" value={f.fuel_cap_gal} onChange={(e) => set("fuel_cap_gal", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Combustible usable (gal)</label>
+            <input type="number" step="any" value={f.fuel_usable_gal} onChange={(e) => set("fuel_usable_gal", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Consumo estándar (gal/h) *</label>
+            <input type="number" step="any" value={f.default_flow_gal} onChange={(e) => set("default_flow_gal", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Libras por galón</label>
+            <input type="number" step="any" value={f.fuel_lb_gal} onChange={(e) => set("fuel_lb_gal", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Potencia estándar (%)</label>
+            <input type="number" step="any" value={f.default_power} onChange={(e) => set("default_power", e.target.value)} />
+          </div>
+          <div className="adf-form-field">
+            <label>Nota de consumo</label>
+            <input value={f.fuel_burn_note} onChange={(e) => set("fuel_burn_note", e.target.value)} placeholder="Aprox. 8 gal/Hr @ 75% Power" />
+          </div>
+        </div>
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14, fontSize: "var(--text-sm)", color: "var(--c-ink-2)" }}>
+          <input type="checkbox" checked={f.moment_div1000} onChange={(e) => set("moment_div1000", e.target.checked)} />
+          Los momentos de la hoja están divididos entre 1000 (moment/1000)
+        </label>
+      </div>
+
+      {/* Aceite */}
+      <div className="adf-card" style={{ marginBottom: "var(--sp-5)" }}>
+        <h3><i className="bi bi-droplet me-2"></i>Aceite</h3>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: "var(--text-sm)", color: "var(--c-ink-2)" }}>
+          <input
+            type="checkbox"
+            checked={oilOn}
+            onChange={(e) => set("oil", e.target.checked ? { label: "Oil", arm: "", weight: "" } : null)}
+          />
+          Este avión incluye aceite como estación fija
+        </label>
+        {oilOn && (
+          <div className="adf-form-grid" style={{ marginTop: 12 }}>
+            <div className="adf-form-field">
+              <label>Etiqueta</label>
+              <input value={f.oil.label} onChange={(e) => set("oil", { ...f.oil, label: e.target.value })} placeholder="Oil (8qt max, 7lb/gal)" />
+            </div>
+            <div className="adf-form-field">
+              <label>Brazo (in)</label>
+              <input type="number" step="any" value={f.oil.arm} onChange={(e) => set("oil", { ...f.oil, arm: e.target.value })} />
+            </div>
+            <div className="adf-form-field">
+              <label>Peso (lb)</label>
+              <input type="number" step="any" value={f.oil.weight} onChange={(e) => set("oil", { ...f.oil, weight: e.target.value })} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Estaciones */}
+      <div className="adf-card" style={{ marginBottom: "var(--sp-5)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h3 style={{ margin: 0 }}><i className="bi bi-grid-3x3 me-2"></i>Estaciones</h3>
+          <button className="adf-btn secondary small" type="button" onClick={addStation}>
+            <i className="bi bi-plus-lg"></i> Agregar estación
+          </button>
+        </div>
+        <p className="adf-note">
+          <i className="bi bi-info-circle"></i>
+          <span>
+            Debe haber al menos una estación de <strong>combustible</strong> (marcá "Comb." y su
+            capacidad en galones). El resto son asientos/equipaje con su peso máximo en libras. El
+            <strong> id</strong> debe ser único (se autocompleta desde la etiqueta).
+          </span>
+        </p>
+        <div className="adf-table-wrap">
+          <table className="adf-table">
+            <thead>
+              <tr>
+                <th>id</th>
+                <th>Etiqueta</th>
+                <th>Brazo (in)</th>
+                <th>Máx (lb)</th>
+                <th>Comb.</th>
+                <th>Máx (gal)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {f.stations.map((s, i) => (
+                <tr key={i}>
+                  <td>
+                    <input style={{ width: 90 }} value={s.id}
+                      onChange={(e) => setStation(i, "id", e.target.value)}
+                      onBlur={(e) => { if (!e.target.value.trim() && s.label) setStation(i, "id", slugify(s.label)); }}
+                      placeholder="slug" />
+                  </td>
+                  <td><input style={{ width: 200 }} value={s.label} onChange={(e) => setStation(i, "label", e.target.value)} placeholder="Front Seat L & R" /></td>
+                  <td><input style={{ width: 80 }} type="number" step="any" value={s.arm} onChange={(e) => setStation(i, "arm", e.target.value)} /></td>
+                  <td><input style={{ width: 80 }} type="number" step="any" value={s.max} onChange={(e) => setStation(i, "max", e.target.value)} disabled={s.is_fuel} /></td>
+                  <td style={{ textAlign: "center" }}>
+                    <input type="checkbox" checked={s.is_fuel} onChange={(e) => setStation(i, "is_fuel", e.target.checked)} />
+                  </td>
+                  <td><input style={{ width: 80 }} type="number" step="any" value={s.max_gal} onChange={(e) => setStation(i, "max_gal", e.target.value)} disabled={!s.is_fuel} /></td>
+                  <td>
+                    <button className="adf-icon-btn danger" type="button" title="Quitar estación" onClick={() => removeStation(i)}>
+                      <i className="bi bi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Sobres de CG + vista previa */}
+      <div className="adf-card">
+        <h3><i className="bi bi-bounding-box me-2"></i>Envolvente de centro de gravedad</h3>
+        <p className="adf-note">
+          <i className="bi bi-info-circle"></i>
+          <span>
+            Cada fila es un punto (peso, límite adelante, límite atrás). El <strong>peso debe crecer</strong>
+            fila a fila y <strong>fwd &lt; aft</strong> en cada una. Se necesitan al menos 2 puntos para
+            dibujar el sobre.
+          </span>
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: "var(--sp-4)", alignItems: "start", marginTop: 12 }}>
+          <div>
+            <LimitTable
+              titulo="Sobre normal *"
+              rows={f.limits_normal}
+              onChange={(i, k, v) => setLimit("limits_normal", i, k, v)}
+              onAdd={() => addLimit("limits_normal")}
+              onRemove={(i) => removeLimit("limits_normal", i)}
+            />
+            <div style={{ marginTop: "var(--sp-4)" }}>
+              <LimitTable
+                titulo="Sobre utility (opcional)"
+                rows={f.limits_utility}
+                onChange={(i, k, v) => setLimit("limits_utility", i, k, v)}
+                onAdd={() => addLimit("limits_utility")}
+                onRemove={(i) => removeLimit("limits_utility", i)}
+              />
+            </div>
+          </div>
+          <div>
+            <EnvelopeCanvas
+              limitsNormal={previewNormal}
+              limitsUtility={previewUtility}
+              title="Vista previa del sobre"
+              showPoint={false}
+            />
+            {previewNormal.length < 2 && (
+              <p className="adf-note" style={{ marginTop: 8 }}>
+                <i className="bi bi-exclamation-triangle"></i>
+                <span>Cargá al menos 2 puntos completos del sobre normal para ver la vista previa.</span>
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Tabla editable de un sobre de CG (w/fwd/aft) con agregar/quitar fila.
+function LimitTable({ titulo, rows, onChange, onAdd, onRemove }) {
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <div className="u-label">{titulo}</div>
+        <button className="adf-btn secondary small" type="button" onClick={onAdd}>
+          <i className="bi bi-plus-lg"></i> Punto
+        </button>
+      </div>
+      <div className="adf-table-wrap">
+        <table className="adf-table">
+          <thead>
+            <tr>
+              <th>Peso (lb)</th>
+              <th>Fwd (in)</th>
+              <th>Aft (in)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td colSpan={4} style={{ color: "var(--c-ink-3)", fontSize: "0.85rem" }}>Sin puntos.</td></tr>
+            ) : (
+              rows.map((r, i) => (
+                <tr key={i}>
+                  <td><input style={{ width: 90 }} type="number" step="any" value={r.w} onChange={(e) => onChange(i, "w", e.target.value)} /></td>
+                  <td><input style={{ width: 90 }} type="number" step="any" value={r.fwd} onChange={(e) => onChange(i, "fwd", e.target.value)} /></td>
+                  <td><input style={{ width: 90 }} type="number" step="any" value={r.aft} onChange={(e) => onChange(i, "aft", e.target.value)} /></td>
+                  <td>
+                    <button className="adf-icon-btn danger" type="button" title="Quitar punto" onClick={() => onRemove(i)}>
+                      <i className="bi bi-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -73,6 +73,14 @@ export const reactivarAeronave = async (id) =>
 export const getVuelosAeronave = async (id, limite) =>
   (await axios.get(`${API_URL}/admin/aeronaves/registro/${id}/vuelos`, { params: { limite } })).data;
 
+// Peso y balance (plantilla con forma AIRCRAFT). GET → { plantilla|null, matricula };
+// PUT (body = objeto AIRCRAFT) → { ok, plantilla }; 400 { message } si no valida.
+export const getWbPlantilla = async (id) =>
+  (await axios.get(`${API_URL}/admin/aeronaves/registro/${id}/wb-plantilla`)).data;
+
+export const guardarWbPlantilla = async (id, obj) =>
+  (await axios.put(`${API_URL}/admin/aeronaves/registro/${id}/wb-plantilla`, obj)).data;
+
 export const setFotoAeronave = async (id, foto_url) =>
   (await axios.put(`${API_URL}/admin/aeronaves/${id}/foto`, { foto_url })).data;
 
