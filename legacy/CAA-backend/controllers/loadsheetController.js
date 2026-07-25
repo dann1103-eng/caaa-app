@@ -15,13 +15,21 @@ const { filaAObjetoAircraft } = require("../utils/wbPlantilla");
 const getPlantilla = catchAsync(async (req, res) => {
   const { id_aeronave, matricula } = req.query;
 
+  // id_aeronave llega como string desde el querystring; si no es numérico
+  // (ej. "abc"), castear directo a $1::int en Postgres revienta con 22P02
+  // (invalid input syntax for type integer). Coercionamos a entero-o-null
+  // en JS antes del query: un valor no numérico cae a null, igual que si
+  // no se hubiera mandado id_aeronave.
+  const nId = parseInt(id_aeronave, 10);
+  const idParam = Number.isInteger(nId) ? nId : null;
+
   const aRes = await db.query(
     `SELECT id_aeronave, codigo, id_wb_plantilla
        FROM aeronave
       WHERE ($1::int IS NOT NULL AND id_aeronave = $1)
          OR ($2::text IS NOT NULL AND codigo = $2)
       LIMIT 1`,
-    [id_aeronave || null, matricula || null]
+    [idParam, matricula || null]
   );
 
   const aeronave = aRes.rows[0];
