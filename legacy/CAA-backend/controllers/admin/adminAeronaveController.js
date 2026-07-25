@@ -499,6 +499,20 @@ const nnWb = (v) => (v === undefined ? null : v);
 // de ARRAY de Postgres, no como JSON. Hay que stringificarlo a mano.
 const jnWb = (v) => (v === undefined || v === null ? null : JSON.stringify(v));
 
+// Numérico OPCIONAL de la forma AIRCRAFT (default_power, fuel_lb_gal,
+// max_useful_load): un input HTML vacío llega como `""`, que no es lo mismo
+// que "no lo mandaron" — hay que normalizarlo a null ANTES de bindear, porque
+// `""` contra una columna numeric revienta con 22P02 (500), no con una
+// violación linda de capturar. Si viene con algo que no parsea a número
+// finito, se reporta `ok:false` para que el caller devuelva 400 en vez de
+// dejar que el bind truene.
+function numOpcWb(v) {
+  if (v === undefined || v === null || v === "") return { valor: null, ok: true };
+  const n = Number(v);
+  if (!Number.isFinite(n)) return { valor: null, ok: false };
+  return { valor: n, ok: true };
+}
+
 /**
  * Valida el cuerpo de PUT .../wb-plantilla (forma AIRCRAFT) ANTES de escribir.
  * @returns {{ok:true}|{ok:false,motivo:string}}
@@ -539,6 +553,21 @@ function validarWbPlantilla(body) {
   }
   if (maxLanding > maxGross) {
     return { ok: false, motivo: "max_landing no puede ser mayor que max_gross." };
+  }
+
+  // default_flow_gal es NOT NULL en la tabla (mapea a fuel_burn_gal_hr) y es
+  // dato de vuelo real (consumo estándar) — no es opcional como default_power.
+  const defaultFlowGal = toNumWb(b.default_flow_gal);
+  if (!(defaultFlowGal > 0)) {
+    return { ok: false, motivo: "El consumo (default_flow_gal) debe ser un número mayor a 0." };
+  }
+
+  // Numéricos OPCIONALES: si vienen (no "" ni ausentes) deben parsear a un
+  // número finito; si no, 400 en vez de dejar que el bind a `numeric` truene.
+  for (const campo of ["default_power", "fuel_lb_gal", "max_useful_load"]) {
+    if (!numOpcWb(b[campo]).ok) {
+      return { ok: false, motivo: `${campo} debe ser numérico si se especifica.` };
+    }
   }
 
   if (!Array.isArray(b.stations) || b.stations.length === 0) {
@@ -662,7 +691,17 @@ exports.guardarWbPlantilla = catchAsync(async (req, res) => {
   const { ok, motivo } = validarWbPlantilla(body);
   if (!ok) return res.status(400).json({ message: motivo });
 
-  const fila = objetoAircraftAFila(body);
+  // Normaliza los numéricos "" -> null (u opcional -> número) ANTES de pasar
+  // por el mapper, ya validado arriba: acá ya no puede fallar el Number(...).
+  const bodyLimpio = {
+    ...body,
+    default_flow_gal: toNumWb(body.default_flow_gal),
+    default_power: numOpcWb(body.default_power).valor,
+    fuel_lb_gal: numOpcWb(body.fuel_lb_gal).valor,
+    max_useful_load: numOpcWb(body.max_useful_load).valor,
+  };
+
+  const fila = objetoAircraftAFila(bodyLimpio);
   const valores = valoresWbPlantilla(fila);
 
   const client = await db.connect();
@@ -746,7 +785,10 @@ exports.guardarWbPlantilla = catchAsync(async (req, res) => {
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.code === "23502") {
-      return res.status(400).json({ message: `Falta un campo obligatorio: ${e.column || "desconocido"}.` });
+      // Red de seguridad: con la validación de arriba no debería llegar acá,
+      // pero si pasa, no filtramos el nombre de columna interno (p.ej.
+      // fuel_burn_gal_hr) — no es el nombre del campo que ve el editor.
+      return res.status(400).json({ message: "Falta un campo obligatorio del peso y balance." });
     }
     throw e;
   } finally {
