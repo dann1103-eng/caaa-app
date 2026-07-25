@@ -26,6 +26,8 @@ en `legacy/CAA-backend`, borrados al final, contra Supabase real, con `BEGIN…R
 - Build frontend: `cd CAA-frontend && VITE_API_URL="https://caaa-backend-production.up.railway.app" npm run build` → debe dar `✓ built`.
 - Load-check backend: `cd legacy/CAA-backend && node -e "require('./<archivo>'); console.log('load OK')"`.
 - Consultar/ejecutar SQL contra Supabase real: `node query.js "SELECT..."` (lectura) y `node run-sql.js <archivo.sql>` (ejecutar) desde `legacy/CAA-backend`.
+- ⚠️ **`config/db.js` NO carga dotenv.** Cualquier script node propio que llegue a la DB por `config/db` DEBE empezar con `require("dotenv").config();` y correr con cwd = `legacy/CAA-backend` (para que dotenv encuentre `.env`). `query.js`/`run-sql.js` ya lo hacen; tus `_verify_*.js` y el seed NO lo heredan solos.
+- ⚠️ Los controllers van envueltos en `catchAsync` (`(req,res,next)=>fn(...).catch(next)`): para invocarlos desde un script hay que `await` la promesa y pasar un `next` real, o un error de DB se traga en `.catch(undefined)`.
 - Commits: `git commit -F <archivo-temp>` (el `-m` multilínea rompe en PowerShell), footer `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`. **NO `git push`** (el push lo hace la sesión principal en la tarea final).
 - **NUNCA** stagear untracked ajenos: `seed_semana_22jun2026.js`, `supabase/migrations/20260624000001/2/3_*.sql`, `supabase/dump/fix_id_bloque_fin_corrupto.sql`. Stagear SOLO los archivos de la tarea.
 - La forma canónica del objeto template (lo que consume el wizard) está en `CAA-frontend/src/loadsheet/data/aircraft.js` (objeto `AIRCRAFT`). Campos por avión: `reg, model, sheet, empty_weight, empty_arm, empty_moment, max_gross, max_landing, max_useful_load?, fuel_cap_gal, fuel_usable_gal, fuel_lb_gal, fuel_burn_note, default_power, default_flow_gal, moment_div1000, oil{label,arm,weight}|null, stations[{id,label,arm,max|max_gal,is_fuel}], limits_normal[{w,fwd,aft}], limits_utility[]?`.
@@ -72,6 +74,9 @@ y `objetoAircraftAFila(obj)` (forma AIRCRAFT → columnas BD, para seed y editor
   fuel_burn_gal_hr, fuel_lb_gal, default_power, default_flow_gal, moment_div1000, fuel_burn_note,
   model, sheet, oil, estaciones, limits_normal, limits_utility }`. **`fuel_burn_gal_hr = default_flow_gal`**
   (mantiene el NOT NULL) y **`nombre = obj.nombre || obj.sheet || obj.model`** (NOT NULL).
+  ⚠️ **`empty_weight_moment` es NOT NULL** y el editor lo manda vacío (es solo-lectura/derivado en el
+  form). Calcularlo defensivo en el mapper: `empty_weight_moment = Number(obj.empty_moment ??
+  (Number(obj.empty_weight) * Number(obj.empty_arm)))` — nunca null.
 
 - [ ] **Step 1: Escribir `utils/wbPlantilla.js`** con las dos funciones y `module.exports`.
 - [ ] **Step 2: Escribir verificación temporal** `legacy/CAA-backend/_verify_wbmap.js`: importa el mapper, arma una `fila` de ejemplo + `aeronave={codigo:'YS-155-PE'}`, corre `filaAObjetoAircraft`, y `assert` (que LANZA) que `reg==='YS-155-PE'`, `empty_arm===Number`, `stations` es array, `oil` null OK; luego round-trip `objetoAircraftAFila(filaAObjetoAircraft(fila,ae))` y assert que `fuel_burn_gal_hr===default_flow_gal` y `nombre` no vacío.
@@ -86,8 +91,12 @@ y `objetoAircraftAFila(obj)` (forma AIRCRAFT → columnas BD, para seed y editor
 **Files:**
 - Create: `supabase/dump/seed_wb_plantilla_desde_aircraft.js` (script node reutilizable, versionado)
 
-El script importa dinámicamente el ESM del frontend (única fuente de verdad, sin duplicar datos):
-`const mod = await import(url.pathToFileURL(path.resolve(__dirname,'../../CAA-frontend/src/loadsheet/data/aircraft.js')).href); const AIRCRAFT = mod.AIRCRAFT;`. Mapea clave interna → matrícula real:
+El script (CommonJS) empieza con `require("dotenv").config();` y envuelve todo en un **async IIFE**
+(necesario para el `await import` y las llamadas a `db`). Importa dinámicamente el ESM del frontend
+(única fuente de verdad, sin duplicar datos): `const mod = await import(url.pathToFileURL(path.resolve(
+__dirname,'../../CAA-frontend/src/loadsheet/data/aircraft.js')).href); const AIRCRAFT = mod.AIRCRAFT;`
+(`aircraft.js` hace `export const AIRCRAFT`; el frontend es `"type":"module"`, el import funciona en
+Windows). Mapea clave interna → matrícula real:
 
 ```js
 const KEY_A_MATRICULA = {
@@ -148,7 +157,7 @@ En `server.js`: `app.use("/api/loadsheet", require("./routes/loadsheetRoutes"));
 
 - [ ] **Step 1:** escribir controller + rutas + montaje en server.js.
 - [ ] **Step 2: Load-check** `node -e "require('./routes/loadsheetRoutes.js'); require('./controllers/loadsheetController.js'); console.log('load OK')"`.
-- [ ] **Step 3: Verificación temporal** `_verify_lsapi.js` (backend local NO necesario — se prueba en prod en Task 13; acá solo confirmar que el controller arma la query sin romper con un `id_aeronave` real usando `db`): `node -e` corto que llama `getPlantilla` con un `req` fake `{query:{matricula:'YS-155-PE'}}` y un `res` fake que captura `.json`. Assert que `plantilla.reg==='YS-155-PE'`. Borrar el archivo si se creó.
+- [ ] **Step 3:** la verificación funcional de estos endpoints se hace en prod en **Task 13** (login + HTTP). No intentar un `node -e` local: `config/db` no carga dotenv y `getPlantilla` está en `catchAsync` — un mini-script sin `dotenv.config()`+`await`+`next` fallaría silenciosamente. Basta el load-check acá.
 - [ ] **Step 4: Commit** los 3 archivos: `feat(loadsheet): endpoints de plantilla y aeronaves para modo práctica`.
 
 ---
@@ -163,7 +172,9 @@ En `server.js`: `app.use("/api/loadsheet", require("./routes/loadsheetRoutes"));
 - `guardarWbPlantilla`: recibe el objeto forma-AIRCRAFT en el body. **Validaciones (400 con motivo):**
   `nombre` no vacío; `fuel_usable_gal ≤ fuel_cap_gal`; `max_landing ≤ max_gross`; cada `limits_*` con `w`
   estrictamente creciente y `fwd < aft`; ≥1 estación con `is_fuel`; `empty_weight/empty_arm/max_gross`
-  numéricos > 0; `arm`/`max` de estaciones numéricos ≥ 0. Luego `objetoAircraftAFila(body)` → UPSERT en
+  numéricos > 0; `arm` de cada estación numérico ≥ 0. ⚠️ **`max`/`max_gal` de estaciones son OPCIONALES**
+  (el c310/YS-259-PE tiene estaciones wing_lockers/rear_baggage/baggage SIN `max` ni `max_gal`): validar
+  cada uno solo **si viene** (≥0), nunca exigirlos. Luego `objetoAircraftAFila(body)` → UPSERT en
   `wb_plantilla` (si la aeronave ya tiene `id_wb_plantilla`, UPDATE por ese id; si no, INSERT y
   `UPDATE aeronave SET id_wb_plantilla=$new`). Transacción. Reusar `aeronaveEscritura` (solo ADMIN).
   Devuelve `{ ok:true, plantilla: <mapeada de nuevo> }`.
@@ -254,8 +265,8 @@ guardan `const ac = AIRCRAFT[state.currentAC]`.
 
 - [ ] **Step 1: API** — funciones `getAeronavesPractica()` y `getPlantillaPractica(id_aeronave)` (axios, base = VITE_API_URL, `/loadsheet/...`).
 - [ ] **Step 2: `LoadsheetPage practice`** — nueva prop `practice=false`. Cuando `practice`:
-  no usa `id_vuelo`; al montar llama `getAeronavesPractica()`, y para cada avión con plantilla trae su template (o lazy al elegir). Arma `aircraftCatalog` con TODOS. `currentAC` = la matrícula del primer avión. Precarga `flightData.student`/`license` desde el `user` del auth (si hay un contexto/localStorage de usuario; si no, dejar en blanco — no bloquear). Setea `initial` con `readOnly:false, practice:true`, sin `idVuelo`.
-- [ ] **Step 3: Wizard** — aceptar prop `practice`. Cuando `practice`: mostrar banner azul "Modo práctica — no se guarda nada" (en vez del amber de readOnly). Pasar `practice` a `Step5Summary` para que **oculte** los botones Guardar/Enviar (que dependen de `idVuelo`). Vista previa/Imprimir/PDF quedan.
+  no usa `id_vuelo`; al montar llama `getAeronavesPractica()`, y para cada avión con plantilla trae su template (o lazy al elegir). Arma `aircraftCatalog` con TODOS. `currentAC` = la matrícula del primer avión. Precarga `flightData.student` desde `getSession()` de `utils/auth.js` (`user.nombre`+`user.apellido`); la **licencia NO está en la sesión** → queda en blanco/editable (no bloquea). Setea `initial` con `readOnly:false, practice:true`, sin `idVuelo`.
+- [ ] **Step 3: Wizard** — aceptar prop `practice` y meterla en el `initial`/state (ya se hace en Step 2, así llega como `state.practice`). Banner azul "Modo práctica — no se guarda nada" (en vez del amber de readOnly). ⚠️ El wizard renderiza `<CurrentStep />` **sin props** (`LoadsheetWizard.jsx:50`), así que Step5 NO recibe `practice` por prop: el bloque de botones Guardar/Enviar de `Step5Summary` (hoy gated `!state.readOnly`, ~línea 190) pasa a `!state.readOnly && !state.practice`. Vista previa/Imprimir/PDF quedan.
 - [ ] **Step 4: Rutas** en `App.jsx`: `/alumno/loadsheet/practica` (ProtectedAlumno → `<LoadsheetPage practice />`) y `/instructor/loadsheet/practica` (ProtectedInstructor → `<LoadsheetPage practice />`). Colocarlas ANTES de las rutas con `:id_vuelo` para que no las capture el dinámico (react-router v7 rankea, pero explícito es más claro).
 - [ ] **Step 5: Entradas de menú** — link "Practicar loadsheet" en el header del alumno y del instructor (buscar el componente de header/nav de cada rol y seguir su patrón de links).
 - [ ] **Step 6: Build** → `✓ built`.
