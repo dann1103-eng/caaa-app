@@ -1,12 +1,20 @@
 import { useLoadSheet } from '../../context/LoadSheetContext'
-import { AIRCRAFT } from '../../data/aircraft'
 import ActionBar from '../ActionBar'
-
-const AC_KEYS = Object.keys(AIRCRAFT).filter(k => !AIRCRAFT[k].disabled)
 
 export default function Step1Aircraft() {
   const { state, dispatch } = useLoadSheet()
-  const ac = AIRCRAFT[state.currentAC]
+  const catalog = state.aircraftCatalog
+  const AC_KEYS = Object.keys(catalog)
+  const ac = catalog[state.currentAC]
+
+  if (!ac) {
+    return (
+      <div>
+        <h2 className="text-sm font-bold text-[var(--c-brand-700)] uppercase tracking-wider mb-4">Seleccionar Aeronave</h2>
+        <p className="text-sm text-gray-500">Cargando aeronave…</p>
+      </div>
+    )
+  }
 
   return (
     <div>
@@ -24,7 +32,7 @@ export default function Step1Aircraft() {
                 : 'bg-white text-gray-600 border-gray-300 hover:border-[var(--c-brand-700)] hover:text-[var(--c-brand-700)]'
             }`}
           >
-            {AIRCRAFT[key].reg}
+            {catalog[key].reg}
           </button>
         ))}
       </div>
