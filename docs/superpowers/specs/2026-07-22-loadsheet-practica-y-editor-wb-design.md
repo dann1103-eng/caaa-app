@@ -52,10 +52,11 @@
   (`empty_weight_arm`→`empty_arm`, `empty_weight_moment`→`empty_moment`, `max_takeoff_weight`→`max_gross`,
   `max_landing_weight`→`max_landing`, `fuel_capacity_gal`→`fuel_cap_gal`, `fuel_burn_gal_hr`→NO se usa
   para la quema, ver abajo), pasa los jsonb tal cual (`estaciones`→`stations`, `limits_normal`,
-  `limits_utility`). **`reg`, `model`, `sheet` salen de las columnas de `wb_plantilla`** (sembradas
-  desde `aircraft.js`), NO de la fila `aeronave` (cuyo `modelo` guarda códigos como `TOMAHAWK`, no el
-  texto legible que imprime el wizard). El objeto resultante es **idéntico en forma** al que hoy
-  consume el wizard.
+  `limits_utility`). **`reg` se deriva de la fila `aeronave` recibida** (`reg = aeronave.codigo`, la
+  matrícula real = la clave del catálogo — sin columna `reg` propia). **`model` y `sheet` salen de las
+  columnas nuevas de `wb_plantilla`** (sembradas desde `aircraft.js`), NO de `aeronave.modelo` (que
+  guarda códigos como `TOMAHAWK`, no el texto legible que imprime el wizard). El objeto resultante es
+  **idéntico en forma** al que hoy consume el wizard.
 - **Columnas faltantes en `wb_plantilla`** (aditivas, para no perder nada de `aircraft.js`):
   `default_power numeric`, `default_flow_gal numeric`, `oil jsonb`, `model varchar`, `sheet varchar`,
   `max_useful_load numeric`. La quema por defecto del wizard es **`default_flow_gal`** (columna nueva);
@@ -159,9 +160,9 @@
   `nombre` (= el `sheet`/modelo) y `fuel_burn_gal_hr` = `default_flow_gal` para respetar los NOT NULL —
   y set de `aeronave.id_wb_plantilla`. **El match `aircraft.js` → fila `aeronave`** se hace por la
   clave interna → matrícula real (mapeo explícito en el script, porque el `reg` de `aircraft.js` del
-  270 está mal: `YS-270-P` → aeronave `YS-270-PE`). La columna `reg` sembrada usa la **matrícula real**
-  (única desviación deliberada de `aircraft.js`, para que el catálogo keyee bien). Corrige además la
-  deriva actual (p.ej. el 155 vuelve a 4 estaciones).
+  270 está mal: `YS-270-P` → aeronave `YS-270-PE`). `reg` no se siembra como columna: el mapper lo
+  deriva de `aeronave.codigo` al leer, así el 270 sale con la **matrícula real** sin bookkeeping extra.
+  Corrige además la deriva actual (p.ej. el 155 vuelve a 4 estaciones).
 - ⚠️ `aircraft.js` tiene una inconsistencia pre-existente (el 155 `limits_normal` llega a `w:2450`
   con `max_gross:2150`). La re-siembra **copia aircraft.js tal cual** (no "arregla" nada) para no
   cambiar comportamiento; Daniel corrige esos números después con el editor si quiere.
@@ -177,9 +178,9 @@
 ## Verificación
 
 - **Paridad del re-seed**: script que, para cada avión, compara campo a campo el objeto mapeado
-  desde `wb_plantilla` contra `AIRCRAFT[key]` → deep-equal tras la siembra, **excepto `reg`** (que
-  para el 270 pasa a ser la matrícula real `YS-270-PE`, corrección deliberada) y `empty_moment`
-  (recomputado, no comparar). El resto debe ser idéntico.
+  desde `wb_plantilla` (+ `reg` derivado de `aeronave.codigo`) contra `AIRCRAFT[key]` → deep-equal
+  tras la siembra, **excepto `reg`** (que para el 270 pasa a ser la matrícula real `YS-270-PE`,
+  corrección deliberada) y `empty_moment` (recomputado, no comparar). El resto debe ser idéntico.
 - **DB-first en el wizard**: cargar un loadsheet de vuelo real y confirmar que los números salen de
   la DB (editar la fila vía API y ver el cambio reflejado sin tocar `aircraft.js`).
 - **Fallback**: con una fila borrada, el wizard usa `aircraft.js` y no se rompe.
