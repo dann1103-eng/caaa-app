@@ -6,7 +6,8 @@ import { getWBData } from "./loadsheetApi";
 import LoadsheetWizard from "./LoadsheetWizard";
 import "./loadsheet.css";
 
-// Mapea la matricula de la aeronave (codigo en BD) a la plantilla de la calculadora.
+// Mapea la matricula de la aeronave (codigo en BD) a la plantilla estatica de fallback
+// (aircraft.js), usada solo cuando la BD todavia no tiene plantilla propia para esa aeronave.
 function findAircraftKey(codigo) {
   if (!codigo) return null;
   const key = Object.keys(AIRCRAFT).find(
@@ -15,8 +16,24 @@ function findAircraftKey(codigo) {
   return key || null;
 }
 
+// Construye el catalogo { matricula: plantilla } para este vuelo. DB-first: si el backend
+// ya resolvio una plantilla (data.plantilla, mapeada al shape de AIRCRAFT), se usa tal cual.
+// Fallback: si la aeronave no tiene plantilla en BD, se busca en el catalogo estatico por
+// matricula y se clona con "reg" forzado a la matricula real (el key interno puede diferir,
+// p.ej. historicamente "YS-270-P" vs la matricula real "YS-270-PE"). Si ninguna de las dos
+// resuelve, devuelve null: la aeronave de verdad no tiene loadsheet digital disponible.
+function buildAircraftCatalog(data) {
+  const codigo = data.aeronave_codigo;
+  if (data.plantilla) {
+    return { [codigo]: data.plantilla };
+  }
+  const key = findAircraftKey(codigo);
+  if (!key) return null;
+  return { [codigo]: { ...AIRCRAFT[key], reg: codigo } };
+}
+
 // Construye los overrides iniciales del contexto a partir de los datos del backend.
-function buildInitial(idVuelo, data, acKey) {
+function buildInitial(idVuelo, data, aircraftCatalog) {
   const v = data.vuelo || {};
   const wb = data.wb || null;
   const ls = data.savedLoadsheet || null;
@@ -24,7 +41,8 @@ function buildInitial(idVuelo, data, acKey) {
 
   const initial = {
     idVuelo,
-    currentAC: acKey,
+    currentAC: data.aeronave_codigo,
+    aircraftCatalog,
     flightData: {
       date: v.fecha_vuelo ? String(v.fecha_vuelo).slice(0, 10) : new Date().toISOString().split("T")[0],
       time: v.hora_inicio ? String(v.hora_inicio).slice(0, 5) : "",
@@ -80,14 +98,14 @@ export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) 
     (async () => {
       try {
         const data = await getWBData(id_vuelo, apiBase);
-        const acKey = findAircraftKey(data.aeronave_codigo);
-        if (!acKey) {
+        const aircraftCatalog = buildAircraftCatalog(data);
+        if (!aircraftCatalog) {
           if (!cancel) setError(
             `La aeronave "${data.aeronave_codigo || "—"}" todavía no tiene cargada su plantilla de peso y balance, así que el loadsheet digital no está disponible para este vuelo. Por ahora se completa a mano. (Los simuladores no requieren loadsheet.)`
           );
           return;
         }
-        if (!cancel) setInitial({ ...buildInitial(id_vuelo, data, acKey), readOnly });
+        if (!cancel) setInitial({ ...buildInitial(id_vuelo, data, aircraftCatalog), readOnly });
       } catch (e) {
         if (!cancel) setError(e?.response?.data?.message || "No se pudo cargar el vuelo.");
       } finally {
