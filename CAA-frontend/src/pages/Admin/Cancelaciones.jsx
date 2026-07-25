@@ -3,9 +3,13 @@ import { toast } from "sonner";
 import { getSolicitudesCancelacion, resolverSolicitudCancelacion } from "../../services/adminApi";
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
+import Header from "../../components/Header/Header";
 import "./Cancelaciones.css";
 
-export default function CancelacionesAdmin() {
+// standalone=true: se usa fuera del shell de ADMIN (ej. instructor con
+// puede_programar, vía /programacion/cancelaciones) — no hay topbar propia
+// ahí, así que agrega el Header global para poder navegar.
+export default function CancelacionesAdmin({ standalone = false }) {
   const [solicitudes, setSolicitudes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(null);
@@ -52,7 +56,9 @@ export default function CancelacionesAdmin() {
   };
 
   return (
-    <div className="adm-cancel">
+    <>
+      {standalone && <Header />}
+      <div className="adm-cancel" style={standalone ? { padding: "24px", maxWidth: 900, margin: "0 auto" } : undefined}>
       <div className="adm-cancel__card" style={{ marginBottom: '24px' }}>
         <div className="adm-cancel__card-header" style={{ padding: '16px 20px', borderBottom: '1px solid var(--c-line-1)', display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--c-surface-1)', borderRadius: '8px 8px 0 0' }}>
           <i className="bi bi-x-circle" style={{ color: 'var(--c-primary-500)', fontSize: '1.2rem' }}></i>
@@ -136,6 +142,7 @@ export default function CancelacionesAdmin() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

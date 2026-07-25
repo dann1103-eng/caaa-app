@@ -417,7 +417,7 @@ function generarReciboNominaPDF({ periodo, detalle }) {
  *   { id_vuelo, avion_codigo, avion_modelo, alumno, instructor,
  *     tac_ini, tac_fin, hobbs_ini, hobbs_fin, monto }
  */
-function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencias = [] }) {
+function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencias = [], cancelados = [], inasistencias = [] }) {
   const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
   const ancho = 712; // 752 - 40 (margen derecho)
   const fmtFecha = (() => {
@@ -536,6 +536,16 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
   y += 5;
   drawRow(["", "", "GRAN TOTAL", "", "", "", "", horas(gTac), "", "", horas(gHobbs), money(gMonto), ""], { bold: true, color: CAAA_BLUE });
 
+  // Resumen de conteo + detalle de cancelados/inasistencias: el cierre del
+  // día debe cuadrar con TODA la operación (lo que voló Y lo que no), no solo
+  // con lo que generó horas/monto. Sin esto, un vuelo cancelado o un no-show
+  // simplemente desaparecía del reporte sin dejar rastro.
+  y += 10;
+  doc.fontSize(9).font("Helvetica-Bold").fillColor("#444")
+     .text(`Completados: ${vuelos.length}     Cancelados: ${cancelados.length}     Inasistencias: ${inasistencias.length}`, 40, y);
+  y += 18;
+  y = dibujarSeccionesExtra(doc, { y, ancho, cancelados, inasistencias, horaReal });
+
   // Turno del día: apertura/cierre de operaciones + instructores en turno
   // (entrada/salida) — mismas tablas que usa el widget "Turno del día".
   if (y > 460) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
@@ -594,6 +604,50 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
   return doc;
 }
 
+// Vuelos CANCELADOS e INASISTENCIAS del día, en tablas compactas — comparten
+// forma entre generarReporteVuelosDiaPDF y generarReporteOperacionesDiaPDF
+// (ninguna de las dos categorías tiene monto/tacómetro que mostrar, así que
+// una sola función basta para ambos reportes). Devuelve el `y` actualizado.
+function dibujarSeccionesExtra(doc, { y, ancho, cancelados, inasistencias, horaReal }) {
+  const cols = [
+    ["Número", 40, "right"], ["Aeronave", 65, "left"], ["Alumno", 175, "left"],
+    ["Instructor", 175, "left"], ["Hora", 55, "right"], ["Detalle", 130, "left"],
+  ];
+  const anchoTabla = cols.reduce((s, c) => s + c[1], 0);
+  const drawRow = (cells, opts = {}) => {
+    let x = 40;
+    doc.fontSize(opts.head ? 7.5 : 8.5).font(opts.head ? "Helvetica-Bold" : "Helvetica")
+       .fillColor(opts.head ? "#666" : "#7a2b2b");
+    cols.forEach((c, i) => { doc.text(String(cells[i] ?? ""), x + 3, y + 4, { width: c[1] - 6, align: c[2] }); x += c[1]; });
+    y += opts.head ? 16 : 14;
+  };
+
+  const seccion = (titulo, filas, detalleFn) => {
+    if (y > 460) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
+    y += 8;
+    doc.strokeColor("#e5e7eb").lineWidth(0.75).moveTo(40, y).lineTo(40 + ancho, y).stroke();
+    y += 12;
+    doc.fontSize(10).font("Helvetica-Bold").fillColor(CAAA_RED).text(`${titulo} (${filas.length})`, 40, y);
+    y += 16;
+    if (!filas.length) {
+      doc.fontSize(9).fillColor("#999").font("Helvetica").text(`Sin ${titulo.toLowerCase()} ese día.`, 40, y);
+      y += 16;
+      return;
+    }
+    doc.rect(40, y, anchoTabla, 16).fill("#f7ecec");
+    drawRow(cols.map((c) => c[0]), { head: true });
+    for (const f of filas) {
+      if (y > 500) { doc.addPage({ size: "LETTER", layout: "landscape", margin: 40 }); y = 50; }
+      drawRow([f.id_vuelo, f.avion_codigo, f.alumno, f.instructor || "—", ...detalleFn(f)]);
+    }
+  };
+
+  seccion("VUELOS CANCELADOS", cancelados, (f) => [horaReal(f.fecha_cancelacion), f.tipo_cancelacion || "—"]);
+  seccion("INASISTENCIAS", inasistencias, (f) => ["—", f.motivo_inasistencia || "—"]);
+
+  return y;
+}
+
 /**
  * Genera el PDF "OPERACIONES DEL DÍA" (sin montos) — el reporte de cierre que
  * usa Turno. Mismo agrupado por aeronave que generarReporteVuelosDiaPDF, pero
@@ -606,7 +660,7 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
  *   { id_vuelo, avion_codigo, avion_modelo, alumno, instructor,
  *     tac_ini, tac_fin, horas_cobradas }
  */
-function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asistencias = [] }) {
+function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asistencias = [], cancelados = [], inasistencias = [] }) {
   const doc = new PDFDocument({ size: "LETTER", layout: "landscape", margin: 40 });
   const ancho = 712;
   const fmtFecha = (() => {
@@ -702,6 +756,14 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
   doc.strokeColor(CAAA_BLUE).lineWidth(1.2).moveTo(40, y).lineTo(40 + ancho, y).stroke();
   y += 5;
   drawRow(["", "", "GRAN TOTAL", "", "", `${gOps} operaciones`, horas(gHoras)], { bold: true, color: CAAA_BLUE });
+
+  // Resumen de conteo + detalle de cancelados/inasistencias (ver comentario
+  // hermano en generarReporteVuelosDiaPDF).
+  y += 10;
+  doc.fontSize(9).font("Helvetica-Bold").fillColor("#444")
+     .text(`Completados: ${vuelos.length}     Cancelados: ${cancelados.length}     Inasistencias: ${inasistencias.length}`, 40, y);
+  y += 18;
+  y = dibujarSeccionesExtra(doc, { y, ancho, cancelados, inasistencias, horaReal });
 
   // Turno del día: apertura/cierre de operaciones + instructores en turno
   // (entrada/salida) — mismas tablas que usa el widget "Turno del día".

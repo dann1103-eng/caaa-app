@@ -27,16 +27,53 @@ exports.alumnoCompletoHorasLicencia = alumnoCompletoHorasLicencia;
 /**
  * Info para habilitar el modo extracurricular en la UI del alumno:
  * si está habilitado (completó horas de licencia) y la lista de TODAS las
- * aeronaves activas (un extracurricular puede usar cualquier avión/simulador,
- * no solo los de su licencia).
+ * aeronaves (un extracurricular puede usar cualquier avión/simulador, no solo
+ * los de su licencia).
+ *
+ * Antes filtraba `WHERE activa = true` — `activa` es "disponible HOY", no
+ * "no dada de baja", así que un avión en mantenimiento desaparecía por
+ * completo de este selector (bloqueo real, por omisión) mientras que el modo
+ * normal (getAeronavesPermitidas) ya lo mostraba con advertencia desde
+ * b23434f. Mismo criterio acá: solo se excluyen los dados de baja.
  */
 exports.getExtracurricularInfo = catchAsync(async (req, res) => {
   const a = await db.query("SELECT id_alumno FROM alumno WHERE id_usuario = $1", [req.user.id_usuario]);
   if (a.rows.length === 0) return res.status(404).json({ message: "Alumno no encontrado" });
   const habilitado = await alumnoCompletoHorasLicencia(db, a.rows[0].id_alumno);
-  const aeronaves = await db.query(
-    "SELECT id_aeronave, codigo, modelo, tipo FROM aeronave WHERE activa = true ORDER BY codigo"
-  );
+  const aeronaves = await db.query(`
+    WITH sem AS (
+      SELECT fecha_inicio
+        FROM semana_vuelo
+       WHERE fecha_inicio > CURRENT_DATE
+       ORDER BY fecha_inicio
+       LIMIT 1
+    )
+    SELECT
+      a.id_aeronave, a.codigo, a.modelo, a.tipo,
+      mact.id_mantenimiento IS NOT NULL AS en_mantenimiento,
+      mact.fecha_fin::date              AS mantenimiento_hasta,
+      COALESCE((
+        SELECT array_agg(d ORDER BY d)
+          FROM generate_series(1, 6) AS d
+         WHERE EXISTS (
+           SELECT 1 FROM mantenimiento_aeronave m
+            WHERE m.id_aeronave = a.id_aeronave
+              AND ${mantenimientoCubreFechaSQL("((SELECT fecha_inicio FROM sem) + (d - 1))")}
+         )
+      ), '{}') AS dias_bloqueados
+    FROM aeronave a
+    LEFT JOIN LATERAL (
+      SELECT m2.id_mantenimiento, m2.fecha_fin
+        FROM mantenimiento_aeronave m2
+       WHERE m2.id_aeronave = a.id_aeronave
+         AND m2.completado = false
+         AND COALESCE(m2.estado, '') <> 'CANCELADO'
+       ORDER BY m2.fecha_fin IS NULL DESC, m2.fecha_fin DESC
+       LIMIT 1
+    ) mact ON true
+    WHERE NOT (a.activa = false AND a.estado = 'ACTIVO')
+    ORDER BY a.codigo
+  `);
   res.json({ habilitado, aeronaves: aeronaves.rows });
 });
 

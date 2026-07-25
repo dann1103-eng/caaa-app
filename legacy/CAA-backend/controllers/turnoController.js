@@ -858,6 +858,49 @@ exports.agregarBloquesSuspension = async (req, res) => {
 };
 
 
+// Vuelos CANCELADOS e INASISTENCIAS del día — compartido por los dos reportes
+// de cierre (con y sin montos): ninguna de las dos categorías tiene monto que
+// filtrar, así que un solo query basta para ambos. Antes ambos reportes solo
+// miraban vuelos COMPLETADOS sin inasistencia, así que un vuelo cancelado o un
+// no-show desaparecía sin dejar rastro del cierre del día.
+async function getCanceladosEInasistenciasDia(fecha) {
+  const [canceladosRes, inasistenciasRes] = await Promise.all([
+    db.query(`
+      SELECT v.id_vuelo,
+             a.codigo AS avion_codigo, a.modelo AS avion_modelo,
+             TRIM(ua.nombre || ' ' || COALESCE(ua.apellido, '')) AS alumno,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido, '')) AS instructor,
+             (v.fecha_cancelacion AT TIME ZONE 'America/El_Salvador') AS fecha_cancelacion,
+             v.tipo_cancelacion
+        FROM vuelo v
+        JOIN aeronave a   ON a.id_aeronave = v.id_aeronave
+        JOIN alumno  al   ON al.id_alumno = v.id_alumno
+        JOIN usuario ua   ON ua.id_usuario = al.id_usuario
+        LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+        LEFT JOIN usuario ui   ON ui.id_usuario = i.id_usuario
+       WHERE v.fecha_vuelo = $1::date AND v.estado = 'CANCELADO'
+       ORDER BY a.codigo, v.fecha_cancelacion
+    `, [fecha]),
+    db.query(`
+      SELECT v.id_vuelo,
+             a.codigo AS avion_codigo, a.modelo AS avion_modelo,
+             TRIM(ua.nombre || ' ' || COALESCE(ua.apellido, '')) AS alumno,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido, '')) AS instructor,
+             rv.motivo_inasistencia
+        FROM vuelo v
+        JOIN aeronave a   ON a.id_aeronave = v.id_aeronave
+        JOIN alumno  al   ON al.id_alumno = v.id_alumno
+        JOIN usuario ua   ON ua.id_usuario = al.id_usuario
+        LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+        LEFT JOIN usuario ui   ON ui.id_usuario = i.id_usuario
+        JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
+       WHERE v.fecha_vuelo = $1::date AND v.estado = 'COMPLETADO' AND rv.es_inasistencia = true
+       ORDER BY a.codigo
+    `, [fecha]),
+  ]);
+  return { cancelados: canceladosRes.rows, inasistencias: inasistenciasRes.rows };
+}
+
 // ── Reporte "VUELOS POR AVIÓN" del día (cierre de ventas del turno) ─────────
 // PDF con todos los vuelos COMPLETADOS de la fecha, agrupados por aeronave:
 // tacómetro/hobbs inicial-final-horas, monto devengado (cargo a cuenta corriente)
@@ -948,10 +991,13 @@ exports.getReporteVuelosDia = async (req, res) => {
       `, [fecha]),
     ]);
 
+    const { cancelados, inasistencias } = await getCanceladosEInasistenciasDia(fecha);
+
     const doc = generarReporteVuelosDiaPDF({
       fecha, vuelos: r.rows,
       turnoDia: turnoDiaRes.rows[0] || null,
       asistencias: asistenciasRes.rows,
+      cancelados, inasistencias,
     });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="vuelos-por-avion-${fecha}.pdf"`);
@@ -1040,10 +1086,13 @@ exports.getReporteOperacionesDia = async (req, res) => {
       `, [fecha]),
     ]);
 
+    const { cancelados, inasistencias } = await getCanceladosEInasistenciasDia(fecha);
+
     const doc = generarReporteOperacionesDiaPDF({
       fecha, vuelos: r.rows,
       turnoDia: turnoDiaRes.rows[0] || null,
       asistencias: asistenciasRes.rows,
+      cancelados, inasistencias,
     });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename="operaciones-${fecha}.pdf"`);
@@ -1139,12 +1188,16 @@ exports.editarTripulacion = async (req, res) => {
     // Conflictos contra otros vuelos reales (mismo patrón que agendarVueloDirecto),
     // evaluados contra el bloque NUEVO. Se disparan también si solo cambió el
     // horario (aunque la tripulación se mantenga) para no mover un vuelo a un
-    // slot donde esa aeronave/instructor/alumno ya está ocupado.
+    // slot donde esa aeronave/instructor/alumno ya está ocupado. Un no-show
+    // (reporte_vuelo.es_inasistencia) nunca ocupó de verdad ese horario, así
+    // que no debe bloquear un reemplazo (incluye RUTAs de varios bloques).
     const conflicto = async (columna, valor, label, code) => {
       const r = await client.query(
         `SELECT 1 FROM vuelo
           WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado <> 'CANCELADO' AND id_vuelo <> $6
-            AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque)) LIMIT 1`,
+            AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque))
+            AND NOT EXISTS (SELECT 1 FROM reporte_vuelo rv WHERE rv.id_vuelo = vuelo.id_vuelo AND rv.es_inasistencia = true)
+          LIMIT 1`,
         [vuelo.id_semana, nuevoDia, valor, nuevoBloque, nuevoFin, vuelo.id_vuelo]
       );
       if (r.rows.length) throw Object.assign(new Error(label), { code });
@@ -1229,11 +1282,54 @@ exports.editarTripulacion = async (req, res) => {
 
     if (io) io.emit("vuelo_estado_changed", { id_vuelo: vuelo.id_vuelo });
 
-    notificarStaff({
-      title: "Tripulación actualizada",
-      body: `Vuelo #${vuelo.id_vuelo} — cambio hecho por Turno`,
-      url: "/turno", tag: "tripulacion",
-    }, { excluirUid: user?.id_usuario, tipo: "TRIPULACION" }).catch(() => {});
+    (async () => {
+      try {
+        const [notifInfo, nombresNuevos, nombresViejos] = await Promise.all([
+          db.query(
+            `SELECT a.codigo AS aeronave_codigo, b.hora_inicio
+               FROM aeronave a, bloque_horario b
+              WHERE a.id_aeronave = $1 AND b.id_bloque = $2`,
+            [nuevaAeronave, nuevoBloque]
+          ),
+          db.query(
+            `SELECT ua.nombre || ' ' || ua.apellido AS alumno_nombre,
+                    ui.nombre || ' ' || ui.apellido AS instructor_nombre
+               FROM alumno al, usuario ua, instructor ins, usuario ui
+              WHERE al.id_alumno = $1 AND ua.id_usuario = al.id_usuario
+                AND ins.id_instructor = $2 AND ui.id_usuario = ins.id_usuario`,
+            [nuevoAlumno, nuevoInstructor]
+          ),
+          db.query(
+            `SELECT ua.nombre || ' ' || ua.apellido AS alumno_nombre,
+                    ui.nombre || ' ' || ui.apellido AS instructor_nombre
+               FROM alumno al, usuario ua, instructor ins, usuario ui
+              WHERE al.id_alumno = $1 AND ua.id_usuario = al.id_usuario
+                AND ins.id_instructor = $2 AND ui.id_usuario = ins.id_usuario`,
+            [vuelo.id_alumno, vuelo.id_instructor]
+          ),
+        ]);
+        const { aeronave_codigo, hora_inicio } = notifInfo.rows[0] || {};
+        const horaFmt = hora_inicio ? String(hora_inicio).slice(0, 5) : "";
+        const nuevos = nombresNuevos.rows[0] || {};
+        const viejos = nombresViejos.rows[0] || {};
+
+        // Detalle de QUIÉN sale y quién entra — antes el push solo decía
+        // "cambio hecho por Turno" sin decir el cambio en sí, así que el
+        // staff tenía que abrir /turno para enterarse de qué había cambiado.
+        const detalles = [];
+        if (alumnoCambio) detalles.push(`Alumno: ${viejos.alumno_nombre || "?"} → ${nuevos.alumno_nombre || "?"}`);
+        if (instructorCambio) detalles.push(`Instructor: ${viejos.instructor_nombre || "?"} → ${nuevos.instructor_nombre || "?"}`);
+
+        const prefijo = `${aeronave_codigo || "Aeronave"}${horaFmt ? " — salida " + horaFmt : ""}`;
+        const body = detalles.length ? `${prefijo} — ${detalles.join(" · ")}` : `${prefijo} — cambio hecho por Turno`;
+
+        await notificarStaff({
+          title: "Tripulación actualizada",
+          body,
+          url: "/turno", tag: "tripulacion",
+        }, { excluirUid: user?.id_usuario, tipo: "TRIPULACION" });
+      } catch (e) { console.error("push tripulacion:", e.message); }
+    })();
 
     res.json({ message: "Tripulación actualizada", id_vuelo: vuelo.id_vuelo });
   } catch (e) {

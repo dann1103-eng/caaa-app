@@ -286,6 +286,22 @@ exports.miFicha = async (req, res) => {
   }
 };
 
+// El instructor ingresa/corrige su propia licencia (el resto de la ficha —
+// nómina, cargo, DUI, etc. — lo sigue manejando solo Administración).
+exports.actualizarMiLicencia = async (req, res) => {
+  try {
+    const { licencia } = req.body;
+    const r = await db.query(
+      `UPDATE instructor SET licencia = $1 WHERE id_usuario = $2 RETURNING licencia`,
+      [licencia?.trim() || null, req.user.id_usuario]
+    );
+    if (!r.rows.length) return res.status(404).json({ ok: false, message: "Instructor no encontrado" });
+    res.json({ ok: true, licencia: r.rows[0].licencia });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
 // Historial propio del instructor (solo lectura): planillas, horas instruidas,
 // clases, exámenes y pago de teoría. Espeja usuariosController.historialInstructor.
 exports.miHistorial = async (req, res) => {

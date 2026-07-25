@@ -24,6 +24,16 @@ function jsDayToDb(jsDay) {
   return jsDay === 0 ? 7 : jsDay;
 }
 
+// Orden de las tarjetas "Vuelos de hoy": los que están operando ahora mismo
+// primero (para no tener que scrollear para verlos), luego los que faltan
+// del día, y hasta abajo los ya completados (se van acumulando y ya no
+// necesitan atención).
+const PRIORIDAD_ESTADO = {
+  SALIDA_HANGAR: 0, EN_PROGRESO: 0, REGRESO_HANGAR: 0, FINALIZANDO: 0,
+  PUBLICADO: 1, PROGRAMADO: 1,
+  COMPLETADO: 2,
+};
+
 const TURNO_META = {
   ABIERTO:  { label: "TURNO ABIERTO",             cls: "pp__turno--abierto",  icon: "bi-sunrise" },
   EN_PAUSA: { label: "TURNO EN PAUSA · ALMUERZO",  cls: "pp__turno--pausa",    icon: "bi-cup-hot" },
@@ -52,7 +62,12 @@ export default function DuenoDashboard() {
     setVuelosHoy(
       (calendario || [])
         .filter((v) => Number(v.dia_semana) === diaHoy && v.estado !== "CANCELADO")
-        .sort((a, b) => (a.hora_inicio || "").localeCompare(b.hora_inicio || ""))
+        .sort((a, b) => {
+          const pa = PRIORIDAD_ESTADO[a.estado] ?? 1;
+          const pb = PRIORIDAD_ESTADO[b.estado] ?? 1;
+          if (pa !== pb) return pa - pb;
+          return (a.hora_inicio || "").localeCompare(b.hora_inicio || "");
+        })
     );
   }, []);
 
@@ -94,6 +109,10 @@ export default function DuenoDashboard() {
 
   const turnoMeta = turnoDia?.dia?.estado ? TURNO_META[turnoDia.dia.estado] : null;
   const presentes = (turnoDia?.asistencias || []).filter((a) => !a.salida_en);
+  // Una operación queda "realizada" en el momento en que Turno/instructor marca
+  // la salida de hangar (`salida_real`, timestamp real del evento) — de ahí en
+  // adelante, aunque el vuelo siga en curso o ya haya cerrado, cuenta como uno.
+  const operacionesRealizadas = vuelosHoy.filter((v) => v.salida_real).length;
 
   return (
     <div className="pp duo">
@@ -131,6 +150,11 @@ export default function DuenoDashboard() {
         )}
 
         <OperacionesWidget />
+
+        <div className="pp__card duo__stat-card">
+          <span className="duo__stat-num">{operacionesRealizadas}</span>
+          <span className="duo__stat-label">Operaciones realizadas hoy</span>
+        </div>
 
         <div className="pp__card">
           <div className="pp__card-head">

@@ -71,11 +71,19 @@ exports.completarMantenimiento = catchAsync(async (req, res) => {
     await client.query("BEGIN");
     const mantRes = await client.query(`SELECT id_mantenimiento, tipo FROM mantenimiento_aeronave WHERE id_aeronave = $1 AND estado = 'EN_CURSO' LIMIT 1 FOR UPDATE`, [id]);
     if (mantRes.rows.length === 0) throw new Error("No hay mantenimiento en curso");
+    const { id_mantenimiento } = mantRes.rows[0];
 
-    await client.query(`UPDATE mantenimiento_aeronave SET estado = 'COMPLETADO', completado = true, fecha_completado = NOW() WHERE id_mantenimiento = $1`, [mantRes.rows[0].id_mantenimiento]);
+    await client.query(`UPDATE mantenimiento_aeronave SET estado = 'COMPLETADO', completado = true, fecha_completado = NOW() WHERE id_mantenimiento = $1`, [id_mantenimiento]);
     // Reactiva el avión solo si ya no le queda otro mantenimiento vigente hoy.
     await sincronizarEstadoFlota(client, Number(id));
 
+    // Esto SOLO cierra la parada operativa (el avión vuelve a estar disponible).
+    // No toca taller_tarea_programada: el cupo de inspección periódica (25/50/
+    // 100h/Anual/Overhaul) es un concepto aparte y se avanza siempre desde
+    // Taller → Aeronavegabilidad → "Cumplir", donde se define a mano el próximo
+    // tipo y TAC objetivo. Antes esta acción también intentaba avanzarlo con un
+    // cálculo por intervalo, lo cual chocaba con el cupo único manual — se sacó
+    // a propósito (ver plan "Cupo único de mantenimiento periódico").
     await client.query("COMMIT");
     res.json({ message: "Mantenimiento completado" });
   } catch (e) {

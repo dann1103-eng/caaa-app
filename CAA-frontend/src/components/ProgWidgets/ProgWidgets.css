@@ -172,6 +172,13 @@
 .pw__flota-stat--rojo { background: var(--c-danger-50);  color: var(--c-danger-700); }
 .pw__flota-stat--gris { background: var(--c-surface-2);  color: var(--c-ink-2); border: 1px solid var(--c-line-1); }
 
+/* Horas restantes hasta la próxima revisión (texto, sin fondo) — mismos
+   umbrales que la barra de progreso de Admin/Mantenimiento: <5h rojo,
+   <=20h amarillo, el resto verde. */
+.pw__restantes--verde    { color: var(--c-success-700); font-weight: 600; }
+.pw__restantes--amarillo { color: var(--c-warn-700);    font-weight: 600; }
+.pw__restantes--rojo     { color: var(--c-danger-700);  font-weight: 600; }
+
 /* Widget row layout (used in Dashboard) */
 .pw__widgets-row {
   display: grid;

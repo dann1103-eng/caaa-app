@@ -10,10 +10,18 @@ import "./PaginaTracking.css";
    la aeronave por matrícula — así cada mosaico es "su cámara", sin tráfico
    ajeno de fondo. Si todavía no transmite ADS-B (equipo aún no instalado) el
    mosaico simplemente queda mostrando el mapa sin el ícono del avión — no es
-   un error, es el estado esperado hasta que esa aeronave tenga el equipo activo. */
+   un error, es el estado esperado hasta que esa aeronave tenga el equipo activo.
+   Para ese caso (sin señal) tar1090 cae a su vista por defecto, que sin lat/
+   lon/zoom explícitos termina centrada donde sea que sirva el feeder de
+   ADS-B Exchange más cercano (nos tocó Nueva York) — con MSSS (Ilopango) fijo
+   acá, ese fallback muestra la base de la escuela en vez de otro continente. */
+const MSSS_LAT = 13.6969;
+const MSSS_LON = -89.1233;
+const MSSS_ZOOM = 11;
+
 function trackUrl(codigo) {
   const reg = (codigo || "").replace(/-/g, "");
-  return `https://globe.adsbexchange.com/?reg=${encodeURIComponent(reg)}&hideSideBar&hideButtons`;
+  return `https://globe.adsbexchange.com/?reg=${encodeURIComponent(reg)}&lat=${MSSS_LAT}&lon=${MSSS_LON}&zoom=${MSSS_ZOOM}&hideSideBar&hideButtons`;
 }
 
 export default function PaginaTracking() {

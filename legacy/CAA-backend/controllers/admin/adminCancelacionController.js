@@ -83,8 +83,14 @@ exports.resolverSolicitudCancelacion = catchAsync(async (req, res) => {
     }
 
     await logAuditoria(client, { accion: "RESOLVER_SOLICITUD_CANCELACION", entidad: "solicitud_cancelacion", id_entidad: id, actor: req.user, req, descripcion: `Admin ${decision} solicitud` });
-    
+
     await client.query("COMMIT");
+
+    // Nunca se emitía: el badge de pendientes (AdminSidebar) y el auto-refresh
+    // de la pantalla de Cancelaciones escuchan este evento desde que existen.
+    const io = req.app.get("io");
+    if (io) io.emit("solicitud_cancelacion_resuelta", { id_solicitud: Number(id), decision });
+
     res.json({ message: `Solicitud ${decision.toLowerCase()}` });
   } catch (e) {
     await client.query("ROLLBACK");

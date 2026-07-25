@@ -74,18 +74,25 @@ export default function EstadoFlotaWidget() {
             const horas = parseFloat(a.horas_acumuladas || 0);
             const proxima = parseFloat(a.horas_proxima_revision || 50);
             const proxima5 = a.estado !== "MANTENIMIENTO" && horas >= proxima - 5;
+            const restantes = proxima - horas;
+            let restantesCls = "pw__restantes--verde";
+            if (restantes <= 5) restantesCls = "pw__restantes--rojo";
+            else if (restantes <= 20) restantesCls = "pw__restantes--amarillo";
             return (
               <div className="pw__card pw__card--flota" key={a.id_aeronave}>
                 <div className="pw__card-row">
                   <span className="pw__card-aeronave">{a.codigo}</span>
                   <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                    {a.estado === "MANTENIMIENTO" && (
+                    {/* "En vuelo" manda siempre: un avión operando no debería
+                        mostrar "Próx. mant." en su lugar solo porque además
+                        esté por vencer su revisión. */}
+                    {a.estado_actual === "VOLANDO" ? (
+                      <span className={`pw__tag ${ESTADO_CLS.VOLANDO}`}>{ESTADO_LABEL.VOLANDO}</span>
+                    ) : a.estado === "MANTENIMIENTO" ? (
                       <span className="pw__tag pw__tag--rojo">Mantenimiento</span>
-                    )}
-                    {proxima5 && (
+                    ) : proxima5 ? (
                       <span className="pw__tag pw__tag--naranja">Próx. mant.</span>
-                    )}
-                    {a.estado !== "MANTENIMIENTO" && !proxima5 && (
+                    ) : (
                       <span className={`pw__tag ${cls}`}>
                         {ESTADO_LABEL[a.estado_actual] ?? a.estado_actual}
                       </span>
@@ -93,7 +100,7 @@ export default function EstadoFlotaWidget() {
                   </div>
                 </div>
                 <div className="pw__card-sub">
-                  {a.modelo} · {horas.toFixed(1)} hs acum.
+                  {a.modelo} · <span className={restantesCls}>{restantes.toFixed(1)}h para próx. revisión</span>
                 </div>
               </div>
             );

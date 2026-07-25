@@ -146,6 +146,20 @@ export default function ProgramacionDashboard({ embedded = false }) {
 
   useEffect(() => { reload(); }, [week]);
 
+  // Mover un vuelo solo lo aplica en el estado local (pendingMoves) — recién se
+  // persiste al backend al tocar "Guardar cambios". Sin este aviso, un refresh
+  // accidental descarta el movimiento en silencio (parece que se movió, pero
+  // nunca llegó a guardarse) y el usuario no se entera hasta que ya es tarde.
+  useEffect(() => {
+    if (pendingMoves.length === 0) return;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [pendingMoves.length]);
+
   const handleDrop = (target) => {
     if (!dragging) return;
     if (week !== "next") {

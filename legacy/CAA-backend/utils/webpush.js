@@ -126,6 +126,23 @@ async function notificarPorRol(payloadObj, roles = null, { excluirUid = null } =
   }
 }
 
+// Push a un conjunto puntual de usuarios (por id), sin importar su rol —
+// para avisos dirigidos a una CAPACIDAD específica (ej. instructores con
+// puede_programar) que la matriz de notificarStaff no puede distinguir
+// dentro de un mismo rol literal ("INSTRUCTOR").
+async function notificarUsuarios(idsUsuario, payloadObj) {
+  if (!habilitado || !Array.isArray(idsUsuario) || idsUsuario.length === 0) return;
+  try {
+    const r = await db.query(
+      `SELECT endpoint, p256dh, auth FROM push_subscription WHERE id_usuario = ANY($1::int[])`,
+      [idsUsuario]
+    );
+    await enviarA(r.rows, payloadObj);
+  } catch (e) {
+    console.error("[webpush] notificarUsuarios:", e.message);
+  }
+}
+
 module.exports = {
   guardarSuscripcion, eliminarSuscripcion, notificarStaff, notificarPorRol,
   vapidPublicKey: PUB, habilitado, ROLES_STAFF, TIPOS_PUSH,
