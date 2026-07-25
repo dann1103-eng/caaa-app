@@ -66,6 +66,11 @@ router.get("/aeronaves/registro/:id/vuelos", aeronaveLectura, adminAeronave.getV
 // Qué licencias pueden volar esta aeronave. Es la fuente de verdad que consultan
 // tanto el alumno al pedir horas como el staff al agendar.
 router.put("/aeronaves/registro/:id/licencias", aeronaveEscritura, adminAeronave.setLicenciasAeronave);
+// Editor de Peso y Balance (wb_plantilla): lectura ADMIN+TALLER, escritura solo
+// ADMIN (mismo acceso que el resto del registro de aeronaves). El cambio surte
+// efecto de inmediato en el loadsheet (misma fila que lee LoadsheetPage).
+router.get("/aeronaves/registro/:id/wb-plantilla", aeronaveLectura, adminAeronave.getWbPlantilla);
+router.put("/aeronaves/registro/:id/wb-plantilla", aeronaveEscritura, adminAeronave.guardarWbPlantilla);
 
 // --- Mantenimiento ---
 router.get("/mantenimiento", adminAccess, adminMantenimiento.getMantenimientoAeronaves);

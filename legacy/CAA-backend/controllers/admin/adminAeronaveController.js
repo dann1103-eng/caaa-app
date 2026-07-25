@@ -1,6 +1,7 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
+const { filaAObjetoAircraft, objetoAircraftAFila } = require("../../utils/wbPlantilla");
 
 exports.getAeronavesActivas = catchAsync(async (req, res) => {
   // Mismo criterio que programacionController.getAeronavesActivas: se devuelven
@@ -469,6 +470,284 @@ exports.setLicenciasAeronave = catchAsync(async (req, res) => {
     res.json(out.rows);
   } catch (e) {
     await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// ===========================================================================
+// Editor de Peso y Balance (wb_plantilla) por aeronave.
+//
+// El GET/PUT reusan el mismo mapper que el seed autoritativo
+// (utils/wbPlantilla.js): filaAObjetoAircraft para leer, objetoAircraftAFila
+// para escribir. El cuerpo del PUT tiene forma "AIRCRAFT" (la misma que
+// consume el wizard del loadsheet), no la forma cruda de la tabla.
+// ===========================================================================
+
+function toNumWb(v) {
+  if (v === null || v === undefined || v === "") return NaN;
+  return Number(v);
+}
+
+// node-postgres no acepta `undefined` como parámetro (a diferencia de `null`,
+// que sí es un valor SQL válido). Todo campo opcional de la forma AIRCRAFT
+// que pueda faltar se normaliza acá antes de bindear. Mismo patrón que usa
+// supabase/dump/seed_wb_plantilla_desde_aircraft.js.
+const nnWb = (v) => (v === undefined ? null : v);
+// jsonb: un array/objeto JS crudo como parámetro lo serializa `pg` como literal
+// de ARRAY de Postgres, no como JSON. Hay que stringificarlo a mano.
+const jnWb = (v) => (v === undefined || v === null ? null : JSON.stringify(v));
+
+/**
+ * Valida el cuerpo de PUT .../wb-plantilla (forma AIRCRAFT) ANTES de escribir.
+ * @returns {{ok:true}|{ok:false,motivo:string}}
+ */
+function validarWbPlantilla(body) {
+  const b = body || {};
+
+  const nombre = b.nombre || b.sheet || b.model;
+  if (!nombre || !String(nombre).trim()) {
+    return { ok: false, motivo: "El nombre de la plantilla es obligatorio (nombre, sheet o model)." };
+  }
+
+  const emptyWeight = toNumWb(b.empty_weight);
+  if (!(emptyWeight > 0)) {
+    return { ok: false, motivo: "empty_weight debe ser numérico y mayor que 0." };
+  }
+  const emptyArm = toNumWb(b.empty_arm);
+  if (!(emptyArm > 0)) {
+    return { ok: false, motivo: "empty_arm debe ser numérico y mayor que 0." };
+  }
+  const maxGross = toNumWb(b.max_gross);
+  if (!(maxGross > 0)) {
+    return { ok: false, motivo: "max_gross debe ser numérico y mayor que 0." };
+  }
+
+  const fuelUsable = toNumWb(b.fuel_usable_gal);
+  const fuelCap = toNumWb(b.fuel_cap_gal);
+  if (!(fuelUsable >= 0) || !(fuelCap >= 0)) {
+    return { ok: false, motivo: "fuel_usable_gal y fuel_cap_gal deben ser numéricos." };
+  }
+  if (fuelUsable > fuelCap) {
+    return { ok: false, motivo: "fuel_usable_gal no puede ser mayor que fuel_cap_gal." };
+  }
+
+  const maxLanding = toNumWb(b.max_landing);
+  if (!(maxLanding >= 0)) {
+    return { ok: false, motivo: "max_landing debe ser numérico." };
+  }
+  if (maxLanding > maxGross) {
+    return { ok: false, motivo: "max_landing no puede ser mayor que max_gross." };
+  }
+
+  if (!Array.isArray(b.stations) || b.stations.length === 0) {
+    return { ok: false, motivo: "stations debe ser un arreglo con al menos una estación." };
+  }
+  const hayFuel = b.stations.some((s) => s && s.is_fuel === true);
+  if (!hayFuel) {
+    return { ok: false, motivo: "Debe haber al menos una estación de combustible (is_fuel=true)." };
+  }
+  for (let i = 0; i < b.stations.length; i++) {
+    const s = b.stations[i] || {};
+    const arm = toNumWb(s.arm);
+    if (!(arm >= 0)) {
+      return { ok: false, motivo: `La estación #${i + 1} debe tener 'arm' numérico >= 0.` };
+    }
+    // max / max_gal son OPCIONALES (p.ej. el C310 tiene estaciones sin ninguno):
+    // solo se validan si vienen.
+    if (s.max !== undefined && s.max !== null) {
+      const max = toNumWb(s.max);
+      if (!(max >= 0)) return { ok: false, motivo: `La estación #${i + 1}: 'max' debe ser numérico >= 0 si se especifica.` };
+    }
+    if (s.max_gal !== undefined && s.max_gal !== null) {
+      const maxGal = toNumWb(s.max_gal);
+      if (!(maxGal >= 0)) return { ok: false, motivo: `La estación #${i + 1}: 'max_gal' debe ser numérico >= 0 si se especifica.` };
+    }
+  }
+
+  const validarLimits = (limits, etiqueta) => {
+    if (!Array.isArray(limits) || limits.length === 0) {
+      return `${etiqueta} debe ser un arreglo no vacío.`;
+    }
+    let wAnterior = -Infinity;
+    for (let i = 0; i < limits.length; i++) {
+      const fila = limits[i] || {};
+      const w = toNumWb(fila.w);
+      const fwd = toNumWb(fila.fwd);
+      const aft = toNumWb(fila.aft);
+      if (!Number.isFinite(w) || !Number.isFinite(fwd) || !Number.isFinite(aft)) {
+        return `${etiqueta}[${i}] debe tener w/fwd/aft numéricos.`;
+      }
+      if (!(fwd < aft)) {
+        return `${etiqueta}[${i}]: fwd debe ser menor que aft.`;
+      }
+      if (!(w > wAnterior)) {
+        return `${etiqueta}: w debe ser estrictamente creciente.`;
+      }
+      wAnterior = w;
+    }
+    return null;
+  };
+
+  const errNormal = validarLimits(b.limits_normal, "limits_normal");
+  if (errNormal) return { ok: false, motivo: errNormal };
+
+  if (Array.isArray(b.limits_utility) && b.limits_utility.length > 0) {
+    const errUtility = validarLimits(b.limits_utility, "limits_utility");
+    if (errUtility) return { ok: false, motivo: errUtility };
+  }
+
+  return { ok: true };
+}
+
+// Arma el arreglo de 21 valores (mismo orden/columnas que usa el seed
+// autoritativo) a partir de `fila` = objetoAircraftAFila(body).
+function valoresWbPlantilla(fila) {
+  return [
+    fila.nombre,                       // 1
+    fila.empty_weight,                 // 2
+    fila.empty_weight_arm,             // 3
+    fila.empty_weight_moment,          // 4
+    fila.max_takeoff_weight,           // 5
+    fila.max_landing_weight,           // 6
+    nnWb(fila.max_useful_load),        // 7
+    fila.fuel_capacity_gal,            // 8
+    fila.fuel_usable_gal,              // 9
+    nnWb(fila.fuel_burn_gal_hr),       // 10
+    nnWb(fila.fuel_lb_gal),            // 11
+    nnWb(fila.default_power),          // 12
+    nnWb(fila.default_flow_gal),       // 13
+    nnWb(fila.moment_div1000),         // 14
+    nnWb(fila.fuel_burn_note),         // 15
+    nnWb(fila.model),                  // 16
+    nnWb(fila.sheet),                  // 17
+    jnWb(fila.oil),                    // 18
+    jnWb(fila.estaciones),             // 19
+    jnWb(fila.limits_normal),          // 20
+    jnWb(fila.limits_utility),         // 21
+  ];
+}
+
+exports.getWbPlantilla = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const ae = await db.query(
+    `SELECT id_aeronave, codigo, id_wb_plantilla FROM aeronave WHERE id_aeronave = $1`,
+    [id]
+  );
+  if (ae.rows.length === 0) return res.status(404).json({ message: "Aeronave no encontrada" });
+
+  const aeronave = ae.rows[0];
+  if (aeronave.id_wb_plantilla == null) {
+    return res.json({ plantilla: null, matricula: aeronave.codigo });
+  }
+
+  const wb = await db.query(`SELECT * FROM wb_plantilla WHERE id_wb_plantilla = $1`, [aeronave.id_wb_plantilla]);
+  if (wb.rows.length === 0) {
+    // id_wb_plantilla apunta a una fila que ya no existe (deriva de datos) —
+    // se trata igual que "sin plantilla" en vez de tirar un 500.
+    return res.json({ plantilla: null, matricula: aeronave.codigo });
+  }
+
+  res.json({
+    plantilla: filaAObjetoAircraft(wb.rows[0], { codigo: aeronave.codigo }),
+    matricula: aeronave.codigo,
+  });
+});
+
+exports.guardarWbPlantilla = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const body = req.body || {};
+
+  const { ok, motivo } = validarWbPlantilla(body);
+  if (!ok) return res.status(400).json({ message: motivo });
+
+  const fila = objetoAircraftAFila(body);
+  const valores = valoresWbPlantilla(fila);
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const ae = await client.query(
+      `SELECT id_aeronave, codigo, id_wb_plantilla FROM aeronave WHERE id_aeronave = $1 FOR UPDATE`,
+      [id]
+    );
+    if (ae.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Aeronave no encontrada" });
+    }
+    const aeronave = ae.rows[0];
+
+    let idWb = aeronave.id_wb_plantilla;
+
+    if (idWb) {
+      await client.query(
+        `UPDATE wb_plantilla SET
+           nombre = $1,
+           empty_weight = $2,
+           empty_weight_arm = $3,
+           empty_weight_moment = $4,
+           max_takeoff_weight = $5,
+           max_landing_weight = $6,
+           max_useful_load = $7,
+           fuel_capacity_gal = $8,
+           fuel_usable_gal = $9,
+           fuel_burn_gal_hr = $10,
+           fuel_lb_gal = $11,
+           default_power = $12,
+           default_flow_gal = $13,
+           moment_div1000 = $14,
+           fuel_burn_note = $15,
+           model = $16,
+           sheet = $17,
+           oil = $18::jsonb,
+           estaciones = $19::jsonb,
+           limits_normal = $20::jsonb,
+           limits_utility = $21::jsonb
+         WHERE id_wb_plantilla = $22`,
+        [...valores, idWb]
+      );
+    } else {
+      const insertRes = await client.query(
+        `INSERT INTO wb_plantilla
+           (nombre, empty_weight, empty_weight_arm, empty_weight_moment,
+            max_takeoff_weight, max_landing_weight, max_useful_load,
+            fuel_capacity_gal, fuel_usable_gal, fuel_burn_gal_hr, fuel_lb_gal,
+            default_power, default_flow_gal, moment_div1000, fuel_burn_note,
+            model, sheet, oil, estaciones, limits_normal, limits_utility)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+                 $18::jsonb,$19::jsonb,$20::jsonb,$21::jsonb)
+         RETURNING id_wb_plantilla`,
+        valores
+      );
+      idWb = insertRes.rows[0].id_wb_plantilla;
+      await client.query(`UPDATE aeronave SET id_wb_plantilla = $1 WHERE id_aeronave = $2`, [idWb, id]);
+    }
+
+    await logAuditoria(client, {
+      accion: "OTRO",
+      entidad: "aeronave",
+      id_entidad: Number(id),
+      actor: req.user,
+      req,
+      descripcion: `Peso y balance actualizado de ${aeronave.codigo}`,
+      metadata: { id_wb_plantilla: idWb },
+    });
+
+    const wbRes = await client.query(`SELECT * FROM wb_plantilla WHERE id_wb_plantilla = $1`, [idWb]);
+
+    await client.query("COMMIT");
+
+    res.json({
+      ok: true,
+      plantilla: filaAObjetoAircraft(wbRes.rows[0], { codigo: aeronave.codigo }),
+    });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "23502") {
+      return res.status(400).json({ message: `Falta un campo obligatorio: ${e.column || "desconocido"}.` });
+    }
     throw e;
   } finally {
     client.release();
