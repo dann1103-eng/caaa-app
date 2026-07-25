@@ -56,8 +56,14 @@ const getPlantilla = catchAsync(async (req, res) => {
 
 /**
  * GET /api/loadsheet/aeronaves
- * Lista los aviones disponibles (excluye simuladores y aeronaves dadas de
- * baja) con un flag de si tienen plantilla W&B cargada.
+ * Lista los aviones para el selector de PRÁCTICA con un flag de si tienen
+ * plantilla W&B. Excluye simuladores y aeronaves DADAS DE BAJA, pero SÍ
+ * incluye las que están en mantenimiento hoy: practicar el peso&balance de un
+ * avión en mantenimiento es inofensivo (no se agenda ni vuela). `activa` es
+ * "disponible HOY" (la recalcula sincronizarEstadoFlota), no "retirada" — por
+ * eso NO se filtra por activa=true (eso escondía el YS-270-PE cuando está en
+ * taller). Baja lógica = activa=false Y estado='ACTIVO' (mismo patrón que el
+ * picker de agenda del alumno).
  */
 const listAeronaves = catchAsync(async (req, res) => {
   const { rows } = await db.query(
@@ -65,7 +71,7 @@ const listAeronaves = catchAsync(async (req, res) => {
             (id_wb_plantilla IS NOT NULL) AS tiene_plantilla
        FROM aeronave
       WHERE tipo <> 'SIMULADOR'
-        AND COALESCE(activa, true) = true
+        AND NOT (COALESCE(activa, true) = false AND estado = 'ACTIVO')
       ORDER BY codigo`
   );
 
