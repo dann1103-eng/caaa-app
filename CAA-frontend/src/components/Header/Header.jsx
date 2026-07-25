@@ -102,6 +102,19 @@ export default function Header() {
                     </Link>
                   )}
 
+                  {user.rol === "ALUMNO" && (
+                    <Link to="/alumno/loadsheet/practica" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-clipboard-data header__action-icon" />
+                      <span>Practicar loadsheet</span>
+                    </Link>
+                  )}
+                  {user.rol === "INSTRUCTOR" && (
+                    <Link to="/instructor/loadsheet/practica" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-clipboard-data header__action-icon" />
+                      <span>Practicar loadsheet</span>
+                    </Link>
+                  )}
+
                   <PushToggle className="header__action-link" onDone={closeMenu} />
 
 

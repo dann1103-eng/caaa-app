@@ -12,7 +12,7 @@ function StatusBadge({ status }) {
   return <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">PENDIENTE</span>;
 }
 
-export default function LoadsheetWizard({ onExit, readOnly = false }) {
+export default function LoadsheetWizard({ onExit, readOnly = false, practice = false }) {
   const { state } = useLoadSheet();
   const steps = [Step1Aircraft, Step2WB, Step3Nav, Step4Ops, Step5Summary];
   const CurrentStep = steps[state.step];
@@ -40,6 +40,11 @@ export default function LoadsheetWizard({ onExit, readOnly = false }) {
           {readOnly && (
             <div className="mb-4 px-4 py-2 rounded-md bg-amber-50 border border-amber-300 text-amber-800 text-sm font-semibold">
               👁 Modo lectura — revisión del instructor. El loadsheet enviado por el alumno no se puede editar aquí.
+            </div>
+          )}
+          {practice && !readOnly && (
+            <div className="mb-4 px-4 py-2 rounded-md bg-blue-50 border border-blue-300 text-blue-800 text-sm font-semibold">
+              🧪 Modo práctica — no se guarda nada. Es un ejercicio libre, sin vuelo asociado.
             </div>
           )}
           <StepNav />

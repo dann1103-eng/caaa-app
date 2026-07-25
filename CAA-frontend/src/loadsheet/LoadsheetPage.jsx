@@ -3,6 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { LoadSheetProvider } from "./context/LoadSheetContext";
 import { AIRCRAFT } from "./data/aircraft";
 import { getWBData } from "./loadsheetApi";
+import { getAeronavesPractica, getPlantillaPractica } from "./loadsheetPracticaApi";
+import { getSession } from "../utils/auth";
 import LoadsheetWizard from "./LoadsheetWizard";
 import "./loadsheet.css";
 
@@ -86,7 +88,54 @@ function buildInitial(idVuelo, data, aircraftCatalog) {
   return initial;
 }
 
-export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) {
+// Construye el catalogo { matricula: plantilla } del modo PRACTICA (sandbox sin
+// vuelo real): trae TODAS las aeronaves con plantilla de peso y balance cargada
+// (excluye simuladores y dadas de baja, ya filtrado por el backend), para que el
+// alumno/instructor pueda practicar con cualquiera desde el selector del Paso 1.
+async function buildPracticeCatalog() {
+  const aeronaves = await getAeronavesPractica();
+  const conPlantilla = aeronaves.filter((a) => a.tiene_plantilla);
+  const entries = await Promise.all(
+    conPlantilla.map(async (a) => {
+      try {
+        const { plantilla } = await getPlantillaPractica(a.id_aeronave);
+        return plantilla ? [a.matricula, plantilla] : null;
+      } catch {
+        return null;
+      }
+    })
+  );
+  return Object.fromEntries(entries.filter(Boolean));
+}
+
+// Construye los overrides iniciales del contexto para el modo PRACTICA: sin
+// vuelo real (idVuelo null), sin restaurar nada guardado, con el nombre del
+// usuario logueado precargado como alumno (la licencia queda en blanco).
+function buildPracticeInitial(aircraftCatalog) {
+  const currentAC = Object.keys(aircraftCatalog)[0];
+  const session = getSession();
+  const student = session
+    ? [session.nombre, session.apellido].filter(Boolean).join(" ").trim()
+    : "";
+
+  return {
+    idVuelo: null,
+    currentAC,
+    aircraftCatalog,
+    flightData: {
+      date: new Date().toISOString().split("T")[0],
+      time: "",
+      student,
+      license: "",
+      instructor: "",
+      instructorLicense: "",
+    },
+    readOnly: false,
+    practice: true,
+  };
+}
+
+export default function LoadsheetPage({ readOnly = false, apiBase = "alumno", practice = false }) {
   const { id_vuelo } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -97,6 +146,18 @@ export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) 
     let cancel = false;
     (async () => {
       try {
+        if (practice) {
+          const aircraftCatalog = await buildPracticeCatalog();
+          if (Object.keys(aircraftCatalog).length === 0) {
+            if (!cancel) setError(
+              "No hay aviones con plantilla de peso y balance disponibles para practicar."
+            );
+            return;
+          }
+          if (!cancel) setInitial(buildPracticeInitial(aircraftCatalog));
+          return;
+        }
+
         const data = await getWBData(id_vuelo, apiBase);
         const aircraftCatalog = buildAircraftCatalog(data);
         if (!aircraftCatalog) {
@@ -113,7 +174,7 @@ export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) 
       }
     })();
     return () => { cancel = true; };
-  }, [id_vuelo]);
+  }, [id_vuelo, practice]);
 
   if (loading) {
     return <div className="ls-screen"><div className="ls-box">Cargando loadsheet…</div></div>;
@@ -131,7 +192,7 @@ export default function LoadsheetPage({ readOnly = false, apiBase = "alumno" }) 
 
   return (
     <LoadSheetProvider initial={initial}>
-      <LoadsheetWizard onExit={() => navigate(-1)} readOnly={readOnly} />
+      <LoadsheetWizard onExit={() => navigate(-1)} readOnly={readOnly} practice={practice} />
     </LoadSheetProvider>
   );
 }

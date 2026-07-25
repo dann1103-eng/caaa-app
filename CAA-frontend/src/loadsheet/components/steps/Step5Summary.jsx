@@ -186,7 +186,7 @@ export default function Step5Summary() {
           {pdfLoading ? 'Generando PDF...' : '⬇ Descargar PDF'}
         </button>
 
-        {!state.readOnly && (
+        {!state.readOnly && !state.practice && (
           <>
             <button
               onClick={handleSubmit}

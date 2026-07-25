@@ -168,6 +168,15 @@ function App() {
               </ProtectedAlumno>
             }
           />
+          {/* Modo práctica: sandbox efímero sin vuelo real, nada se guarda. */}
+          <Route
+            path="/alumno/loadsheet/practica"
+            element={
+              <ProtectedAlumno>
+                <LoadsheetPage practice />
+              </ProtectedAlumno>
+            }
+          />
           <Route
             path="/alumno/loadsheet/:id_vuelo"
             element={
@@ -304,6 +313,15 @@ function App() {
             element={
               <ProtectedInstructor>
                 <InstructorAulaVirtual />
+              </ProtectedInstructor>
+            }
+          />
+          {/* Modo práctica: sandbox efímero sin vuelo real, nada se guarda. */}
+          <Route
+            path="/instructor/loadsheet/practica"
+            element={
+              <ProtectedInstructor>
+                <LoadsheetPage practice />
               </ProtectedInstructor>
             }
           />
