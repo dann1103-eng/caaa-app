@@ -85,6 +85,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
         { label: "Aeronavegabilidad", path: "/taller/aeronavegabilidad", icon: "bi-clipboard2-check" },
         { label: "Mantenimiento", path: "/admin/mantenimiento", icon: "bi-tools" },
         { label: "Inventario", path: "/taller/inventario", icon: "bi-box-seam" },
+        { label: "Practicar loadsheet", path: "/admin/loadsheet/practica", icon: "bi-clipboard-data" },
       ],
     },
   ];

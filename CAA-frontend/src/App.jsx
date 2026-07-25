@@ -177,6 +177,16 @@ function App() {
               </ProtectedAlumno>
             }
           />
+          {/* ADMIN (super-usuario) también puede practicar/revisar el loadsheet,
+              p.ej. para verificar en vivo un template recién editado. */}
+          <Route
+            path="/admin/loadsheet/practica"
+            element={
+              <ProtectedAdmin>
+                <LoadsheetPage practice />
+              </ProtectedAdmin>
+            }
+          />
           <Route
             path="/alumno/loadsheet/:id_vuelo"
             element={

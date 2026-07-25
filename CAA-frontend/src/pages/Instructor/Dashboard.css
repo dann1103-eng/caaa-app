@@ -17,6 +17,10 @@
   animation: ins-fadeIn 0.5s var(--ease-out);
   min-height: 100vh;
   position: relative;
+  /* Red de seguridad (mismo patrón que .pp en Proyección): si algún hijo
+     igual se desborda, que se recorte acá y no arrastre a toda la página a
+     scrollear horizontalmente en móvil. */
+  overflow-x: clip;
 }
 
 @keyframes ins-fadeIn {
@@ -134,7 +138,13 @@
   gap: 1.75rem;
   align-items: start;
 }
-.ins__secondary .ins__section { margin-bottom: 0; }
+/* min-width:0 es necesario ADEMÁS de minmax(0,1fr) en el track: un grid item
+   con overflow:visible (el default) toma como mínimo automático el tamaño de
+   su contenido — acá una tabla con min-width:500/600px para forzar su propio
+   scroll horizontal — y ese mínimo puede seguir empujando la columna del grid
+   más allá del ancho del track, desbordando la página entera en móvil (mismo
+   patrón que rompió el scroll de Proyección). */
+.ins__secondary .ins__section { margin-bottom: 0; min-width: 0; }
 
 @media (max-width: 1200px) {
   .ins__secondary { grid-template-columns: 1fr; gap: 1.5rem; }
