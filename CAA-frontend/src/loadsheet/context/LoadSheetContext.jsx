@@ -1,11 +1,11 @@
 import { createContext, useContext, useReducer } from 'react'
-import { AIRCRAFT } from '../data/aircraft'
 import { calcWB, checkCGInEnvelope } from '../utils/wbCalc'
 
 const initialState = {
   idVuelo: null,
   readOnly: false,
-  currentAC: 'pa28r180',
+  aircraftCatalog: {},
+  currentAC: '',
   step: 0,
 
   flightData: { date: new Date().toISOString().split('T')[0], time: '', student: '', license: '', instructor: '', instructorLicense: '' },
@@ -33,8 +33,8 @@ const initialState = {
   submitStatus: 'idle',
 }
 
-function getDefaultFuelData(acKey) {
-  const ac = AIRCRAFT[acKey]
+function getDefaultFuelData(acKey, catalog) {
+  const ac = catalog && catalog[acKey]
   if (!ac) return {}
   const flowGal = ac.default_flow_gal || ''
   const flowKg = flowGal ? parseFloat((flowGal * ac.fuel_lb_gal * 0.453592).toFixed(1)) : ''
@@ -55,7 +55,7 @@ function reducer(state, action) {
         ...state,
         currentAC: action.payload,
         wbInputs: {},
-        fuelData: { ...state.fuelData, ...getDefaultFuelData(action.payload) },
+        fuelData: { ...state.fuelData, ...getDefaultFuelData(action.payload, state.aircraftCatalog) },
       }
     case 'SET_FLIGHT_DATA':
       return { ...state, flightData: { ...state.flightData, [action.field]: action.value } }
@@ -100,8 +100,8 @@ const LoadSheetContext = createContext()
 // Calcula wbResults a partir de los pesos guardados. Sin esto, al restaurar un
 // loadsheet (p.ej. el instructor en modo lectura) los totales/CG quedaban en 0 y
 // el Paso 5 decía "REVISAR ✗" hasta visitar el Paso 2 (que es donde recalcula).
-function computeWbResults(acKey, wbInputs, fuelBurn) {
-  const ac = AIRCRAFT[acKey]
+function computeWbResults(acKey, wbInputs, fuelBurn, catalog) {
+  const ac = catalog && catalog[acKey]
   if (!ac || !wbInputs || Object.keys(wbInputs).length === 0) return null
   const { totalW, totalM, cg } = calcWB(ac, wbInputs)
   const overweight = totalW > ac.max_gross
@@ -120,7 +120,7 @@ function computeWbResults(acKey, wbInputs, fuelBurn) {
 
 function buildInitial(initial) {
   if (!initial) return initialState
-  const wbResults = computeWbResults(initial.currentAC, initial.wbInputs, initial.fuelBurn)
+  const wbResults = computeWbResults(initial.currentAC, initial.wbInputs, initial.fuelBurn, initial.aircraftCatalog)
   return {
     ...initialState,
     ...(wbResults ? { wbResults } : {}),
