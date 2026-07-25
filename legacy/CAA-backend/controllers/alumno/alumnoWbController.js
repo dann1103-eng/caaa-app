@@ -3,6 +3,7 @@ const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
 const { puedeAccederVuelo } = require("../../utils/ownership");
+const { filaAObjetoAircraft } = require("../../utils/wbPlantilla");
 
 exports.getWB = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
@@ -37,7 +38,11 @@ exports.getWB = catchAsync(async (req, res) => {
   let plantilla = null;
   if (idPlantilla) {
     const pRes = await db.query("SELECT * FROM wb_plantilla WHERE id_wb_plantilla = $1", [idPlantilla]);
-    plantilla = pRes.rows[0] || null;
+    // Devolver la plantilla MAPEADA a la forma AIRCRAFT que consume el wizard
+    // (DB-first). reg se deriva de la matrícula del vuelo (aeronave_codigo).
+    plantilla = pRes.rows[0]
+      ? filaAObjetoAircraft(pRes.rows[0], { codigo: vRes.rows[0].aeronave_codigo })
+      : null;
   }
 
   const wbRes = await db.query(`SELECT * FROM weight_balance WHERE id_vuelo = $1`, [id_vuelo]);
