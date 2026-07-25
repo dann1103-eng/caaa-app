@@ -1,11 +1,10 @@
 import { useEffect, Fragment } from 'react'
 import { useLoadSheet } from '../../context/LoadSheetContext'
-import { AIRCRAFT } from '../../data/aircraft'
 import { fmtMoment, calcWB, checkCGInEnvelope } from '../../utils/wbCalc'
 
 export default function WBTable() {
   const { state, dispatch } = useLoadSheet()
-  const ac = AIRCRAFT[state.currentAC]
+  const ac = state.aircraftCatalog[state.currentAC]
   if (!ac) return null
 
   const momentHeader = ac.moment_div1000 ? 'Momento (lb·in/1000)' : 'Momento (lb·in)'

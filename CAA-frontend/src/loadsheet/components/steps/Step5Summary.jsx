@@ -3,7 +3,6 @@ import { toJpeg } from 'html-to-image'
 import jsPDF from 'jspdf'
 import { toast } from 'sonner'
 import { useLoadSheet } from '../../context/LoadSheetContext'
-import { AIRCRAFT } from '../../data/aircraft'
 import StatusStrip from '../StatusStrip'
 import ActionBar from '../ActionBar'
 import PrintSheet from '../print/PrintSheet'
@@ -41,7 +40,7 @@ function buildLoadsheetPayload(state) {
 
 export default function Step5Summary() {
   const { state, dispatch } = useLoadSheet()
-  const ac = AIRCRAFT[state.currentAC]
+  const ac = state.aircraftCatalog[state.currentAC]
   const wb = state.wbResults
   const [showPrint, setShowPrint] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)

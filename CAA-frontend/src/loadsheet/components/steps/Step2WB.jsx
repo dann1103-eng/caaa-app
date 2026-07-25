@@ -1,5 +1,4 @@
 import { useLoadSheet } from '../../context/LoadSheetContext'
-import { AIRCRAFT } from '../../data/aircraft'
 import WBTable from '../wb/WBTable'
 import ResultCards from '../wb/ResultCards'
 import EnvelopeCanvas from '../wb/EnvelopeCanvas'
@@ -8,7 +7,7 @@ import ActionBar from '../ActionBar'
 
 export default function Step2WB() {
   const { state, dispatch } = useLoadSheet()
-  const ac = AIRCRAFT[state.currentAC]
+  const ac = state.aircraftCatalog[state.currentAC]
   const wb = state.wbResults
 
   // Check if all required (non-baggage) stations have values

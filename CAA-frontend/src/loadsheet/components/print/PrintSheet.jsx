@@ -1,13 +1,12 @@
 import { useMemo, Fragment } from 'react'
 import { useLoadSheet } from '../../context/LoadSheetContext'
-import { AIRCRAFT } from '../../data/aircraft'
 import { fmtMoment, calcWB } from '../../utils/wbCalc'
 import { calcFuel } from '../../utils/fuelCalc'
 import { renderEnvelopeToDataUrl } from '../../utils/drawEnvelope'
 
 export default function PrintSheet() {
   const { state } = useLoadSheet()
-  const ac = AIRCRAFT[state.currentAC]
+  const ac = state.aircraftCatalog[state.currentAC]
   const wb = state.wbResults
 
   const toEnvelopeUrl = useMemo(() => renderEnvelopeToDataUrl({

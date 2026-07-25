@@ -1,9 +1,8 @@
 import { useLoadSheet } from '../../context/LoadSheetContext'
-import { AIRCRAFT } from '../../data/aircraft'
 
 export default function ResultCards() {
   const { state } = useLoadSheet()
-  const ac = AIRCRAFT[state.currentAC]
+  const ac = state.aircraftCatalog[state.currentAC]
   const wb = state.wbResults
   if (!ac || !wb || wb.totalW <= ac.empty_weight) return null
 

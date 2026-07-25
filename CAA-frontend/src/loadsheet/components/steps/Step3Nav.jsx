@@ -1,12 +1,11 @@
 import { useLoadSheet } from '../../context/LoadSheetContext'
-import { AIRCRAFT } from '../../data/aircraft'
 import NavTable from '../nav/NavTable'
 import FuelPlanner from '../nav/FuelPlanner'
 import ActionBar from '../ActionBar'
 
 export default function Step3Nav() {
   const { state, dispatch } = useLoadSheet()
-  const ac = AIRCRAFT[state.currentAC]
+  const ac = state.aircraftCatalog[state.currentAC]
 
   const setId = (field, value) => dispatch({ type: 'SET_IDENTIFICATION', field, value })
   const setTime = (field, value) => dispatch({ type: 'SET_TIMES', field, value })
