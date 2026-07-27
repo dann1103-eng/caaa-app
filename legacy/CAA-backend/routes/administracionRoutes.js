@@ -148,6 +148,7 @@ router.get("/vuelos/:id/reporte-vuelo",                   roleMiddleware(READ_RO
 // ── Voucheras del día (sección Voucheras) ─────────────────────────────
 router.get("/voucheras/aeronaves",                        roleMiddleware(READ_ROLES),  voucheras.listAeronaves);
 router.get("/voucheras",                                  roleMiddleware(READ_ROLES),  voucheras.listVoucherasDia);
+router.post("/voucheras/:id_vuelo/revertir-inasistencia",  roleMiddleware(WRITE_ROLES), voucheras.revertirInasistencia);
 
 // ── Documentación ─────────────────────────────────────────────────────
 router.get("/documentos/catalogo",          roleMiddleware(READ_ROLES),  documentos.catalogo);

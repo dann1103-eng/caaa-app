@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getVoucherasAeronaves, getVoucherasDia } from "../../services/administracionApi";
+import { getVoucherasAeronaves, getVoucherasDia, revertirInasistenciaVouchera } from "../../services/administracionApi";
 import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
 import { generarPdfVoucherasDia, mensajeErrorPdf } from "../../components/ReporteVueloModal/reporteVueloPdf";
 
@@ -49,6 +49,7 @@ export default function Voucheras() {
   const [seleccion, setSeleccion] = useState(null); // id_aeronave elegida
   const [verVuelo, setVerVuelo] = useState(null);   // id_vuelo del visor abierto
   const [generando, setGenerando] = useState(false);
+  const [revirtiendo, setRevirtiendo] = useState(null); // id_vuelo en proceso de revertir
 
   useEffect(() => {
     getVoucherasAeronaves()
@@ -56,13 +57,32 @@ export default function Voucheras() {
       .catch(() => toast.error("No se pudieron cargar las aeronaves."));
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
+  const recargarVoucheras = () =>
     getVoucherasDia(fecha)
       .then((r) => setVoucheras(r.data || []))
-      .catch(() => toast.error("No se pudieron cargar las voucheras del día."))
-      .finally(() => setLoading(false));
+      .catch(() => toast.error("No se pudieron cargar las voucheras del día."));
+
+  useEffect(() => {
+    setLoading(true);
+    recargarVoucheras().finally(() => setLoading(false));
   }, [fecha]);
+
+  async function revertirInasistencia(v) {
+    if (!window.confirm(
+      `¿Revertir la inasistencia del vuelo #${v.id_vuelo} (${v.alumno_nombre})? ` +
+      `El vuelo vuelve a estar activo para operarse normalmente y generar su vouchera real.`
+    )) return;
+    setRevirtiendo(v.id_vuelo);
+    try {
+      await revertirInasistenciaVouchera(v.id_vuelo);
+      toast.success("Inasistencia revertida — el vuelo vuelve a estar activo.");
+      await recargarVoucheras();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al revertir la inasistencia.");
+    } finally {
+      setRevirtiendo(null);
+    }
+  }
 
   const porAeronave = (id) => voucheras.filter((v) => v.id_aeronave === id);
   const lista = seleccion != null ? porAeronave(seleccion) : [];
@@ -183,7 +203,17 @@ export default function Voucheras() {
                       ? <span className="adf-tag amber">inasistencia</span>
                       : <span className="adf-tag">{v.reporte_estado || "—"}</span>}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    {v.es_inasistencia && (
+                      <button
+                        className="adf-icon-btn"
+                        title="Revertir inasistencia (marcada por error)"
+                        disabled={revirtiendo === v.id_vuelo}
+                        onClick={() => revertirInasistencia(v)}
+                      >
+                        <i className={`bi ${revirtiendo === v.id_vuelo ? "bi-hourglass-split" : "bi-arrow-counterclockwise"}`}></i>
+                      </button>
+                    )}
                     <button className="adf-icon-btn" title="Ver vouchera" onClick={() => setVerVuelo(v.id_vuelo)}>
                       <i className="bi bi-eye"></i>
                     </button>
