@@ -17,6 +17,14 @@ export const getCalendarioProgramacion = async (week = "next") => {
   return res.data;
 };
 
+// Estado real de publicación de la semana detrás de la pestaña ("current"/"next")
+// — el nombre del tab NO implica el estado en BD (una semana "próxima" puede ya
+// estar publicada si se adelantó la publicación).
+export const getEstadoSemanaProgramacion = async (week = "next") => {
+  const res = await axios.get(`${API_URL}/programacion/estado-semana`, { params: { week } });
+  return res.data;
+};
+
 // Agendar desde el calendario (click en slot vacío).
 export const agendarSolicitudCalendario = async (payload) => {
   const res = await axios.post(`${API_URL}/programacion/solicitudes`, payload);

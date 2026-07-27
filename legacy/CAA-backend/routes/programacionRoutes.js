@@ -4,6 +4,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 
 const {
   getCalendario,
+  getEstadoSemana,
   getAeronavesActivas,
   enRevision,
   guardarCambios,
@@ -20,6 +21,7 @@ const {
 const proyeccionMiddleware = require("../middlewares/proyeccionMiddleware");
 
 router.get("/calendario", authMiddleware, getCalendario);
+router.get("/estado-semana", authMiddleware, getEstadoSemana);
 router.get("/aeronaves", authMiddleware, getAeronavesActivas);
 router.get("/bloques-bloqueados", authMiddleware, getBloquesBloqueados);
 router.post("/solicitudes/:id_solicitud/en-revision", authMiddleware, enRevision);

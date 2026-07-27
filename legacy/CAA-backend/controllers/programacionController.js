@@ -68,6 +68,35 @@ async function requireProgramacionOrAdmin(req, res) {
   return req.user;
 }
 
+// La pestaña "Próxima" del calendario de Programación puede, en la práctica,
+// ya estar publicada (p.ej. si se publicó con anticipación) — el tab en sí no
+// dice nada del estado real en BD. Este endpoint devuelve el estado real de la
+// semana que corresponde a cada pestaña, para que el frontend no lo asuma por
+// el nombre del tab (bug real: el modal de agendar decidía "solicitud vs.
+// vuelo directo" mirando solo si el tab era "current", así que agendar en una
+// "Próxima" ya publicada caía siempre en el endpoint de solicitud y el
+// backend lo rechazaba con 403 "usá el agendado directo").
+exports.getEstadoSemana = async (req, res) => {
+  try {
+    const user = await requireProgramacion(req, res);
+    if (!user) return;
+
+    const { week = "next" } = req.query;
+    if (!["current", "next"].includes(week)) {
+      return res.status(400).json({ message: "week inválido (current|next)" });
+    }
+
+    const idSemana = week === "current" ? await getCurrentSemanaId(db) : await getNextSemanaId(db);
+    if (!idSemana) return res.json({ id_semana: null, publicada: false });
+
+    const r = await db.query("SELECT publicada FROM semana_vuelo WHERE id_semana = $1", [idSemana]);
+    res.json({ id_semana: idSemana, publicada: r.rows[0]?.publicada || false });
+  } catch (e) {
+    console.error("Error getEstadoSemana:", e);
+    res.status(500).json({ message: "Error obtener estado de la semana" });
+  }
+};
+
 exports.getCalendario = async (req, res) => {
   try {
     const user = await requireProgramacion(req, res);
