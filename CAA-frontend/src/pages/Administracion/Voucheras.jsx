@@ -38,6 +38,11 @@ function rowToPdfParams(row) {
     firmaInstructor: row.firma_instructor,
     esInasistencia: !!row.es_inasistencia,
     motivoInasistencia: row.motivo_inasistencia || "",
+    // El generador recibe camelCase (no la fila cruda): sin este mapeo, el
+    // lote del día imprimiría los regresos por emergencia como vuelos normales.
+    esEmergencia: !!row.regreso_emergencia,
+    motivoEmergencia: row.motivo_emergencia || "",
+    detalleEmergencia: row.detalle_emergencia || "",
   };
 }
 

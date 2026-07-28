@@ -62,6 +62,15 @@ const formatMedidor = (val) => {
   return `${ent.padStart(4, "0")}.${decLimpio}`;
 };
 
+// Etiquetas legibles del motivo de emergencia. Espejo de MOTIVOS_EMERGENCIA en
+// ReporteVueloModal y del CHECK de reporte_vuelo.motivo_emergencia — la BD
+// guarda el código en mayúsculas (FALLA_MECANICA), la vouchera lo imprime.
+const LABEL_MOTIVO_EMERGENCIA = {
+  CLIMA: "Clima",
+  FALLA_MECANICA: "Falla mecánica",
+  OTRO: "Otro",
+};
+
 // Mini-tabla: encabezado azul + filas [etiqueta, valor].
 const miniTabla = (titulo, filas) => ({
   table: {
@@ -88,6 +97,10 @@ const miniValor = (titulo, valor, opts = {}) => ({
 // Devuelve el array `content` de pdfmake para una vouchera compacta. Compartido
 // entre el PDF individual y el combinado del día — cualquier cambio de layout
 // aplica a ambos.
+// OJO: recibe parámetros NOMBRADOS, no la fila cruda del backend. Cualquier
+// campo nuevo hay que agregarlo acá Y en los dos call sites (el modal
+// individual y `rowToPdfParams` de Voucheras.jsx), o llega `undefined` y la
+// marca simplemente no se imprime, sin error visible.
 function buildVoucheraContent({
   vueloInfo,
   datos,
@@ -95,6 +108,9 @@ function buildVoucheraContent({
   firmaInstructor,
   esInasistencia = false,
   motivoInasistencia = "",
+  esEmergencia = false,
+  motivoEmergencia = "",
+  detalleEmergencia = "",
 }) {
   const v = vueloInfo ?? {};
   const d = datos ?? {};
@@ -150,7 +166,12 @@ function buildVoucheraContent({
         {
           stack: [
             miniValor("TIPO DE VUELO", d.tipo_vuelo ?? "—"),
-            miniValor("HORAS A COBRAR", formatNum(d.horas_cobradas), { margin: [0, 4, 0, 0] }),
+            // En un regreso por emergencia el vuelo no se le factura al alumno
+            // (el backend tampoco guarda horas cobrables), así que el valor va
+            // en cero explícito en vez de repetir el dato del reporte.
+            esEmergencia
+              ? miniValor("HORAS A COBRAR", "0 — no se cobra", { margin: [0, 4, 0, 0] })
+              : miniValor("HORAS A COBRAR", formatNum(d.horas_cobradas), { margin: [0, 4, 0, 0] }),
           ],
         },
         // Llegada arriba y Salida abajo, como el instrumento físico.
@@ -171,6 +192,41 @@ function buildVoucheraContent({
       columnGap: 8,
       margin: [0, 0, 0, 6],
     }];
+  }
+
+  // Sello de regreso por emergencia. Va como PREFIJO del bloque central, NO
+  // como una rama más del if/else de arriba: el avión efectivamente salió y
+  // volvió, así que las tablas de tacómetro/hobbs/combustible son justamente
+  // el dato que interesa y tienen que seguir imprimiéndose. (Un `else if`
+  // acá las borraría — es el error fácil de cometer.)
+  if (esEmergencia) {
+    const motivoTxt = [
+      LABEL_MOTIVO_EMERGENCIA[motivoEmergencia] || motivoEmergencia || "no especificado",
+      detalleEmergencia,
+    ].filter(Boolean).join(" — ");
+
+    centro.unshift({
+      table: {
+        widths: ["auto", "*"],
+        body: [[
+          {
+            text: "REGRESO POR EMERGENCIA",
+            fontSize: 8, bold: true, color: "#ffffff", fillColor: "#b91c1c",
+            margin: [6, 3, 6, 3],
+          },
+          {
+            stack: [
+              cell(`Motivo: ${motivoTxt}`, { italics: true, color: "#7f1d1d", margin: [2, 1.5, 2, 0] }),
+              cell("No se cobra al alumno. El avión sí registra sus horas.", {
+                fontSize: 6, color: "#7f1d1d", margin: [2, 0, 2, 1.5],
+              }),
+            ],
+          },
+        ]],
+      },
+      layout: "noBorders",
+      margin: [0, 0, 0, 6],
+    });
   }
 
   const firma = (label, imagen, nombre, licencia) => ({
@@ -266,6 +322,9 @@ export async function generarPdfReporteVuelo({
   firmaInstructor,
   esInasistencia = false,
   motivoInasistencia = "",
+  esEmergencia = false,
+  motivoEmergencia = "",
+  detalleEmergencia = "",
   download = false,
 }) {
   const pdfMake = await cargarPdfMake();
@@ -277,7 +336,13 @@ export async function generarPdfReporteVuelo({
 
   const docDefinition = {
     ...DOC_BASE,
-    content: buildVoucheraContent({ vueloInfo, datos, firmaAlumno, firmaInstructor, esInasistencia, motivoInasistencia }),
+    // Reenvío explícito: este wrapper NO hace spread, así que un campo que no
+    // se liste acá nunca llega al layout.
+    content: buildVoucheraContent({
+      vueloInfo, datos, firmaAlumno, firmaInstructor,
+      esInasistencia, motivoInasistencia,
+      esEmergencia, motivoEmergencia, detalleEmergencia,
+    }),
   };
 
   return new Promise((resolve, reject) => {
