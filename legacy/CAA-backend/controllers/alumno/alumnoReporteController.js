@@ -12,6 +12,7 @@ exports.getReporteVuelo = catchAsync(async (req, res) => {
       rv.hobbs_salida, rv.hobbs_llegada, rv.combustible_salida, rv.combustible_llegada,
       rv.cantidad_combustible, rv.horas_cobradas, rv.firma_alumno, rv.firma_instructor,
       rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia,
+      rv.regreso_emergencia, rv.motivo_emergencia, rv.detalle_emergencia,
       EXISTS(
         SELECT 1 FROM movimiento_cuenta mc
         WHERE mc.id_vuelo = v.id_vuelo AND mc.tipo = 'CARGO_VUELO'
@@ -46,7 +47,13 @@ exports.getReporteVuelo = catchAsync(async (req, res) => {
     estado: row.reporte_estado,
     archivo_pdf: row.archivo_pdf,
     es_inasistencia: row.es_inasistencia ?? false,
-    motivo_inasistencia: row.motivo_inasistencia
+    motivo_inasistencia: row.motivo_inasistencia,
+    // El spread de arriba es solo para `vuelo`: este objeto se arma campo por
+    // campo, así que sin estas 3 la marca de emergencia nunca llega al front.
+    // Es la lectura que usa el practicante (ReporteVueloModal mode="alumno").
+    regreso_emergencia: row.regreso_emergencia ?? false,
+    motivo_emergencia: row.motivo_emergencia,
+    detalle_emergencia: row.detalle_emergencia
   } : null;
 
   res.json({ vuelo, reporte });

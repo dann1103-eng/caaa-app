@@ -54,6 +54,7 @@ exports.getReporteVueloInstructor = async (req, res) => {
               rv.hobbs_salida, rv.hobbs_llegada, rv.combustible_salida, rv.combustible_llegada,
               rv.cantidad_combustible, rv.horas_cobradas, rv.firma_alumno, rv.firma_instructor,
               rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia,
+              rv.regreso_emergencia, rv.motivo_emergencia, rv.detalle_emergencia,
               v.categoria, v.tipo_instruccion, v.debitar_saldo,
               EXISTS(
                 SELECT 1 FROM movimiento_cuenta mc
@@ -109,6 +110,12 @@ exports.getReporteVueloInstructor = async (req, res) => {
       archivo_pdf: row.archivo_pdf,
       es_inasistencia: row.es_inasistencia ?? false,
       motivo_inasistencia: row.motivo_inasistencia,
+      // Sin estas 3 la marca de emergencia no vuelve al reabrir la vouchera (este
+      // endpoint no devuelve la fila cruda, mapea a un objeto explícito) y el
+      // instructor firmaría un vuelo normal sin notar que la había marcado.
+      regreso_emergencia: row.regreso_emergencia ?? false,
+      motivo_emergencia: row.motivo_emergencia,
+      detalle_emergencia: row.detalle_emergencia,
     } : null;
     res.json({ vuelo, reporte });
   } catch (e) {
@@ -120,14 +127,39 @@ exports.getReporteVueloInstructor = async (req, res) => {
 exports.guardarReporteVueloInstructor = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Un reporte ya firmado no se puede seguir editando: el ON CONFLICT de abajo
+    // preserva el estado, pero pisaba TAC/horas_cobradas — desincronizando la
+    // vouchera del cargo que ya se calculó con los valores viejos. La UI ya lo
+    // impide (el modal queda en solo-lectura al pasar a PENDIENTE_ALUMNO), pero
+    // el endpoint lo permitía. Acá alcanza un chequeo simple: este handler no
+    // abre transacción ni cobra, así que no hay nada que serializar como en
+    // firmarReporteVuelo (que además necesita advisory lock por el cobro).
+    const yaFirmado = await db.query(
+      `SELECT estado FROM reporte_vuelo WHERE id_vuelo = $1`, [id]
+    );
+    if (["PENDIENTE_ALUMNO", "COMPLETADO"].includes(yaFirmado.rows[0]?.estado)) {
+      return res.status(409).json({ message: "Este reporte ya fue firmado y no se puede seguir editando." });
+    }
+
     const {
       tipo_vuelo, tacometro_salida, tacometro_llegada,
       hobbs_salida, hobbs_llegada, combustible_salida,
       combustible_llegada, cantidad_combustible, horas_cobradas,
       es_inasistencia, motivo_inasistencia,
+      regreso_emergencia, motivo_emergencia, detalle_emergencia,
     } = req.body;
 
     const esInasistencia = es_inasistencia === true || es_inasistencia === 'true';
+    const esEmergencia = regreso_emergencia === true || regreso_emergencia === 'true';
+
+    // A diferencia de firmarReporteVuelo, acá el motivo NO es obligatorio: un
+    // borrador es un formulario a medio llenar y exigirlo impediría guardar. Pero
+    // si viene con un valor, tiene que ser uno de los del CHECK — si no, el INSERT
+    // revienta con un error críptico de constraint en vez de un 400 legible.
+    if (esEmergencia && motivo_emergencia && !MOTIVOS_EMERGENCIA.includes(motivo_emergencia)) {
+      return res.status(400).json({ message: "El motivo del regreso por emergencia debe ser Clima, Falla mecánica u Otro." });
+    }
 
     // Validar rangos numéricos solo si NO es inasistencia
     if (!esInasistencia) {
@@ -141,9 +173,10 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
       `INSERT INTO reporte_vuelo (
          id_vuelo, tipo_vuelo, tacometro_salida, tacometro_llegada,
          hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada,
-         cantidad_combustible, horas_cobradas, estado, es_inasistencia, motivo_inasistencia
+         cantidad_combustible, horas_cobradas, estado, es_inasistencia, motivo_inasistencia,
+         regreso_emergencia, motivo_emergencia, detalle_emergencia
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'BORRADOR',$11,$12)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'BORRADOR',$11,$12,$13,$14,$15)
        ON CONFLICT (id_vuelo) DO UPDATE SET
          tipo_vuelo=EXCLUDED.tipo_vuelo,
          tacometro_salida=EXCLUDED.tacometro_salida,
@@ -156,6 +189,9 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
          horas_cobradas=EXCLUDED.horas_cobradas,
          es_inasistencia=EXCLUDED.es_inasistencia,
          motivo_inasistencia=EXCLUDED.motivo_inasistencia,
+         regreso_emergencia=EXCLUDED.regreso_emergencia,
+         motivo_emergencia=EXCLUDED.motivo_emergencia,
+         detalle_emergencia=EXCLUDED.detalle_emergencia,
          estado = CASE WHEN reporte_vuelo.estado IN ('PENDIENTE_ALUMNO', 'COMPLETADO')
                        THEN reporte_vuelo.estado ELSE 'BORRADOR' END,
          actualizado_en=NOW()
@@ -168,9 +204,14 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
        esInasistencia ? null : blankToNull(combustible_salida),
        esInasistencia ? null : blankToNull(combustible_llegada),
        esInasistencia ? null : blankToNull(cantidad_combustible),
-       esInasistencia ? null : blankToNull(horas_cobradas),
+       // Mismo criterio que al firmar: en un regreso por emergencia no hay horas
+       // que cobrar, así que el borrador tampoco las conserva.
+       (esInasistencia || esEmergencia) ? null : blankToNull(horas_cobradas),
        esInasistencia,
-       blankToNull(motivo_inasistencia)]
+       blankToNull(motivo_inasistencia),
+       esEmergencia,
+       esEmergencia ? blankToNull(motivo_emergencia) : null,
+       esEmergencia ? blankToNull(detalle_emergencia) : null]
     );
     res.json(result.rows[0]);
   } catch (e) {
