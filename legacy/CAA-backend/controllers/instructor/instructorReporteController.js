@@ -153,6 +153,14 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
     const esInasistencia = es_inasistencia === true || es_inasistencia === 'true';
     const esEmergencia = regreso_emergencia === true || regreso_emergencia === 'true';
 
+    // Los dos estados se contradicen a nivel de datos (inasistencia ⇒ TAC en NULL
+    // porque el avión nunca se movió; emergencia ⇒ TAC lleno porque salió y volvió).
+    // Se rechaza también acá, no solo al firmar: un borrador contradictorio se podía
+    // guardar y después bloqueaba la firma hasta limpiar uno de los dos.
+    if (esEmergencia && esInasistencia) {
+      return res.status(400).json({ message: "Un vuelo no puede ser inasistencia y regreso por emergencia a la vez." });
+    }
+
     // A diferencia de firmarReporteVuelo, acá el motivo NO es obligatorio: un
     // borrador es un formulario a medio llenar y exigirlo impediría guardar. Pero
     // si viene con un valor, tiene que ser uno de los del CHECK — si no, el INSERT

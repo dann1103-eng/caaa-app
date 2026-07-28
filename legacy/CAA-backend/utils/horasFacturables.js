@@ -24,8 +24,12 @@
  * @returns {string} fragmento para un WHERE / FILTER
  */
 function soloHorasFacturables(alias = "rv") {
-  return `COALESCE(${alias}.es_inasistencia, false) = false
-          AND COALESCE(${alias}.regreso_emergencia, false) = false`;
+  // Va entre paréntesis a propósito: devuelve un `A AND B`, y sin envolver, un
+  // futuro `WHERE ${soloHorasFacturables()} OR z` se interpretaría como
+  // `A AND (B OR z)` — silenciosamente mal. Los call sites actuales son cadenas
+  // de AND puras, pero el helper existe para reusarse.
+  return `(COALESCE(${alias}.es_inasistencia, false) = false
+           AND COALESCE(${alias}.regreso_emergencia, false) = false)`;
 }
 
 /**
@@ -39,7 +43,7 @@ function soloHorasFacturables(alias = "rv") {
  * @returns {string} fragmento para un WHERE
  */
 function sinRegresoEmergencia(alias = "rv") {
-  return `COALESCE(${alias}.regreso_emergencia, false) = false`;
+  return `(COALESCE(${alias}.regreso_emergencia, false) = false)`;
 }
 
 module.exports = { soloHorasFacturables, sinRegresoEmergencia };
