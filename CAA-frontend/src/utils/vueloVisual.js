@@ -59,7 +59,7 @@ export function categoriaMeta(v) {
   }
   if (cat === "CHEQUEO") {
     const sigla = siglaLicencia(v?.licencia_chequeo_nombre);
-    return { label: sigla ? `${sigla}/CHECK` : "Chequeo", cls };
+    return { label: sigla ? `${sigla}/CHK` : "Chequeo", cls };
   }
   if (cat === "CHEQUEO_LINEA") {
     return { label: v?.tipo_instruccion === "REFRESH" ? "Refresh" : "Chequeo línea", cls };
