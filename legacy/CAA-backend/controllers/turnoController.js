@@ -924,6 +924,8 @@ exports.getReporteVuelosDia = async (req, res) => {
              rv.tacometro_salida  AS tac_ini,
              rv.tacometro_llegada AS tac_fin,
              rv.horas_cobradas    AS horas_cobradas,
+             COALESCE(rv.regreso_emergencia, false) AS regreso_emergencia,
+             rv.motivo_emergencia,
              rv.hobbs_salida      AS hobbs_ini,
              rv.hobbs_llegada     AS hobbs_fin,
              COALESCE(mc.monto, 0) AS monto,
@@ -1031,6 +1033,8 @@ exports.getReporteOperacionesDia = async (req, res) => {
              rv.tacometro_salida  AS tac_ini,
              rv.tacometro_llegada AS tac_fin,
              rv.horas_cobradas    AS horas_cobradas,
+             COALESCE(rv.regreso_emergencia, false) AS regreso_emergencia,
+             rv.motivo_emergencia,
              -- Hora real de salida/regreso de hangar (timestamp del botón, no el
              -- bloque programado) — mismo patrón que getCalendarioPublico.
              (vet_salida.registrado_en  AT TIME ZONE 'America/El_Salvador') AS salida_real,

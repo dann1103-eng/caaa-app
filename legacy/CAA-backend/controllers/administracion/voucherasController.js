@@ -44,7 +44,9 @@ exports.listVoucherasDia = async (req, res) => {
              rv.hobbs_salida, rv.hobbs_llegada,
              rv.combustible_salida, rv.combustible_llegada, rv.cantidad_combustible,
              rv.horas_cobradas, rv.firma_alumno, rv.firma_instructor,
-             COALESCE(rv.es_inasistencia, false) AS es_inasistencia, rv.motivo_inasistencia
+             COALESCE(rv.es_inasistencia, false) AS es_inasistencia, rv.motivo_inasistencia,
+             COALESCE(rv.regreso_emergencia, false) AS regreso_emergencia,
+             rv.motivo_emergencia, rv.detalle_emergencia
       FROM vuelo v
       JOIN aeronave a        ON a.id_aeronave = v.id_aeronave
       JOIN alumno al         ON al.id_alumno = v.id_alumno

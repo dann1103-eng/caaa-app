@@ -506,7 +506,12 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
       // Horas cobradas: lo que digitó el instructor, con fallback al tacómetro
       // (mismo criterio que firmarReporteVuelo) — así esta columna coincide con
       // el Monto, que ya se cobra por horas_cobradas.
-      const horasCob = v.horas_cobradas != null ? Number(v.horas_cobradas) : tacH;
+      // Regreso por emergencia: horas_cobradas ya viene NULL (el servidor la
+      // fuerza al firmar), pero el fallback de arriba caería al TAC igual —
+      // que es exactamente lo que NO queremos mostrar (las horas voladas al
+      // lado de un monto en $0). Se fuerza 0 ANTES del fallback, así tampoco
+      // entra al subtotal/total de abajo.
+      const horasCob = v.regreso_emergencia ? 0 : (v.horas_cobradas != null ? Number(v.horas_cobradas) : tacH);
       if (horasCob != null) sTac += horasCob;
       if (hobH != null) sHobbs += hobH;
       sMonto += Number(v.monto || 0);
@@ -516,7 +521,7 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
         lectura(v.tac_ini), lectura(v.tac_fin), horas(horasCob),
         lectura(v.hobbs_ini), lectura(v.hobbs_fin), horas(hobH),
         money(v.monto), v.instructor || "—",
-      ]);
+      ], v.regreso_emergencia ? { color: CAAA_RED } : {});
       doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();
     }
     // Subtotal del avión
@@ -544,6 +549,13 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
   doc.fontSize(9).font("Helvetica-Bold").fillColor("#444")
      .text(`Completados: ${vuelos.length}     Cancelados: ${cancelados.length}     Inasistencias: ${inasistencias.length}`, 40, y);
   y += 18;
+  // Leyenda de las filas rojas (regreso por emergencia): solo si aplica, para
+  // no ensuciar el reporte los días sin ninguna.
+  if (vuelos.some((v) => v.regreso_emergencia)) {
+    doc.fontSize(8).font("Helvetica-Oblique").fillColor(CAAA_RED)
+       .text("Filas en rojo: regreso por emergencia — no facturadas.", 40, y);
+    y += 14;
+  }
   y = dibujarSeccionesExtra(doc, { y, ancho, cancelados, inasistencias, horaReal });
 
   // Turno del día: apertura/cierre de operaciones + instructores en turno
@@ -678,6 +690,10 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
   // generarReporteVuelosDiaPDF (el reporte con montos): así "Horas" coincide
   // en los tres lugares con lo que efectivamente se le acreditó al alumno.
   const horaFila = (v) => {
+    // Regreso por emergencia: no se factura ni se acredita nada, así que estas
+    // "Horas" (que en este reporte son las que se le acreditaron al alumno,
+    // ver comentario arriba) van en 0 — nunca al TAC, aunque venga lleno.
+    if (v.regreso_emergencia) return 0;
     if (v.horas_cobradas != null) return Number(v.horas_cobradas);
     if (v.tac_ini != null && v.tac_fin != null) return Number(v.tac_fin) - Number(v.tac_ini);
     return null;
@@ -739,7 +755,7 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
         fmtFecha, v.id_vuelo, v.alumno,
         horaReal(v.salida_real), horaReal(v.llegada_real),
         v.instructor || "—", horas(h),
-      ]);
+      ], v.regreso_emergencia ? { color: CAAA_RED } : {});
       doc.strokeColor("#eceff3").lineWidth(0.5).moveTo(40, y).lineTo(40 + ancho, y).stroke();
     }
     drawRow(["", "", `Total ${g.codigo}`, "", "", `${g.filas.length} operaciones`, horas(sHoras)], { bold: true, color: CAAA_BLUE });
@@ -763,6 +779,13 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
   doc.fontSize(9).font("Helvetica-Bold").fillColor("#444")
      .text(`Completados: ${vuelos.length}     Cancelados: ${cancelados.length}     Inasistencias: ${inasistencias.length}`, 40, y);
   y += 18;
+  // Leyenda de las filas rojas (regreso por emergencia): solo si aplica, para
+  // no ensuciar el reporte los días sin ninguna.
+  if (vuelos.some((v) => v.regreso_emergencia)) {
+    doc.fontSize(8).font("Helvetica-Oblique").fillColor(CAAA_RED)
+       .text("Filas en rojo: regreso por emergencia — no facturadas.", 40, y);
+    y += 14;
+  }
   y = dibujarSeccionesExtra(doc, { y, ancho, cancelados, inasistencias, horaReal });
 
   // Turno del día: apertura/cierre de operaciones + instructores en turno
