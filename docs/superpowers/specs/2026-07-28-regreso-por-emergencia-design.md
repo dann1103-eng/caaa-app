@@ -34,7 +34,7 @@ no-show (el avión nunca se movió), pero es exactamente lo contrario de lo que 
 Consecuencia importante: la inasistencia queda excluida de la nómina **sola**, porque su TAC es NULL.
 **Un regreso por emergencia NO se excluiría solo** — su TAC está lleno. Hay que excluirlo explícitamente.
 
-**El instructor NO puede re-firmar.** `ReporteVueloModal.jsx:106-107`: en modo instructor
+**El instructor NO puede re-firmar.** `ReporteVueloModal.jsx:106-108`: en modo instructor
 `isReadonly` es true apenas el reporte pasa a `PENDIENTE_ALUMNO`, y el botón de firmar está detrás de
 `!isReadonly` (`:581`). No existe flujo de rechazo del reporte por parte del alumno (verificado por
 grep). O sea: **la marca se pone antes de firmar o no se pone.**
@@ -172,6 +172,14 @@ Por eso hay que:
   PDF por lote imprimiría los regresos por emergencia como voucheras normales.
 - **Lecturas del modal**: `instructorReporteController.js:51` y `alumno/alumnoReporteController.js:14`
   deben devolver las 3 columnas nuevas, o la marca no vuelve a la pantalla al reabrir el reporte.
+- **Guardado de borrador** (el hermano de la lectura, fácil de olvidar):
+  `guardarReporteVueloInstructor` (`instructorReporteController.js:115-175`, `PUT /vuelos/:id/reporte-vuelo`)
+  persiste `es_inasistencia`/`motivo_inasistencia` de forma **explícita** (`:139`, `:152`, `:167`), y el
+  cliente los manda aparte del spread (`ReporteVueloModal.jsx:184`). Como la marca de emergencia vivirá
+  en su propio estado de React (espejando `esInasistencia`), **no viajaría dentro de `datos`**: hay que
+  sumar las 3 columnas al INSERT y al `ON CONFLICT DO UPDATE` de ese endpoint **y** al payload de
+  `handleGuardar`. Sin esto: el instructor marca la emergencia → "Guardar borrador" → reabre → **la
+  marca desapareció**, y firma una vouchera normal sin darse cuenta.
 
 ### 6. Alcance — qué NO se hace
 
@@ -200,5 +208,7 @@ E2E contra Supabase real dentro de `BEGIN…ROLLBACK`, firmando un vuelo con `re
    vuelos del periodo).
 5. `motivo_emergencia` ausente con la marca puesta → **400**.
 6. Re-firmar un reporte ya firmado → **409** (y el saldo/las horas de célula no se movieron).
-7. **No-regresión:** un vuelo normal en la misma prueba cobra, acredita horas y suma a la nómina
+7. **Ida y vuelta del borrador:** guardar el reporte como borrador con la marca puesta y volver a
+   leerlo devuelve `regreso_emergencia = true` con su motivo (que la marca no se pierda al guardar).
+8. **No-regresión:** un vuelo normal en la misma prueba cobra, acredita horas y suma a la nómina
    **exactamente igual que antes**.
