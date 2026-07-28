@@ -77,17 +77,25 @@
 .rv-badge--pendiente   { background: var(--c-info-50); color: var(--c-info-700); }
 .rv-badge--completado  { background: var(--c-success-50); color: var(--c-success-700); }
 .rv-badge--inasistencia { background: var(--c-danger-50); color: var(--c-danger-700); }
+.rv-badge--emergencia   { background: var(--c-danger-50); color: var(--c-danger-700); }
 
-/* ── Header right (botón inasistencia + close) ── */
+/* ── Header right (botones de marca + close) ── */
 .rv-header-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  /* Dos botones de marca + cerrar no entran en una línea en pantallas angostas:
+     que bajen en vez de empujar el título del reporte fuera del modal. */
+  flex-wrap: wrap;
   gap: 10px;
   flex-shrink: 0;
 }
 
-/* ── Botón Registrar Inasistencia (destructivo, contorno) ── */
-.rv-btn-inasistencia {
+/* ── Botones de marca del reporte (destructivos, contorno) ──
+   Inasistencia y regreso por emergencia comparten tratamiento: los dos sacan al
+   vuelo del camino normal y el sistema pinta lo destructivo en rojo de contorno. */
+.rv-btn-inasistencia,
+.rv-btn-emergencia {
   padding: 6px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--c-danger-700);
@@ -100,17 +108,20 @@
   white-space: nowrap;
 }
 
-.rv-btn-inasistencia:hover {
+.rv-btn-inasistencia:hover,
+.rv-btn-emergencia:hover {
   background: var(--c-danger-50);
 }
 
-.rv-btn-inasistencia--activo {
+.rv-btn-inasistencia--activo,
+.rv-btn-emergencia--activo {
   background: var(--c-danger-50);
   color: var(--c-danger-700);
   border-color: var(--c-danger-700);
 }
 
-.rv-btn-inasistencia--activo:hover {
+.rv-btn-inasistencia--activo:hover,
+.rv-btn-emergencia--activo:hover {
   background: var(--c-danger-100);
 }
 
@@ -314,8 +325,9 @@
 }
 .rv-error { color: var(--c-danger-700); }
 
-/* ── Banner de Inasistencia en body ── */
-.rv-inasistencia-banner {
+/* ── Banners de Inasistencia / Regreso por emergencia en body ── */
+.rv-inasistencia-banner,
+.rv-emergencia-banner {
   display: flex;
   align-items: flex-start;
   gap: 14px;
@@ -326,14 +338,16 @@
   margin-bottom: 1.2rem;
 }
 
-.rv-inasistencia-icon {
+.rv-inasistencia-icon,
+.rv-emergencia-icon {
   font-size: 1.25rem;
   line-height: 1;
   flex-shrink: 0;
   color: var(--c-danger-700);
 }
 
-.rv-inasistencia-banner strong {
+.rv-inasistencia-banner strong,
+.rv-emergencia-banner strong {
   display: block;
   font-size: var(--text-base);
   color: var(--c-danger-700);
@@ -341,11 +355,19 @@
   margin-bottom: 4px;
 }
 
-.rv-inasistencia-banner p {
+.rv-inasistencia-banner p,
+.rv-emergencia-banner p {
   font-size: var(--text-sm);
   color: var(--c-danger-700);
   margin: 0;
   line-height: 1.5;
+}
+
+/* El cuerpo toma el ancho restante para que la grilla de campos no se apriete
+   contra el ícono (min-width:0 = deja encoger un hijo de flex). */
+.rv-emergencia-body {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Texto de campos omitidos */
@@ -363,7 +385,25 @@
   margin-top: 10px;
 }
 
-.rv-inasistencia-motivo-label {
+/* Motivo (obligatorio) y detalle libre, lado a lado. */
+.rv-emergencia-campos {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+@media (max-width: 640px) {
+  .rv-emergencia-campos { grid-template-columns: 1fr; }
+}
+
+.rv-emergencia-campo {
+  display: flex;
+  flex-direction: column;
+}
+
+.rv-inasistencia-motivo-label,
+.rv-emergencia-label {
   display: block;
   font-size: var(--text-xs);
   font-weight: 700;
@@ -373,7 +413,8 @@
   margin-bottom: 4px;
 }
 
-.rv-inasistencia-motivo-input {
+.rv-inasistencia-motivo-input,
+.rv-emergencia-input {
   width: 100%;
   border: 1px solid var(--c-danger-100);
   border-radius: var(--radius-sm);
@@ -385,13 +426,19 @@
   font-family: inherit;
 }
 
-.rv-inasistencia-motivo-input:focus {
+.rv-inasistencia-motivo-input:focus,
+.rv-emergencia-input:focus {
   outline: none;
   border-color: var(--c-danger-700);
   box-shadow: var(--shadow-focus);
 }
 
-.rv-inasistencia-motivo-val {
+.rv-emergencia-select {
+  cursor: pointer;
+}
+
+.rv-inasistencia-motivo-val,
+.rv-emergencia-val {
   font-size: var(--text-base);
   color: var(--c-ink-1);
   background: var(--c-surface-0);

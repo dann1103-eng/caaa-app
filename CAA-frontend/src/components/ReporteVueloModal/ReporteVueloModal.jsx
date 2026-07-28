@@ -18,6 +18,17 @@ import "./ReporteVueloModal.css";
 
 const TIPO_VUELO_OPTS = ["PASAJERO", "CARGA", "SOLO", "DOBLE", "FERRY", "LOCAL"];
 
+// Espejo exacto del CHECK de reporte_vuelo.motivo_emergencia y de la constante
+// MOTIVOS_EMERGENCIA del backend: mandar cualquier otro valor devuelve un 400.
+const MOTIVOS_EMERGENCIA = [
+  { value: "CLIMA", label: "Clima" },
+  { value: "FALLA_MECANICA", label: "Falla mecánica" },
+  { value: "OTRO", label: "Otro" },
+];
+
+const labelMotivoEmergencia = (val) =>
+  MOTIVOS_EMERGENCIA.find((m) => m.value === val)?.label ?? "";
+
 // Lecturas de medidor (tacómetro/hobbs): el instrumento tiene 4 dígitos
 // enteros, así que una lectura como 0847.2 debe MOSTRARSE con su cero inicial
 // aunque la BD (NUMERIC) lo normalice a 847.2. Se rellena la parte entera a 4
@@ -94,6 +105,12 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   const [generating, setGenerating] = useState(false);
   const [esInasistencia, setEsInasistencia] = useState(false);
   const [motivoInasistencia, setMotivoInasistencia] = useState("");
+  // Regreso por emergencia: el avión salió del hangar y volvió sin hacer el
+  // vuelo. Suma horas de mantenimiento a la aeronave (el motor corrió) pero no
+  // se le cobra al alumno ni se le paga la hora al instructor.
+  const [esEmergencia, setEsEmergencia] = useState(false);
+  const [motivoEmergencia, setMotivoEmergencia] = useState("");
+  const [detalleEmergencia, setDetalleEmergencia] = useState("");
 
   const firmaAlumnoRef = useRef(null);
   const firmaInstructorRef = useRef(null);
@@ -128,6 +145,9 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
           setEstado(r.estado);
           if (r.es_inasistencia) setEsInasistencia(true);
           if (r.motivo_inasistencia) setMotivoInasistencia(r.motivo_inasistencia);
+          if (r.regreso_emergencia) setEsEmergencia(true);
+          if (r.motivo_emergencia) setMotivoEmergencia(r.motivo_emergencia);
+          if (r.detalle_emergencia) setDetalleEmergencia(r.detalle_emergencia);
           setDatos({
             tipo_vuelo: r.tipo_vuelo ?? "",
             tacometro_salida: formatMedidor(r.tacometro_salida),
@@ -175,15 +195,47 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     setDatos((prev) => ({ ...prev, [key]: val }));
   }
 
+  // Inasistencia y regreso por emergencia son MUTUAMENTE EXCLUYENTES: se
+  // contradicen a nivel de datos (inasistencia ⇒ el avión nunca se movió, TAC en
+  // NULL; emergencia ⇒ salió y volvió, TAC lleno) y el backend rechaza las dos
+  // juntas con un 400 tanto al guardar como al firmar. Prender una apaga la otra
+  // en vez de dejar armar un reporte que después no se puede firmar.
+  function toggleInasistencia() {
+    const next = !esInasistencia;
+    setEsInasistencia(next);
+    if (next) setEsEmergencia(false);
+  }
+
+  function toggleEmergencia() {
+    const next = !esEmergencia;
+    setEsEmergencia(next);
+    if (next) {
+      setEsInasistencia(false);
+      // No hay nada que cobrar: el servidor fuerza horas_cobradas a NULL, así
+      // que se limpia acá también para que no quede un residuo del formulario
+      // dando vueltas (el PDF imprime `datos`, no lo que guardó el servidor).
+      setDatos((prev) => ({ ...prev, horas_cobradas: "" }));
+    }
+  }
 
   // ── Guardar borrador (instructor) ─────────────────────────────────────────
   async function handleGuardar() {
     setSaving(true);
     try {
+      // Las marcas van explícitas fuera del spread: no viven en `datos` (que es
+      // solo el formulario de medidores), y el borrador acepta el motivo vacío
+      // — es un formulario a medio llenar.
+      const marcas = {
+        es_inasistencia: esInasistencia,
+        motivo_inasistencia: motivoInasistencia,
+        regreso_emergencia: esEmergencia,
+        motivo_emergencia: motivoEmergencia,
+        detalle_emergencia: detalleEmergencia,
+      };
       if (mode === "instructor") {
-        await guardarReporteVueloInstructor(id_vuelo, { ...datos, es_inasistencia: esInasistencia, motivo_inasistencia: motivoInasistencia });
+        await guardarReporteVueloInstructor(id_vuelo, { ...datos, ...marcas });
       } else {
-        await guardarReporteVuelo(id_vuelo, { ...datos, es_inasistencia: esInasistencia, motivo_inasistencia: motivoInasistencia });
+        await guardarReporteVuelo(id_vuelo, { ...datos, ...marcas });
       }
       setEstado("BORRADOR");
     } catch (e) {
@@ -195,6 +247,13 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
 
   // ── Instructor firma y envía a alumno ─────────────────────────────────────
   async function handleFirmarInstructor() {
+    // El motivo es obligatorio para firmar (el backend devuelve 400 sin él);
+    // se avisa acá para no gastar el viaje de ida y vuelta.
+    if (esEmergencia && !motivoEmergencia) {
+      toast.warning("Elegí el motivo del regreso por emergencia.");
+      return;
+    }
+
     if (esInasistencia) {
       // Inasistencia solo requiere motivo y firma
     } else if (isSim) {
@@ -221,18 +280,23 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
       }
       // Las horas a cobrar también se exigen en aeronave real, no solo en simulador:
       // son las que debitan el saldo del alumno y le suman horas de licencia.
-      if (!datos.horas_cobradas) {
-        toast.warning("Ingresá las horas a cobrar — es lo que se le debita al alumno.");
-        return;
-      }
-      const hc = parseFloat(datos.horas_cobradas);
-      if (isNaN(hc) || hc <= 0) {
-        toast.warning("Las horas a cobrar deben ser mayores que 0.");
-        return;
-      }
-      if (hc > 24) {
-        toast.warning("Las horas a cobrar son mayores a 24 — ¿te faltó el punto decimal?");
-        return;
+      // EXCEPTO en un regreso por emergencia: ahí el campo se oculta a propósito
+      // y el servidor lo fuerza a NULL, así que exigirlo dejaría al instructor
+      // trabado por un dato que deliberadamente no existe.
+      if (!esEmergencia) {
+        if (!datos.horas_cobradas) {
+          toast.warning("Ingresá las horas a cobrar — es lo que se le debita al alumno.");
+          return;
+        }
+        const hc = parseFloat(datos.horas_cobradas);
+        if (isNaN(hc) || hc <= 0) {
+          toast.warning("Las horas a cobrar deben ser mayores que 0.");
+          return;
+        }
+        if (hc > 24) {
+          toast.warning("Las horas a cobrar son mayores a 24 — ¿te faltó el punto decimal?");
+          return;
+        }
       }
     }
 
@@ -248,6 +312,9 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         firma_instructor: firma,
         es_inasistencia: esInasistencia,
         motivo_inasistencia: motivoInasistencia,
+        regreso_emergencia: esEmergencia,
+        motivo_emergencia: motivoEmergencia,
+        detalle_emergencia: detalleEmergencia,
       });
       setFirmaInstructor(firma);
       setEstado("PENDIENTE_ALUMNO");
@@ -325,6 +392,11 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         firmaInstructor,
         esInasistencia,
         motivoInasistencia,
+        // Sin estos tres, la vouchera individual se imprime como un vuelo normal
+        // aunque el reporte esté marcado como regreso por emergencia.
+        esEmergencia,
+        motivoEmergencia,
+        detalleEmergencia,
         download: true,
       });
     } catch (e) {
@@ -370,6 +442,9 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
               {esInasistencia && (
                 <span className="rv-badge rv-badge--inasistencia">INASISTENCIA</span>
               )}
+              {esEmergencia && (
+                <span className="rv-badge rv-badge--emergencia">REGRESO POR EMERGENCIA</span>
+              )}
             </h2>
             <div className="rv-header-meta">
               {v.aeronave_codigo && <span>{v.aeronave_codigo}</span>}
@@ -382,10 +457,21 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             {mode === "instructor" && !isReadonly && (
               <button
                 className={`rv-btn-inasistencia ${esInasistencia ? "rv-btn-inasistencia--activo" : ""}`}
-                onClick={() => setEsInasistencia((prev) => !prev)}
+                onClick={toggleInasistencia}
                 title={esInasistencia ? "Quitar marca de inasistencia" : "Registrar como inasistencia / No-Show"}
               >
                 {esInasistencia ? <><i className="bi bi-x-lg" /> Quitar inasistencia</> : <><i className="bi bi-exclamation-triangle" /> Registrar inasistencia</>}
+              </button>
+            )}
+            {/* Regreso por emergencia — solo aeronave real: el backend lo rechaza
+                en simulador, así que ni se ofrece. */}
+            {mode === "instructor" && !isReadonly && !isSim && (
+              <button
+                className={`rv-btn-emergencia ${esEmergencia ? "rv-btn-emergencia--activo" : ""}`}
+                onClick={toggleEmergencia}
+                title={esEmergencia ? "Quitar marca de regreso por emergencia" : "El avión salió y regresó sin completar el vuelo"}
+              >
+                {esEmergencia ? <><i className="bi bi-x-lg" /> Quitar emergencia</> : <><i className="bi bi-arrow-return-left" /> Regreso por emergencia</>}
               </button>
             )}
             <button className="rv-close" onClick={onClose}>×</button>
@@ -442,6 +528,58 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             </div>
           )}
 
+          {/* Banner de regreso por emergencia */}
+          {esEmergencia && (
+            <div className="rv-emergencia-banner">
+              <span className="rv-emergencia-icon"><i className="bi bi-arrow-return-left" /></span>
+              <div className="rv-emergencia-body">
+                <strong>REGRESO POR EMERGENCIA</strong>
+                <p>
+                  El vuelo se abortó y la aeronave regresó. Las lecturas de tacómetro
+                  siguen siendo obligatorias: el avión suma sus horas de mantenimiento,
+                  pero no se le cobra al alumno ni se le paga la hora al instructor.
+                </p>
+
+                <div className="rv-emergencia-campos">
+                  <div className="rv-emergencia-campo">
+                    <span className="rv-emergencia-label">Motivo del regreso</span>
+                    {isReadonly ? (
+                      <span className="rv-emergencia-val">
+                        {labelMotivoEmergencia(motivoEmergencia) || "No se especificó motivo."}
+                      </span>
+                    ) : (
+                      <select
+                        className="rv-emergencia-input rv-emergencia-select"
+                        value={motivoEmergencia}
+                        onChange={(e) => setMotivoEmergencia(e.target.value)}
+                      >
+                        <option value="">Seleccione…</option>
+                        {MOTIVOS_EMERGENCIA.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="rv-emergencia-campo">
+                    <span className="rv-emergencia-label">Detalle (opcional)</span>
+                    {isReadonly ? (
+                      <span className="rv-emergencia-val">{detalleEmergencia || "—"}</span>
+                    ) : (
+                      <input
+                        type="text"
+                        className="rv-emergencia-input"
+                        placeholder="Ej. techo bajo sobre el campo, presión de aceite en rojo…"
+                        value={detalleEmergencia}
+                        onChange={(e) => setDetalleEmergencia(e.target.value)}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Tipo de vuelo — no aplica a simulador (PASAJERO/CARGA/FERRY son de aeronave real) */}
           {!isSim && (
             <div className="rv-section">
@@ -462,7 +600,13 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
 
           {/* Datos: tacómetro/hobbs/combustible (vuelo real) o Hobbs + horas a cobrar (simulador) */}
           <div className="rv-section">
-            <div className="rv-section-title">{isSim ? "Hobbs y horas a cobrar" : "Tacómetro, Hobbs, Combustible y cobro"}</div>
+            <div className="rv-section-title">
+              {isSim
+                ? "Hobbs y horas a cobrar"
+                : esEmergencia
+                  ? "Tacómetro, Hobbs y Combustible"
+                  : "Tacómetro, Hobbs, Combustible y cobro"}
+            </div>
             {esInasistencia ? (
               <p className="rv-inasistencia-omit">Lecturas omitidas por inasistencia.</p>
             ) : (
@@ -485,7 +629,12 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                     // y no siempre coincide con el tacómetro. Es lo que debita el saldo.
                     { key: "horas_cobradas", label: "Horas a cobrar", hint: tacDiff != null ? `TAC: ${tacDiff.toFixed(1)} h` : null },
                   ]
-              ).map(({ key, label, medidor, hint }) => (
+              )
+                // En un regreso por emergencia no hay nada que cobrar: el campo
+                // se esconde (el servidor lo fuerza a NULL de todos modos) para
+                // que no quede pidiendo un dato que no corresponde llenar.
+                .filter(({ key }) => !(esEmergencia && key === "horas_cobradas"))
+                .map(({ key, label, medidor, hint }) => (
                 <div key={key} className="rv-data-field">
                   <span className="rv-label">
                     {label}
