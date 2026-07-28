@@ -265,10 +265,19 @@ exports.firmarReporteVuelo = async (req, res) => {
       // La UI ya impide re-firmar (el modal queda en solo-lectura al pasar a
       // PENDIENTE_ALUMNO), pero el endpoint lo permitía por el ON CONFLICT DO UPDATE —
       // y ni el cobro ni actualizarHorasAeronave son idempotentes, así que una segunda
-      // llamada cobraba dos veces y le sumaba al avión las horas otra vez. El FOR UPDATE
-      // serializa el doble-click.
+      // llamada cobraba dos veces y le sumaba al avión las horas otra vez.
+      //
+      // Se lockea la fila de VUELO, no la de reporte_vuelo: FOR UPDATE no bloquea
+      // filas que NO existen, y la del reporte puede no existir todavía —
+      // handleFirmarInstructor (ReporteVueloModal) firma sin pasar por "Guardar
+      // borrador", que es un botón aparte. Lockeando reporte_vuelo, dos requests
+      // concurrentes leerían ambas 0 filas, ambas pasarían el guard y ambas cobrarían
+      // (la segunda se frena en el ON CONFLICT, pero al despertar sigue de largo). El
+      // vuelo siempre existe, así que lockearlo serializa de verdad el doble-click y
+      // recién ahí tiene sentido leer el estado del reporte.
+      await client.query(`SELECT id_vuelo FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`, [id]);
       const yaFirmado = await client.query(
-        `SELECT estado FROM reporte_vuelo WHERE id_vuelo = $1 FOR UPDATE`, [id]
+        `SELECT estado FROM reporte_vuelo WHERE id_vuelo = $1`, [id]
       );
       if (["PENDIENTE_ALUMNO", "COMPLETADO"].includes(yaFirmado.rows[0]?.estado)) {
         await client.query("ROLLBACK");
