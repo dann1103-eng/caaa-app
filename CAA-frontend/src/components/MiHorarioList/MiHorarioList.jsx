@@ -61,6 +61,12 @@ function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitar
           {v.aeronave_tipo === "SIMULADOR" && (
             <span className="mhl__vuelo-sim">SIM</span>
           )}
+          {v.instructor_nombre && (
+            <>
+              <span className="mhl__vuelo-sep">·</span>
+              <span className="mhl__vuelo-instructor">{v.instructor_nombre}</span>
+            </>
+          )}
         </div>
         <span className={`mhl__badge ${cfg.cls}`}>{cfg.label}</span>
       </div>

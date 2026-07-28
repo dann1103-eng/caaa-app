@@ -61,15 +61,15 @@ export default function ScheduleWeekTable({ vuelos, diaHoy }) {
                   <div className="pp__flight-info">
                     <div className="pp__info-group">
                       <span className="pp__info-label">ESTUDIANTE</span>
-                      <span className="pp__info-main">{v.alumno_nombre}</span>
-                    </div>
-                    <div className="pp__info-group">
-                      <span className="pp__info-label">INSTRUCTOR</span>
                       <span className="pp__info-main">
-                        Cap. {v.instructor_nombre}{" "}
+                        {v.alumno_nombre}{" "}
                         <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
                         {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
                       </span>
+                    </div>
+                    <div className="pp__info-group">
+                      <span className="pp__info-label">INSTRUCTOR</span>
+                      <span className="pp__info-main">Cap. {v.instructor_nombre}</span>
                     </div>
                     <div className="pp__info-group">
                       <span className="pp__info-label">AERONAVE</span>

@@ -5,6 +5,7 @@ import {
   getAeronavesActivas,
   getBloquesHorario,
   getCalendarioProgramacion,
+  getEstadoSemanaProgramacion,
   guardarCambiosProgramacion,
   getBloquesBloqueados,
   getAeronavesDisponibles,
@@ -115,16 +116,22 @@ export default function ProgramacionDashboard({ embedded = false }) {
   const [agendarCell, setAgendarCell] = useState(null);
   const [reservas, setReservas] = useState([]);
   const [esperaSlot, setEsperaSlot] = useState(null);
+  // Estado real de publicación de la semana detrás del tab actual — NO se
+  // infiere del tab (week === "current"): una semana "Próxima" puede ya estar
+  // publicada si se adelantó la publicación, y el tab por sí solo no lo dice.
+  const [weekPublicada, setWeekPublicada] = useState(false);
+  const [weekIdSemana, setWeekIdSemana] = useState(null);
 
   const reload = async () => {
     setLoading(true);
     try {
-      const [b, a, cal, blq, ins] = await Promise.all([
+      const [b, a, cal, blq, ins, estadoSemana] = await Promise.all([
         getBloquesHorario(),
         getAeronavesActivas(),
         getCalendarioProgramacion(week),
         getBloquesBloqueados(),
         getInstructoresActivos().catch(() => []),
+        getEstadoSemanaProgramacion(week).catch(() => null),
       ]);
       setBloques(Array.isArray(b) ? b : []);
       setAeronaves(Array.isArray(a) ? a : []);
@@ -132,6 +139,8 @@ export default function ProgramacionDashboard({ embedded = false }) {
       setOriginalItems(Array.isArray(cal) ? cal : []);
       setBloqueos(Array.isArray(blq) ? blq : []);
       setInstructores(Array.isArray(ins) ? ins : []);
+      setWeekPublicada(estadoSemana?.publicada || false);
+      setWeekIdSemana(estadoSemana?.id_semana || null);
       setPendingMoves([]);
       setDragging(null);
       const idSemana = Array.isArray(cal) ? cal[0]?.id_semana : null;
@@ -458,8 +467,8 @@ export default function ProgramacionDashboard({ embedded = false }) {
       {agendarCell && (
         <AgendarVueloModal
           week={week}
-          publicada={week === "current"}
-          id_semana={items[0]?.id_semana}
+          publicada={weekPublicada}
+          id_semana={items[0]?.id_semana || weekIdSemana}
           dia_semana={agendarCell.dia_semana}
           id_bloque={agendarCell.id_bloque}
           bloques={bloques}

@@ -149,6 +149,8 @@ export const getReporteVueloAdmin = async (idVuelo) => (await axios.get(`${BASE}
 export const getVoucherasAeronaves = async () => (await axios.get(`${BASE}/voucheras/aeronaves`)).data;
 export const getVoucherasDia = async (fecha, idAeronave) =>
   (await axios.get(`${BASE}/voucheras`, { params: { fecha, id_aeronave: idAeronave || undefined } })).data;
+export const revertirInasistenciaVouchera = async (idVuelo) =>
+  (await axios.post(`${BASE}/voucheras/${idVuelo}/revertir-inasistencia`)).data;
 
 // ── Documentación ───────────────────────────────────────────────────
 export const getCatalogoDocs       = async () => (await axios.get(`${BASE}/documentos/catalogo`)).data;
