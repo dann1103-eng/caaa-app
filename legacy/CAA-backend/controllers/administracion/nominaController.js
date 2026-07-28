@@ -1,6 +1,7 @@
 const db = require("../../config/db");
 const { calcularPlanta, retencionServicios, round2, CONFIG_DEFAULT } = require("../../utils/deducciones");
 const { generarPlanillaPDF, generarReciboNominaPDF } = require("../../utils/pdfGenerator");
+const { soloHorasFacturables, sinRegresoEmergencia } = require("../../utils/horasFacturables");
 
 const DET_SELECT = `
   SELECT d.*,
@@ -220,6 +221,7 @@ exports.calcular = async (req, res) => {
       FROM vuelo v
       LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
       WHERE v.estado = 'COMPLETADO' AND v.fecha_vuelo BETWEEN $1::date AND $2::date AND v.id_instructor IS NOT NULL
+        AND ${soloHorasFacturables("rv")}
       GROUP BY v.id_instructor
     `, [periodo_inicio, periodo_fin]);
     const horasPorInstructor = new Map(horasRes.rows.map(r => [Number(r.id_instructor), Number(r.horas || 0)]));
@@ -267,6 +269,7 @@ exports.calcular = async (req, res) => {
           FROM vuelo v
           LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
           WHERE v.estado = 'COMPLETADO' AND v.fecha_vuelo BETWEEN $3::date AND $4::date AND v.id_instructor = $5
+            AND ${sinRegresoEmergencia("rv")}
         `, [id_detalle, tarVuelo, periodo_inicio, periodo_fin, id_inst]);
       }
     }

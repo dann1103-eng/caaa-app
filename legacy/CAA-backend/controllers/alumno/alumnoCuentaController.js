@@ -118,9 +118,14 @@ exports.miHistorial = async (req, res) => {
     const vuelos = await db.query(`
       SELECT v.id_vuelo, v.fecha_vuelo,
              a.codigo AS aeronave_codigo, a.modelo AS aeronave_modelo,
-             COALESCE(rv.tacometro_llegada - rv.tacometro_salida, 0) AS horas,
+             -- El regreso por emergencia deja la fila visible (el vuelo pasó) pero
+             -- en 0 horas: no se cobra ni suma bitácora. La inasistencia ya da 0
+             -- sola, porque su TAC queda NULL.
+             CASE WHEN COALESCE(rv.regreso_emergencia, false)
+                  THEN 0 ELSE COALESCE(rv.tacometro_llegada - rv.tacometro_salida, 0) END AS horas,
              iu.username AS instructor_username,
-             COALESCE(rv.es_inasistencia, false) AS inasistencia
+             COALESCE(rv.es_inasistencia, false) AS inasistencia,
+             COALESCE(rv.regreso_emergencia, false) AS regreso_emergencia
       FROM vuelo v
       LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
       LEFT JOIN aeronave a ON a.id_aeronave = v.id_aeronave

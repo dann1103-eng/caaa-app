@@ -2,6 +2,7 @@ const db = require("../../config/db");
 const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor, getSemanaProxima } = require("../../utils/instructorHelpers");
 const { generarReciboNominaPDF } = require("../../utils/pdfGenerator");
+const { soloHorasFacturables } = require("../../utils/horasFacturables");
 
 // Recibo de nómina propio (PDF) — solo del instructor autenticado.
 exports.descargarMiRecibo = async (req, res) => {
@@ -326,7 +327,7 @@ exports.miHistorial = async (req, res) => {
       FROM vuelo v
       JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
       WHERE v.id_instructor = $1 AND v.estado = 'COMPLETADO'
-        AND COALESCE(rv.es_inasistencia, false) = false
+        AND ${soloHorasFacturables("rv")}
     `, [id_instructor]);
 
     const clases = await db.query(`

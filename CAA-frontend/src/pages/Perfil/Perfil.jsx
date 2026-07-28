@@ -582,7 +582,11 @@ export default function Perfil() {
                 <tr key={v.id_vuelo}>
                   <td>{fmtDate(v.fecha_vuelo)}</td>
                   <td>{v.aeronave_codigo || "—"}</td>
-                  <td className="num">{v.inasistencia ? "Inasist." : Number(v.horas).toFixed(1)}</td>
+                  <td className="num">
+                    {v.inasistencia ? "Inasist."
+                      : v.regreso_emergencia ? "Reg. emerg."
+                      : Number(v.horas).toFixed(1)}
+                  </td>
                   <td>{v.instructor_username || "—"}</td>
                 </tr>
               ))}

@@ -471,7 +471,7 @@ export default function AlumnoFicha() {
                   {historial.vuelos.map(v => (
                     <tr key={v.id_vuelo}>
                       <td>{v.fecha_vuelo ? String(v.fecha_vuelo).slice(0, 10) : "—"}</td>
-                      <td>{v.aeronave_codigo || v.aeronave_modelo || "—"}{v.inasistencia && <span className="adf-tag amber" style={{ marginLeft: 6 }}>inasistencia</span>}</td>
+                      <td>{v.aeronave_codigo || v.aeronave_modelo || "—"}{v.inasistencia && <span className="adf-tag amber" style={{ marginLeft: 6 }}>inasistencia</span>}{v.regreso_emergencia && <span className="adf-tag red" style={{ marginLeft: 6 }}>regreso por emergencia</span>}</td>
                       <td className="amount" style={{ textAlign: "right" }}>{Number(v.horas || 0).toFixed(1)}</td>
                       <td style={{ color: "var(--c-ink-3)" }}>{v.instructor_username || "—"}</td>
                       <td style={{ textAlign: "right" }}>
