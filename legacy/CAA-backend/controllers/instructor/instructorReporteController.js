@@ -8,6 +8,11 @@ const { actualizarHorasAeronave } = require("../../utils/aeronaveUtils");
 // syntax for type numeric" o viola el CHECK). Normaliza "" -> null.
 const blankToNull = (v) => (v === "" || v === undefined ? null : v);
 
+// Espejo exacto del CHECK de reporte_vuelo.motivo_emergencia (migración
+// 20260728000001). Si acá se dejara pasar un valor que el CHECK no permite, el
+// INSERT reventaría con un error críptico de constraint en vez de un 400 legible.
+const MOTIVOS_EMERGENCIA = ['CLIMA', 'FALLA_MECANICA', 'OTRO'];
+
 exports.getReportesPendientes = async (req, res) => {
   try {
     const user = req.user;
@@ -183,12 +188,14 @@ exports.firmarReporteVuelo = async (req, res) => {
       hobbs_salida, hobbs_llegada, combustible_salida,
       combustible_llegada, cantidad_combustible, horas_cobradas,
       es_inasistencia, motivo_inasistencia,
+      regreso_emergencia, motivo_emergencia, detalle_emergencia,
     } = req.body;
     if (!firma_instructor) {
       return res.status(400).json({ message: 'Se requiere firma_instructor' });
     }
 
     const esInasistencia = es_inasistencia === true || es_inasistencia === 'true';
+    const esEmergencia = regreso_emergencia === true || regreso_emergencia === 'true';
 
     // Simulador: sesión sin aeronave física — se factura por horas_cobradas
     // (independiente del Hobbs) en vez del diferencial de tacómetro.
@@ -197,6 +204,25 @@ exports.firmarReporteVuelo = async (req, res) => {
       [id]
     );
     const esSimulador = aeroTipoRes.rows[0]?.tipo === 'SIMULADOR';
+
+    // Regreso por emergencia: el avión salió del hangar y se regresó sin llegar a
+    // hacer el vuelo (mal clima, falla mecánica). El TAC sigue siendo obligatorio
+    // —el motor corrió y de ahí sale el mantenimiento 50/100h— pero no se le cobra
+    // al alumno ni se le acreditan horas de licencia, así que horas_cobradas se
+    // fuerza a NULL más abajo. Va ANTES del bloque de !esInasistencia a propósito:
+    // un simulador marcado como emergencia debe leer este mensaje y no el genérico
+    // "ingresá las horas a cobrar de la sesión de simulador".
+    if (esEmergencia) {
+      if (esSimulador) {
+        return res.status(400).json({ message: "El regreso por emergencia solo aplica a aeronaves reales, no a simuladores." });
+      }
+      if (!motivo_emergencia) {
+        return res.status(400).json({ message: "Elegí el motivo del regreso por emergencia." });
+      }
+      if (!MOTIVOS_EMERGENCIA.includes(motivo_emergencia)) {
+        return res.status(400).json({ message: "El motivo del regreso por emergencia debe ser Clima, Falla mecánica u Otro." });
+      }
+    }
 
     // Validar rangos numéricos / campos requeridos solo si NO es inasistencia
     if (!esInasistencia) {
@@ -218,7 +244,10 @@ exports.firmarReporteVuelo = async (req, res) => {
       // alumno. El tope de 24 es la misma red que la del tacómetro: ataja el punto
       // decimal olvidado, que acá costaría 10 veces de más y en silencio. Además la
       // columna es NUMERIC(5,2): arriba de 999.99 reventaría con overflow críptico.
-      if (blankToNull(horas_cobradas) != null) {
+      // En un regreso por emergencia no se valida porque no se guarda: el campo se
+      // fuerza a NULL (no hay nada que cobrar), y si el cliente manda un residuo
+      // del formulario —un 0, típicamente— rechazarlo sería un 400 sin sentido.
+      if (blankToNull(horas_cobradas) != null && !esEmergencia) {
         const h = parseFloat(horas_cobradas);
         if (isNaN(h) || h <= 0) {
           return res.status(400).json({ message: "Las horas a cobrar deben ser un número mayor que 0." });
@@ -232,6 +261,19 @@ exports.firmarReporteVuelo = async (req, res) => {
     const client = await db.connect();
     try {
       await client.query("BEGIN");
+
+      // La UI ya impide re-firmar (el modal queda en solo-lectura al pasar a
+      // PENDIENTE_ALUMNO), pero el endpoint lo permitía por el ON CONFLICT DO UPDATE —
+      // y ni el cobro ni actualizarHorasAeronave son idempotentes, así que una segunda
+      // llamada cobraba dos veces y le sumaba al avión las horas otra vez. El FOR UPDATE
+      // serializa el doble-click.
+      const yaFirmado = await client.query(
+        `SELECT estado FROM reporte_vuelo WHERE id_vuelo = $1 FOR UPDATE`, [id]
+      );
+      if (["PENDIENTE_ALUMNO", "COMPLETADO"].includes(yaFirmado.rows[0]?.estado)) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "Este reporte ya fue firmado y no se puede volver a firmar." });
+      }
 
       // Snapshot de horas_acumuladas del alumno ANTES de tocar nada en esta
       // transacción. Más abajo, si el vuelo suma horas de licencia, se
@@ -265,9 +307,10 @@ exports.firmarReporteVuelo = async (req, res) => {
         `INSERT INTO reporte_vuelo (
            id_vuelo, tipo_vuelo, tacometro_salida, tacometro_llegada,
            hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada,
-           cantidad_combustible, horas_cobradas, firma_instructor, archivo_pdf, estado, es_inasistencia, motivo_inasistencia
+           cantidad_combustible, horas_cobradas, firma_instructor, archivo_pdf, estado, es_inasistencia, motivo_inasistencia,
+           regreso_emergencia, motivo_emergencia, detalle_emergencia
          )
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDIENTE_ALUMNO',$13,$14)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'PENDIENTE_ALUMNO',$13,$14,$15,$16,$17)
          ON CONFLICT (id_vuelo) DO UPDATE SET
            tipo_vuelo=EXCLUDED.tipo_vuelo,
            tacometro_salida=EXCLUDED.tacometro_salida,
@@ -282,6 +325,9 @@ exports.firmarReporteVuelo = async (req, res) => {
            archivo_pdf=EXCLUDED.archivo_pdf,
            es_inasistencia=EXCLUDED.es_inasistencia,
            motivo_inasistencia=EXCLUDED.motivo_inasistencia,
+           regreso_emergencia=EXCLUDED.regreso_emergencia,
+           motivo_emergencia=EXCLUDED.motivo_emergencia,
+           detalle_emergencia=EXCLUDED.detalle_emergencia,
            estado='PENDIENTE_ALUMNO',
            actualizado_en=NOW()
          RETURNING *`,
@@ -294,8 +340,13 @@ exports.firmarReporteVuelo = async (req, res) => {
          esInasistencia ? null : blankToNull(combustible_salida),
          esInasistencia ? null : blankToNull(combustible_llegada),
          esInasistencia ? null : blankToNull(cantidad_combustible),
-         esInasistencia ? null : blankToNull(horas_cobradas),
-         firma_instructor, blankToNull(archivo_pdf), esInasistencia, blankToNull(motivo_inasistencia)]
+         // En un regreso por emergencia no hay horas que cobrar: se guarda NULL para
+         // que ningún consumidor posterior (cobro, bitácora, nómina) las levante.
+         (esInasistencia || esEmergencia) ? null : blankToNull(horas_cobradas),
+         firma_instructor, blankToNull(archivo_pdf), esInasistencia, blankToNull(motivo_inasistencia),
+         esEmergencia,
+         esEmergencia ? blankToNull(motivo_emergencia) : null,
+         esEmergencia ? blankToNull(detalle_emergencia) : null]
       );
 
       // --- Lógica de Mantenimiento por TAC (no aplica a simuladores: no
@@ -339,10 +390,12 @@ exports.firmarReporteVuelo = async (req, res) => {
         // (decisión de Daniel, 2026-07-16): al alumno se le acredita exactamente lo
         // que se le cobra. Si el instructor no digitó horas (reportes viejos), se cae
         // al TAC, que era el comportamiento anterior.
-        // NO suman en vuelos extracurriculares, DEMO ni CHEQUEO_LINEA.
+        // NO suman en vuelos extracurriculares, DEMO ni CHEQUEO_LINEA — ni en un
+        // regreso por emergencia: el avión ya sumó su TAC unas líneas arriba (el
+        // motor corrió), pero el alumno no voló, así que no se le acredita nada.
         const horasCobradas = blankToNull(horas_cobradas) != null ? parseFloat(horas_cobradas) : diff;
         const id_alumno = vueloRes.rows[0].id_alumno;
-        if (sumaHorasLicencia && !vueloRes.rows[0].es_extracurricular && id_alumno) {
+        if (sumaHorasLicencia && !esEmergencia && !vueloRes.rows[0].es_extracurricular && id_alumno) {
           await client.query(
             `UPDATE alumno SET horas_acumuladas = horas_acumuladas + $1 WHERE id_alumno = $2`,
             [horasCobradas, id_alumno]
@@ -364,9 +417,12 @@ exports.firmarReporteVuelo = async (req, res) => {
       );
 
       // --- Cargo automático a cuenta corriente (Módulo Administración) ---
-      // Solo si NO es inasistencia y el módulo está migrado.
+      // Solo si NO es inasistencia, NO es regreso por emergencia (salió del hangar
+      // pero no voló: no se le cobra), y el módulo está migrado. Saltear este
+      // bloque también evita el avance de curso, que vive adentro de
+      // cargarVueloACuentaDentroTx.
       let cargoAutomatico = null;
-      if (!esInasistencia) {
+      if (!esInasistencia && !esEmergencia) {
         try {
           const { cargarVueloACuentaDentroTx } = require("../administracion/facturasController");
           // Lo que se cobra son las horas que digitó el instructor — en TODA aeronave,
