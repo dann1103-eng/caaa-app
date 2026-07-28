@@ -19,12 +19,15 @@ exports.getMiHorario = catchAsync(async (req, res) => {
 
   const result = await db.query(`
     SELECT v.*, b.hora_inicio, b.hora_fin, ae.codigo AS aeronave_codigo, rv.estado AS reporte_estado,
-           sc.id_solicitud_cancelacion, sc.estado AS estado_solicitud_cancelacion
+           sc.id_solicitud_cancelacion, sc.estado AS estado_solicitud_cancelacion,
+           TRIM(u_ins.nombre || ' ' || COALESCE(u_ins.apellido, '')) AS instructor_nombre
     FROM vuelo v
     JOIN bloque_horario b ON b.id_bloque = v.id_bloque
     JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
     LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
     LEFT JOIN solicitud_cancelacion sc ON sc.id_vuelo = v.id_vuelo AND sc.estado = 'PENDIENTE'
+    LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
+    LEFT JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
     WHERE v.id_alumno = $1 AND v.id_semana = $2
     ORDER BY v.dia_semana, b.hora_inicio
   `, [idAlumno, idSemana]);
