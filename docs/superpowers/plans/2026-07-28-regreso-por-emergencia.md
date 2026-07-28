@@ -121,8 +121,12 @@ if (["PENDIENTE_ALUMNO", "COMPLETADO"].includes(yaFirmado.rows[0]?.estado)) {
   respuesta (~:79)** — ese endpoint NO devuelve la fila cruda, así que sin esto los campos no llegan.
   ✅ Esto arregla gratis el lector de admin: `administracionRoutes.js:146` reusa este mismo controller.
 
-- [ ] **Step 3: Lectura del alumno.** `alumnoReporteController.getReporteVuelo` (~:10-20). Hace
-  `SELECT v.*` + spread — **verificar leyendo** si con agregar las columnas al SELECT alcanza.
+- [ ] **Step 3: Lectura del alumno.** `alumnoReporteController.getReporteVuelo`: agregar las 3 columnas
+  al SELECT (**:14**) **Y al objeto literal `reporte` (:33-50, donde ya están `es_inasistencia` :48 y
+  `motivo_inasistencia` :49)**. ⚠️ El spread `{ ...row }` de :32 es solo para `vuelo`; `reporte` se arma
+  campo por campo, así que sin tocar el literal los 3 campos **no llegan**. El modal hidrata desde
+  `data.reporte` (`ReporteVueloModal.jsx:126-130`), y **ésta es la ruta que usa el practicante**
+  (`mode="alumno"`). Mismo tipo de bug que el del PDF en T8.
 
 - [ ] **Step 4: Load-check** ambos controllers.
 - [ ] **Step 5: Commit**: `feat(vouchera): la marca de emergencia sobrevive al borrador y vuelve en las lecturas`.
@@ -136,6 +140,8 @@ if (["PENDIENTE_ALUMNO", "COMPLETADO"].includes(yaFirmado.rows[0]?.estado)) {
 - Modify: `legacy/CAA-backend/controllers/instructor/instructorAlumnoController.js` (WHERE en **:328-329**)
 - Modify: `legacy/CAA-backend/controllers/administracion/usuariosController.js` (WHERE en **:567-568**, y el SELECT de :609)
 - Modify: `legacy/CAA-backend/controllers/alumno/alumnoCuentaController.js` (:121)
+- Modify: `CAA-frontend/src/pages/Perfil/Perfil.jsx` (:585 — consumidor del flag, Step 5)
+- Modify: `CAA-frontend/src/pages/Administracion/AlumnoFicha.jsx` (:474 — consumidor del flag, Step 5)
 
 Importar en cada archivo: `const { soloHorasFacturables, sinRegresoEmergencia } = require("../../utils/horasFacturables");`
 (ojo la profundidad según la carpeta del controller).
