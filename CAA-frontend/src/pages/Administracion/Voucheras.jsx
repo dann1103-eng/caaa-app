@@ -186,7 +186,9 @@ export default function Voucheras() {
                   <td>
                     {v.es_inasistencia
                       ? <span className="adf-tag amber">inasistencia</span>
-                      : <span className="adf-tag">{v.reporte_estado || "—"}</span>}
+                      : v.regreso_emergencia
+                        ? <span className="adf-tag red">regreso por emergencia</span>
+                        : <span className="adf-tag">{v.reporte_estado || "—"}</span>}
                   </td>
                   <td style={{ textAlign: "right" }}>
                     <button className="adf-icon-btn" title="Ver vouchera" onClick={() => setVerVuelo(v.id_vuelo)}>
