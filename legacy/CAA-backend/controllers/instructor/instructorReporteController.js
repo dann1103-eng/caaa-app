@@ -213,6 +213,14 @@ exports.firmarReporteVuelo = async (req, res) => {
     // un simulador marcado como emergencia debe leer este mensaje y no el genérico
     // "ingresá las horas a cobrar de la sesión de simulador".
     if (esEmergencia) {
+      // Mutuamente excluyentes: o el alumno no llegó (inasistencia, TAC en NULL
+      // porque el avión nunca se movió), o el avión salió y se regresó (emergencia,
+      // TAC lleno). Las dos juntas dan una fila contradictoria, y como este bloque
+      // corre primero, un `regreso_emergencia` viejo pegado a una inasistencia
+      // devolvía el desconcertante "Elegí el motivo del regreso por emergencia".
+      if (esInasistencia) {
+        return res.status(400).json({ message: "Un vuelo no puede ser inasistencia y regreso por emergencia a la vez." });
+      }
       if (esSimulador) {
         return res.status(400).json({ message: "El regreso por emergencia solo aplica a aeronaves reales, no a simuladores." });
       }
@@ -267,15 +275,23 @@ exports.firmarReporteVuelo = async (req, res) => {
       // y ni el cobro ni actualizarHorasAeronave son idempotentes, así que una segunda
       // llamada cobraba dos veces y le sumaba al avión las horas otra vez.
       //
-      // Se lockea la fila de VUELO, no la de reporte_vuelo: FOR UPDATE no bloquea
-      // filas que NO existen, y la del reporte puede no existir todavía —
-      // handleFirmarInstructor (ReporteVueloModal) firma sin pasar por "Guardar
-      // borrador", que es un botón aparte. Lockeando reporte_vuelo, dos requests
-      // concurrentes leerían ambas 0 filas, ambas pasarían el guard y ambas cobrarían
-      // (la segunda se frena en el ON CONFLICT, pero al despertar sigue de largo). El
-      // vuelo siempre existe, así que lockearlo serializa de verdad el doble-click y
-      // recién ahí tiene sentido leer el estado del reporte.
-      await client.query(`SELECT id_vuelo FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`, [id]);
+      // No alcanza con un FOR UPDATE sobre reporte_vuelo: esa fila puede NO existir
+      // todavía (handleFirmarInstructor, en ReporteVueloModal, firma sin pasar por
+      // "Guardar borrador", que es un botón aparte) y FOR UPDATE no bloquea filas
+      // inexistentes — dos requests concurrentes leerían ambas 0 filas, ambas
+      // pasarían el guard y ambas cobrarían.
+      //
+      // Tampoco se lockea la fila de `vuelo`: eso invertiría el orden de locks
+      // respecto de turnoMantenimientoController.iniciarMantenimientoImprevisto, que
+      // toma aeronave (FOR UPDATE) y después actualiza vuelo, mientras que acá el
+      // orden natural es aeronave (dentro de actualizarHorasAeronave) → vuelo. Orden
+      // inverso sobre el mismo par = deadlock (40P01), y justo en el caso de uso de
+      // esta feature: el avión vuelve por falla mecánica, el instructor cierra el
+      // vuelo y Turno lo manda a mantenimiento al mismo tiempo.
+      //
+      // El advisory lock serializa por id_vuelo sin entrar en el grafo de locks de
+      // vuelo/aeronave, y se libera solo al terminar la transacción.
+      await client.query(`SELECT pg_advisory_xact_lock(4711, $1::int)`, [id]);
       const yaFirmado = await client.query(
         `SELECT estado FROM reporte_vuelo WHERE id_vuelo = $1`, [id]
       );
