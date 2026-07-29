@@ -32,7 +32,7 @@ import ReservarSalonModal from "../../components/ReservarSalonModal/ReservarSalo
 import { getCalendarioAdmin, getAeronavesActivasAdmin, getBloquesHorario } from "../../services/adminApi";
 import {
   getSesiones, getAulaCursos, crearSesion, cancelarSesionClase, reasignarSalonSesion,
-  getSalones, getInstructoresTeoria,
+  getSalones, getInstructoresTeoria, getReservasSalon, eliminarReservaSalon,
 } from "../../services/administracionApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
@@ -440,6 +440,7 @@ export default function TurnoDashboard() {
   const [modalReservaAbierto, setModalReservaAbierto] = useState(false);
   const [reasignando, setReasignando] = useState(null); // id_sesion en edición de salón
   const [bloquesCatalogo, setBloquesCatalogo] = useState([]);
+  const [reservasHoy, setReservasHoy] = useState([]);
 
   const handleAbrirAgendar = async () => {
     setAbriendoAgendar(true);
@@ -511,14 +512,16 @@ export default function TurnoDashboard() {
   const cargarTeoria = useCallback(async () => {
     try {
       const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/El_Salvador" });
-      const [ses, ins, cur, sal, blq] = await Promise.all([
+      const [ses, ins, cur, sal, blq, res] = await Promise.all([
         getSesiones({}), getInstructoresTeoria(), getAulaCursos(), getSalones(), getBloquesHorario(),
+        getReservasSalon(hoy),
       ]);
       setSesionesTeoria((ses?.data || []).filter((s) => s.fecha?.slice(0, 10) === hoy));
       setInstructoresTeoria(ins?.data || []);
       setCursosTeoria(cur?.data || []);
       setSalonesCatalogo(sal?.data || []);
       setBloquesCatalogo(Array.isArray(blq) ? blq : []);
+      setReservasHoy(res?.data || []);
     } catch { /* silencioso */ }
   }, []);
 
@@ -839,6 +842,29 @@ export default function TurnoDashboard() {
               )}
             </div>
           ))}
+
+          {reservasHoy.length > 0 && (
+            <>
+              <div className="turno__fila-teoria turno__fila-teoria--titulo">
+                <span>Reservas de salón (uso especial)</span>
+              </div>
+              {reservasHoy.map((r) => (
+                <div key={r.id} className="turno__fila-teoria">
+                  <span>{r.salon_nombre} — {r.motivo}{r.descripcion ? ` (${r.descripcion})` : ""}</span>
+                  <span className="turno__fila-estado">
+                    {bloquesCatalogo.find((b) => b.id_bloque === r.id_bloque)?.hora_inicio?.slice(0, 5) || ""}
+                    {r.id_bloque_fin ? `–${bloquesCatalogo.find((b) => b.id_bloque === r.id_bloque_fin)?.hora_fin?.slice(0, 5) || ""}` : ""}
+                  </span>
+                  <button onClick={async () => {
+                    try { await eliminarReservaSalon(r.id); toast.success("Reserva cancelada"); cargarTeoria(); }
+                    catch (e) { toast.error(e?.response?.data?.message || "Error al cancelar la reserva"); }
+                  }}>
+                    Cancelar reserva
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         {/* ── Contenido ─────────────────────────────────────────────── */}
