@@ -109,6 +109,13 @@ export default function Header() {
                     </Link>
                   )}
 
+                  {user.rol === "INSTRUCTOR" && user.es_instructor_teoria !== false && (
+                    <Link to="/instructor/agenda-teoria" className="header__action-link" onClick={closeMenu}>
+                      <i className="bi bi-calendar-event header__action-icon" />
+                      <span>Agenda de teoría</span>
+                    </Link>
+                  )}
+
                   {user.rol === "ALUMNO" && (
                     <Link to="/alumno/loadsheet/practica" className="header__action-link" onClick={closeMenu}>
                       <i className="bi bi-clipboard-data header__action-icon" />
