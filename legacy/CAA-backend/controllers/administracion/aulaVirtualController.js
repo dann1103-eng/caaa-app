@@ -135,12 +135,18 @@ exports.listSesiones = async (req, res) => {
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     const r = await db.query(`
       SELECT s.id, s.id_curso, s.id_unidad, s.fecha, s.hora_inicio, s.hora_fin, s.tema, s.id_instructor,
+             s.id_bloque, s.id_bloque_fin, s.id_salon, s.examen, s.estado, s.iniciada_en, s.cerrada_en,
              c.codigo AS curso_codigo, u.numero AS unidad_numero, u.nombre AS unidad_nombre,
+             sal.nombre AS salon_nombre,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre,
              (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id) AS total,
              (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id AND a.estado='PRESENTE') AS presentes
       FROM sesion_clase s
       JOIN curso c ON c.id = s.id_curso
       LEFT JOIN unidad_teorica u ON u.id = s.id_unidad
+      LEFT JOIN salon sal ON sal.id = s.id_salon
+      LEFT JOIN instructor i ON i.id_instructor = s.id_instructor
+      LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
       ${where}
       ORDER BY s.fecha DESC, s.hora_inicio DESC NULLS LAST, s.id DESC
     `, params);
