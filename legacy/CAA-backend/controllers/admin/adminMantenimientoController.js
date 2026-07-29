@@ -57,7 +57,7 @@ exports.iniciarMantenimiento = catchAsync(async (req, res) => {
     // antes esto NO pasaba acá (sí en el mantenimiento imprevisto de Turno),
     // así que un vuelo quedaba "programado" y seguía en Proyección aunque el
     // avión ya no pudiera volar.
-    const idsCancelados = await cancelarVuelosAfectadosPorMantenimiento(client, {
+    const { idsCancelados, idsRestaurados } = await cancelarVuelosAfectadosPorMantenimiento(client, {
       id_mantenimiento,
       motivo: `${aeronaveRes.rows[0].codigo} en mantenimiento (${tipo})${descripcion ? `: ${descripcion}` : ""}`,
       actorUid: req.user?.id_usuario,
@@ -67,7 +67,7 @@ exports.iniciarMantenimiento = catchAsync(async (req, res) => {
     await logAuditoria(client, { accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req, descripcion: `Programado mantenimiento ${tipo} para aeronave ${aeronaveRes.rows[0].codigo}. ${idsCancelados.length} vuelo(s) cancelado(s).` });
 
     await client.query("COMMIT");
-    res.json({ message: "Mantenimiento registrado", id_mantenimiento, vuelos_cancelados: idsCancelados.length });
+    res.json({ message: "Mantenimiento registrado", id_mantenimiento, vuelos_cancelados: idsCancelados.length, vuelos_restaurados: idsRestaurados.length });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -201,7 +201,7 @@ exports.agregarBloquesMantenimiento = catchAsync(async (req, res) => {
     // agregados), así también cancela vuelos que hubieran quedado
     // pendientes de una extensión previa.
     const codigoRes = await client.query(`SELECT codigo FROM aeronave WHERE id_aeronave = $1`, [id]);
-    const idsCancelados = await cancelarVuelosAfectadosPorMantenimiento(client, {
+    const { idsCancelados, idsRestaurados } = await cancelarVuelosAfectadosPorMantenimiento(client, {
       id_mantenimiento,
       motivo: `${codigoRes.rows[0]?.codigo || ""} en mantenimiento — bloques agregados`,
       actorUid: req.user?.id_usuario,
@@ -213,7 +213,7 @@ exports.agregarBloquesMantenimiento = catchAsync(async (req, res) => {
       descripcion: `Agregados ${bloques.length} bloque(s) al mantenimiento ${id_mantenimiento}. ${idsCancelados.length} vuelo(s) cancelado(s).`,
     });
     await client.query("COMMIT");
-    res.json({ message: "Bloques agregados", vuelos_cancelados: idsCancelados.length });
+    res.json({ message: "Bloques agregados", vuelos_cancelados: idsCancelados.length, vuelos_restaurados: idsRestaurados.length });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -245,7 +245,7 @@ exports.reconciliarCancelaciones = catchAsync(async (req, res) => {
     }
     const mant = mantRes.rows[0];
 
-    const idsCancelados = await cancelarVuelosAfectadosPorMantenimiento(client, {
+    const { idsCancelados, idsRestaurados } = await cancelarVuelosAfectadosPorMantenimiento(client, {
       id_mantenimiento: mant.id_mantenimiento,
       motivo: `${mant.codigo} en mantenimiento (${mant.tipo})${mant.descripcion ? `: ${mant.descripcion}` : ""}`,
       actorUid: req.user?.id_usuario,
@@ -254,10 +254,10 @@ exports.reconciliarCancelaciones = catchAsync(async (req, res) => {
 
     await logAuditoria(client, {
       accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req,
-      descripcion: `Reconciliación de mantenimiento ${mant.id_mantenimiento} de ${mant.codigo}: ${idsCancelados.length} vuelo(s) cancelado(s).`,
+      descripcion: `Reconciliación de mantenimiento ${mant.id_mantenimiento} de ${mant.codigo}: ${idsCancelados.length} vuelo(s) cancelado(s), ${idsRestaurados.length} restaurado(s).`,
     });
     await client.query("COMMIT");
-    res.json({ message: "Reconciliado", vuelos_cancelados: idsCancelados.length, ids_vuelos: idsCancelados });
+    res.json({ message: "Reconciliado", vuelos_cancelados: idsCancelados.length, vuelos_restaurados: idsRestaurados.length, ids_cancelados: idsCancelados, ids_restaurados: idsRestaurados });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
