@@ -890,3 +890,69 @@ exports.listInstructoresTeoria = async (req, res) => {
     res.status(500).json({ ok: false, message: e.message });
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────
+// RESERVA DE SALÓN (uso especial, sin sesión de clase)
+// ─────────────────────────────────────────────────────────────────────
+
+const MOTIVOS_SALON = ["REUNION", "EVENTO", "ADMINISTRATIVO", "OTRO"];
+
+exports.listReservasSalon = async (req, res) => {
+  try {
+    const { fecha } = req.query;
+    const params = [];
+    let where = "";
+    if (fecha) { params.push(fecha); where = "WHERE rs.fecha = $1"; }
+    const r = await db.query(`
+      SELECT rs.id, rs.id_salon, s.nombre AS salon_nombre, rs.fecha, rs.id_bloque, rs.id_bloque_fin,
+             rs.motivo, rs.descripcion
+        FROM reserva_salon rs
+        JOIN salon s ON s.id = rs.id_salon
+        ${where}
+       ORDER BY rs.fecha, rs.id_bloque
+    `, params);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.crearReservaSalon = async (req, res) => {
+  try {
+    const { id_salon, fecha, id_bloque, id_bloque_fin, motivo, descripcion } = req.body;
+    if (!id_salon || !fecha || !id_bloque) {
+      return res.status(400).json({ ok: false, message: "id_salon, fecha e id_bloque son requeridos" });
+    }
+    const motivoFinal = MOTIVOS_SALON.includes(motivo) ? motivo : "OTRO";
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await choqueSalon(client, { id_salon, fecha, id_bloque, id_bloque_fin });
+      const ins = await client.query(`
+        INSERT INTO reserva_salon (id_salon, fecha, id_bloque, id_bloque_fin, motivo, descripcion, creado_por)
+        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id
+      `, [id_salon, fecha, id_bloque, id_bloque_fin || null, motivoFinal, descripcion || null, req.user?.id_usuario || null]);
+      await client.query("COMMIT");
+      res.json({ ok: true, id: ins.rows[0].id });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      if (e.code === "CHOQUE_SALON") return res.status(409).json({ ok: false, message: e.message });
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.eliminarReservaSalon = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await db.query(`DELETE FROM reserva_salon WHERE id = $1 RETURNING id`, [id]);
+    if (r.rows.length === 0) return res.status(404).json({ ok: false, message: "Reserva no encontrada" });
+    res.json({ ok: true, message: "Reserva eliminada" });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
