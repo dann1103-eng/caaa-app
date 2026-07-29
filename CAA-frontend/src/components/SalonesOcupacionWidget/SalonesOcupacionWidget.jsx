@@ -40,7 +40,8 @@ export default function SalonesOcupacionWidget() {
                 <span className="pw__card-aeronave">{s.nombre}</span>
                 {s.estado === "EN_SESION" && <span className="pw__tag pw__tag--rojo">EN SESIÓN</span>}
                 {s.estado === "RESERVADO" && <span className="pw__tag pw__tag--naranja">Reservado</span>}
-                {s.estado === "PROXIMA" && <span className="pw__tag pw__tag--azul">Próxima</span>}
+                {s.estado === "PROXIMA" && s.tipo === "RESERVA" && <span className="pw__tag pw__tag--naranja">Próxima reserva</span>}
+                {s.estado === "PROXIMA" && s.tipo !== "RESERVA" && <span className="pw__tag pw__tag--azul">Próxima</span>}
                 {s.estado === "LIBRE" && <span className="pw__tag pw__tag--verde">Libre</span>}
               </div>
               {s.estado === "EN_SESION" && (
@@ -49,7 +50,10 @@ export default function SalonesOcupacionWidget() {
               {s.estado === "RESERVADO" && (
                 <div className="pw__card-sub">{s.motivo}{s.descripcion ? ` — ${s.descripcion}` : ""}</div>
               )}
-              {s.estado === "PROXIMA" && (
+              {s.estado === "PROXIMA" && s.tipo === "RESERVA" && (
+                <div className="pw__card-sub">{s.hora?.slice(0,5)} · {s.motivo}{s.descripcion ? ` — ${s.descripcion}` : ""}</div>
+              )}
+              {s.estado === "PROXIMA" && s.tipo !== "RESERVA" && (
                 <div className="pw__card-sub">{s.hora?.slice(0,5)} · {s.instructor} · {s.curso}</div>
               )}
             </div>

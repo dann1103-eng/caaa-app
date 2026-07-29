@@ -5,12 +5,14 @@ import AgendarClaseModal from "../../components/AgendarClaseModal/AgendarClaseMo
 import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import {
   getSesiones, crearSesion, cancelarSesionClase, iniciarSesionClase, cerrarSesionClase,
+  getAsistencia, registrarAsistencia,
 } from "../../services/administracionApi";
 import { getBloquesHorario } from "../../services/programacionApi";
 import { getAulaCursos } from "../../services/administracionApi";
 import "./AgendaTeorica.css";
 
 const hoySV = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/El_Salvador" });
+const ESTADOS_ASIST = ["PRESENTE", "AUSENTE", "TARDE", "JUSTIFICADO"];
 
 export default function AgendaTeorica() {
   const [fecha, setFecha] = useState(hoySV());
@@ -20,6 +22,7 @@ export default function AgendaTeorica() {
   const [modalAbierto, setModalAbierto] = useState(false);
   const [sesionEditar, setSesionEditar] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [asistencia, setAsistencia] = useState(null); // { sesion, lista }
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -51,6 +54,27 @@ export default function AgendaTeorica() {
     }
   };
 
+  const abrirAsistencia = async (s) => {
+    try {
+      const r = await getAsistencia(s.id);
+      setAsistencia({ sesion: s, lista: r?.data || [] });
+    } catch {
+      toast.error("Error al cargar la asistencia");
+    }
+  };
+
+  const marcarAsist = async (a, estado) => {
+    try {
+      await registrarAsistencia(asistencia.sesion.id, { id_alumno: a.id_alumno, estado, observacion: a.observacion });
+      setAsistencia((prev) => ({
+        ...prev,
+        lista: prev.lista.map((x) => (x.id_alumno === a.id_alumno ? { ...x, estado } : x)),
+      }));
+    } catch {
+      toast.error("Error al marcar asistencia");
+    }
+  };
+
   return (
     <>
       <Header />
@@ -67,6 +91,38 @@ export default function AgendaTeorica() {
 
         <SalonesOcupacionWidget />
 
+        {asistencia && (
+          <div className="agt__asistencia">
+            <button className="agt__asistencia-volver" onClick={() => setAsistencia(null)}>
+              <i className="bi bi-arrow-left"></i> Volver a la agenda
+            </button>
+            <h3>
+              {asistencia.sesion.curso_codigo}
+              {asistencia.sesion.tema ? ` · ${asistencia.sesion.tema}` : ""}
+            </h3>
+            {asistencia.lista.length === 0 ? (
+              <p className="agt__vacio">No hay alumnos inscritos en esta clase.</p>
+            ) : (
+              asistencia.lista.map((a) => (
+                <div key={a.id_alumno} className="agt__asistencia-fila">
+                  <span>{a.alumno_username}</span>
+                  <div className="agt__asistencia-botones">
+                    {ESTADOS_ASIST.map((es) => (
+                      <button
+                        key={es}
+                        className={`agt__asistencia-btn${a.estado === es ? ` agt__asistencia-btn--${es.toLowerCase()}` : ""}`}
+                        onClick={() => marcarAsist(a, es)}
+                      >
+                        {es[0]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         <div className="agt__lista">
           {loading ? <p>Cargando…</p> : sesiones.length === 0 ? (
             <p className="agt__vacio">Sin clases agendadas ese día.</p>
@@ -77,6 +133,9 @@ export default function AgendaTeorica() {
                 <span className="agt__card-estado">{s.estado}</span>
               </div>
               <div className="agt__card-acciones">
+                {(s.estado === "PROGRAMADA" || s.estado === "EN_CURSO") && (
+                  <button onClick={() => abrirAsistencia(s)}>Pasar lista</button>
+                )}
                 {s.estado === "PROGRAMADA" && (
                   <>
                     <button onClick={() => accion(cancelarSesionClase, s.id, "Clase cancelada")}>Cancelar</button>

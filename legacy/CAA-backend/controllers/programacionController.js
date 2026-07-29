@@ -1091,7 +1091,8 @@ exports.getSalonesOcupacion = async (req, res) => {
       SELECT s.id, s.nombre,
              en_curso.curso_codigo AS ec_curso, en_curso.unidad_nombre AS ec_unidad, en_curso.instructor_nombre AS ec_instructor,
              reserva.motivo AS rs_motivo, reserva.descripcion AS rs_descripcion,
-             proxima.hora_inicio AS px_hora, proxima.curso_codigo AS px_curso, proxima.unidad_nombre AS px_unidad, proxima.instructor_nombre AS px_instructor
+             proxima.tipo AS px_tipo, proxima.hora_inicio AS px_hora, proxima.titulo AS px_titulo,
+             proxima.detalle AS px_detalle, proxima.instructor_nombre AS px_instructor
         FROM salon s
         LEFT JOIN LATERAL (
           SELECT c.codigo AS curso_codigo, u.nombre AS unidad_nombre,
@@ -1114,17 +1115,28 @@ exports.getSalonesOcupacion = async (req, res) => {
            LIMIT 1
         ) reserva ON true
         LEFT JOIN LATERAL (
-          SELECT bh.hora_inicio, c.codigo AS curso_codigo, u.nombre AS unidad_nombre,
-                 TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
-            FROM sesion_clase sc
-            JOIN bloque_horario bh ON bh.id_bloque = sc.id_bloque
-            JOIN curso c ON c.id = sc.id_curso
-            LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
-            LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
-            LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
-           WHERE sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado = 'PROGRAMADA'
-             AND bh.hora_inicio > (NOW() AT TIME ZONE 'America/El_Salvador')::time
-           ORDER BY bh.hora_inicio LIMIT 1
+          -- Lo próximo que viene en este salón hoy, sea clase o reserva de uso
+          -- especial — lo que empiece primero después de ahora.
+          SELECT tipo, hora_inicio, titulo, detalle, instructor_nombre FROM (
+            SELECT 'CLASE'::text AS tipo, bh.hora_inicio, c.codigo AS titulo, u.nombre AS detalle,
+                   TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
+              FROM sesion_clase sc
+              JOIN bloque_horario bh ON bh.id_bloque = sc.id_bloque
+              JOIN curso c ON c.id = sc.id_curso
+              LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+              LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+              LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+             WHERE sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado = 'PROGRAMADA'
+               AND bh.hora_inicio > (NOW() AT TIME ZONE 'America/El_Salvador')::time
+            UNION ALL
+            SELECT 'RESERVA'::text AS tipo, bh2.hora_inicio, rs3.motivo AS titulo, rs3.descripcion AS detalle,
+                   NULL AS instructor_nombre
+              FROM reserva_salon rs3
+              JOIN bloque_horario bh2 ON bh2.id_bloque = rs3.id_bloque
+             WHERE rs3.id_salon = s.id AND rs3.fecha = $1
+               AND bh2.hora_inicio > (NOW() AT TIME ZONE 'America/El_Salvador')::time
+          ) combinado
+          ORDER BY hora_inicio LIMIT 1
         ) proxima ON true
        WHERE s.activo = true
        ORDER BY s.id
@@ -1137,8 +1149,11 @@ exports.getSalonesOcupacion = async (req, res) => {
       if (row.rs_motivo) {
         return { id: row.id, nombre: row.nombre, estado: "RESERVADO", motivo: row.rs_motivo, descripcion: row.rs_descripcion };
       }
-      if (row.px_curso) {
-        return { id: row.id, nombre: row.nombre, estado: "PROXIMA", hora: row.px_hora, instructor: row.px_instructor, curso: row.px_curso, unidad: row.px_unidad };
+      if (row.px_tipo === "CLASE") {
+        return { id: row.id, nombre: row.nombre, estado: "PROXIMA", tipo: "CLASE", hora: row.px_hora, instructor: row.px_instructor, curso: row.px_titulo, unidad: row.px_detalle };
+      }
+      if (row.px_tipo === "RESERVA") {
+        return { id: row.id, nombre: row.nombre, estado: "PROXIMA", tipo: "RESERVA", hora: row.px_hora, motivo: row.px_titulo, descripcion: row.px_detalle };
       }
       return { id: row.id, nombre: row.nombre, estado: "LIBRE" };
     });
