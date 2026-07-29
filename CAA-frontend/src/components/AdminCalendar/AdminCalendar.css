@@ -147,6 +147,15 @@
   color: var(--c-brand-700);
 }
 
+/* Aprobado/agendado: ya tiene lugar confirmado en el calendario (no es un
+   BORRADOR/EN_REVISION del alumno todavía sin resolver). Verde distinto del
+   de "completado" (más saturado) para no confundir "ya volado" con "ya agendado". */
+.flight-card.agendado {
+  background: var(--c-success-100);
+  border-left: 3px solid var(--c-success-700);
+  color: var(--c-success-700);
+}
+
 .flight-card.progreso {
   background: var(--c-warn-50);
   border-left: 3px solid var(--c-warn-700);
@@ -203,6 +212,52 @@
   font-family: var(--font-mono);
 }
 
+/* Resumen de horas solicitadas por ESE alumno en toda la semana — el detalle
+   día/bloque de cada una de sus solicitudes va en el title (tooltip). */
+.flight-horas-semana {
+  font-size: 0.6rem;
+  opacity: 0.75;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Buscador de alumno ── */
+.cal-buscador {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-2);
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
+  color: var(--c-ink-3);
+}
+
+.cal-buscador input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-sm);
+  color: var(--c-ink-1);
+}
+
+.cal-buscador__clear {
+  border: none;
+  background: transparent;
+  color: var(--c-ink-3);
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.cal-buscador__clear:hover {
+  color: var(--c-ink-1);
+}
+
 /* ── Legend ── */
 .calendar-legend {
   display: flex;
@@ -228,6 +283,7 @@
 }
 
 .dot.programado { background: var(--c-brand-700); }
+.dot.agendado { background: var(--c-success-700); }
 .dot.progreso { background: var(--c-warn-700); }
 .dot.completado { background: var(--c-success-500); }
 .dot.lunch {
@@ -377,6 +433,7 @@
 }
 
 .pop-status-badge.programado { background: var(--c-brand-50); color: var(--c-brand-700); }
+.pop-status-badge.agendado { background: var(--c-success-100); color: var(--c-success-700); }
 .pop-status-badge.progreso { background: var(--c-warn-50); color: var(--c-warn-700); }
 .pop-status-badge.completado { background: var(--c-success-50); color: var(--c-success-700); }
 .pop-status-badge.cancelado { background: var(--c-surface-2); color: var(--c-ink-3); }

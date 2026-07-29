@@ -74,6 +74,7 @@ export default function AdminCalendar({
   rechazarLabel = "Rechazar Vuelo",
   reservas = [],             // reservas de uso especial (sin alumno) a pintar
   onEliminarReserva,         // (id) => Promise: eliminar una reserva
+  mostrarBuscador = false,   // barra de búsqueda para filtrar tarjetas por alumno
 }) {
   const isEditable = true; // El Admin siempre puede editar, incluso post-publicación
   const puedeEditarItem = (item) => (typeof canEditItem === "function" ? !!canEditItem(item) : true);
@@ -97,6 +98,7 @@ export default function AdminCalendar({
   const [tempBloqueFin, setTempBloqueFin] = useState("");
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileDayOffset, setMobileDayOffset] = useState(0);
+  const [busquedaAlumno, setBusquedaAlumno] = useState("");
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -141,6 +143,52 @@ export default function AdminCalendar({
 
   const isBloqueado = (dia_semana, id_bloque) =>
     safeBloqueos.some((x) => Number(x.dia_semana) === Number(dia_semana) && Number(x.id_bloque) === Number(id_bloque));
+
+  // ── Buscador: filtra las tarjetas por nombre de alumno (sin acentos) ──────
+  const normalizar = (s) => (s || "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const busquedaNorm = normalizar(busquedaAlumno.trim());
+  const matchesBusqueda = (item) => !busquedaNorm || normalizar(item.alumno_nombre).includes(busquedaNorm);
+  // Las reservas de uso especial (sin alumno) no se filtran: no son "de alumno".
+  const visibleItems = busquedaNorm ? safeItems.filter(matchesBusqueda) : safeItems;
+
+  // ── Horas solicitadas por alumno esta semana (para el resumen en cada tarjeta) ──
+  const bloqueDuracionHoras = (id_bloque) => {
+    const b = bloques.find((x) => Number(x.id_bloque) === Number(id_bloque));
+    if (!b?.hora_inicio || !b?.hora_fin) return 0;
+    const [h1, m1] = b.hora_inicio.split(":").map(Number);
+    const [h2, m2] = b.hora_fin.split(":").map(Number);
+    return (h2 * 60 + m2 - (h1 * 60 + m1)) / 60;
+  };
+
+  const resumenPorAlumno = useMemo(() => {
+    const map = {};
+    for (const item of safeItems) {
+      if (item.estado_vuelo === "CANCELADO" || !item.id_alumno) continue;
+      const start = Number(item.id_bloque);
+      const end = item.id_bloque_fin ? Number(item.id_bloque_fin) : start;
+      let horas = 0;
+      for (let b = start; b <= end; b++) horas += bloqueDuracionHoras(b);
+      if (!map[item.id_alumno]) map[item.id_alumno] = { horas: 0, detalle: [] };
+      map[item.id_alumno].horas += horas;
+      map[item.id_alumno].detalle.push({ id_detalle: item.id_detalle, dia_semana: item.dia_semana, id_bloque: start, id_bloque_fin: end, horas });
+    }
+    return map;
+  }, [safeItems, bloques]);
+
+  const formatDetalleDia = (d) => {
+    const bIni = bloques.find((b) => Number(b.id_bloque) === Number(d.id_bloque));
+    const bFin = bloques.find((b) => Number(b.id_bloque) === Number(d.id_bloque_fin));
+    const diaLabel = DIAS.find((x) => x.id === Number(d.dia_semana))?.label || "";
+    const horaIni = bIni ? formatHora(bIni.hora_inicio) : "";
+    const horaFin = bFin ? formatHora(bFin.hora_fin) : "";
+    return d.id_bloque_fin !== d.id_bloque ? `${diaLabel} ${horaIni}–${horaFin}` : `${diaLabel} ${horaIni}`;
+  };
+
+  const resumenTooltip = (item) => {
+    const r = resumenPorAlumno[item.id_alumno];
+    if (!r) return "";
+    return `Total solicitado esta semana: ${r.horas.toFixed(1)}h\n${r.detalle.map(formatDetalleDia).join("\n")}`;
+  };
 
   // ── Mapa de conflictos ────────────────────────────────────────────────────
   const conflictMap = useMemo(() => {
@@ -372,7 +420,11 @@ export default function AdminCalendar({
     }
     if (estado === "COMPLETADO") return "completado";
     if (estado === "CANCELADO") return "cancelado";
-    return "programado";
+    // Aprobado/agendado (verde): ya tiene un lugar confirmado en el calendario.
+    // Un BORRADOR/EN_REVISION del alumno (semana "next", todavía sin resolver)
+    // ya se distingue con el badge Borrador/Enviada, así que se queda en el
+    // azul "programado" de siempre para no competir visualmente con el badge.
+    return estadoSolicitudBadge(item) ? "programado" : "agendado";
   };
 
   const visibleDays = isMobile ? DIAS.slice(mobileDayOffset, mobileDayOffset + 3) : DIAS;
@@ -382,7 +434,7 @@ export default function AdminCalendar({
     let currentGridCol = 2; // Column 1 is Time
     return visibleDays.map((d, dIdx) => {
       const date = visibleDates[dIdx];
-      const itemsDelDia = safeItems.filter(i => Number(i.dia_semana) === Number(d.id) && i.estado_vuelo !== 'CANCELADO');
+      const itemsDelDia = visibleItems.filter(i => Number(i.dia_semana) === Number(d.id) && i.estado_vuelo !== 'CANCELADO');
       
       const locales = itemsDelDia.filter(i => {
         const type = (i.tipo_vuelo || i.tipo || '').toString().trim().toUpperCase();
@@ -400,7 +452,7 @@ export default function AdminCalendar({
       
       return { id: d.id, label: d.label, date, startCol, colsCount, numRutas, locales, rutas };
     });
-  }, [visibleDays, visibleDates, safeItems]);
+  }, [visibleDays, visibleDates, visibleItems]);
 
   const gridTemplateColumns = useMemo(() => {
     let cols = ['80px'];
@@ -415,7 +467,24 @@ export default function AdminCalendar({
 
   return (
     <div className={`admin-calendar-root ${selectedForMove ? 'mode-moving' : ''} ${isMobile ? 'is-mobile' : ''}`}>
-      
+
+      {mostrarBuscador && (
+        <div className="cal-buscador">
+          <i className="bi bi-search"></i>
+          <input
+            type="text"
+            placeholder="Buscar alumno para filtrar el calendario…"
+            value={busquedaAlumno}
+            onChange={(e) => setBusquedaAlumno(e.target.value)}
+          />
+          {busquedaAlumno && (
+            <button type="button" className="cal-buscador__clear" onClick={() => setBusquedaAlumno("")} aria-label="Limpiar búsqueda">
+              <i className="bi bi-x-lg"></i>
+            </button>
+          )}
+        </div>
+      )}
+
       {isMobile && (
         <div className="calendar-mobile-nav">
           <button 
@@ -660,6 +729,12 @@ export default function AdminCalendar({
                             {item.aeronave_codigo}
                             {item.instructor_nombre && ` • Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                           </div>
+                          {resumenPorAlumno[item.id_alumno] && (
+                            <div className="flight-horas-semana" title={resumenTooltip(item)}>
+                              <i className="bi bi-clock-history"></i> {resumenPorAlumno[item.id_alumno].horas.toFixed(1)}h sem.
+                              {resumenPorAlumno[item.id_alumno].detalle.length > 1 && ` (${resumenPorAlumno[item.id_alumno].detalle.length} vuelos)`}
+                            </div>
+                          )}
                           {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
                         </div>
                       </div>
@@ -763,6 +838,12 @@ export default function AdminCalendar({
                           {item.instructor_nombre && <br/>}
                           {item.instructor_nombre && `Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                         </div>
+                        {resumenPorAlumno[item.id_alumno] && (
+                          <div className="flight-horas-semana" title={resumenTooltip(item)}>
+                            <i className="bi bi-clock-history"></i> {resumenPorAlumno[item.id_alumno].horas.toFixed(1)}h sem.
+                            {resumenPorAlumno[item.id_alumno].detalle.length > 1 && ` (${resumenPorAlumno[item.id_alumno].detalle.length} vuelos)`}
+                          </div>
+                        )}
                         {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
                       </div>
 
@@ -777,7 +858,8 @@ export default function AdminCalendar({
 
 
       <div className="calendar-legend">
-        <div className="legend-item"><span className="dot programado"></span> Programado</div>
+        <div className="legend-item"><span className="dot programado"></span> Programado / Pendiente</div>
+        <div className="legend-item"><span className="dot agendado"></span> Aprobado</div>
         <div className="legend-item"><span className="dot progreso"></span> En progreso</div>
         <div className="legend-item"><span className="dot completado"></span> Completado</div>
         <div className="legend-item"><span className="dot lunch"></span> Almuerzo / Sin vuelos</div>

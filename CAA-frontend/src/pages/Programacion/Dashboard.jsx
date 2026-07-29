@@ -453,6 +453,7 @@ export default function ProgramacionDashboard({ embedded = false }) {
                 onEmptyCellClick={(cell) => setAgendarCell(cell)}
                 onGestionarEspera={(slot) => setEsperaSlot(slot)}
                 reservas={reservas}
+                mostrarBuscador
                 onEliminarReserva={async (id) => {
                   try { await eliminarReservaAeronave(id); toast.success("Reserva eliminada"); reload(); }
                   catch (e) { toast.error(e?.response?.data?.message || "Error al eliminar la reserva"); }
