@@ -2,7 +2,7 @@ const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
 const transporter = require("../../utils/mailer");
-const { sincronizarEstadoFlota } = require("../../utils/mantenimientoUtils");
+const { sincronizarEstadoFlota, cancelarVuelosAfectadosPorMantenimiento } = require("../../utils/mantenimientoUtils");
 
 exports.getMantenimientoAeronaves = catchAsync(async (req, res) => {
   const aeronavesRes = await db.query(`
@@ -52,10 +52,22 @@ exports.iniciarMantenimiento = catchAsync(async (req, res) => {
     // <= hoy). Un mantenimiento con fecha futura queda registrado pero el avión
     // sigue volable hasta que llegue su ventana (lo hace el job diario).
     await sincronizarEstadoFlota(client, Number(id));
-    await logAuditoria(client, { accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req, descripcion: `Programado mantenimiento ${tipo} para aeronave ${aeronaveRes.rows[0].codigo}` });
+
+    // Cancela los vuelos que caen en los bloques/ventana recién registrados —
+    // antes esto NO pasaba acá (sí en el mantenimiento imprevisto de Turno),
+    // así que un vuelo quedaba "programado" y seguía en Proyección aunque el
+    // avión ya no pudiera volar.
+    const idsCancelados = await cancelarVuelosAfectadosPorMantenimiento(client, {
+      id_mantenimiento,
+      motivo: `${aeronaveRes.rows[0].codigo} en mantenimiento (${tipo})${descripcion ? `: ${descripcion}` : ""}`,
+      actorUid: req.user?.id_usuario,
+      io: req.app.get("io"),
+    });
+
+    await logAuditoria(client, { accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req, descripcion: `Programado mantenimiento ${tipo} para aeronave ${aeronaveRes.rows[0].codigo}. ${idsCancelados.length} vuelo(s) cancelado(s).` });
 
     await client.query("COMMIT");
-    res.json({ message: "Mantenimiento registrado", id_mantenimiento });
+    res.json({ message: "Mantenimiento registrado", id_mantenimiento, vuelos_cancelados: idsCancelados.length });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;
@@ -183,12 +195,69 @@ exports.agregarBloquesMantenimiento = catchAsync(async (req, res) => {
     }
 
     await sincronizarEstadoFlota(client, Number(id));
+
+    // Mismos vuelos afectados que en iniciarMantenimiento: recalcula sobre
+    // TODOS los bloques/ventana del mantenimiento (no solo los recién
+    // agregados), así también cancela vuelos que hubieran quedado
+    // pendientes de una extensión previa.
+    const codigoRes = await client.query(`SELECT codigo FROM aeronave WHERE id_aeronave = $1`, [id]);
+    const idsCancelados = await cancelarVuelosAfectadosPorMantenimiento(client, {
+      id_mantenimiento,
+      motivo: `${codigoRes.rows[0]?.codigo || ""} en mantenimiento — bloques agregados`,
+      actorUid: req.user?.id_usuario,
+      io: req.app.get("io"),
+    });
+
     await logAuditoria(client, {
       accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req,
-      descripcion: `Agregados ${bloques.length} bloque(s) al mantenimiento ${id_mantenimiento}`,
+      descripcion: `Agregados ${bloques.length} bloque(s) al mantenimiento ${id_mantenimiento}. ${idsCancelados.length} vuelo(s) cancelado(s).`,
     });
     await client.query("COMMIT");
-    res.json({ message: "Bloques agregados" });
+    res.json({ message: "Bloques agregados", vuelos_cancelados: idsCancelados.length });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// Reconcilia cancelaciones de un mantenimiento YA registrado (EN_CURSO) que
+// se cargó antes de este fix, o por cualquier otra razón se quedó sin
+// cancelar sus vuelos afectados — recorre `mantenimiento_bloque`/ventana ya
+// guardados y aplica el mismo criterio de `iniciarMantenimiento`. Es
+// idempotente: si ya no hay vuelos pendientes que cancelar, no hace nada.
+exports.reconciliarCancelaciones = catchAsync(async (req, res) => {
+  const { id } = req.params; // id_aeronave
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const mantRes = await client.query(
+      `SELECT m.id_mantenimiento, m.tipo, m.descripcion, a.codigo
+         FROM mantenimiento_aeronave m JOIN aeronave a ON a.id_aeronave = m.id_aeronave
+        WHERE m.id_aeronave = $1 AND m.estado = 'EN_CURSO' AND m.completado = false
+        ORDER BY m.id_mantenimiento DESC LIMIT 1 FOR UPDATE OF m`,
+      [id]
+    );
+    if (mantRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Esa aeronave no tiene un mantenimiento en curso" });
+    }
+    const mant = mantRes.rows[0];
+
+    const idsCancelados = await cancelarVuelosAfectadosPorMantenimiento(client, {
+      id_mantenimiento: mant.id_mantenimiento,
+      motivo: `${mant.codigo} en mantenimiento (${mant.tipo})${mant.descripcion ? `: ${mant.descripcion}` : ""}`,
+      actorUid: req.user?.id_usuario,
+      io: req.app.get("io"),
+    });
+
+    await logAuditoria(client, {
+      accion: "OTRO", entidad: "aeronave", id_entidad: Number(id), actor: req.user, req,
+      descripcion: `Reconciliación de mantenimiento ${mant.id_mantenimiento} de ${mant.codigo}: ${idsCancelados.length} vuelo(s) cancelado(s).`,
+    });
+    await client.query("COMMIT");
+    res.json({ message: "Reconciliado", vuelos_cancelados: idsCancelados.length, ids_vuelos: idsCancelados });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { notificarUsuario } = require("./notificaciones");
 
 // Un mantenimiento "cubre" una fecha si no está completado ni cancelado y esa
 // fecha cae dentro de su ventana [fecha_inicio, fecha_fin]. fecha_fin NULL =
@@ -71,4 +72,68 @@ function soloFecha(v) {
   return (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10);
 }
 
-module.exports = { sincronizarEstadoFlota, mantenimientoCubreFechaSQL, soloFecha };
+/**
+ * Cancela los vuelos afectados por un mantenimiento ya registrado (id
+ * `id_mantenimiento`): los que caen en alguno de sus `mantenimiento_bloque`
+ * (fecha exacta + bloque) o, si tiene `fecha_fin`, cualquier vuelo dentro de
+ * toda su ventana [fecha_inicio, fecha_fin] (día completo cerrado). No recibe
+ * bloques/fechas por parámetro — los lee de lo que ya está guardado, así
+ * sirve tanto para el modelo de Turno (bloques de HOY + ventana futura) como
+ * el de Admin (bloques en fechas arbitrarias) sin duplicar la lógica, y
+ * también para **reconciliar** un mantenimiento que ya quedó registrado sin
+ * haber cancelado nada (el bug que esta función corrige: antes
+ * `adminMantenimientoController.iniciarMantenimiento` solo apagaba
+ * `aeronave.activa` y nunca tocaba `vuelo` — las horas seguían "programadas"
+ * y seguían apareciendo en Proyección aunque el avión ya no pudiera volar).
+ *
+ * @returns {number[]} ids de los vuelos cancelados
+ */
+async function cancelarVuelosAfectadosPorMantenimiento(client, { id_mantenimiento, motivo, actorUid = null, io = null }) {
+  const cancelRes = await client.query(
+    `WITH m AS (
+       SELECT id_aeronave, fecha_inicio::date AS fecha_inicio, fecha_fin::date AS fecha_fin
+         FROM mantenimiento_aeronave WHERE id_mantenimiento = $1
+     )
+     UPDATE vuelo v
+        SET estado = 'CANCELADO', justificacion_cancelacion = $2,
+            tipo_cancelacion = 'NORMAL', fecha_cancelacion = NOW()
+       FROM m
+      WHERE v.id_aeronave = m.id_aeronave
+        AND v.estado IN ('PUBLICADO','SOLICITADO','AJUSTADO','PROGRAMADO')
+        AND (
+          EXISTS (
+            SELECT 1 FROM mantenimiento_bloque mb
+             WHERE mb.id_mantenimiento = $1 AND mb.fecha = v.fecha_vuelo
+               AND mb.id_bloque BETWEEN v.id_bloque AND COALESCE(v.id_bloque_fin, v.id_bloque)
+          )
+          OR (m.fecha_fin IS NOT NULL AND v.fecha_vuelo BETWEEN m.fecha_inicio AND m.fecha_fin)
+        )
+      RETURNING v.id_vuelo`,
+    [id_mantenimiento, motivo]
+  );
+  const idsCancelados = cancelRes.rows.map((r) => r.id_vuelo);
+  if (idsCancelados.length === 0) return [];
+
+  const detRes = await client.query(
+    `SELECT v.id_vuelo, ua.id_usuario AS alumno_uid, ui.id_usuario AS instructor_uid
+       FROM vuelo v
+       JOIN alumno al ON al.id_alumno = v.id_alumno
+       JOIN usuario ua ON ua.id_usuario = al.id_usuario
+       JOIN instructor i ON i.id_instructor = v.id_instructor
+       JOIN usuario ui ON ui.id_usuario = i.id_usuario
+      WHERE v.id_vuelo = ANY($1)`,
+    [idsCancelados]
+  );
+  for (const t of detRes.rows) {
+    await client.query(
+      `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por) VALUES ($1, 'CANCELADO', $2)`,
+      [t.id_vuelo, actorUid]
+    );
+    await notificarUsuario(client, t.alumno_uid, { tipo: "VUELO", mensaje: motivo, enlace: "/perfil" });
+    await notificarUsuario(client, t.instructor_uid, { tipo: "VUELO", mensaje: motivo, enlace: "/perfil" });
+    if (io) io.emit("vuelo_estado_changed", { id_vuelo: t.id_vuelo, estado: "CANCELADO" });
+  }
+  return idsCancelados;
+}
+
+module.exports = { sincronizarEstadoFlota, mantenimientoCubreFechaSQL, soloFecha, cancelarVuelosAfectadosPorMantenimiento };
