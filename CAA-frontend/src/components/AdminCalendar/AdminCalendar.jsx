@@ -921,6 +921,8 @@ export default function AdminCalendar({
               setSelectedForMove={setSelectedForMove}
               onRefresh={onRefresh}
               getEstadoClass={getEstadoClass}
+              resumenPorAlumno={resumenPorAlumno}
+              formatDetalleDia={formatDetalleDia}
             />
           </div>
         </>
@@ -953,7 +955,9 @@ function PopoverContent({
   setDragging,
   setSelectedForMove,
   onRefresh,
-  getEstadoClass
+  getEstadoClass,
+  resumenPorAlumno,
+  formatDetalleDia
 }) {
   // Remarks del instructor sobre este vuelo. El popover se monta al abrirse,
   // así que el estado arranca con el valor actual del item.
@@ -1017,6 +1021,28 @@ function PopoverContent({
             <span><strong>Nota del alumno:</strong> {activePopover.item.comentario_alumno}</span>
           </div>
         )}
+
+        {/* Detalle de las OTRAS solicitudes de este mismo alumno esta semana
+            (día y hora) — para detectar de un vistazo si está pidiendo
+            demasiados vuelos o si se encima con algo que ya tiene. */}
+        {(() => {
+          const r = resumenPorAlumno?.[activePopover.item.id_alumno];
+          const otras = (r?.detalle || []).filter((d) => d.id_detalle !== activePopover.item.id_detalle);
+          if (otras.length === 0) return null;
+          return (
+            <div className="pop-alert" style={{ background: 'var(--c-surface-1, #f8fafc)', color: 'var(--c-ink-2, #334155)', border: '1px solid var(--c-line-1, #e2e8f0)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <i className="bi bi-calendar2-week" style={{ color: 'var(--c-ink-3, #64748b)', marginTop: 2 }}></i>
+              <div>
+                <strong>Otras solicitudes de {activePopover.item.alumno_nombre?.split(" ")[0]} esta semana ({otras.length}):</strong>
+                <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                  {otras.map((d, i) => (
+                    <li key={i} style={{ fontSize: '0.8rem' }}>{formatDetalleDia(d)}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Remarks del instructor: el instructor los edita en SU calendario de
             solicitudes; programación/admin los ven en solo-lectura. */}
