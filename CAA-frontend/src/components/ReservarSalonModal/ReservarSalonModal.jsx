@@ -17,6 +17,7 @@ export default function ReservarSalonModal({ salones = [], bloques = [], onClose
   const [idBloqueFin, setIdBloqueFin] = useState("");
   const [motivo, setMotivo] = useState("REUNION");
   const [descripcion, setDescripcion] = useState("");
+  const [notificar, setNotificar] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleGuardar = async () => {
@@ -26,6 +27,7 @@ export default function ReservarSalonModal({ salones = [], bloques = [], onClose
         id_salon: Number(idSalon), fecha, id_bloque: Number(idBloque),
         id_bloque_fin: idBloqueFin ? Number(idBloqueFin) : null,
         motivo, descripcion: descripcion || null,
+        notificar: notificar || null,
       });
       toast.success("Salón reservado");
       onSaved?.();
@@ -84,6 +86,16 @@ export default function ReservarSalonModal({ salones = [], bloques = [], onClose
         <label className="rsm-field">
           <span>Descripción (opcional)</span>
           <input type="text" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+        </label>
+
+        <label className="rsm-field">
+          <span>Notificar a los interesados</span>
+          <select value={notificar} onChange={(e) => setNotificar(e.target.value)}>
+            <option value="">No enviar notificación</option>
+            <option value="INSTRUCTOR">A los instructores</option>
+            <option value="STAFF">A todo el personal</option>
+            <option value="TODOS">A todos (personal y alumnos)</option>
+          </select>
         </label>
 
         <div className="rsm-footer">

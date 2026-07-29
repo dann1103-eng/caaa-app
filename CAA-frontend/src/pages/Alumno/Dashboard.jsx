@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { io as socketIO } from "socket.io-client";
 import { toast } from "sonner";
@@ -83,6 +83,23 @@ export default function AlumnoDashboard() {
     fetchClases();
     cargarOfertas();
   }, [fetchClases]);
+
+  // Clases de teoría de la semana en curso (lunes a domingo, hora de El
+  // Salvador) — se muestran en la pestaña "Semana actual" junto a los vuelos,
+  // con la misma tarjeta (y botón de firma) de la pestaña "Mis clases".
+  const clasesSemanaActual = useMemo(() => {
+    const hoy = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/El_Salvador" })}T00:00:00`);
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    const desde = lunes.toLocaleDateString("en-CA");
+    const hasta = domingo.toLocaleDateString("en-CA");
+    return misClases.filter((c) => {
+      const f = String(c.fecha || "").slice(0, 10);
+      return f >= desde && f <= hasta;
+    });
+  }, [misClases]);
 
   const DIAS_OF = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const aceptarOferta = async (id) => {
@@ -310,12 +327,23 @@ export default function AlumnoDashboard() {
             {weekMode === "clases" ? (
               <MisClasesList clases={misClases} loading={loadingClases} onRefresh={fetchClases} />
             ) : weekMode !== "cancelaciones" ? (
-              <MiHorarioList
-                vuelos={vuelos}
-                weekMode={weekMode}
-                loading={loadingVuelos}
-                onRefresh={fetchVuelos}
-              />
+              <>
+                <MiHorarioList
+                  vuelos={vuelos}
+                  weekMode={weekMode}
+                  loading={loadingVuelos}
+                  onRefresh={fetchVuelos}
+                />
+                {weekMode === "current" && clasesSemanaActual.length > 0 && (
+                  <div style={{ marginTop: "18px" }}>
+                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--c-ink-3)", marginBottom: "8px" }}>
+                      <i className="bi bi-calendar-event" style={{ marginRight: 6 }} />
+                      Clases de teoría de esta semana
+                    </div>
+                    <MisClasesList clases={clasesSemanaActual} loading={loadingClases} onRefresh={fetchClases} />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="mhl__list" style={{ marginTop: '20px' }}>
                 {estadoCancel && (

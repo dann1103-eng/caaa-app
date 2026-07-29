@@ -934,7 +934,7 @@ exports.listReservasSalon = async (req, res) => {
 
 exports.crearReservaSalon = async (req, res) => {
   try {
-    const { id_salon, fecha, id_bloque, id_bloque_fin, motivo, descripcion } = req.body;
+    const { id_salon, fecha, id_bloque, id_bloque_fin, motivo, descripcion, notificar } = req.body;
     if (!id_salon || !fecha || !id_bloque) {
       return res.status(400).json({ ok: false, message: "id_salon, fecha e id_bloque son requeridos" });
     }
@@ -948,6 +948,42 @@ exports.crearReservaSalon = async (req, res) => {
         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id
       `, [id_salon, fecha, id_bloque, id_bloque_fin || null, motivoFinal, descripcion || null, req.user?.id_usuario || null]);
       await client.query("COMMIT");
+
+      // Aviso opcional a los interesados (elegido por quien reserva en el
+      // modal): in-app + push, best-effort — nunca aborta la reserva.
+      // "INSTRUCTOR" = solo instructores (ej. la reunión semanal),
+      // "STAFF" = todo el personal, "TODOS" = personal y alumnos.
+      if (["INSTRUCTOR", "STAFF", "TODOS"].includes(notificar)) {
+        (async () => {
+          try {
+            const { notificarPorRol, ROLES_STAFF } = require("../../utils/webpush");
+            const info = await db.query(`
+              SELECT s.nombre AS salon, bi.hora_inicio
+                FROM salon s, bloque_horario bi
+               WHERE s.id = $1 AND bi.id_bloque = $2
+            `, [id_salon, id_bloque]);
+            const salonNombre = info.rows[0]?.salon || "Salón";
+            const hora = String(info.rows[0]?.hora_inicio || "").slice(0, 5);
+            const fechaStr = new Date(`${fecha}T00:00:00`).toLocaleDateString("es-SV", {
+              weekday: "short", day: "2-digit", month: "2-digit",
+            });
+            const LABELS = { REUNION: "Reunión", EVENTO: "Evento", ADMINISTRATIVO: "Administrativo", OTRO: "Reserva" };
+            const mensaje = `${LABELS[motivoFinal]}${descripcion ? `: ${descripcion}` : ""} — ${salonNombre}, ${fechaStr} ${hora}`;
+            const roles = notificar === "INSTRUCTOR" ? ["INSTRUCTOR"]
+              : notificar === "STAFF" ? ROLES_STAFF
+              : [...ROLES_STAFF, "ALUMNO"];
+            await notificarRoles(null, roles, { tipo: "SALON", mensaje });
+            notificarPorRol({
+              title: `📅 ${LABELS[motivoFinal]} — ${salonNombre}`,
+              body: mensaje,
+              tag: "reserva-salon",
+            }, notificar === "TODOS" ? null : roles).catch(() => {});
+          } catch (e) {
+            console.error("[reserva-salon] notificar interesados:", e.message);
+          }
+        })();
+      }
+
       res.json({ ok: true, id: ins.rows[0].id });
     } catch (e) {
       await client.query("ROLLBACK");
