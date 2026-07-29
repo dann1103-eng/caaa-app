@@ -170,6 +170,7 @@ router.patch("/medicos/:id",                roleMiddleware(WRITE_ROLES), medicos
 router.use("/aula", aulaInstructorGate);
 const AULA_READ  = ["ADMINISTRACION","ADMIN","INSTRUCTOR"];
 const AULA_WRITE = ["ADMINISTRACION","ADMIN","INSTRUCTOR"];
+const AULA_TURNO = ["ADMINISTRACION", "ADMIN", "INSTRUCTOR", "TURNO"];
 
 router.get("/aula/unidades",                   roleMiddleware(AULA_READ),  aula.listUnidades);
 router.post("/aula/unidades",                  roleMiddleware(AULA_WRITE), aula.crearUnidad);
@@ -191,9 +192,22 @@ router.get("/aula/cursos",                                roleMiddleware(AULA_RE
 
 // Asistencia a clases teóricas (instructor incluido).
 router.get("/aula/sesiones",                              roleMiddleware(AULA_READ),  aula.listSesiones);
-router.post("/aula/sesiones",                             roleMiddleware(AULA_WRITE), aula.crearSesion);
+router.post("/aula/sesiones",                             roleMiddleware(AULA_TURNO), aula.crearSesion);
 router.get("/aula/sesiones/:id_sesion/asistencia",        roleMiddleware(AULA_READ),  aula.listAsistencia);
 router.post("/aula/sesiones/:id_sesion/asistencia",       roleMiddleware(AULA_WRITE), aula.registrarAsistencia);
+
+router.patch("/aula/sesiones/:id",              roleMiddleware(AULA_TURNO), aula.editarSesion);
+router.post("/aula/sesiones/:id/cancelar",      roleMiddleware(AULA_TURNO), aula.cancelarSesion);
+router.post("/aula/sesiones/:id/iniciar",       roleMiddleware(AULA_TURNO), aula.iniciarSesion);
+router.post("/aula/sesiones/:id/cerrar",        roleMiddleware(AULA_TURNO), aula.cerrarSesion);
+router.patch("/aula/sesiones/:id/salon",        roleMiddleware(["ADMINISTRACION","ADMIN","TURNO"]), aula.reasignarSalon);
+router.get("/aula/salones",                     roleMiddleware(AULA_TURNO), aula.listSalones);
+router.get("/aula/salones/disponibilidad",      roleMiddleware(AULA_TURNO), aula.disponibilidadSalones);
+router.get("/aula/cursos/:id_curso/roster",     roleMiddleware(AULA_TURNO), aula.rosterCurso);
+router.get("/aula/instructores",                roleMiddleware(["ADMINISTRACION","ADMIN","TURNO"]), aula.listInstructoresTeoria);
+router.get("/aula/reservas-salon",              roleMiddleware(["ADMINISTRACION","ADMIN","TURNO"]), aula.listReservasSalon);
+router.post("/aula/reservas-salon",             roleMiddleware(["ADMINISTRACION","ADMIN","TURNO"]), aula.crearReservaSalon);
+router.delete("/aula/reservas-salon/:id",       roleMiddleware(["ADMINISTRACION","ADMIN","TURNO"]), aula.eliminarReservaSalon);
 
 // Material por unidad (lectura/descarga también para el alumno).
 const AULA_VIEW = ["ADMINISTRACION","ADMIN","INSTRUCTOR","ALUMNO"];
