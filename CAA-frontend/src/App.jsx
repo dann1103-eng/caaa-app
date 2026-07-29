@@ -25,6 +25,7 @@ import TurnoDashboard from "./pages/Turno/Dashboard";
 import ProtectedTurno from "./components/routes/ProtectedTurno";
 import InstructorDashboard from "./pages/Instructor/Dashboard";
 import InstructorAulaVirtual from "./pages/Instructor/AulaVirtual";
+import AgendaTeorica from "./pages/Instructor/AgendaTeorica";
 import InstructorSolicitudes from "./pages/Instructor/Solicitudes";
 import ProtectedInstructor from "./components/routes/ProtectedInstructor";
 import ForcePasswordChange from "./components/routes/ForcePasswordChange";
@@ -335,6 +336,14 @@ function App() {
             element={
               <ProtectedInstructor>
                 <InstructorAulaVirtual />
+              </ProtectedInstructor>
+            }
+          />
+          <Route
+            path="/instructor/agenda-teoria"
+            element={
+              <ProtectedInstructor>
+                <AgendaTeorica />
               </ProtectedInstructor>
             }
           />
