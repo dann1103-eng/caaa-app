@@ -116,20 +116,57 @@ exports.getMisClases = catchAsync(async (req, res) => {
   if (!idAlumno) return res.json([]);
 
   const r = await db.query(`
-    SELECT s.id, s.fecha, s.hora_inicio, s.hora_fin, s.tema,
-           c.codigo AS curso_codigo, c.nombre AS curso_nombre,
-           un.numero AS unidad_numero, un.nombre AS unidad_nombre,
-           (u.nombre || ' ' || u.apellido) AS instructor_nombre
-    FROM sesion_clase s
-    JOIN curso c ON c.id = s.id_curso
-    JOIN inscripcion_curso ic ON ic.id_curso = s.id_curso AND ic.id_alumno = $1 AND ic.estado = 'ACTIVO'
-    LEFT JOIN unidad_teorica un ON un.id = s.id_unidad
-    LEFT JOIN instructor i ON i.id_instructor = s.id_instructor
-    LEFT JOIN usuario u ON u.id_usuario = i.id_usuario
-    WHERE s.fecha >= CURRENT_DATE
-    ORDER BY s.fecha ASC, s.hora_inicio ASC NULLS LAST
-    LIMIT 10
+    SELECT sc.id, sc.fecha, sc.tema, sc.examen, sc.estado AS estado_sesion,
+           bh.hora_inicio, COALESCE(bh2.hora_fin, bh.hora_fin) AS hora_fin,
+           c.codigo AS curso_codigo, u.nombre AS unidad_nombre,
+           s.nombre AS salon_nombre,
+           TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre,
+           aa.estado AS mi_asistencia, aa.firma_alumno IS NOT NULL AS ya_firme
+      FROM asistencia_alumno aa
+      JOIN sesion_clase sc ON sc.id = aa.id_sesion
+      LEFT JOIN bloque_horario bh  ON bh.id_bloque = sc.id_bloque
+      LEFT JOIN bloque_horario bh2 ON bh2.id_bloque = sc.id_bloque_fin
+      JOIN curso c ON c.id = sc.id_curso
+      LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+      LEFT JOIN salon s ON s.id = sc.id_salon
+      LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+      LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+     WHERE aa.id_alumno = $1 AND sc.estado <> 'CANCELADA'
+     ORDER BY sc.fecha DESC, bh.hora_inicio DESC NULLS LAST
   `, [idAlumno]);
+
   res.json(r.rows);
+});
+
+exports.firmarAsistenciaClase = catchAsync(async (req, res) => {
+  const { id_sesion } = req.params;
+  const { firma } = req.body;
+  if (!firma) return res.status(400).json({ message: "Falta la firma" });
+
+  const alRes = await db.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1`, [req.user.id_usuario]);
+  const idAlumno = alRes.rows[0]?.id_alumno;
+  if (!idAlumno) return res.status(404).json({ message: "Alumno no encontrado" });
+
+  const fila = await db.query(
+    `SELECT a.id, a.estado, sc.estado AS estado_sesion
+       FROM asistencia_alumno a
+       JOIN sesion_clase sc ON sc.id = a.id_sesion
+      WHERE a.id_sesion = $1 AND a.id_alumno = $2`,
+    [id_sesion, idAlumno]
+  );
+  if (fila.rows.length === 0) return res.status(404).json({ message: "Esta clase no te corresponde" });
+  const asistencia = fila.rows[0];
+  if (asistencia.estado_sesion !== "CERRADA") {
+    return res.status(400).json({ message: "La clase todavía no cerró" });
+  }
+  if (asistencia.estado === "AUSENTE") {
+    return res.status(400).json({ message: "No podés firmar una clase donde quedaste marcado ausente" });
+  }
+
+  await db.query(
+    `UPDATE asistencia_alumno SET firma_alumno = $1, firmado_en = NOW() WHERE id = $2`,
+    [firma, asistencia.id]
+  );
+  res.json({ message: "Asistencia firmada" });
 });
 

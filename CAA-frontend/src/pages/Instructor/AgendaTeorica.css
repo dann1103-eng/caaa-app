@@ -1,0 +1,11 @@
+.agt__container { max-width: 900px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+.agt__header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.agt__actions { display: flex; gap: 10px; align-items: center; }
+.agt__btn-primario { background: var(--c-brand-700); color: #fff; border: none; padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; }
+.agt__lista { display: flex; flex-direction: column; gap: 10px; }
+.agt__vacio { color: var(--c-ink-4); }
+.agt__card { display: flex; justify-content: space-between; align-items: center; background: var(--c-surface-1); border: 1px solid var(--c-line-1); border-radius: var(--radius-md); padding: 14px 16px; }
+.agt__card-info { display: flex; flex-direction: column; gap: 4px; }
+.agt__card-estado { font-size: var(--text-xs); color: var(--c-ink-3); text-transform: uppercase; }
+.agt__card-acciones { display: flex; gap: 8px; }
+.agt__card-acciones button { padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--c-line-2); background: var(--c-surface-2); cursor: pointer; font-size: var(--text-sm); }

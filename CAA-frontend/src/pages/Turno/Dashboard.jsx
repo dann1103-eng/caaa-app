@@ -23,10 +23,17 @@ import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModa
 import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
 import GestionarMantenimientoModal from "../../components/GestionarMantenimientoModal/GestionarMantenimientoModal";
 import TurnoDiaWidget from "../../components/TurnoDiaWidget/TurnoDiaWidget";
+import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
+import AgendarClaseModal from "../../components/AgendarClaseModal/AgendarClaseModal";
+import ReservarSalonModal from "../../components/ReservarSalonModal/ReservarSalonModal";
 import { getCalendarioAdmin, getAeronavesActivasAdmin, getBloquesHorario } from "../../services/adminApi";
+import {
+  getSesiones, getAulaCursos, crearSesion, cancelarSesionClase, reasignarSalonSesion,
+  getSalones, getInstructoresTeoria,
+} from "../../services/administracionApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
 
@@ -424,6 +431,15 @@ export default function TurnoDashboard() {
   // Gestionar un mantenimiento EN CURSO (agregar bloques/días) — mismo modal
   // que usa Admin; espera { id_mantenimiento, id_aeronave, aeronave_codigo }.
   const [gestionandoMant, setGestionandoMant] = useState(null);
+  // Agenda de teoría del día: agendar clase / reservar salón / cancelar / reasignar.
+  const [sesionesTeoria, setSesionesTeoria] = useState([]);
+  const [modalClaseAbierto, setModalClaseAbierto] = useState(false);
+  const [instructoresTeoria, setInstructoresTeoria] = useState([]);
+  const [cursosTeoria, setCursosTeoria] = useState([]);
+  const [salonesCatalogo, setSalonesCatalogo] = useState([]);
+  const [modalReservaAbierto, setModalReservaAbierto] = useState(false);
+  const [reasignando, setReasignando] = useState(null); // id_sesion en edición de salón
+  const [bloquesCatalogo, setBloquesCatalogo] = useState([]);
 
   const handleAbrirAgendar = async () => {
     setAbriendoAgendar(true);
@@ -491,6 +507,22 @@ export default function TurnoDashboard() {
       /* silencioso */
     }
   }, []);
+
+  const cargarTeoria = useCallback(async () => {
+    try {
+      const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/El_Salvador" });
+      const [ses, ins, cur, sal, blq] = await Promise.all([
+        getSesiones({}), getInstructoresTeoria(), getAulaCursos(), getSalones(), getBloquesHorario(),
+      ]);
+      setSesionesTeoria((ses?.data || []).filter((s) => s.fecha?.slice(0, 10) === hoy));
+      setInstructoresTeoria(ins?.data || []);
+      setCursosTeoria(cur?.data || []);
+      setSalonesCatalogo(sal?.data || []);
+      setBloquesCatalogo(Array.isArray(blq) ? blq : []);
+    } catch { /* silencioso */ }
+  }, []);
+
+  useEffect(() => { cargarTeoria(); }, [cargarTeoria]);
 
   // Carga inicial
   useEffect(() => {
@@ -677,6 +709,9 @@ export default function TurnoDashboard() {
         {/* ── METAR ─────────────────────────────────────────────────── */}
         <MetarWidget />
 
+        {/* ── Salones de teoría ─────────────────────────────────────── */}
+        <SalonesOcupacionWidget />
+
         {/* ── Turno del día (apertura/pausa/cambio/cierre + asistencia) ── */}
         <TurnoDiaWidget />
 
@@ -749,6 +784,63 @@ export default function TurnoDashboard() {
           </div>
         </div>
 
+        {/* ── Agenda de teoría — hoy ───────────────────────────────── */}
+        <div className="turno__seccion">
+          <div className="turno__seccion-header">
+            <h3>Agenda de teoría — hoy</h3>
+            <div className="turno__seccion-botones">
+              <button className="turno__btn-secundario" onClick={() => setModalReservaAbierto(true)}>
+                Reservar salón
+              </button>
+              <button className="turno__btn-primario" onClick={() => setModalClaseAbierto(true)}>
+                Agendar clase
+              </button>
+            </div>
+          </div>
+
+          {sesionesTeoria.length === 0 ? (
+            <p className="turno__vacio">Sin clases de teoría agendadas hoy.</p>
+          ) : sesionesTeoria.map((s) => (
+            <div key={s.id} className="turno__fila-teoria">
+              <span>{s.curso_codigo} — {s.instructor_nombre || "Sin instructor"}</span>
+              <span className="turno__fila-estado">{s.estado}</span>
+
+              {reasignando === s.id ? (
+                <select
+                  defaultValue=""
+                  onChange={async (e) => {
+                    if (!e.target.value) return;
+                    try {
+                      await reasignarSalonSesion(s.id, Number(e.target.value));
+                      toast.success("Salón reasignado");
+                      setReasignando(null);
+                      cargarTeoria();
+                    } catch (err) {
+                      toast.error(err?.response?.data?.message || "Error al reasignar");
+                    }
+                  }}
+                >
+                  <option value="">Elegir salón nuevo…</option>
+                  {salonesCatalogo.map((sl) => <option key={sl.id} value={sl.id}>{sl.nombre}</option>)}
+                </select>
+              ) : (
+                ["PROGRAMADA", "EN_CURSO"].includes(s.estado) && (
+                  <button onClick={() => setReasignando(s.id)}>Reasignar salón</button>
+                )
+              )}
+
+              {s.estado === "PROGRAMADA" && (
+                <button onClick={async () => {
+                  try { await cancelarSesionClase(s.id); toast.success("Clase cancelada"); cargarTeoria(); }
+                  catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+                }}>
+                  Cancelar
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
         {/* ── Contenido ─────────────────────────────────────────────── */}
         {loading ? (
           <p className="trn__loading">Cargando…</p>
@@ -807,6 +899,27 @@ export default function TurnoDashboard() {
           aeronaves={agendarCtx.aeronaves}
           onClose={() => setAgendarCtx(null)}
           onCreated={() => { setAgendarCtx(null); cargarVuelos(); }}
+        />
+      )}
+
+      {modalClaseAbierto && (
+        <AgendarClaseModal
+          cursos={cursosTeoria}
+          bloques={bloquesCatalogo}
+          instructores={instructoresTeoria}
+          instructoresPicker
+          crearFn={crearSesion}
+          onClose={() => setModalClaseAbierto(false)}
+          onSaved={cargarTeoria}
+        />
+      )}
+
+      {modalReservaAbierto && (
+        <ReservarSalonModal
+          salones={salonesCatalogo}
+          bloques={bloquesCatalogo}
+          onClose={() => setModalReservaAbierto(false)}
+          onSaved={cargarTeoria}
         />
       )}
     </>

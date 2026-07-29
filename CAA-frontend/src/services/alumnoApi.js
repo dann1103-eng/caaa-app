@@ -191,3 +191,8 @@ export const getMaterialUrlAlumno = async (id) => {
   const res = await axios.get(`${API_URL}/administracion/aula/material/${id}/url`);
   return res.data;
 };
+
+export const firmarAsistenciaClase = async (id_sesion, firma) => {
+  const res = await axios.post(`${API_URL}/alumno/mis-clases/${id_sesion}/firmar`, { firma });
+  return res.data;
+};

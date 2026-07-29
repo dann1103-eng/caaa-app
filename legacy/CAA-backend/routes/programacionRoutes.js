@@ -16,6 +16,7 @@ const {
   guardarSolicitudProgramacion,
   agendarSolicitud,
   agendarVueloDirecto,
+  getSalonesOcupacion,
 } = require("../controllers/programacionController");
 
 const proyeccionMiddleware = require("../middlewares/proyeccionMiddleware");
@@ -28,6 +29,7 @@ router.post("/solicitudes/:id_solicitud/en-revision", authMiddleware, enRevision
 router.post("/guardar-cambios", authMiddleware, guardarCambios);
 router.get("/estado-flota", proyeccionMiddleware, getEstadoFlota);
 router.get("/mantenimiento-resumen", proyeccionMiddleware, getMantenimientoResumen);
+router.get("/salones-ocupacion", proyeccionMiddleware, getSalonesOcupacion);
 router.post("/vuelos/:id_vuelo/reasignar-aeronave", authMiddleware, reasignarAeronave);
 router.get("/aeronaves-disponibles", authMiddleware, getAeronavesDisponibles);
 router.post("/solicitar-vuelos", authMiddleware, guardarSolicitudProgramacion);

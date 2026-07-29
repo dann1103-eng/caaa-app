@@ -14,6 +14,7 @@ import {
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import StandbyModal from "../../components/StandbyModal/StandbyModal";
+import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import { getInstructoresActivos, cambiarInstructorVuelo, getReservasAeronave, eliminarReservaAeronave } from "../../services/adminApi";
 import "./Dashboard.css";
 
@@ -379,6 +380,8 @@ export default function ProgramacionDashboard({ embedded = false }) {
             <span className="prog__stat-lbl">Cambios Pendientes</span>
           </div>
         </div>
+
+        <SalonesOcupacionWidget />
 
         <div className="prog__section">
           <div className="prog__section-header">
