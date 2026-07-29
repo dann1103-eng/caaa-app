@@ -187,13 +187,18 @@ exports.crearSesion = async (req, res) => {
       return res.status(400).json({ ok: false, message: "id_instructor requerido" });
     }
 
-    // Los alumnos elegidos deben pertenecer al roster activo del curso.
-    const roster = await db.query(
-      `SELECT id_alumno FROM inscripcion_curso WHERE id_curso = $1 AND estado = 'ACTIVO' AND id_alumno = ANY($2::int[])`,
-      [id_curso, alumnos]
+    // Los alumnos elegidos deben ser fichas activas reales (la misma lista que
+    // ofrece el selector, que es la del agendado de vuelos). Ya no se exige
+    // inscripción en el curso: inscripcion_curso no se alimenta en la
+    // operación real y bloqueaba todo agendado de clases.
+    const validos = await db.query(
+      `SELECT id_alumno FROM alumno
+        WHERE activo = true AND NOT COALESCE(es_practicante, false) AND NOT COALESCE(es_externo, false)
+          AND id_alumno = ANY($1::int[])`,
+      [alumnos]
     );
-    if (roster.rows.length !== alumnos.length) {
-      return res.status(400).json({ ok: false, message: "Uno o más alumnos no están inscritos activos en ese curso." });
+    if (validos.rows.length !== alumnos.length) {
+      return res.status(400).json({ ok: false, message: "Uno o más alumnos no son fichas de alumno activas." });
     }
 
     await client.query("BEGIN");
@@ -860,18 +865,22 @@ exports.disponibilidadSalones = async (req, res) => {
   }
 };
 
-// Roster de alumnos activos de un curso, para el multi-select del formulario de agendar.
+// Alumnos para el multi-select del formulario de agendar clase. Misma lista
+// que el agendado de vuelos (adminUsuarioController.getAlumnosListAdmin):
+// todos los alumnos activos, sin fichas especiales. Antes salía de
+// inscripcion_curso (estado ACTIVO), pero esa tabla no se alimenta en la
+// operación real y el selector quedaba vacío. Se ignora el id_curso de la
+// ruta (se conserva la URL por compatibilidad).
 exports.rosterCurso = async (req, res) => {
   try {
-    const { id_curso } = req.params;
     const r = await db.query(`
-      SELECT ic.id_alumno, TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre
-        FROM inscripcion_curso ic
-        JOIN alumno a ON a.id_alumno = ic.id_alumno
+      SELECT a.id_alumno, TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre
+        FROM alumno a
         JOIN usuario u ON u.id_usuario = a.id_usuario
-       WHERE ic.id_curso = $1 AND ic.estado = 'ACTIVO'
-       ORDER BY u.nombre
-    `, [id_curso]);
+       WHERE a.activo = true
+         AND NOT COALESCE(a.es_practicante, false) AND NOT COALESCE(a.es_externo, false)
+       ORDER BY u.apellido, u.nombre
+    `);
     res.json({ ok: true, data: r.rows });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });

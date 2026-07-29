@@ -403,7 +403,7 @@ export default function Manual({ solo = null }) {
               <p className="man__step-text">Ves un día a la vez (lo cambiás con el selector de fecha), el panel <strong>Salones de teoría</strong> con la ocupación en vivo, y tus clases de ese día con su estado.</p>
             </Step>
             <Step n={2} title={<>Tocá <Chip>+ Agendar clase</Chip></>}>
-              <p className="man__step-text">Elegís <strong>curso</strong> (y unidad, si aplica), <strong>fecha</strong>, <strong>bloque de inicio y fin</strong> (los mismos bloques horarios de los vuelos), <strong>salón</strong> y <strong>los alumnos</strong> que asistirán — al menos uno, de los inscritos en ese curso. También podés marcar si habrá examen y anotar el tema.</p>
+              <p className="man__step-text">Elegís <strong>curso</strong> (y unidad, si aplica), <strong>fecha</strong>, <strong>bloque de inicio y fin</strong> (los mismos bloques horarios de los vuelos), <strong>salón</strong> y <strong>los alumnos</strong> que asistirán — al menos uno (la lista es la misma de todos los alumnos activos que ves al agendar vuelos). También podés marcar si habrá examen y anotar el tema.</p>
               <p className="man__note man__note--info"><i className="bi bi-info-circle" />Los salones ocupados salen deshabilitados con el motivo. El sistema tampoco deja agendar si vos ya tenés otra clase <strong>o un vuelo</strong> en ese horario.</p>
             </Step>
             <Step n={3} title={<>El día de la clase: <Chip>Iniciar clase</Chip>, y al terminar, <Chip>Cerrar clase</Chip></>}>

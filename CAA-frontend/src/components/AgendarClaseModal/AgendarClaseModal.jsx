@@ -35,10 +35,12 @@ export default function AgendarClaseModal({
       .catch(() => setUnidades([]));
   }, [idCurso]);
 
+  // Lista de alumnos: la misma que ofrece el agendado de vuelos (todos los
+  // alumnos activos) — el backend ya no la limita a los inscritos del curso,
+  // así que se carga una sola vez al abrir el modal.
   useEffect(() => {
-    if (!idCurso) { setRoster([]); return; }
-    getRosterCurso(idCurso).then((r) => setRoster(r?.data || [])).catch(() => setRoster([]));
-  }, [idCurso]);
+    getRosterCurso(0).then((r) => setRoster(r?.data || [])).catch(() => setRoster([]));
+  }, []);
 
   useEffect(() => {
     if (!fecha || !idBloque) { setSalones([]); return; }
@@ -170,7 +172,7 @@ export default function AgendarClaseModal({
             onChange={(e) => setFiltroAlumno(e.target.value)} className="acm-buscador"
           />
           <div className="acm-roster">
-            {rosterFiltrado.length === 0 && <p className="acm-empty">Sin alumnos inscritos en este curso.</p>}
+            {rosterFiltrado.length === 0 && <p className="acm-empty">No hay alumnos que coincidan.</p>}
             {rosterFiltrado.map((a) => (
               <label key={a.id_alumno} className="acm-checkbox">
                 <input
