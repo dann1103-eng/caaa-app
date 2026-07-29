@@ -5,6 +5,7 @@ const { notificarRoles, notificarUsuario } = require("../../utils/notificaciones
 const transporter = require("../../utils/mailer");
 const { examenFinalEmail } = require("../../utils/emailTemplates");
 const { resolverIdInstructor } = require("../../utils/instructorHelpers");
+const { choqueSalon, choqueInstructor } = require("../../utils/aulaChoques");
 
 // Destinatarios del correo de "examen final aprobado": MAIL_ADMIN_NOTIFY si está
 // definido (p.ej. el correo de Mayra / Administración), si no los correos de los
@@ -152,35 +153,66 @@ exports.listSesiones = async (req, res) => {
 exports.crearSesion = async (req, res) => {
   const client = await db.connect();
   try {
-    const { id_curso, id_unidad, fecha, tema, hora_inicio, hora_fin } = req.body;
+    const {
+      id_curso, id_unidad, fecha, tema, id_bloque, id_bloque_fin, id_salon, examen, alumnos,
+    } = req.body;
     let { id_instructor } = req.body;
     if (!id_curso) return res.status(400).json({ ok: false, message: "id_curso requerido" });
+    if (!fecha || !id_bloque || !id_salon) {
+      return res.status(400).json({ ok: false, message: "fecha, id_bloque y id_salon son requeridos" });
+    }
+    if (!Array.isArray(alumnos) || alumnos.length === 0) {
+      return res.status(400).json({ ok: false, message: "Elegí al menos un alumno para la clase" });
+    }
 
     // Un INSTRUCTOR solo puede crear sesiones a su propio nombre (no spoofear
-    // id_instructor por el body). Admin/Administración sí pueden asignar.
+    // id_instructor por el body). Admin/Administración/Turno sí pueden asignar.
     if (req.user?.rol === "INSTRUCTOR") {
       id_instructor = await resolverIdInstructor(req.user.id_usuario);
+      // Debe ser un curso que tiene asignado (mismo criterio que listCursos).
+      const asign = await db.query(
+        `SELECT 1 FROM instructor_curso WHERE id_instructor = $1 AND id_curso = $2`,
+        [id_instructor, id_curso]
+      );
+      if (asign.rows.length === 0) {
+        return res.status(403).json({ ok: false, message: "No tenés asignado ese curso." });
+      }
+    } else if (!id_instructor) {
+      return res.status(400).json({ ok: false, message: "id_instructor requerido" });
+    }
+
+    // Los alumnos elegidos deben pertenecer al roster activo del curso.
+    const roster = await db.query(
+      `SELECT id_alumno FROM inscripcion_curso WHERE id_curso = $1 AND estado = 'ACTIVO' AND id_alumno = ANY($2::int[])`,
+      [id_curso, alumnos]
+    );
+    if (roster.rows.length !== alumnos.length) {
+      return res.status(400).json({ ok: false, message: "Uno o más alumnos no están inscritos activos en ese curso." });
     }
 
     await client.query("BEGIN");
-    const r = await client.query(`
-      INSERT INTO sesion_clase (id_curso, id_unidad, fecha, hora_inicio, hora_fin, tema, id_instructor, creado_por)
-      VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5, $6, $7, $8) RETURNING *
-    `, [id_curso, id_unidad || null, fecha || null, hora_inicio || null, hora_fin || null, tema || null, id_instructor || null, req.user?.id_usuario || null]);
+    await choqueSalon(client, { id_salon, fecha, id_bloque, id_bloque_fin });
+    await choqueInstructor(client, { id_instructor, fecha, id_bloque, id_bloque_fin });
 
-    // Pre-cargar la lista con todos los alumnos activos del curso (default PRESENTE).
+    const r = await client.query(`
+      INSERT INTO sesion_clase (id_curso, id_unidad, fecha, hora_inicio, hora_fin, tema, id_instructor, creado_por,
+                                 id_bloque, id_bloque_fin, id_salon, examen, estado)
+      VALUES ($1, $2, $3, NULL, NULL, $4, $5, $6, $7, $8, $9, $10, 'PROGRAMADA') RETURNING *
+    `, [id_curso, id_unidad || null, fecha, tema || null, id_instructor, req.user?.id_usuario || null,
+        id_bloque, id_bloque_fin || null, id_salon, examen === true]);
+
     await client.query(`
       INSERT INTO asistencia_alumno (id_sesion, id_alumno, estado, registrado_por)
-      SELECT $1, ic.id_alumno, 'PRESENTE', $2
-      FROM inscripcion_curso ic
-      WHERE ic.id_curso = $3 AND ic.estado = 'ACTIVO'
-      ON CONFLICT (id_sesion, id_alumno) DO NOTHING
-    `, [r.rows[0].id, req.user?.id_usuario || null, id_curso]);
+      SELECT $1, x, 'PRESENTE', $2 FROM UNNEST($3::int[]) AS x
+    `, [r.rows[0].id, req.user?.id_usuario || null, alumnos]);
 
     await client.query("COMMIT");
     res.json({ ok: true, data: r.rows[0] });
   } catch (e) {
     await client.query("ROLLBACK");
+    if (e.code === "CHOQUE_SALON" || e.code === "CHOQUE_INSTRUCTOR") {
+      return res.status(409).json({ ok: false, message: e.message });
+    }
     res.status(500).json({ ok: false, message: e.message });
   } finally {
     client.release();
