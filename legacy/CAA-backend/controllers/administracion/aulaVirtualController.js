@@ -723,3 +723,58 @@ exports.cancelarSesion = async (req, res) => {
     res.status(500).json({ ok: false, message: e.message });
   }
 };
+
+const { notificarStaff } = require("../../utils/webpush");
+
+exports.iniciarSesion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cur = await db.query(`
+      SELECT sc.*, c.codigo AS curso_codigo, u.numero AS unidad_numero, u.nombre AS unidad_nombre,
+             s.nombre AS salon_nombre, TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
+        FROM sesion_clase sc
+        JOIN curso c ON c.id = sc.id_curso
+        LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+        LEFT JOIN salon s ON s.id = sc.id_salon
+        LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+        LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+       WHERE sc.id = $1
+    `, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    const sesion = cur.rows[0];
+    if (sesion.estado !== "PROGRAMADA") {
+      return res.status(400).json({ ok: false, message: "La clase ya inició, cerró o fue cancelada." });
+    }
+    await assertPropiaOSStaff(req, sesion);
+
+    await db.query(`UPDATE sesion_clase SET estado = 'EN_CURSO', iniciada_en = NOW() WHERE id = $1`, [id]);
+
+    // Best-effort: nunca puede tumbar la acción si falla.
+    notificarStaff({
+      title: "Clase de teoría iniciada",
+      body: `${sesion.salon_nombre} — ${sesion.instructor_nombre} inició ${sesion.curso_codigo}${sesion.unidad_nombre ? ` · ${sesion.unidad_nombre}` : ""}`,
+    }, { excluirUid: req.user?.id_usuario, tipo: "CLASE_TEORIA" }).catch(() => {});
+
+    res.json({ ok: true, message: "Clase iniciada" });
+  } catch (e) {
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.cerrarSesion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cur = await db.query(`SELECT * FROM sesion_clase WHERE id = $1`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    if (cur.rows[0].estado !== "EN_CURSO") {
+      return res.status(400).json({ ok: false, message: "Solo se puede cerrar una clase que está en curso." });
+    }
+    await assertPropiaOSStaff(req, cur.rows[0]);
+    await db.query(`UPDATE sesion_clase SET estado = 'CERRADA', cerrada_en = NOW() WHERE id = $1`, [id]);
+    res.json({ ok: true, message: "Clase cerrada — queda pendiente de firma para los alumnos presentes." });
+  } catch (e) {
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};

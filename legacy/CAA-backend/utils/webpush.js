@@ -61,6 +61,7 @@ const TIPOS_PUSH = [
   { tipo: "OPERACIONES",   label: "Abrir/cerrar operaciones (suspensión clima/NOTAM)" },
   { tipo: "TRIPULACION",   label: "Turno cambia la tripulación de un vuelo" },
   { tipo: "MANTENIMIENTO", label: "Aeronave entra/sale de mantenimiento imprevisto" },
+  { tipo: "CLASE_TEORIA",  label: "Instructor de teoría inicia una clase" },
 ];
 
 // Notifica al staff filtrando por rol según la config de `tipo` (Administración
