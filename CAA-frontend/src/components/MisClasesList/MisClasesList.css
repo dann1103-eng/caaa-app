@@ -1,0 +1,12 @@
+.mcl { display: flex; flex-direction: column; gap: 10px; }
+.mcl__state { padding: 24px 0; text-align: center; color: var(--c-ink-4); }
+.mcl__clase { background: var(--c-surface-1); border: 1px solid var(--c-line-1); border-radius: var(--radius-md); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.mcl__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcl__hora { font-family: var(--font-mono); font-weight: 700; }
+.mcl__curso { font-weight: 600; }
+.mcl__sub { font-size: var(--text-sm); color: var(--c-ink-3); }
+.mcl__badge { font-size: var(--text-xs); font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); width: fit-content; }
+.mcl__badge--examen { background: var(--c-warn-50); color: var(--c-warn-700); }
+.mcl__badge--firmada { background: var(--c-success-50); color: var(--c-success-700); }
+.mcl__badge--curso { background: var(--c-info-50); color: var(--c-info-700); }
+.mcl__btn-firmar { align-self: flex-start; background: var(--c-brand-700); color: #fff; border: none; padding: 6px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: var(--text-sm); font-weight: 600; }

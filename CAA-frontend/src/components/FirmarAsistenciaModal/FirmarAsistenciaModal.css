@@ -1,0 +1,6 @@
+.fam-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.fam-modal { background: var(--c-surface-1); border-radius: var(--radius-md); padding: 20px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.fam-detalle { font-size: var(--text-sm); color: var(--c-ink-2); text-align: center; margin: 0; }
+.fam-footer { display: flex; justify-content: flex-end; gap: 8px; width: 100%; }
+.fam-btn-primario { background: var(--c-brand-700); color: #fff; border: none; padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; }
+.fam-btn-secundario { background: none; border: 1px solid var(--c-line-2); padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; }
