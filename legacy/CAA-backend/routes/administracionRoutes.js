@@ -187,11 +187,13 @@ router.patch("/aula/evaluacion-alumno/:id",               roleMiddleware(AULA_WR
 // Vista del propio alumno (estaba implementada sin ruta).
 router.get("/aula/mi-aula",                               roleMiddleware(["ALUMNO"]), aula.miAulaVirtual);
 
-// Cursos para el aula (incluye instructor).
-router.get("/aula/cursos",                                roleMiddleware(AULA_READ),  aula.listCursos);
+// Cursos para el aula (incluye instructor). Turno también los necesita para
+// agendar clases a nombre de un instructor (AgendarClaseModal).
+router.get("/aula/cursos",                                roleMiddleware(AULA_TURNO),  aula.listCursos);
 
-// Asistencia a clases teóricas (instructor incluido).
-router.get("/aula/sesiones",                              roleMiddleware(AULA_READ),  aula.listSesiones);
+// Asistencia a clases teóricas (instructor incluido). Turno también lista
+// sesiones del día para su panel "Agenda de teoría — hoy".
+router.get("/aula/sesiones",                              roleMiddleware(AULA_TURNO),  aula.listSesiones);
 router.post("/aula/sesiones",                             roleMiddleware(AULA_TURNO), aula.crearSesion);
 router.get("/aula/sesiones/:id_sesion/asistencia",        roleMiddleware(AULA_READ),  aula.listAsistencia);
 router.post("/aula/sesiones/:id_sesion/asistencia",       roleMiddleware(AULA_WRITE), aula.registrarAsistencia);
