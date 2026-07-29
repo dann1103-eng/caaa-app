@@ -778,3 +778,34 @@ exports.cerrarSesion = async (req, res) => {
     res.status(500).json({ ok: false, message: e.message });
   }
 };
+
+exports.reasignarSalon = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id } = req.params;
+    const { id_salon } = req.body;
+    if (!id_salon) return res.status(400).json({ ok: false, message: "id_salon requerido" });
+
+    const cur = await client.query(`SELECT * FROM sesion_clase WHERE id = $1 FOR UPDATE`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    const sesion = cur.rows[0];
+    if (!["PROGRAMADA", "EN_CURSO"].includes(sesion.estado)) {
+      return res.status(400).json({ ok: false, message: "Solo se puede reasignar salón mientras la clase está programada o en curso." });
+    }
+
+    await client.query("BEGIN");
+    await choqueSalon(client, {
+      id_salon, fecha: sesion.fecha, id_bloque: sesion.id_bloque, id_bloque_fin: sesion.id_bloque_fin,
+      excluirIdSesion: Number(id),
+    });
+    const r = await client.query(`UPDATE sesion_clase SET id_salon = $1 WHERE id = $2 RETURNING *`, [id_salon, id]);
+    await client.query("COMMIT");
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "CHOQUE_SALON") return res.status(409).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};

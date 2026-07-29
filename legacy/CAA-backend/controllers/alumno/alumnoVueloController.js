@@ -133,3 +133,35 @@ exports.getMisClases = catchAsync(async (req, res) => {
   res.json(r.rows);
 });
 
+exports.firmarAsistenciaClase = catchAsync(async (req, res) => {
+  const { id_sesion } = req.params;
+  const { firma } = req.body;
+  if (!firma) return res.status(400).json({ message: "Falta la firma" });
+
+  const alRes = await db.query(`SELECT id_alumno FROM alumno WHERE id_usuario = $1`, [req.user.id_usuario]);
+  const idAlumno = alRes.rows[0]?.id_alumno;
+  if (!idAlumno) return res.status(404).json({ message: "Alumno no encontrado" });
+
+  const fila = await db.query(
+    `SELECT a.id, a.estado, sc.estado AS estado_sesion
+       FROM asistencia_alumno a
+       JOIN sesion_clase sc ON sc.id = a.id_sesion
+      WHERE a.id_sesion = $1 AND a.id_alumno = $2`,
+    [id_sesion, idAlumno]
+  );
+  if (fila.rows.length === 0) return res.status(404).json({ message: "Esta clase no te corresponde" });
+  const asistencia = fila.rows[0];
+  if (asistencia.estado_sesion !== "CERRADA") {
+    return res.status(400).json({ message: "La clase todavía no cerró" });
+  }
+  if (asistencia.estado === "AUSENTE") {
+    return res.status(400).json({ message: "No podés firmar una clase donde quedaste marcado ausente" });
+  }
+
+  await db.query(
+    `UPDATE asistencia_alumno SET firma_alumno = $1, firmado_en = NOW() WHERE id = $2`,
+    [firma, asistencia.id]
+  );
+  res.json({ message: "Asistencia firmada" });
+});
+
