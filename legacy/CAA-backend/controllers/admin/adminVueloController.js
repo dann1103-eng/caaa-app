@@ -559,6 +559,49 @@ exports.rechazarSolicitudIndividual = catchAsync(async (req, res) => {
   }
 });
 
+// Marca una solicitud individual como revisada/aprobada por Programación ANTES
+// de publicar la semana — no cambia nada en el flujo de publicación (que ya
+// publica cualquier basket que no esté RECHAZADA, ver publicarSemana): es
+// puramente una marca visual para que el staff sepa qué ya revisó.
+exports.aprobarSolicitudIndividual = catchAsync(async (req, res) => {
+  const { id_detalle } = req.params;
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const detailRes = await client.query("SELECT id_solicitud, estado FROM solicitud_vuelo WHERE id_detalle = $1", [id_detalle]);
+    if (detailRes.rows.length === 0) throw new Error("Registro no encontrado");
+    const { id_solicitud, estado } = detailRes.rows[0];
+
+    if (estado === "RECHAZADA") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Este vuelo fue rechazado — no se puede aprobar." });
+    }
+
+    await client.query("UPDATE solicitud_vuelo SET estado = 'APROBADA' WHERE id_detalle = $1", [id_detalle]);
+
+    await logAuditoria(client, {
+      accion: "OTRO",
+      entidad: "solicitud_vuelo",
+      id_entidad: id_detalle,
+      actor: req.user,
+      descripcion: `Vuelo individual #${id_detalle} (Solicitud #${id_solicitud}) aprobado por admin/programación`,
+    });
+
+    await client.query("COMMIT");
+
+    const io = req.app.get("io");
+    if (io) io.emit("solicitud_aprobada", { id_solicitud, id_detalle });
+
+    res.json({ message: "Vuelo aprobado" });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
 exports.cancelarSolicitud = catchAsync(async (req, res) => {
   const { id_solicitud } = req.params;
   const client = await db.connect();

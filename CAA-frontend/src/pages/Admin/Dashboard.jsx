@@ -476,6 +476,7 @@ export default function AdminDashboard() {
               onGestionarEspera={(slot) => setEsperaSlot(slot)}
               reservas={reservas}
               onEliminarReserva={eliminarReserva}
+              mostrarBuscador
             />
           )}
         </div>

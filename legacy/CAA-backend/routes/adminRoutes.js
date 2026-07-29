@@ -43,6 +43,7 @@ router.get("/bloques-bloqueados", adminAccess, adminVuelo.getBloquesBloqueados);
 router.get("/instructores-activos", adminAccess, adminVuelo.getInstructoresActivos);
 router.patch("/solicitudes/:id_detalle/cambiar-instructor", adminAccess, adminVuelo.cambiarInstructorVuelo);
 router.patch("/solicitudes/:id_detalle/rechazar", adminAccess, adminVuelo.rechazarSolicitudIndividual);
+router.patch("/solicitudes/:id_detalle/aprobar", adminAccess, adminVuelo.aprobarSolicitudIndividual);
 router.patch("/solicitudes-semana/:id_solicitud/rechazar", adminAccess, adminVuelo.rechazarSolicitudSemana);
 router.patch("/solicitudes-semana/:id_solicitud/cancelar", adminAccess, adminVuelo.cancelarSolicitud);
 

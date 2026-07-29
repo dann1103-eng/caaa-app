@@ -67,6 +67,7 @@ export default function AdminCalendar({
   canEditItem,               // (item) => bool: solo estas tarjetas son editables
   onPersistCardEdit,         // (move) => Promise: persistir cambios del popover
   onRechazar,                // (id_detalle) => Promise: acción del botón de rechazo
+  onAprobar,                 // (id_detalle) => Promise: acción del botón de aprobar (revisión previa a publicar)
   allowInstructorChange = true, // mostrar el selector de instructor en el popover
   onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
   onGestionarEspera,         // (slot) => void: abrir gestor de lista de espera
@@ -107,6 +108,9 @@ export default function AdminCalendar({
     // Socket real-time refresh
     const socket = socketIO(SOCKET_URL);
     socket.on("solicitud_rechazada", () => {
+      if (onRefresh) onRefresh();
+    });
+    socket.on("solicitud_aprobada", () => {
       if (onRefresh) onRefresh();
     });
     socket.on("guardar_cambios", () => {
@@ -184,10 +188,23 @@ export default function AdminCalendar({
     return d.id_bloque_fin !== d.id_bloque ? `${diaLabel} ${horaIni}–${horaFin}` : `${diaLabel} ${horaIni}`;
   };
 
+  // Texto corto que va SIEMPRE visible en la tarjeta — un conteo de vuelos se
+  // entiende de un vistazo; un número de horas por sí solo no dice nada sin
+  // contexto (¿es mucho? ¿poco?) y obliga a hacer la cuenta mentalmente.
+  const resumenLabel = (item) => {
+    const r = resumenPorAlumno[item.id_alumno];
+    if (!r) return "";
+    const n = r.detalle.length;
+    return n === 1 ? "1 vuelo solicitado" : `${n} vuelos solicitados`;
+  };
+
+  // El detalle día/bloque + total de horas va en el tooltip (hover): no cabe
+  // en la tarjeta sin abrirla, y es lo que de verdad hace falta para detectar
+  // solicitudes encimadas o excesivas de un mismo alumno.
   const resumenTooltip = (item) => {
     const r = resumenPorAlumno[item.id_alumno];
     if (!r) return "";
-    return `Total solicitado esta semana: ${r.horas.toFixed(1)}h\n${r.detalle.map(formatDetalleDia).join("\n")}`;
+    return `${resumenLabel(item)} (${r.horas.toFixed(1)}h en total):\n${r.detalle.map(formatDetalleDia).join("\n")}`;
   };
 
   // ── Mapa de conflictos ────────────────────────────────────────────────────
@@ -420,11 +437,15 @@ export default function AdminCalendar({
     }
     if (estado === "COMPLETADO") return "completado";
     if (estado === "CANCELADO") return "cancelado";
-    // Aprobado/agendado (verde): ya tiene un lugar confirmado en el calendario.
-    // Un BORRADOR/EN_REVISION del alumno (semana "next", todavía sin resolver)
-    // ya se distingue con el badge Borrador/Enviada, así que se queda en el
-    // azul "programado" de siempre para no competir visualmente con el badge.
-    return estadoSolicitudBadge(item) ? "programado" : "agendado";
+    // Semana "next" (todavía sin publicar): verde SOLO tras aprobación explícita
+    // (botón "Aprobar" del popover, sv.estado='APROBADA') — no basta con que ya
+    // no esté en Borrador/Enviada, porque acá nunca hay un estado intermedio
+    // automático; el staff tiene que revisarlo a propósito.
+    if (week === "next") {
+      return item?.estado_vuelo_individual === "APROBADA" ? "agendado" : "programado";
+    }
+    // Semana publicada: ya es un vuelo real y confirmado — verde de una vez.
+    return "agendado";
   };
 
   const visibleDays = isMobile ? DIAS.slice(mobileDayOffset, mobileDayOffset + 3) : DIAS;
@@ -731,8 +752,7 @@ export default function AdminCalendar({
                           </div>
                           {resumenPorAlumno[item.id_alumno] && (
                             <div className="flight-horas-semana" title={resumenTooltip(item)}>
-                              <i className="bi bi-clock-history"></i> {resumenPorAlumno[item.id_alumno].horas.toFixed(1)}h sem.
-                              {resumenPorAlumno[item.id_alumno].detalle.length > 1 && ` (${resumenPorAlumno[item.id_alumno].detalle.length} vuelos)`}
+                              <i className="bi bi-clock-history"></i> {resumenLabel(item)}
                             </div>
                           )}
                           {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
@@ -840,8 +860,7 @@ export default function AdminCalendar({
                         </div>
                         {resumenPorAlumno[item.id_alumno] && (
                           <div className="flight-horas-semana" title={resumenTooltip(item)}>
-                            <i className="bi bi-clock-history"></i> {resumenPorAlumno[item.id_alumno].horas.toFixed(1)}h sem.
-                            {resumenPorAlumno[item.id_alumno].detalle.length > 1 && ` (${resumenPorAlumno[item.id_alumno].detalle.length} vuelos)`}
+                            <i className="bi bi-clock-history"></i> {resumenLabel(item)}
                           </div>
                         )}
                         {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
@@ -890,6 +909,8 @@ export default function AdminCalendar({
               isEditable={isEditable && puedeEditarItem(activePopover.item)}
               allowInstructorChange={allowInstructorChange}
               onRechazar={onRechazar}
+              onAprobar={onAprobar}
+              week={week}
               onGestionarEspera={onGestionarEspera}
               onGuardarRemarks={onGuardarRemarks}
               rechazarLabel={rechazarLabel}
@@ -921,6 +942,8 @@ function PopoverContent({
   isEditable,
   allowInstructorChange = true,
   onRechazar,
+  onAprobar,
+  week,
   onGestionarEspera,
   onGuardarRemarks,
   rechazarLabel = "Rechazar Vuelo",
@@ -945,6 +968,33 @@ function PopoverContent({
       activePopover.item.remarks_instructor = remarksDraft.trim() || null;
     } finally {
       setSavingRemarks(false);
+    }
+  }
+
+  // Aprobar: marca la solicitud como revisada antes de publicar la semana
+  // (solo tiene sentido en la semana "next", todavía sin publicar). Estado
+  // local propio (no basta con mutar activePopover.item: es una mutación de
+  // prop sin setState, así que React nunca repinta el popover con eso solo).
+  const [aprobando, setAprobando] = useState(false);
+  const [yaAprobado, setYaAprobado] = useState(activePopover.item.estado_vuelo_individual === "APROBADA");
+  async function handleAprobar() {
+    setAprobando(true);
+    const { toast } = await import("sonner");
+    try {
+      if (onAprobar) {
+        await onAprobar(activePopover.item.id_detalle);
+      } else {
+        const { aprobarSolicitudIndividual } = await import("../../services/adminApi");
+        await aprobarSolicitudIndividual(activePopover.item.id_detalle);
+      }
+      activePopover.item.estado_vuelo_individual = "APROBADA";
+      setYaAprobado(true);
+      toast.success("Vuelo aprobado");
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al aprobar");
+    } finally {
+      setAprobando(false);
     }
   }
 
@@ -1127,6 +1177,27 @@ function PopoverContent({
           >
             <i className="bi bi-hourglass-split"></i> Lista de espera
           </button>
+        )}
+
+        {/* allowInstructorChange=false marca la vista restringida del instructor
+            (Instructor/Solicitudes): ahí "aprobar" no aplica — es la revisión
+            que hace Programación/Admin sobre lo que el instructor ya envió. */}
+        {isEditable && week === "next" && allowInstructorChange && (
+          yaAprobado ? (
+            <div className="pop-alert" style={{ background: 'var(--c-success-50, #ecfdf5)', color: 'var(--c-success-700, #047857)', border: '1px solid var(--c-success-100, #a7f3d0)', display: 'flex', gap: 6, alignItems: 'center' }}>
+              <i className="bi bi-check-circle-fill"></i> Aprobado — listo para publicar.
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-approve-v"
+              onClick={handleAprobar}
+              disabled={aprobando}
+              style={{ width: '100%', marginBottom: 8 }}
+            >
+              {aprobando ? "Aprobando…" : <><i className="bi bi-check-lg"></i> Aprobar vuelo</>}
+            </button>
+          )
         )}
 
         {isEditable && (

@@ -132,6 +132,11 @@ export const rechazarSolicitudIndividual = async (id_detalle) => {
   return res.data;
 };
 
+export const aprobarSolicitudIndividual = async (id_detalle) => {
+  const res = await axios.patch(`${API_URL}/admin/solicitudes/${id_detalle}/aprobar`);
+  return res.data;
+};
+
 export const cancelarSolicitudSemana = async (id_solicitud) => {
   const res = await axios.patch(`${API_URL}/admin/solicitudes-semana/${id_solicitud}/cancelar`);
   return res.data;
