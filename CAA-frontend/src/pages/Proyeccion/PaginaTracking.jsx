@@ -36,6 +36,22 @@ function trackUrl(codigo) {
   return `https://globe.adsbexchange.com/?reg=${encodeURIComponent(reg)}&lat=${MSSS_LAT}&lon=${MSSS_LON}&zoom=${MSSS_ZOOM}&hideSideBar&hideButtons`;
 }
 
+/* FlightRadar24 bloquea iframes (X-Frame-Options), pero un popup con
+   window.open sí funciona: en PC abre una ventana flotante ENCIMA de la
+   proyección sin navegar la pestaña principal. El nombre de ventana por
+   matrícula reutiliza el mismo popup si se vuelve a tocar el botón (no
+   acumula ventanas). Esta función solo se ofrece en escritorio (el botón
+   se oculta por CSS en móvil): en móvil/PWA un popup se abre como pestaña
+   nueva y sí te saca de la app — ahí se queda solo el mosaico ADS-B. */
+function abrirFR24(codigo) {
+  const reg = normalizarMatricula(codigo).toLowerCase();
+  window.open(
+    `https://www.flightradar24.com/data/aircraft/${encodeURIComponent(reg)}`,
+    `fr24_${reg}`,
+    "width=1000,height=700,menubar=no,toolbar=no,location=yes,status=no"
+  );
+}
+
 export default function PaginaTracking() {
   const [aeronaves, setAeronaves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +120,17 @@ export default function PaginaTracking() {
           <div className="pt__tile pt__tile--busqueda">
             <div className="pt__tile-head">
               <span className="pt__tile-codigo">{busqueda}</span>
-              <span className="pt__tile-modelo">Búsqueda</span>
+              <span className="pt__tile-head-right">
+                <span className="pt__tile-modelo">Búsqueda</span>
+                <button
+                  type="button"
+                  className="pt__fr24-btn"
+                  title="Abrir en FlightRadar24 (ventana flotante)"
+                  onClick={() => abrirFR24(busqueda)}
+                >
+                  <i className="bi bi-box-arrow-up-right"></i> FR24
+                </button>
+              </span>
             </div>
             <div className="pt__tile-frame">
               <iframe
@@ -129,7 +155,17 @@ export default function PaginaTracking() {
                 <div key={a.id_aeronave} className="pt__tile">
                   <div className="pt__tile-head">
                     <span className="pt__tile-codigo">{a.codigo}</span>
-                    <span className="pt__tile-modelo">{a.modelo}</span>
+                    <span className="pt__tile-head-right">
+                      <span className="pt__tile-modelo">{a.modelo}</span>
+                      <button
+                        type="button"
+                        className="pt__fr24-btn"
+                        title="Abrir en FlightRadar24 (ventana flotante)"
+                        onClick={() => abrirFR24(a.codigo)}
+                      >
+                        <i className="bi bi-box-arrow-up-right"></i> FR24
+                      </button>
+                    </span>
                   </div>
                   <div className="pt__tile-frame">
                     <iframe

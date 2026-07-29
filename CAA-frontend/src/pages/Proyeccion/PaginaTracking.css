@@ -139,6 +139,40 @@
   color: var(--pp-text-muted);
 }
 
+.pt__tile-head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Botón FR24: abre popup flotante — solo tiene sentido en PC (la proyección
+   de pared); en móvil un popup es una pestaña nueva que saca de la app, así
+   que ahí se oculta y queda solo el mosaico ADS-B embebido. */
+.pt__fr24-btn {
+  background: transparent;
+  color: var(--pp-text-main);
+  border: 1px solid var(--pp-card-border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+.pt__fr24-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--pp-text-bright);
+}
+
+@media (max-width: 768px) {
+  .pt__fr24-btn { display: none; }
+}
+
 .pt__tile-frame {
   position: relative;
   width: 100%;
