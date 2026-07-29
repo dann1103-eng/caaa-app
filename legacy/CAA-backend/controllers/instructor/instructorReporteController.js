@@ -55,6 +55,7 @@ exports.getReporteVueloInstructor = async (req, res) => {
               rv.cantidad_combustible, rv.horas_cobradas, rv.firma_alumno, rv.firma_instructor,
               rv.estado AS reporte_estado, rv.archivo_pdf, rv.es_inasistencia, rv.motivo_inasistencia,
               rv.regreso_emergencia, rv.motivo_emergencia, rv.detalle_emergencia,
+              rv.editado_en, rv.motivo_edicion,
               v.categoria, v.tipo_instruccion, v.debitar_saldo,
               EXISTS(
                 SELECT 1 FROM movimiento_cuenta mc
@@ -116,6 +117,8 @@ exports.getReporteVueloInstructor = async (req, res) => {
       regreso_emergencia: row.regreso_emergencia ?? false,
       motivo_emergencia: row.motivo_emergencia,
       detalle_emergencia: row.detalle_emergencia,
+      editado_en: row.editado_en,
+      motivo_edicion: row.motivo_edicion,
     } : null;
     res.json({ vuelo, reporte });
   } catch (e) {
@@ -590,6 +593,214 @@ exports.firmarReporteVuelo = async (req, res) => {
   } catch (e) {
     console.error('Error firmarReporteVuelo:', e);
     res.status(500).json({ message: 'Error al firmar reporte de vuelo' });
+  }
+};
+
+// Corrige una vouchera YA firmada (PENDIENTE_ALUMNO) mientras el alumno todavía
+// no la firmó — para cuando el instructor se equivocó al llenarla. Deliberadamente
+// más angosto que firmarReporteVuelo: no permite tocar es_inasistencia ni
+// regreso_emergencia (cambiar la naturaleza del reporte reabriría toda la lógica
+// de ramas de firmarReporteVuelo) ni la firma. Solo corrige los valores de un
+// vuelo normal ya firmado, recalculando por DELTA los 3 efectos secundarios
+// (horas de aeronave, horas de licencia del alumno, cargo en cuenta corriente)
+// en vez de revertir todo y reaplicar — así una vouchera ya cobrada no se
+// "des-cobra" nunca, ni siquiera en un rollback tardío.
+exports.editarReporteVueloFirmado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      tipo_vuelo, tacometro_salida, tacometro_llegada,
+      hobbs_salida, hobbs_llegada, combustible_salida,
+      combustible_llegada, cantidad_combustible, horas_cobradas,
+      motivo_edicion,
+    } = req.body;
+
+    if (!motivo_edicion || !motivo_edicion.trim() || motivo_edicion.trim().length < 3) {
+      return res.status(400).json({ message: "Contá qué se corrigió (mínimo 3 caracteres) — queda en el historial de la vouchera." });
+    }
+
+    const aeroTipoRes = await db.query(
+      `SELECT a.tipo FROM vuelo v JOIN aeronave a ON a.id_aeronave = v.id_aeronave WHERE v.id_vuelo = $1`,
+      [id]
+    );
+    if (aeroTipoRes.rows.length === 0) return res.status(404).json({ message: "Vuelo no encontrado" });
+    const esSimulador = aeroTipoRes.rows[0].tipo === "SIMULADOR";
+
+    // Mismas validaciones de forma que firmarReporteVuelo (sin las ramas de
+    // inasistencia/emergencia: esta vía no las toca).
+    if (esSimulador) {
+      if (!horas_cobradas || isNaN(horas_cobradas) || parseFloat(horas_cobradas) <= 0) {
+        return res.status(400).json({ message: "Ingresá las horas a cobrar de la sesión de simulador." });
+      }
+    } else {
+      if (!tipo_vuelo) {
+        return res.status(400).json({ message: "Elegí el tipo de vuelo." });
+      }
+    }
+    const fieldsToValidate = [tacometro_salida, tacometro_llegada, hobbs_salida, hobbs_llegada, combustible_salida, combustible_llegada, cantidad_combustible, horas_cobradas];
+    if (fieldsToValidate.some(v => v && (isNaN(v) || parseFloat(v) < 0))) {
+      return res.status(400).json({ message: "Los valores numéricos deben ser números válidos." });
+    }
+    if (blankToNull(horas_cobradas) != null) {
+      const h = parseFloat(horas_cobradas);
+      if (isNaN(h) || h <= 0) {
+        return res.status(400).json({ message: "Las horas a cobrar deben ser un número mayor que 0." });
+      }
+      if (h > 24) {
+        return res.status(400).json({ message: "Las horas a cobrar son mayores a 24 — ¿te faltó el punto decimal?" });
+      }
+    }
+    let nuevoDiff = null;
+    if (!esSimulador) {
+      nuevoDiff = parseFloat(tacometro_llegada) - parseFloat(tacometro_salida);
+      if (isNaN(nuevoDiff) || nuevoDiff <= 0) {
+        return res.status(400).json({ message: "El Tacómetro de llegada debe ser mayor al de salida." });
+      }
+      if (nuevoDiff > 24) {
+        return res.status(400).json({ message: "La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores." });
+      }
+    }
+
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      // Mismo advisory lock que firmarReporteVuelo (keyed por id_vuelo): serializa
+      // contra una firma/edición concurrente sin entrar al grafo de locks de
+      // aeronave/vuelo (ver comentario largo en firmarReporteVuelo).
+      await client.query(`SELECT pg_advisory_xact_lock(4711, $1::int)`, [id]);
+
+      const reporteRes = await client.query(`SELECT * FROM reporte_vuelo WHERE id_vuelo = $1 FOR UPDATE`, [id]);
+      const reporte = reporteRes.rows[0];
+      if (!reporte) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Este vuelo todavía no tiene una vouchera firmada." });
+      }
+      if (reporte.estado === "COMPLETADO") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "El alumno ya firmó esta vouchera — ya no se puede editar." });
+      }
+      if (reporte.estado !== "PENDIENTE_ALUMNO") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "Esta vouchera todavía no está firmada — usá 'Guardar borrador'." });
+      }
+      if (reporte.es_inasistencia || reporte.regreso_emergencia) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "Esta vouchera es de inasistencia o regreso por emergencia — no se puede corregir desde acá." });
+      }
+
+      const vueloRes = await client.query(
+        `SELECT id_aeronave, id_alumno, es_extracurricular, categoria FROM vuelo WHERE id_vuelo = $1`,
+        [id]
+      );
+      const vuelo = vueloRes.rows[0];
+      const categoriaVuelo = vuelo.categoria || "NORMAL";
+      const sumaHorasLicencia = categoriaVuelo === "NORMAL" || categoriaVuelo === "CHEQUEO";
+
+      // --- Corregir horas de la aeronave por DELTA (no aplica a simulador) ---
+      if (!esSimulador) {
+        const viejoDiff = parseFloat(reporte.tacometro_llegada) - parseFloat(reporte.tacometro_salida);
+        if (!isNaN(viejoDiff) && nuevoDiff !== viejoDiff) {
+          // Revierte el efecto viejo con un ajuste directo (sin alertas ni fila de
+          // histórico — el forward de abajo reconstruye el histórico correcto) y
+          // reaplica con actualizarHorasAeronave para pasar por el mismo camino
+          // que al firmar: umbrales 50/100h, alertas, fila de horas_vuelo_aeronave.
+          // Nota: si el valor VIEJO (incorrecto) ya había cruzado un umbral de
+          // mantenimiento y la corrección lo baja de nuevo, la alerta ya disparada
+          // no se retira sola — se cancela a mano desde Mantenimiento si aplica
+          // (caso raro: una corrección de TAC que cruce 50/100h).
+          await client.query(`SELECT 1 FROM aeronave WHERE id_aeronave = $1 FOR UPDATE`, [vuelo.id_aeronave]);
+          await client.query(`UPDATE aeronave SET horas_acumuladas = horas_acumuladas - $1 WHERE id_aeronave = $2`, [viejoDiff, vuelo.id_aeronave]);
+          await client.query(`DELETE FROM horas_vuelo_aeronave WHERE id_vuelo = $1`, [id]);
+          const io = req.app.get("io");
+          await actualizarHorasAeronave(client, id, vuelo.id_aeronave, nuevoDiff, io);
+        }
+      }
+
+      // --- Corregir horas de licencia del alumno por DELTA ---
+      const horasCobradasNuevas = blankToNull(horas_cobradas) != null ? parseFloat(horas_cobradas) : nuevoDiff;
+      const viejoDiffAlumno = !isNaN(parseFloat(reporte.tacometro_llegada) - parseFloat(reporte.tacometro_salida))
+        ? parseFloat(reporte.tacometro_llegada) - parseFloat(reporte.tacometro_salida) : null;
+      const horasCobradasViejas = blankToNull(reporte.horas_cobradas) != null ? parseFloat(reporte.horas_cobradas) : viejoDiffAlumno;
+      const deltaHorasCobradas = (horasCobradasNuevas != null && horasCobradasViejas != null) ? horasCobradasNuevas - horasCobradasViejas : 0;
+      if (sumaHorasLicencia && !vuelo.es_extracurricular && vuelo.id_alumno && deltaHorasCobradas !== 0) {
+        await client.query(`UPDATE alumno SET horas_acumuladas = horas_acumuladas + $1 WHERE id_alumno = $2`, [deltaHorasCobradas, vuelo.id_alumno]);
+      }
+
+      // --- Corregir el cargo en cuenta corriente (movimiento_cuenta CARGO_VUELO) ---
+      // Mismo patrón que cuentaController.editarMovimiento: UPDATE in-place con
+      // editado_en/editado_por/motivo_edicion + recompute del saldo por SUM total
+      // (saldo_actual_usd nunca filtra por `anulado`, así que un ajuste in-place es
+      // el único camino consistente — ver nota histórica de la sesión).
+      if (deltaHorasCobradas !== 0) {
+        const movRes = await client.query(
+          `SELECT * FROM movimiento_cuenta WHERE id_vuelo = $1 AND tipo = 'CARGO_VUELO' AND COALESCE(anulado,false) = false FOR UPDATE`,
+          [id]
+        );
+        if (movRes.rows.length > 0) {
+          const mov = movRes.rows[0];
+          const horasMovViejas = Number(mov.horas_vuelo);
+          // Tarifa efectiva derivada del cargo YA hecho (no se re-consulta la tabla
+          // de tarifas): así una corrección de horas no queda expuesta a que la
+          // tarifa vigente haya cambiado entre firmar y corregir.
+          const tarifaEfectiva = horasMovViejas > 0 ? Math.abs(Number(mov.monto_usd)) / horasMovViejas : 0;
+          if (tarifaEfectiva > 0) {
+            const nuevoTotal = +(tarifaEfectiva * horasCobradasNuevas).toFixed(2);
+            const nuevoMonto = -nuevoTotal;
+            const diffMonto = nuevoMonto - Number(mov.monto_usd);
+            await client.query(`
+              UPDATE movimiento_cuenta SET
+                monto_usd = $2, horas_vuelo = $3,
+                editado_en = NOW(), editado_por = $4, motivo_edicion = $5
+              WHERE id = $1
+            `, [mov.id, nuevoMonto, horasCobradasNuevas, req.user.id_usuario, `Corrección de vouchera: ${motivo_edicion.trim()}`]);
+            if (diffMonto !== 0) {
+              await client.query(`
+                UPDATE cuenta_corriente_alumno
+                SET saldo_actual_usd = (SELECT COALESCE(SUM(monto_usd), 0) FROM movimiento_cuenta WHERE id_alumno = $1),
+                    ultimo_movimiento_en = NOW()
+                WHERE id_alumno = $1
+              `, [mov.id_alumno]);
+            }
+          }
+        }
+      }
+
+      // --- Actualizar la vouchera misma ---
+      const result = await client.query(
+        `UPDATE reporte_vuelo SET
+           tipo_vuelo = $2, tacometro_salida = $3, tacometro_llegada = $4,
+           hobbs_salida = $5, hobbs_llegada = $6, combustible_salida = $7,
+           combustible_llegada = $8, cantidad_combustible = $9, horas_cobradas = $10,
+           actualizado_en = NOW(), editado_en = NOW(), editado_por = $11, motivo_edicion = $12
+         WHERE id_vuelo = $1
+         RETURNING *`,
+        [id,
+         esSimulador ? null : blankToNull(tipo_vuelo),
+         esSimulador ? null : blankToNull(tacometro_salida),
+         esSimulador ? null : blankToNull(tacometro_llegada),
+         blankToNull(hobbs_salida), blankToNull(hobbs_llegada),
+         blankToNull(combustible_salida), blankToNull(combustible_llegada),
+         blankToNull(cantidad_combustible), blankToNull(horas_cobradas),
+         req.user.id_usuario, motivo_edicion.trim()]
+      );
+
+      await client.query("COMMIT");
+
+      const io = req.app.get("io");
+      if (io && vuelo.id_alumno) {
+        io.emit("cuenta_alumno_movimiento", { id_alumno: vuelo.id_alumno });
+      }
+
+      res.json(result.rows[0]);
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    console.error('Error editarReporteVueloFirmado:', e);
+    res.status(500).json({ message: 'Error al corregir el reporte de vuelo' });
   }
 };
 

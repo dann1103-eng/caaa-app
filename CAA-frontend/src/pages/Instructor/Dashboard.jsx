@@ -852,7 +852,7 @@ export default function InstructorDashboard() {
                         {r.fecha_vuelo ? new Date(r.fecha_vuelo).toLocaleDateString("es-SV", { day: "numeric", month: "short", year: "numeric" }) : "—"}
                       </td>
                       <td className="ins__td ins__td--center">
-                        <button className="ins__btn-reporte" onClick={() => setReporteModal(r)}>Ver reporte</button>
+                        <button className="ins__btn-reporte" onClick={() => setReporteModal(r)}>Ver / Corregir</button>
                       </td>
                     </tr>
                   ))}

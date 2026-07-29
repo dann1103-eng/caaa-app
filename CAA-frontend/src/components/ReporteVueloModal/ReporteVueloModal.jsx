@@ -10,6 +10,7 @@ import {
   getReporteVueloInstructor,
   guardarReporteVueloInstructor,
   firmarReporteVuelo,
+  editarReporteVueloFirmado,
 } from "../../services/instructorApi";
 import { getReporteVueloAdmin } from "../../services/administracionApi";
 import SignaturePad from "../SignaturePad/SignaturePad";
@@ -111,6 +112,11 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   const [esEmergencia, setEsEmergencia] = useState(false);
   const [motivoEmergencia, setMotivoEmergencia] = useState("");
   const [detalleEmergencia, setDetalleEmergencia] = useState("");
+  // Corrección de vouchera ya firmada: el instructor se equivocó al llenarla,
+  // ya la firmó y envió (PENDIENTE_ALUMNO), pero el alumno todavía no la firmó.
+  const [editando, setEditando] = useState(false);
+  const [motivoEdicion, setMotivoEdicion] = useState("");
+  const [corrigiendo, setCorrigiendo] = useState(false);
 
   const firmaAlumnoRef = useRef(null);
   const firmaInstructorRef = useRef(null);
@@ -119,9 +125,14 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   // la vouchera solo pide Hobbs inicio/cierre y las horas a cobrar.
   const isSim = vueloInfo?.aeronave_tipo === "SIMULADOR";
 
+  // Solo se puede corregir una vouchera ya firmada de un vuelo normal (no
+  // inasistencia/emergencia — el backend rechaza esos casos: cambiar esa
+  // naturaleza reabriría toda la lógica de ramas de firmarReporteVuelo).
+  const puedeCorregir = mode === "instructor" && estado === "PENDIENTE_ALUMNO" && !esInasistencia && !esEmergencia;
+
   // Instructor fills form (editable when null or BORRADOR); alumno never edits data
   const isReadonly = mode === "instructor"
-    ? (estado === "PENDIENTE_ALUMNO" || estado === "COMPLETADO")
+    ? (editando ? false : (estado === "PENDIENTE_ALUMNO" || estado === "COMPLETADO"))
     : true;
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
@@ -325,6 +336,67 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     }
   }
 
+  // ── Instructor corrige una vouchera ya firmada (PENDIENTE_ALUMNO) ─────────
+  function handleEmpezarCorreccion() {
+    setMotivoEdicion("");
+    setEditando(true);
+  }
+
+  function handleCancelarCorreccion() {
+    setEditando(false);
+    setMotivoEdicion("");
+  }
+
+  async function handleGuardarCorreccion() {
+    if (!motivoEdicion.trim() || motivoEdicion.trim().length < 3) {
+      toast.warning("Contá qué se corrigió (mínimo 3 caracteres) — queda en el historial de la vouchera.");
+      return;
+    }
+    if (isSim) {
+      if (!datos.horas_cobradas || parseFloat(datos.horas_cobradas) <= 0) {
+        toast.warning("Ingresá las horas a cobrar de la sesión.");
+        return;
+      }
+    } else {
+      if (!datos.tipo_vuelo) {
+        toast.warning("Elegí el tipo de vuelo.");
+        return;
+      }
+      if (!datos.tacometro_salida || !datos.tacometro_llegada) {
+        toast.warning("Los campos de Tacómetro Salida y Llegada son obligatorios.");
+        return;
+      }
+      if (parseFloat(datos.tacometro_llegada) <= parseFloat(datos.tacometro_salida)) {
+        toast.warning("El Tacómetro de llegada debe ser mayor al de salida.");
+        return;
+      }
+      if (parseFloat(datos.tacometro_llegada) - parseFloat(datos.tacometro_salida) > 24) {
+        toast.warning("La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores.");
+        return;
+      }
+      if (!datos.horas_cobradas || parseFloat(datos.horas_cobradas) <= 0) {
+        toast.warning("Ingresá las horas a cobrar — es lo que se le debita al alumno.");
+        return;
+      }
+      if (parseFloat(datos.horas_cobradas) > 24) {
+        toast.warning("Las horas a cobrar son mayores a 24 — ¿te faltó el punto decimal?");
+        return;
+      }
+    }
+
+    setCorrigiendo(true);
+    try {
+      await editarReporteVueloFirmado(id_vuelo, { ...datos, motivo_edicion: motivoEdicion.trim() });
+      toast.success("Vouchera corregida.");
+      setEditando(false);
+      setMotivoEdicion("");
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al corregir el reporte de vuelo.");
+    } finally {
+      setCorrigiendo(false);
+    }
+  }
+
   // ── Alumno firma y completa ────────────────────────────────────────────────
   async function handleFirmarAlumno() {
     if (firmaAlumnoRef.current?.isEmpty()) {
@@ -453,8 +525,10 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             </div>
           </div>
           <div className="rv-header-right">
-            {/* Botón de inasistencia — solo visible para instructor en BORRADOR */}
-            {mode === "instructor" && !isReadonly && (
+            {/* Botón de inasistencia — solo visible para instructor en BORRADOR
+                (no durante una corrección post-firma: el backend no permite
+                cambiar esa naturaleza desde ahí). */}
+            {mode === "instructor" && !isReadonly && !editando && (
               <button
                 className={`rv-btn-inasistencia ${esInasistencia ? "rv-btn-inasistencia--activo" : ""}`}
                 onClick={toggleInasistencia}
@@ -465,7 +539,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             )}
             {/* Regreso por emergencia — solo aeronave real: el backend lo rechaza
                 en simulador, así que ni se ofrece. */}
-            {mode === "instructor" && !isReadonly && !isSim && (
+            {mode === "instructor" && !isReadonly && !editando && !isSim && (
               <button
                 className={`rv-btn-emergencia ${esEmergencia ? "rv-btn-emergencia--activo" : ""}`}
                 onClick={toggleEmergencia}
@@ -501,6 +575,31 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
               ))}
             </div>
           </div>
+
+          {/* Corrección de vouchera ya firmada */}
+          {editando && (
+            <div className="rv-inasistencia-banner">
+              <span className="rv-inasistencia-icon"><i className="bi bi-pencil-square" /></span>
+              <div>
+                <strong>CORRIGIENDO VOUCHERA YA FIRMADA</strong>
+                <p>
+                  El alumno todavía no la firmó. Al guardar, se recalculan por diferencia
+                  las horas de la aeronave, las horas de licencia del alumno y el cargo en
+                  su cuenta — no se cobra ni se acredita dos veces.
+                </p>
+                <div className="rv-inasistencia-motivo-box">
+                  <span className="rv-inasistencia-motivo-label">¿Qué se corrigió? (obligatorio)</span>
+                  <textarea
+                    className="rv-inasistencia-motivo-input"
+                    placeholder="Ej. Se digitó mal el tacómetro de llegada (847.2 en vez de 874.2)"
+                    value={motivoEdicion}
+                    onChange={(e) => setMotivoEdicion(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Banner de inasistencia */}
           {esInasistencia && (
@@ -676,10 +775,10 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                   ref={firmaInstructorRef}
                   width={320}
                   height={120}
-                  disabled={isReadonly || mode !== "instructor"}
+                  disabled={isReadonly || mode !== "instructor" || editando}
                   value={firmaInstructor}
                 />
-                {mode === "instructor" && !isReadonly && (
+                {mode === "instructor" && !isReadonly && !editando && (
                   <button
                     className="rv-btn-clear"
                     onClick={() => firmaInstructorRef.current?.clear()}
@@ -742,6 +841,41 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                 disabled={saving || generating}
               >
                 {generating ? "Enviando…" : "Firmar y enviar a alumno"}
+              </button>
+            </>
+          )}
+
+          {/* Instructor — vouchera ya firmada, alumno todavía no la firmó */}
+          {mode === "instructor" && estado === "PENDIENTE_ALUMNO" && !editando && (
+            puedeCorregir ? (
+              <button
+                className="rv-btn rv-btn--primary"
+                onClick={handleEmpezarCorreccion}
+                disabled={saving || generating}
+              >
+                <i className="bi bi-pencil-square" /> Corregir vouchera
+              </button>
+            ) : (
+              <span className="rv-info-val" style={{ alignSelf: "center" }}>
+                Las voucheras de inasistencia o regreso por emergencia no se editan desde acá.
+              </span>
+            )
+          )}
+          {mode === "instructor" && estado === "PENDIENTE_ALUMNO" && editando && (
+            <>
+              <button
+                className="rv-btn"
+                onClick={handleCancelarCorreccion}
+                disabled={corrigiendo}
+              >
+                Cancelar
+              </button>
+              <button
+                className="rv-btn rv-btn--success"
+                onClick={handleGuardarCorreccion}
+                disabled={corrigiendo}
+              >
+                {corrigiendo ? "Guardando…" : "Guardar corrección"}
               </button>
             </>
           )}

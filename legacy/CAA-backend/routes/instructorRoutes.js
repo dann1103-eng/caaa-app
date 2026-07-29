@@ -39,6 +39,7 @@ router.get("/reportes-pendientes",                            access, instructor
 router.get("/vuelos/:id/reporte-vuelo",                       access, instructorReporte.getReporteVueloInstructor);
 router.put("/vuelos/:id/reporte-vuelo",                       access, instructorReporte.guardarReporteVueloInstructor);
 router.patch("/vuelos/:id/reporte-vuelo/firmar",              access, instructorReporte.firmarReporteVuelo);
+router.patch("/vuelos/:id/reporte-vuelo/editar",              access, instructorReporte.editarReporteVueloFirmado);
 router.get("/vuelos/:id/checklist-postvuelo",                 access, instructorReporte.getChecklistPostvuelo);
 router.post("/vuelos/:id/checklist-postvuelo",                access, instructorReporte.guardarChecklistPostvuelo);
 router.delete("/vuelos/:id/checklist-postvuelo",              access, instructorReporte.eliminarChecklistPostvuelo);

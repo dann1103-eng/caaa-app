@@ -102,6 +102,13 @@ export const firmarReporteVuelo = async (id_vuelo, datos) => {
   return res.data;
 };
 
+// Corrige una vouchera ya firmada (PENDIENTE_ALUMNO) mientras el alumno todavía
+// no la firmó — el instructor se equivocó al llenarla.
+export const editarReporteVueloFirmado = async (id_vuelo, datos) => {
+  const res = await axios.patch(`${API_URL}/instructor/vuelos/${id_vuelo}/reporte-vuelo/editar`, datos);
+  return res.data;
+};
+
 export const getChecklistPostvuelo = async (id_vuelo) => {
   const res = await axios.get(`${API_URL}/instructor/vuelos/${id_vuelo}/checklist-postvuelo`);
   return res.data;
