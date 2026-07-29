@@ -23,6 +23,7 @@ import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModa
 import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
 import GestionarMantenimientoModal from "../../components/GestionarMantenimientoModal/GestionarMantenimientoModal";
 import TurnoDiaWidget from "../../components/TurnoDiaWidget/TurnoDiaWidget";
+import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
@@ -676,6 +677,9 @@ export default function TurnoDashboard() {
 
         {/* ── METAR ─────────────────────────────────────────────────── */}
         <MetarWidget />
+
+        {/* ── Salones de teoría ─────────────────────────────────────── */}
+        <SalonesOcupacionWidget />
 
         {/* ── Turno del día (apertura/pausa/cambio/cierre + asistencia) ── */}
         <TurnoDiaWidget />

@@ -4,6 +4,7 @@ import ToastMantenimiento from "../../components/ToastMantenimiento/ToastManteni
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import StandbyModal from "../../components/StandbyModal/StandbyModal";
+import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import {
   getCalendarioAdmin,
   getAeronavesActivasAdmin,
@@ -388,6 +389,8 @@ export default function AdminDashboard() {
             <span className="adm__stat-sub">Esta semana</span>
           </div>
         </div>
+
+        <SalonesOcupacionWidget />
 
         <div className="adm__section">
           <div className="adm__section-header">

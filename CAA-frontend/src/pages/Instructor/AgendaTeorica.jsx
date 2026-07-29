@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import Header from "../../components/Header/Header";
 import AgendarClaseModal from "../../components/AgendarClaseModal/AgendarClaseModal";
-// TODO: uncomment when Task 15 creates SalonesOcupacionWidget
-// import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
+import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import {
   getSesiones, crearSesion, cancelarSesionClase, iniciarSesionClase, cerrarSesionClase,
 } from "../../services/administracionApi";
@@ -66,8 +65,7 @@ export default function AgendaTeorica() {
           </div>
         </div>
 
-        {/* TODO: uncomment when Task 15 creates SalonesOcupacionWidget */}
-        {/* <SalonesOcupacionWidget /> */}
+        <SalonesOcupacionWidget />
 
         <div className="agt__lista">
           {loading ? <p>Cargando…</p> : sesiones.length === 0 ? (
