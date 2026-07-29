@@ -1078,3 +1078,75 @@ exports.guardarSolicitudProgramacion = async (req, res) => {
   }
 };
 
+// Widget de ocupación de salones — "ahora mismo", reusado en Proyección,
+// Turno, Programación, Admin y la Agenda del instructor. El estado se deriva
+// de sesion_clase.estado (EN_CURSO manda, no el bloque programado), no de la
+// hora del reloj.
+exports.getSalonesOcupacion = async (req, res) => {
+  try {
+    const hoy = await db.query(`SELECT (NOW() AT TIME ZONE 'America/El_Salvador')::date AS d`);
+    const fecha = hoy.rows[0].d;
+
+    const r = await db.query(`
+      SELECT s.id, s.nombre,
+             en_curso.curso_codigo AS ec_curso, en_curso.unidad_nombre AS ec_unidad, en_curso.instructor_nombre AS ec_instructor,
+             reserva.motivo AS rs_motivo, reserva.descripcion AS rs_descripcion,
+             proxima.hora_inicio AS px_hora, proxima.curso_codigo AS px_curso, proxima.unidad_nombre AS px_unidad, proxima.instructor_nombre AS px_instructor
+        FROM salon s
+        LEFT JOIN LATERAL (
+          SELECT c.codigo AS curso_codigo, u.nombre AS unidad_nombre,
+                 TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
+            FROM sesion_clase sc
+            JOIN curso c ON c.id = sc.id_curso
+            LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+            LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+            LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+           WHERE sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado = 'EN_CURSO'
+           LIMIT 1
+        ) en_curso ON true
+        LEFT JOIN LATERAL (
+          SELECT motivo, descripcion FROM reserva_salon rs2
+            JOIN bloque_horario bh ON bh.id_bloque = rs2.id_bloque
+           WHERE rs2.id_salon = s.id AND rs2.fecha = $1
+             AND bh.hora_inicio <= (NOW() AT TIME ZONE 'America/El_Salvador')::time
+             AND COALESCE((SELECT hora_fin FROM bloque_horario WHERE id_bloque = rs2.id_bloque_fin), bh.hora_fin)
+                 >= (NOW() AT TIME ZONE 'America/El_Salvador')::time
+           LIMIT 1
+        ) reserva ON true
+        LEFT JOIN LATERAL (
+          SELECT bh.hora_inicio, c.codigo AS curso_codigo, u.nombre AS unidad_nombre,
+                 TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
+            FROM sesion_clase sc
+            JOIN bloque_horario bh ON bh.id_bloque = sc.id_bloque
+            JOIN curso c ON c.id = sc.id_curso
+            LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+            LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+            LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+           WHERE sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado = 'PROGRAMADA'
+             AND bh.hora_inicio > (NOW() AT TIME ZONE 'America/El_Salvador')::time
+           ORDER BY bh.hora_inicio LIMIT 1
+        ) proxima ON true
+       WHERE s.activo = true
+       ORDER BY s.id
+    `, [fecha]);
+
+    const data = r.rows.map((row) => {
+      if (row.ec_curso) {
+        return { id: row.id, nombre: row.nombre, estado: "EN_SESION", instructor: row.ec_instructor, curso: row.ec_curso, unidad: row.ec_unidad };
+      }
+      if (row.rs_motivo) {
+        return { id: row.id, nombre: row.nombre, estado: "RESERVADO", motivo: row.rs_motivo, descripcion: row.rs_descripcion };
+      }
+      if (row.px_curso) {
+        return { id: row.id, nombre: row.nombre, estado: "PROXIMA", hora: row.px_hora, instructor: row.px_instructor, curso: row.px_curso, unidad: row.px_unidad };
+      }
+      return { id: row.id, nombre: row.nombre, estado: "LIBRE" };
+    });
+
+    res.json(data);
+  } catch (e) {
+    console.error("getSalonesOcupacion:", e);
+    res.status(500).json({ message: "Error al obtener ocupación de salones" });
+  }
+};
+

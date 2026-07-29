@@ -809,3 +809,84 @@ exports.reasignarSalon = async (req, res) => {
     client.release();
   }
 };
+
+exports.listSalones = async (req, res) => {
+  try {
+    const r = await db.query(`SELECT id, nombre FROM salon WHERE activo = true ORDER BY id`);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Para el picker del formulario de agendar: libre/ocupado (y por quién) en un
+// horario dado. Mismo patrón que getAeronavesDisponibles.
+exports.disponibilidadSalones = async (req, res) => {
+  try {
+    const { fecha, id_bloque, id_bloque_fin } = req.query;
+    if (!fecha || !id_bloque) return res.status(400).json({ ok: false, message: "fecha e id_bloque son requeridos" });
+    const fin = Number(id_bloque_fin || id_bloque);
+
+    const r = await db.query(`
+      SELECT s.id, s.nombre,
+             sc.id IS NOT NULL AS ocupado_clase, c.codigo AS curso_codigo,
+             rs.id IS NOT NULL AS ocupado_reserva, rs.motivo
+        FROM salon s
+        LEFT JOIN sesion_clase sc ON sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado <> 'CANCELADA'
+          AND NOT ($3 < sc.id_bloque OR $2 > COALESCE(sc.id_bloque_fin, sc.id_bloque))
+        LEFT JOIN curso c ON c.id = sc.id_curso
+        LEFT JOIN reserva_salon rs ON rs.id_salon = s.id AND rs.fecha = $1
+          AND NOT ($3 < rs.id_bloque OR $2 > COALESCE(rs.id_bloque_fin, rs.id_bloque))
+       WHERE s.activo = true
+       ORDER BY s.id
+    `, [fecha, id_bloque, fin]);
+
+    res.json({
+      ok: true,
+      data: r.rows.map((row) => ({
+        id: row.id, nombre: row.nombre,
+        libre: !row.ocupado_clase && !row.ocupado_reserva,
+        motivo: row.ocupado_clase ? `Clase de ${row.curso_codigo}` : row.ocupado_reserva ? `Reservado (${row.motivo})` : null,
+      })),
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Roster de alumnos activos de un curso, para el multi-select del formulario de agendar.
+exports.rosterCurso = async (req, res) => {
+  try {
+    const { id_curso } = req.params;
+    const r = await db.query(`
+      SELECT ic.id_alumno, TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre
+        FROM inscripcion_curso ic
+        JOIN alumno a ON a.id_alumno = ic.id_alumno
+        JOIN usuario u ON u.id_usuario = a.id_usuario
+       WHERE ic.id_curso = $1 AND ic.estado = 'ACTIVO'
+       ORDER BY u.nombre
+    `, [id_curso]);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Para el selector de Turno al agendar una clase "a nombre de": instructores de
+// TEORÍA activos. OJO: `adminVueloController.getInstructoresActivos` (ya usado
+// para vuelos) filtra `es_instructor_vuelo=true` — un instructor solo-teoría
+// nunca aparecería ahí, por eso este es un endpoint nuevo y separado.
+exports.listInstructoresTeoria = async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT i.id_instructor, TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre
+        FROM instructor i
+        JOIN usuario u ON u.id_usuario = i.id_usuario
+       WHERE i.activo = true AND i.es_instructor_teoria = true
+       ORDER BY u.nombre
+    `);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
