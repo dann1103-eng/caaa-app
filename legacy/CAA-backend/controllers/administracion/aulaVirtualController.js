@@ -647,3 +647,79 @@ exports.miAulaVirtual = async (req, res) => {
     res.status(500).json({ ok: false, message: e.message });
   }
 };
+
+// Solo se puede editar/cancelar mientras está PROGRAMADA (antes de iniciar).
+// Mismo permiso que crear: instructor dueño + Admin/Administración/Turno.
+async function assertPropiaOSStaff(req, sesion) {
+  if (req.user?.rol === "INSTRUCTOR") {
+    const idIns = await resolverIdInstructor(req.user.id_usuario);
+    if (Number(sesion.id_instructor) !== Number(idIns)) {
+      const e = new Error("No podés modificar la clase de otro instructor.");
+      e.code = "FORBIDDEN";
+      throw e;
+    }
+  }
+}
+
+exports.editarSesion = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id } = req.params;
+    const { id_curso, id_unidad, fecha, tema, id_bloque, id_bloque_fin, id_salon, examen, alumnos } = req.body;
+
+    const cur = await client.query(`SELECT * FROM sesion_clase WHERE id = $1 FOR UPDATE`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    const sesion = cur.rows[0];
+    if (sesion.estado !== "PROGRAMADA") {
+      return res.status(400).json({ ok: false, message: "Solo se puede editar una clase que todavía no inició." });
+    }
+    await assertPropiaOSStaff(req, sesion);
+
+    await client.query("BEGIN");
+    await choqueSalon(client, { id_salon, fecha, id_bloque, id_bloque_fin, excluirIdSesion: Number(id) });
+    await choqueInstructor(client, { id_instructor: sesion.id_instructor, fecha, id_bloque, id_bloque_fin, excluirIdSesion: Number(id) });
+
+    const r = await client.query(`
+      UPDATE sesion_clase SET id_curso=$1, id_unidad=$2, fecha=$3, tema=$4,
+             id_bloque=$5, id_bloque_fin=$6, id_salon=$7, examen=$8
+       WHERE id = $9 RETURNING *
+    `, [id_curso, id_unidad || null, fecha, tema || null, id_bloque, id_bloque_fin || null, id_salon, examen === true, id]);
+
+    if (Array.isArray(alumnos)) {
+      await client.query(`DELETE FROM asistencia_alumno WHERE id_sesion = $1`, [id]);
+      await client.query(`
+        INSERT INTO asistencia_alumno (id_sesion, id_alumno, estado, registrado_por)
+        SELECT $1, x, 'PRESENTE', $2 FROM UNNEST($3::int[]) AS x
+      `, [id, req.user?.id_usuario || null, alumnos]);
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    if (e.code === "CHOQUE_SALON" || e.code === "CHOQUE_INSTRUCTOR") {
+      return res.status(409).json({ ok: false, message: e.message });
+    }
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.cancelarSesion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cur = await db.query(`SELECT * FROM sesion_clase WHERE id = $1`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    if (cur.rows[0].estado !== "PROGRAMADA") {
+      return res.status(400).json({ ok: false, message: "Solo se puede cancelar una clase que todavía no inició." });
+    }
+    await assertPropiaOSStaff(req, cur.rows[0]);
+    await db.query(`UPDATE sesion_clase SET estado = 'CANCELADA' WHERE id = $1`, [id]);
+    res.json({ ok: true, message: "Clase cancelada" });
+  } catch (e) {
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
