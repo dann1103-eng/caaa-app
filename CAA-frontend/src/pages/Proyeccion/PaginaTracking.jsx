@@ -19,8 +19,20 @@ const MSSS_LAT = 13.6969;
 const MSSS_LON = -89.1233;
 const MSSS_ZOOM = 11;
 
+// La matrícula real (la que ADS-B Exchange indexa) conserva el PRIMER guion
+// (país-serie, ej. "YS-127P") pero no los siguientes — el código en BD a
+// veces trae un guion extra antes del sufijo de una sola letra (ej.
+// "YS-127-P" en vez de "YS-127P"), y buscando con ESE guion de más
+// (o sin ningún guion) el visor no encuentra la aeronave. Quitar solo los
+// guiones después del primero, no todos.
+function normalizarMatricula(codigo) {
+  const partes = (codigo || "").split("-");
+  if (partes.length <= 1) return codigo || "";
+  return `${partes[0]}-${partes.slice(1).join("")}`;
+}
+
 function trackUrl(codigo) {
-  const reg = (codigo || "").replace(/-/g, "");
+  const reg = normalizarMatricula(codigo);
   return `https://globe.adsbexchange.com/?reg=${encodeURIComponent(reg)}&lat=${MSSS_LAT}&lon=${MSSS_LON}&zoom=${MSSS_ZOOM}&hideSideBar&hideButtons`;
 }
 
