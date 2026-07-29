@@ -266,6 +266,36 @@ exports.reconciliarCancelaciones = catchAsync(async (req, res) => {
   }
 });
 
+// Restaura a mano un vuelo cancelado por error (ej. una versión previa de
+// `cancelarVuelosAfectadosPorMantenimiento` que sobre-canceló antes de
+// guardar el estado previo para auto-restaurar). Sin esto, arreglar un caso
+// así requeriría tocar la BD directo — cualquier reconciliación futura ya
+// no necesita esto (guarda su propio estado previo), pero deja el hueco
+// cerrado para lo que ya haya quedado mal con una versión anterior.
+exports.restaurarVueloCancelado = catchAsync(async (req, res) => {
+  const { id_vuelo } = req.params;
+  const { estado = "PUBLICADO" } = req.body;
+  const ESTADOS_VALIDOS = ["SOLICITADO", "AJUSTADO", "PUBLICADO"];
+  if (!ESTADOS_VALIDOS.includes(estado)) {
+    return res.status(400).json({ message: `Estado inválido. Debe ser uno de: ${ESTADOS_VALIDOS.join(", ")}` });
+  }
+  const r = await db.query(
+    `UPDATE vuelo SET estado = $1, justificacion_cancelacion = NULL, tipo_cancelacion = NULL, fecha_cancelacion = NULL
+      WHERE id_vuelo = $2 AND estado = 'CANCELADO' RETURNING id_vuelo`,
+    [estado, id_vuelo]
+  );
+  if (r.rows.length === 0) {
+    return res.status(404).json({ message: "Vuelo no encontrado o no está cancelado" });
+  }
+  await logAuditoria(db, {
+    accion: "OTRO", entidad: "vuelo", id_entidad: Number(id_vuelo), actor: req.user, req,
+    descripcion: `Vuelo #${id_vuelo} restaurado manualmente a ${estado} (cancelación por error)`,
+  });
+  const io = req.app.get("io");
+  if (io) io.emit("vuelo_estado_changed", { id_vuelo: Number(id_vuelo), estado });
+  res.json({ message: "Vuelo restaurado", id_vuelo: r.rows[0].id_vuelo, estado });
+});
+
 exports.getAlertasMantenimiento = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT id_aeronave, codigo, modelo, tipo,

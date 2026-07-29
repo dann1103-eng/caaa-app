@@ -80,6 +80,7 @@ router.post("/aeronaves/:id/completar-mantenimiento", adminAccess, adminMantenim
 router.delete("/mantenimiento/:id", adminAccess, adminMantenimiento.cancelarMantenimiento);
 router.post("/aeronaves/:id/agregar-bloques-mantenimiento", adminAccess, adminMantenimiento.agregarBloquesMantenimiento);
 router.post("/aeronaves/:id/reconciliar-cancelaciones-mantenimiento", adminAccess, adminMantenimiento.reconciliarCancelaciones);
+router.post("/vuelos/:id_vuelo/restaurar-cancelacion", adminAccess, adminMantenimiento.restaurarVueloCancelado);
 
 // --- Reserva de aeronave (uso especial sin alumno: traslado/prueba/etc.) ---
 router.get("/reservas", adminAccess, reservaAeronave.listarReservas);
