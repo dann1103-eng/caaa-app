@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { LoadSheetProvider } from "./context/LoadSheetContext";
+import { LoadSheetProvider, getDefaultFuelData } from "./context/LoadSheetContext";
 import { AIRCRAFT } from "./data/aircraft";
 import { getWBData } from "./loadsheetApi";
 import { getAeronavesPractica, getPlantillaPractica } from "./loadsheetPracticaApi";
@@ -53,6 +53,10 @@ function buildInitial(idVuelo, data, aircraftCatalog) {
       instructor: [v.instructor_nombre, v.instructor_apellido].filter(Boolean).join(" "),
       instructorLicense: v.instructor_licencia || "",
     },
+    // Consumo por defecto del avión REAL de este vuelo (no el hardcodeado '10 gal/hr'
+    // del Arrow que traía el estado inicial del wizard). Se sobreescribe abajo si ya
+    // hay un loadsheet guardado con su propio power/flow.
+    fuelData: getDefaultFuelData(data.aeronave_codigo, aircraftCatalog),
   };
 
   // Restaurar peso & balance guardado
@@ -64,9 +68,9 @@ function buildInitial(idVuelo, data, aircraftCatalog) {
   // Restaurar resto del loadsheet guardado (memoria)
   if (ls) {
     initial.fuelData = {
-      power: ls.power_setting ?? "",
-      flowGal: ls.fuel_flow ?? "",
-      flowKg: "",
+      power: ls.power_setting ?? initial.fuelData.power,
+      flowGal: ls.fuel_flow ?? initial.fuelData.flowGal,
+      flowKg: initial.fuelData.flowKg,
       taxiMin: ls.taxi_fuel ?? "",
       tripMin: ls.trip_fuel ?? "",
       rarMin: ls.reserve_rr ?? "",
@@ -130,6 +134,7 @@ function buildPracticeInitial(aircraftCatalog) {
       instructor: "",
       instructorLicense: "",
     },
+    fuelData: getDefaultFuelData(currentAC, aircraftCatalog),
     readOnly: false,
     practice: true,
   };

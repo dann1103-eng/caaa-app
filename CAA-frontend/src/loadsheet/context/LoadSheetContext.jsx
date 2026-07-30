@@ -33,7 +33,7 @@ const initialState = {
   submitStatus: 'idle',
 }
 
-function getDefaultFuelData(acKey, catalog) {
+export function getDefaultFuelData(acKey, catalog) {
   const ac = catalog && catalog[acKey]
   if (!ac) return {}
   const flowGal = ac.default_flow_gal || ''
