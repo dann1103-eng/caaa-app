@@ -285,8 +285,8 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         toast.warning("El Tacómetro de llegada debe ser mayor al de salida.");
         return;
       }
-      if (parseFloat(datos.tacometro_llegada) - parseFloat(datos.tacometro_salida) > 24) {
-        toast.warning("La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores.");
+      if (parseFloat(datos.tacometro_llegada) - parseFloat(datos.tacometro_salida) > 8) {
+        toast.warning("La diferencia de tacómetro da más de 8 horas de vuelo — revisá el punto decimal: copiá la lectura tal cual la muestra el instrumento, cero inicial incluido (ej. 0374.06).");
         return;
       }
       // Las horas a cobrar también se exigen en aeronave real, no solo en simulador:
@@ -317,16 +317,31 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     }
     const firma = firmaInstructorRef.current.toDataURL();
     setGenerating(true);
+    const payload = {
+      ...datos,
+      firma_instructor: firma,
+      es_inasistencia: esInasistencia,
+      motivo_inasistencia: motivoInasistencia,
+      regreso_emergencia: esEmergencia,
+      motivo_emergencia: motivoEmergencia,
+      detalle_emergencia: detalleEmergencia,
+    };
     try {
-      await firmarReporteVuelo(id_vuelo, {
-        ...datos,
-        firma_instructor: firma,
-        es_inasistencia: esInasistencia,
-        motivo_inasistencia: motivoInasistencia,
-        regreso_emergencia: esEmergencia,
-        motivo_emergencia: motivoEmergencia,
-        detalle_emergencia: detalleEmergencia,
-      });
+      try {
+        await firmarReporteVuelo(id_vuelo, payload);
+      } catch (e) {
+        // Continuidad de TAC: el backend frena si la salida no empata con la
+        // última llegada registrada del avión. Si la lectura es real (p.ej. la
+        // vouchera anterior fue la mal digitada), el instructor confirma y se
+        // reintenta con confirmar_tac.
+        if (e?.response?.status === 409 && e?.response?.data?.code === "TAC_DISCONTINUO") {
+          const seguir = window.confirm(`${e.response.data.message}\n\n¿Firmar de todos modos?`);
+          if (!seguir) return;
+          await firmarReporteVuelo(id_vuelo, { ...payload, confirmar_tac: true });
+        } else {
+          throw e;
+        }
+      }
       setFirmaInstructor(firma);
       setEstado("PENDIENTE_ALUMNO");
     } catch (e) {
@@ -370,8 +385,8 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         toast.warning("El Tacómetro de llegada debe ser mayor al de salida.");
         return;
       }
-      if (parseFloat(datos.tacometro_llegada) - parseFloat(datos.tacometro_salida) > 24) {
-        toast.warning("La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores.");
+      if (parseFloat(datos.tacometro_llegada) - parseFloat(datos.tacometro_salida) > 8) {
+        toast.warning("La diferencia de tacómetro da más de 8 horas de vuelo — revisá el punto decimal: copiá la lectura tal cual la muestra el instrumento, cero inicial incluido (ej. 0374.06).");
         return;
       }
       if (!datos.horas_cobradas || parseFloat(datos.horas_cobradas) <= 0) {

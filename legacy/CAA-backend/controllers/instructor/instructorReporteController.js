@@ -252,10 +252,11 @@ exports.firmarReporteVuelo = async (req, res) => {
     // Simulador: sesión sin aeronave física — se factura por horas_cobradas
     // (independiente del Hobbs) en vez del diferencial de tacómetro.
     const aeroTipoRes = await db.query(
-      `SELECT a.tipo FROM vuelo v JOIN aeronave a ON a.id_aeronave = v.id_aeronave WHERE v.id_vuelo = $1`,
+      `SELECT a.tipo, a.id_aeronave FROM vuelo v JOIN aeronave a ON a.id_aeronave = v.id_aeronave WHERE v.id_vuelo = $1`,
       [id]
     );
     const esSimulador = aeroTipoRes.rows[0]?.tipo === 'SIMULADOR';
+    const idAeronaveVuelo = aeroTipoRes.rows[0]?.id_aeronave || null;
 
     // Regreso por emergencia: el avión salió del hangar y se regresó sin llegar a
     // hacer el vuelo (mal clima, falla mecánica). El TAC sigue siendo obligatorio
@@ -314,6 +315,50 @@ exports.firmarReporteVuelo = async (req, res) => {
         }
         if (h > 24) {
           return res.status(400).json({ message: "Las horas a cobrar son mayores a 24 — ¿te faltó el punto decimal?" });
+        }
+      }
+
+      // Tacómetro: red contra el punto decimal corrido. El tach físico puede
+      // pasar de 10,000h y el instrumento muestra solo 4 dígitos ("0374.06");
+      // si se omite el cero inicial y se corre el punto ("3740.6"), el delta se
+      // multiplica x10: el avión "vuela" horas que no existen (infla el
+      // mantenimiento 50/100h) y, si horas_cobradas viene vacío, el cobro cae
+      // al fallback del TAC y se le debita de más al alumno. Caso real: YS-334-PE
+      // acumuló +6.9h por una vouchera con 3727.7→3734.6 (era 0372.77→0373.46).
+      if (!esSimulador && blankToNull(tacometro_salida) != null && blankToNull(tacometro_llegada) != null) {
+        const tacS = parseFloat(tacometro_salida);
+        const tacL = parseFloat(tacometro_llegada);
+        const deltaTac = tacL - tacS;
+        if (deltaTac < 0) {
+          return res.status(400).json({ message: "El tacómetro de llegada es menor que el de salida — revisá las lecturas." });
+        }
+        if (deltaTac > 8) {
+          return res.status(400).json({ message: `La diferencia de tacómetro da ${deltaTac.toFixed(2)} h de vuelo — revisá el punto decimal: copiá la lectura tal cual la muestra el instrumento, cero inicial incluido (ej. 0374.06).` });
+        }
+        // Continuidad: la salida debe empatar (±2h) con la última llegada
+        // registrada del mismo avión. Si la vouchera ANTERIOR es la que quedó
+        // mal digitada, este chequeo daría falso positivo — por eso se puede
+        // confirmar (confirmar_tac=true) en vez de bloquear duro: un typo ya
+        // firmado no traba la cadena de las voucheras siguientes.
+        if (idAeronaveVuelo) {
+          const prevTac = await db.query(`
+            SELECT rv.tacometro_llegada
+              FROM reporte_vuelo rv
+              JOIN vuelo v2 ON v2.id_vuelo = rv.id_vuelo
+              LEFT JOIN bloque_horario b ON b.id_bloque = v2.id_bloque
+             WHERE v2.id_aeronave = $1 AND v2.id_vuelo <> $2::int
+               AND rv.estado IN ('PENDIENTE_ALUMNO', 'COMPLETADO')
+               AND rv.tacometro_llegada IS NOT NULL
+             ORDER BY v2.fecha_vuelo DESC, b.hora_inicio DESC NULLS LAST
+             LIMIT 1
+          `, [idAeronaveVuelo, id]);
+          const ultimaLlegada = prevTac.rows.length ? parseFloat(prevTac.rows[0].tacometro_llegada) : null;
+          if (ultimaLlegada !== null && Math.abs(tacS - ultimaLlegada) > 2 && req.body.confirmar_tac !== true) {
+            return res.status(409).json({
+              code: "TAC_DISCONTINUO",
+              message: `El tacómetro de salida (${tacS}) no empata con la última llegada registrada de este avión (${ultimaLlegada}). Verificá la lectura contra el instrumento — si de verdad es correcta, confirmá para firmar igual.`,
+            });
+          }
         }
       }
     }
@@ -656,8 +701,8 @@ exports.editarReporteVueloFirmado = async (req, res) => {
       if (isNaN(nuevoDiff) || nuevoDiff <= 0) {
         return res.status(400).json({ message: "El Tacómetro de llegada debe ser mayor al de salida." });
       }
-      if (nuevoDiff > 24) {
-        return res.status(400).json({ message: "La diferencia entre Tacómetro salida y llegada es mayor a 24 horas — revisá los valores." });
+      if (nuevoDiff > 8) {
+        return res.status(400).json({ message: `La diferencia de tacómetro da ${nuevoDiff.toFixed(2)} h de vuelo — revisá el punto decimal: copiá la lectura tal cual la muestra el instrumento, cero inicial incluido (ej. 0374.06).` });
       }
     }
 
