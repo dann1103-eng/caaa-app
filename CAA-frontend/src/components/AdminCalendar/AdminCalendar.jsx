@@ -72,7 +72,7 @@ export default function AdminCalendar({
   onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
   onGestionarEspera,         // (slot) => void: abrir gestor de lista de espera
   onGuardarRemarks,          // (id_detalle, remarks) => Promise: remarks del instructor sobre el vuelo
-  rechazarLabel = "Rechazar Vuelo",
+  rechazarLabel,             // sin override: "Cancelar vuelo" en semana publicada, "Rechazar vuelo" en la próxima
   reservas = [],             // reservas de uso especial (sin alumno) a pintar
   onEliminarReserva,         // (id) => Promise: eliminar una reserva
   mostrarBuscador = false,   // barra de búsqueda para filtrar tarjetas por alumno
@@ -905,7 +905,7 @@ export default function AdminCalendar({
               week={week}
               onGestionarEspera={onGestionarEspera}
               onGuardarRemarks={onGuardarRemarks}
-              rechazarLabel={rechazarLabel}
+              rechazarLabel={rechazarLabel || (week === "current" ? "Cancelar vuelo" : "Rechazar Vuelo")}
               loadingSave={loadingSave}
               handleSave={handleSave}
               closePopover={closePopover}
