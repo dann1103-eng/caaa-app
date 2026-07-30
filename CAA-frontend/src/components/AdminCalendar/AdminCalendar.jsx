@@ -299,19 +299,14 @@ export default function AdminCalendar({
       return;
     }
 
-    // Toggle popover
-    const rect = e.currentTarget.getBoundingClientRect();
-    let x = rect.left + window.scrollX + rect.width + 10; // Al lado derecho de la card
-    let y = rect.top + window.scrollY; // Alineado al tope de la card
-
-    // Ajustar si se sale por la derecha
-    if (x + 280 > window.innerWidth) {
-      x = rect.left + window.scrollX - 290; // Al lado izquierdo de la card
-    }
-    // Si aún así se sale (muy estrecho), centrar
-    if (x < 0) x = 10;
-
-    setActivePopover({ item, x, y });
+    // El popover siempre abre centrado en pantalla (ver CSS .flight-popover):
+    // posicionarlo "al lado de la tarjeta" con getBoundingClientRect() se
+    // salía por abajo cada vez que el contenido era alto (remarks + otras
+    // solicitudes + Aprobar/Rechazar) y la tarjeta clicada estaba a media
+    // altura o más abajo — no había forma de hacer scroll para llegar a los
+    // botones. Centrado + max-height + overflow propio lo resuelve para
+    // cualquier tamaño de pantalla, sin tener que acertar una posición.
+    setActivePopover({ item });
     setTempAeronaveId(item.id_aeronave);
     setTempInstructorId(item.id_instructor);
     setTempBloqueInicio(item.id_bloque);
@@ -888,10 +883,7 @@ export default function AdminCalendar({
       {activePopover && (
         <>
           <div className="popover-overlay" onClick={closePopover} />
-          <div 
-            className="flight-popover"
-            style={{ top: activePopover.y, left: activePopover.x }}
-          >
+          <div className="flight-popover">
             <PopoverContent
               activePopover={activePopover}
               tempAeronaveId={tempAeronaveId}
