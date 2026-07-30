@@ -207,7 +207,7 @@ export default function Voucheras() {
                     {v.es_inasistencia
                       ? <span className="adf-tag amber">inasistencia</span>
                       : v.regreso_emergencia
-                        ? <span className="adf-tag red">regreso por emergencia</span>
+                        ? <span className="adf-tag red">regreso anticipado</span>
                         : <span className="adf-tag">{v.reporte_estado || "—"}</span>}
                   </td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>

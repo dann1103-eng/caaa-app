@@ -210,7 +210,7 @@ function buildVoucheraContent({
         widths: ["auto", "*"],
         body: [[
           {
-            text: "REGRESO POR EMERGENCIA",
+            text: "REGRESO ANTICIPADO",
             fontSize: 8, bold: true, color: "#ffffff", fillColor: "#b91c1c",
             margin: [6, 3, 6, 3],
           },

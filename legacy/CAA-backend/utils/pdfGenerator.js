@@ -553,7 +553,7 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
   // no ensuciar el reporte los días sin ninguna.
   if (vuelos.some((v) => v.regreso_emergencia)) {
     doc.fontSize(8).font("Helvetica-Oblique").fillColor(CAAA_RED)
-       .text("Filas en rojo: regreso por emergencia — no facturadas.", 40, y);
+       .text("Filas en rojo: regreso anticipado — no facturadas.", 40, y);
     y += 14;
   }
   y = dibujarSeccionesExtra(doc, { y, ancho, cancelados, inasistencias, horaReal });
@@ -783,7 +783,7 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
   // no ensuciar el reporte los días sin ninguna.
   if (vuelos.some((v) => v.regreso_emergencia)) {
     doc.fontSize(8).font("Helvetica-Oblique").fillColor(CAAA_RED)
-       .text("Filas en rojo: regreso por emergencia — no facturadas.", 40, y);
+       .text("Filas en rojo: regreso anticipado — no facturadas.", 40, y);
     y += 14;
   }
   y = dibujarSeccionesExtra(doc, { y, ancho, cancelados, inasistencias, horaReal });

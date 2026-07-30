@@ -261,7 +261,11 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
     // El motivo es obligatorio para firmar (el backend devuelve 400 sin él);
     // se avisa acá para no gastar el viaje de ida y vuelta.
     if (esEmergencia && !motivoEmergencia) {
-      toast.warning("Elegí el motivo del regreso por emergencia.");
+      toast.warning("Elegí el motivo del regreso anticipado.");
+      return;
+    }
+    if (esEmergencia && !detalleEmergencia.trim()) {
+      toast.warning("Escribí un remark explicando qué pasó en el regreso anticipado.");
       return;
     }
 
@@ -530,7 +534,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                 <span className="rv-badge rv-badge--inasistencia">INASISTENCIA</span>
               )}
               {esEmergencia && (
-                <span className="rv-badge rv-badge--emergencia">REGRESO POR EMERGENCIA</span>
+                <span className="rv-badge rv-badge--emergencia">REGRESO ANTICIPADO</span>
               )}
             </h2>
             <div className="rv-header-meta">
@@ -558,9 +562,9 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
               <button
                 className={`rv-btn-emergencia ${esEmergencia ? "rv-btn-emergencia--activo" : ""}`}
                 onClick={toggleEmergencia}
-                title={esEmergencia ? "Quitar marca de regreso por emergencia" : "El avión salió y regresó sin completar el vuelo"}
+                title={esEmergencia ? "Quitar marca de regreso anticipado" : "El avión salió y regresó sin completar el vuelo"}
               >
-                {esEmergencia ? <><i className="bi bi-x-lg" /> Quitar emergencia</> : <><i className="bi bi-arrow-return-left" /> Regreso por emergencia</>}
+                {esEmergencia ? <><i className="bi bi-x-lg" /> Quitar regreso anticipado</> : <><i className="bi bi-arrow-return-left" /> Regreso anticipado</>}
               </button>
             )}
             <button className="rv-close" onClick={onClose}>×</button>
@@ -647,7 +651,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
             <div className="rv-emergencia-banner">
               <span className="rv-emergencia-icon"><i className="bi bi-arrow-return-left" /></span>
               <div className="rv-emergencia-body">
-                <strong>REGRESO POR EMERGENCIA</strong>
+                <strong>REGRESO ANTICIPADO</strong>
                 <p>
                   El vuelo se abortó y la aeronave regresó. Las lecturas de tacómetro
                   siguen siendo obligatorias: el avión suma sus horas de mantenimiento,
@@ -676,13 +680,13 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                   </div>
 
                   <div className="rv-emergencia-campo">
-                    <span className="rv-emergencia-label">Detalle (opcional)</span>
+                    <span className="rv-emergencia-label">Remark — explicá qué pasó</span>
                     {isReadonly ? (
-                      <span className="rv-emergencia-val">{detalleEmergencia || "—"}</span>
+                      <span className="rv-emergencia-val">{detalleEmergencia || "No se escribió explicación."}</span>
                     ) : (
-                      <input
-                        type="text"
+                      <textarea
                         className="rv-emergencia-input"
+                        rows={2}
                         placeholder="Ej. techo bajo sobre el campo, presión de aceite en rojo…"
                         value={detalleEmergencia}
                         onChange={(e) => setDetalleEmergencia(e.target.value)}
@@ -872,7 +876,7 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
               </button>
             ) : (
               <span className="rv-info-val" style={{ alignSelf: "center" }}>
-                Las voucheras de inasistencia o regreso por emergencia no se editan desde acá.
+                Las voucheras de inasistencia o regreso anticipado no se editan desde acá.
               </span>
             )
           )}

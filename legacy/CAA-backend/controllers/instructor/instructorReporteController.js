@@ -161,7 +161,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
     // Se rechaza también acá, no solo al firmar: un borrador contradictorio se podía
     // guardar y después bloqueaba la firma hasta limpiar uno de los dos.
     if (esEmergencia && esInasistencia) {
-      return res.status(400).json({ message: "Un vuelo no puede ser inasistencia y regreso por emergencia a la vez." });
+      return res.status(400).json({ message: "Un vuelo no puede ser inasistencia y regreso anticipado a la vez." });
     }
 
     // A diferencia de firmarReporteVuelo, acá el motivo NO es obligatorio: un
@@ -169,7 +169,7 @@ exports.guardarReporteVueloInstructor = async (req, res) => {
     // si viene con un valor, tiene que ser uno de los del CHECK — si no, el INSERT
     // revienta con un error críptico de constraint en vez de un 400 legible.
     if (esEmergencia && motivo_emergencia && !MOTIVOS_EMERGENCIA.includes(motivo_emergencia)) {
-      return res.status(400).json({ message: "El motivo del regreso por emergencia debe ser Clima, Falla mecánica u Otro." });
+      return res.status(400).json({ message: "El motivo del regreso anticipado debe ser Clima, Falla mecánica u Otro." });
     }
 
     // Validar rangos numéricos solo si NO es inasistencia
@@ -272,16 +272,22 @@ exports.firmarReporteVuelo = async (req, res) => {
       // corre primero, un `regreso_emergencia` viejo pegado a una inasistencia
       // devolvía el desconcertante "Elegí el motivo del regreso por emergencia".
       if (esInasistencia) {
-        return res.status(400).json({ message: "Un vuelo no puede ser inasistencia y regreso por emergencia a la vez." });
+        return res.status(400).json({ message: "Un vuelo no puede ser inasistencia y regreso anticipado a la vez." });
       }
       if (esSimulador) {
-        return res.status(400).json({ message: "El regreso por emergencia solo aplica a aeronaves reales, no a simuladores." });
+        return res.status(400).json({ message: "El regreso anticipado solo aplica a aeronaves reales, no a simuladores." });
       }
       if (!motivo_emergencia) {
-        return res.status(400).json({ message: "Elegí el motivo del regreso por emergencia." });
+        return res.status(400).json({ message: "Elegí el motivo del regreso anticipado." });
       }
       if (!MOTIVOS_EMERGENCIA.includes(motivo_emergencia)) {
-        return res.status(400).json({ message: "El motivo del regreso por emergencia debe ser Clima, Falla mecánica u Otro." });
+        return res.status(400).json({ message: "El motivo del regreso anticipado debe ser Clima, Falla mecánica u Otro." });
+      }
+      // El remark escrito es obligatorio para firmar (no al guardar borrador,
+      // ver guardarReporteVueloInstructor): un select de 3 opciones no dice qué
+      // pasó realmente — el instructor tiene que dejarlo por escrito.
+      if (!detalle_emergencia || !String(detalle_emergencia).trim()) {
+        return res.status(400).json({ message: "Escribí un remark explicando qué pasó en el regreso anticipado." });
       }
     }
 
@@ -730,7 +736,7 @@ exports.editarReporteVueloFirmado = async (req, res) => {
       }
       if (reporte.es_inasistencia || reporte.regreso_emergencia) {
         await client.query("ROLLBACK");
-        return res.status(409).json({ message: "Esta vouchera es de inasistencia o regreso por emergencia — no se puede corregir desde acá." });
+        return res.status(409).json({ message: "Esta vouchera es de inasistencia o regreso anticipado — no se puede corregir desde acá." });
       }
 
       const vueloRes = await client.query(
