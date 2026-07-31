@@ -542,6 +542,11 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
               {v.aeronave_modelo && <span> · {v.aeronave_modelo}</span>}
               {v.alumno_nombre && <span> · {v.alumno_nombre}</span>}
             </div>
+            {v.grupo_ruta != null && (
+              <div className="rv-tramo-info" style={{ fontSize: '0.8rem', color: 'var(--c-ink-3)', fontFamily: 'var(--font-mono)' }}>
+                Ruta con parada — Tramo {v.orden_tramo}/{v.total_tramos} · {v.icao_origen} → {v.icao_destino}
+              </div>
+            )}
           </div>
           <div className="rv-header-right">
             {/* Botón de inasistencia — solo visible para instructor en BORRADOR
