@@ -5,6 +5,7 @@ const transporter = require("../../utils/mailer");
 const { horarioAlumnoEmail, horarioInstructorEmail } = require("../../utils/emailTemplates");
 const { getNextSemanaId, getCurrentSemanaId, crearSemanaFutura } = require("../../utils/adminHelpers");
 const { dispararOfertaPorCancelacion } = require("../../controllers/standbyController");
+const { notificarUsuario } = require("../../utils/notificaciones");
 
 exports.getSemanas = catchAsync(async (req, res) => {
   const result = await db.query(`
@@ -636,6 +637,87 @@ exports.cancelarSolicitud = catchAsync(async (req, res) => {
     }
 
     res.json({ message: "Solicitud cancelada" });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// Rechaza TODAS las solicitudes (borrador y en revisión) de una semana completa
+// de una sola vez — pensado para cierres extraordinarios (vacaciones, etc.) que
+// afectan a toda la escuela, no a un alumno puntual. Notifica in-app a cada
+// alumno e instructor que tenía algo pedido para esa semana. Si por algún
+// motivo la semana ya tuviera vuelos reales publicados, también los cancela
+// (no debería pasar con una semana sin publicar, pero cubre el caso).
+exports.rechazarSemanaCompleta = catchAsync(async (req, res) => {
+  const { id_semana } = req.params;
+  const { mensaje } = req.body;
+  if (!mensaje) return res.status(400).json({ message: "mensaje requerido" });
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const semanaRes = await client.query(
+      "SELECT id_semana FROM semana_vuelo WHERE id_semana = $1 FOR UPDATE",
+      [id_semana]
+    );
+    if (semanaRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Semana no encontrada" });
+    }
+
+    const afectados = await client.query(`
+      SELECT DISTINCT u_al.id_usuario FROM solicitud_vuelo sv
+        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        JOIN alumno al ON al.id_alumno = ss.id_alumno
+        JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
+       WHERE sv.id_semana = $1
+      UNION
+      SELECT DISTINCT u_ins.id_usuario FROM solicitud_vuelo sv
+        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        JOIN alumno al ON al.id_alumno = ss.id_alumno
+        JOIN instructor i ON i.id_instructor = COALESCE(sv.id_instructor, al.id_instructor)
+        JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
+       WHERE sv.id_semana = $1
+    `, [id_semana]);
+
+    const detalle = await client.query(
+      `UPDATE solicitud_vuelo SET estado = 'RECHAZADA' WHERE id_semana = $1 RETURNING id_detalle`,
+      [id_semana]
+    );
+
+    await client.query(
+      `UPDATE solicitud_semana SET estado = 'RECHAZADA', fecha_actualizacion = NOW() WHERE id_semana = $1`,
+      [id_semana]
+    );
+
+    await client.query(
+      `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW() WHERE id_semana = $1 AND estado <> 'CANCELADO'`,
+      [id_semana]
+    );
+
+    for (const row of afectados.rows) {
+      await notificarUsuario(client, row.id_usuario, { tipo: "OPERACIONES_SUSPENDIDAS", mensaje });
+    }
+
+    await logAuditoria(client, {
+      accion: "OTRO",
+      entidad: "semana_vuelo",
+      id_entidad: id_semana,
+      actor: req.user,
+      descripcion: `Semana #${id_semana} rechazada completa (cierre extraordinario): ${mensaje}`,
+    });
+
+    await client.query("COMMIT");
+
+    res.json({
+      message: "Semana rechazada y usuarios notificados",
+      solicitudes_rechazadas: detalle.rows.length,
+      usuarios_notificados: afectados.rows.length,
+    });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

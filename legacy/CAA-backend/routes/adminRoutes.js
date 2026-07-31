@@ -46,6 +46,9 @@ router.patch("/solicitudes/:id_detalle/rechazar", adminAccess, adminVuelo.rechaz
 router.patch("/solicitudes/:id_detalle/aprobar", adminAccess, adminVuelo.aprobarSolicitudIndividual);
 router.patch("/solicitudes-semana/:id_solicitud/rechazar", adminAccess, adminVuelo.rechazarSolicitudSemana);
 router.patch("/solicitudes-semana/:id_solicitud/cancelar", adminAccess, adminVuelo.cancelarSolicitud);
+// Cierre extraordinario de una semana completa (p.ej. vacaciones): rechaza TODAS
+// las solicitudes de esa semana y notifica in-app a cada alumno/instructor afectado.
+router.patch("/semanas/:id_semana/rechazar-todo", adminAccess, adminVuelo.rechazarSemanaCompleta);
 
 // --- Aeronaves ---
 router.get("/aeronaves", adminAccess, adminAeronave.getAeronavesActivas);
