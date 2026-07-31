@@ -208,7 +208,7 @@ export default function FuelPlanner() {
               </td>
             </tr>
 
-            {/* MIN REQUIRED — auto: ALT 1 + ALT 2 + R/R 5% (ya no se ingresa a mano) */}
+            {/* MIN REQUIRED — auto: ALT 1 + ALT 2 + R/R 5% + FINAL RESERVE */}
             <tr className="border-b border-gray-200 bg-[var(--c-brand-50)]">
               <td className="px-2 py-1.5 text-xs font-bold text-[var(--c-brand-700)]">MIN REQUIRED</td>
               <td className="px-2 py-1.5 text-xs text-right font-mono font-bold text-[var(--c-brand-700)]">{fmtGal(fuel.minReqGal)}</td>
@@ -216,7 +216,7 @@ export default function FuelPlanner() {
               <td className="px-2 py-1.5 text-xs text-right font-mono font-bold text-[var(--c-brand-700)]">{fmtMin(fuel.minReqMin)}</td>
             </tr>
 
-            {/* EXTRA — auto: TFOB − MIN REQUIRED − TAXI − TRIP − FINAL RESERVE */}
+            {/* EXTRA — auto: TFOB − MIN REQUIRED − TAXI − TRIP (el reserve va dentro de MIN REQ) */}
             <tr className="border-b border-gray-200">
               <td className={labelClass}>EXTRA</td>
               <td className={autoClass}>{fmtGal(fuel.extraGal)}</td>
