@@ -807,7 +807,7 @@ exports.agendarSolicitud = async (req, res) => {
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.status === 400 || e.code === "VALIDATION") return res.status(400).json({ message: e.message });
-    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23505") return res.status(409).json({ message: e.detail ? `Conflicto de datos: ${e.message}` : (e.message || "Ese bloque y aeronave ya está ocupado") });
     if (e.code === "23506") return res.status(409).json({ message: "El alumno ya tiene un vuelo en ese horario" });
     if (e.code === "23507") return res.status(409).json({ message: "El instructor ya tiene un vuelo en ese horario" });
     console.error("agendarSolicitud:", e);
@@ -963,13 +963,17 @@ exports.agendarVueloDirecto = async (req, res) => {
     if (conParada) {
       const tramos = construirTramos({ paradas: paradasRuta, id_bloque, id_bloque_fin: fin });
       for (const t of tramos) {
+        // ⚠️ uq_vuelo_detalle es UNIQUE sobre vuelo.id_detalle: los N tramos NO
+        // pueden compartirlo. Solo el tramo 1 lo lleva; los demás van con NULL
+        // (Postgres admite varios NULL en un índice único). El vínculo entre
+        // tramos es grupo_ruta, que sí conserva el id_detalle de la solicitud.
         const vueT = await client.query(
           `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo, grupo_ruta, orden_tramo, total_tramos, icao_origen, icao_destino)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,'PROGRAMACION',
+           VALUES ($19,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,'PROGRAMACION',
                    (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1),
                    $1,$15,$16,$17,$18)
            RETURNING id_vuelo`,
-          [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, t.id_bloque, t.id_bloque_fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva, t.orden_tramo === 1 ? "PUBLICADO" : "EN_ESPERA_TRAMO", t.orden_tramo, t.total_tramos, t.icao_origen, t.icao_destino]
+          [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, t.id_bloque, t.id_bloque_fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva, t.orden_tramo === 1 ? "PUBLICADO" : "EN_ESPERA_TRAMO", t.orden_tramo, t.total_tramos, t.icao_origen, t.icao_destino, t.orden_tramo === 1 ? id_detalle : null]
         );
         if (t.orden_tramo === 1) id_vuelo = vueT.rows[0].id_vuelo;
       }
@@ -1011,7 +1015,7 @@ exports.agendarVueloDirecto = async (req, res) => {
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.code === "VALIDATION") return res.status(400).json({ message: e.message });
-    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23505") return res.status(409).json({ message: e.detail ? `Conflicto de datos: ${e.message}` : (e.message || "Ese bloque y aeronave ya está ocupado") });
     if (e.code === "23506") return res.status(409).json({ message: "El alumno ya tiene un vuelo en ese horario" });
     if (e.code === "23507") return res.status(409).json({ message: "El instructor ya tiene un vuelo en ese horario" });
     console.error("agendarVueloDirecto:", e);

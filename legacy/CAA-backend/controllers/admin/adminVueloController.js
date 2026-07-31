@@ -153,9 +153,13 @@ exports.publicarSemana = catchAsync(async (req, res) => {
         id_bloque_fin: r.id_bloque_fin,
       });
       for (const t of tramos) {
+        // ⚠️ uq_vuelo_detalle es UNIQUE sobre vuelo.id_detalle: los N tramos NO
+        // pueden compartirlo. Solo el tramo 1 lo lleva (queda ligado a la
+        // solicitud); los demás van con NULL — Postgres admite varios NULL en
+        // un índice único. El vínculo entre tramos es grupo_ruta, no id_detalle.
         await client.query(`
           INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, debitar_saldo, estado, creado_por, fecha_vuelo, grupo_ruta, orden_tramo, total_tramos, icao_origen, icao_destino)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,$15,'ADMIN',$16,$1,$17,$18,$19,$20)
+          VALUES ($21,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,$15,'ADMIN',$16,$1,$17,$18,$19,$20)
         `, [
           r.id_detalle, r.id_semana, r.id_alumno, r.id_instructor, r.id_aeronave,
           r.dia_semana, t.id_bloque, t.id_bloque_fin, r.es_extracurricular,
@@ -163,6 +167,7 @@ exports.publicarSemana = catchAsync(async (req, res) => {
           r.debitar_saldo,
           t.orden_tramo === 1 ? "PUBLICADO" : "EN_ESPERA_TRAMO",
           r.fecha_vuelo, t.orden_tramo, t.total_tramos, t.icao_origen, t.icao_destino,
+          t.orden_tramo === 1 ? r.id_detalle : null,
         ]);
       }
     }
@@ -576,7 +581,10 @@ exports.rechazarSolicitudIndividual = catchAsync(async (req, res) => {
     // CANCELARLA de verdad (antes quedaba viva y seguía apareciendo para
     // Turno/operaciones aunque desapareciera del calendario de programación).
     await client.query(
-      "UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW() WHERE id_detalle = $1 AND estado <> 'CANCELADO'",
+      // Rutas con parada: solo el tramo 1 lleva id_detalle (uq_vuelo_detalle),
+      // así que hay que alcanzar a los hermanos por grupo_ruta o quedarían vivos.
+      `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW()
+        WHERE (id_detalle = $1 OR grupo_ruta = $1) AND estado <> 'CANCELADO'`,
       [id_detalle]
     );
 
@@ -658,7 +666,8 @@ exports.cancelarSolicitud = catchAsync(async (req, res) => {
     // Si la semana ya estaba publicada, cancelar los vuelos reales
     const cancelados = await client.query(`
       UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW()
-      WHERE id_detalle IN (SELECT id_detalle FROM solicitud_vuelo WHERE id_solicitud = $1)
+      WHERE (id_detalle IN (SELECT id_detalle FROM solicitud_vuelo WHERE id_solicitud = $1)
+             OR grupo_ruta IN (SELECT id_detalle FROM solicitud_vuelo WHERE id_solicitud = $1))
         AND estado <> 'CANCELADO'
       RETURNING id_vuelo
     `, [id_solicitud]);
