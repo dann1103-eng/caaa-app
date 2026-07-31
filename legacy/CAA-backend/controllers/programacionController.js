@@ -672,7 +672,7 @@ exports.reasignarAeronave = async (req, res) => {
     const conflicto = await client.query(
       `SELECT 1 FROM vuelo
        WHERE id_semana = $1 AND id_bloque = $2 AND dia_semana = $3
-         AND id_aeronave = $4 AND estado NOT IN ('CANCELADO')`,
+         AND id_aeronave = $4 AND estado NOT IN ('CANCELADO', 'COMPLETADO')`,
       [vuelo.id_semana, vuelo.id_bloque, vuelo.dia_semana, id_aeronave]
     );
     if (conflicto.rows.length > 0) {
@@ -730,7 +730,7 @@ exports.getAeronavesDisponibles = async (req, res) => {
              AND v.id_semana = $1
              AND v.id_bloque = $2
              AND v.dia_semana = $3
-             AND v.estado NOT IN ('CANCELADO')
+             AND v.estado NOT IN ('CANCELADO', 'COMPLETADO')
          )
          AND NOT EXISTS (
            SELECT 1 FROM mantenimiento_aeronave m
@@ -866,9 +866,12 @@ exports.agendarVueloDirecto = async (req, res) => {
     // llegó a ocupar la aeronave/al alumno/al instructor de verdad — no debe
     // seguir bloqueando ese horario para un reemplazo (aplica también a RUTAs
     // que abarcan varios bloques: el no-show libera todos los que reservaba).
+    // Un vuelo COMPLETADO libera igual: ya cerró, no puede ocupar el avión a
+    // futuro — caso real: una RUTA de 2 bloques que regresa temprano y se
+    // quiere agendar el vuelo de regreso dentro de su segundo bloque.
     const conflicto = async (campo, valor, label, code) => {
       const columna = campo === "aeronave" ? "id_aeronave" : campo === "alumno" ? "id_alumno" : "id_instructor";
-      const q = `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado <> 'CANCELADO'
+      const q = `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado NOT IN ('CANCELADO', 'COMPLETADO')
              AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque))
              AND NOT EXISTS (SELECT 1 FROM reporte_vuelo rv WHERE rv.id_vuelo = vuelo.id_vuelo AND rv.es_inasistencia = true)
              LIMIT 1`;
