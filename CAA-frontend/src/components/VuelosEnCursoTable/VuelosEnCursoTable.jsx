@@ -1,6 +1,6 @@
 import {
-  calcProgreso, categoriaMeta, aeroBadgeStyle, ESTADO_VUELO_META,
-  formatHora, formatHoraReal,
+  calcProgreso, categoriaMeta, aeroBadgeStyle,
+  formatHora, formatHoraReal, tramoBadge, estadoVueloMeta,
 } from "../../utils/vueloVisual";
 import "../../pages/Proyeccion/PaginaProgramacion.css";
 
@@ -29,7 +29,7 @@ export default function VuelosEnCursoTable({ vuelos, emptyLabel = "Sin vuelos ac
           ) : (
             vuelos.map((v) => {
               const pct = calcProgreso(v);
-              const badge = ESTADO_VUELO_META[v.estado] || { label: v.estado, cls: "pp__tbl-badge--envuelo" };
+              const badge = estadoVueloMeta(v);
               const tipo = categoriaMeta(v);
               return (
                 <tr key={v.id_vuelo}>
@@ -40,7 +40,9 @@ export default function VuelosEnCursoTable({ vuelos, emptyLabel = "Sin vuelos ac
                   <td><span className="pp__tbl-aero" style={aeroBadgeStyle(v.aeronave_codigo)}>{v.aeronave_codigo}</span></td>
                   <td>
                     <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
-                    {v.tipo_vuelo === "RUTA" && <span className="pp__tipo-badge pp__tipo--ruta">Ruta</span>}
+                    {v.tipo_vuelo === "RUTA" && (
+                      <span className="pp__tipo-badge pp__tipo--ruta">{tramoBadge(v) || "Ruta"}</span>
+                    )}
                   </td>
                   <td>
                     <span className={`pp__tbl-badge ${badge.cls}`}>{badge.label}</span>

@@ -36,7 +36,7 @@ function getEstadoDinamico(v) {
   return v.estado || "PROGRAMADO";
 }
 
-const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"];
+const ESTADOS_VUELO_ACTIVO = ["SALIDA_HANGAR", "EN_VUELO", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO", "EN_ESPERA_TRAMO"];
 
 const horaAMin = (h) => {
   const [hh, mm] = String(h ?? "").split(":").map(Number);

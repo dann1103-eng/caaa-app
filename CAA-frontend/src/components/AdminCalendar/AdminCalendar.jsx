@@ -71,6 +71,7 @@ export default function AdminCalendar({
   allowInstructorChange = true, // mostrar el selector de instructor en el popover
   onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
   onGestionarEspera,         // (slot) => void: abrir gestor de lista de espera
+  onAsignarTramos,           // (id_detalle) => void: abrir modal de asignar alumnos por tramo (rutas con parada)
   onGuardarRemarks,          // (id_detalle, remarks) => Promise: remarks del instructor sobre el vuelo
   rechazarLabel,             // sin override: "Cancelar vuelo" en semana publicada, "Rechazar vuelo" en la próxima
   reservas = [],             // reservas de uso especial (sin alumno) a pintar
@@ -843,7 +844,9 @@ export default function AdminCalendar({
                               R$
                             </span>
                           )}
-                          <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>Ruta</span>
+                          <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>
+                            {item.con_parada ? `Ruta · MSSS→${(Array.isArray(item.tramos_ruta) ? item.tramos_ruta : []).join('→')}→MSSS` : 'Ruta'}
+                          </span>
                           {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                           {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
                           {item.alumno_nombre.split(" ")[0]}
@@ -904,6 +907,7 @@ export default function AdminCalendar({
               onAprobar={onAprobar}
               week={week}
               onGestionarEspera={onGestionarEspera}
+              onAsignarTramos={onAsignarTramos}
               onGuardarRemarks={onGuardarRemarks}
               rechazarLabel={rechazarLabel || (week === "current" ? "Cancelar vuelo" : "Rechazar Vuelo")}
               loadingSave={loadingSave}
@@ -939,6 +943,7 @@ function PopoverContent({
   onAprobar,
   week,
   onGestionarEspera,
+  onAsignarTramos,
   onGuardarRemarks,
   rechazarLabel = "Rechazar Vuelo",
   loadingSave,
@@ -1194,6 +1199,13 @@ function PopoverContent({
             })}
           >
             <i className="bi bi-hourglass-split"></i> Lista de espera
+          </button>
+        )}
+
+        {onAsignarTramos && activePopover.item.con_parada && (
+          <button type="button" className="btn-move-v" style={{ width: '100%', marginTop: 8 }}
+            onClick={() => onAsignarTramos(activePopover.item.id_detalle)}>
+            <i className="bi bi-people"></i> Asignar alumnos por tramo
           </button>
         )}
 

@@ -1,6 +1,6 @@
 import {
-  calcProgreso, categoriaMeta, colorAeronave, ESTADO_VUELO_META,
-  formatHora, formatHoraReal,
+  calcProgreso, categoriaMeta, colorAeronave,
+  formatHora, formatHoraReal, tramoBadge, estadoVueloMeta,
 } from "../../utils/vueloVisual";
 import "./VueloResumenCard.css";
 
@@ -11,7 +11,7 @@ import "./VueloResumenCard.css";
 // esa tabla para mantener el mismo lenguaje visual.
 export default function VueloResumenCard({ vuelo, onAprobar }) {
   const pct = calcProgreso(vuelo);
-  const badge = ESTADO_VUELO_META[vuelo.estado] || { label: vuelo.estado, cls: "pp__tbl-badge--envuelo" };
+  const badge = estadoVueloMeta(vuelo);
   const tipo = categoriaMeta(vuelo);
   const salida = formatHoraReal(vuelo.salida_real) ?? formatHora(vuelo.hora_inicio);
   const llegada = formatHoraReal(vuelo.llegada_real);
@@ -32,6 +32,7 @@ export default function VueloResumenCard({ vuelo, onAprobar }) {
       <div className="vrc__badges">
         <span className={`pp__tipo-badge ${tipo.cls}`}>{tipo.label}</span>
         <span className={`pp__tbl-badge ${badge.cls}`}>{badge.label}</span>
+        {tramoBadge(vuelo) && <span className="pp__tipo-badge pp__tipo--ruta">{tramoBadge(vuelo)}</span>}
       </div>
 
       {pct !== null && (

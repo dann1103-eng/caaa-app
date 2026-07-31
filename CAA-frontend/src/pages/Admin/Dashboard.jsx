@@ -4,6 +4,7 @@ import ToastMantenimiento from "../../components/ToastMantenimiento/ToastManteni
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import StandbyModal from "../../components/StandbyModal/StandbyModal";
+import AsignarTramosModal from "../../components/AsignarTramosModal/AsignarTramosModal";
 import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import {
   getCalendarioAdmin,
@@ -39,6 +40,7 @@ export default function AdminDashboard() {
   const [reservas, setReservas] = useState([]);
   const [cancelados, setCancelados] = useState([]);
   const [esperaSlot, setEsperaSlot] = useState(null);   // { id_semana, dia_semana, id_bloque, hora }
+  const [tramosRuta, setTramosRuta] = useState(null);   // id_detalle de la ruta con parada a reasignar
 
   const load = async (w = week) => {
     setLoading(true);
@@ -474,6 +476,7 @@ export default function AdminDashboard() {
               onConflictChange={setHasConflicts}
               onEmptyCellClick={(cell) => setAgendarCell(cell)}
               onGestionarEspera={(slot) => setEsperaSlot(slot)}
+              onAsignarTramos={(id_detalle) => setTramosRuta(id_detalle)}
               reservas={reservas}
               onEliminarReserva={eliminarReserva}
               mostrarBuscador
@@ -483,6 +486,14 @@ export default function AdminDashboard() {
 
         {esperaSlot && (
           <StandbyModal slot={esperaSlot} onClose={() => setEsperaSlot(null)} />
+        )}
+
+        {tramosRuta != null && (
+          <AsignarTramosModal
+            id_detalle={tramosRuta}
+            onClose={() => setTramosRuta(null)}
+            onSaved={() => load()}
+          />
         )}
 
         {agendarCell && (

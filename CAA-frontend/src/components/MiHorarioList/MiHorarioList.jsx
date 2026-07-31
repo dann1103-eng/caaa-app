@@ -41,6 +41,7 @@ const ESTADO_CFG = {
   REGRESO_HANGAR: { label: "Regreso hangar",  cls: "mhl__badge--en-vuelo" },
   FINALIZANDO:    { label: "Finalizando",     cls: "mhl__badge--en-vuelo" },
   AJUSTADO:       { label: "Ajustado",        cls: "mhl__badge--ajustado" },
+  EN_ESPERA_TRAMO: { label: "En espera en destino", cls: "mhl__badge--publicado" },
 };
 
 function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitarSolicitud, onPlan, onReporte }) {
@@ -61,6 +62,11 @@ function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitar
           {v.aeronave_tipo === "SIMULADOR" && (
             <span className="mhl__vuelo-sim">SIM</span>
           )}
+          {v.grupo_ruta != null && (
+            <span className="mhl__vuelo-sim" title="Tramo de ruta con parada">
+              T{v.orden_tramo}/{v.total_tramos} {v.icao_origen}→{v.icao_destino}
+            </span>
+          )}
           {v.instructor_nombre && (
             <>
               <span className="mhl__vuelo-sep">·</span>
@@ -71,7 +77,7 @@ function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitar
         <span className={`mhl__badge ${cfg.cls}`}>{cfg.label}</span>
       </div>
 
-      {(v.estado === "PUBLICADO" || v.estado === "AJUSTADO" || v.estado === "PROGRAMADO") && (
+      {(v.estado === "PUBLICADO" || v.estado === "AJUSTADO" || v.estado === "PROGRAMADO" || v.estado === "EN_ESPERA_TRAMO") && (
         <div className="mhl__vuelo-actions">
           {esReal && (
             horasTotales >= 0 ? (
