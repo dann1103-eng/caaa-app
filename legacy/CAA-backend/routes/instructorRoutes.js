@@ -30,6 +30,8 @@ router.get("/recibo/:idDet",                                  access, instructor
 router.patch("/recibo/:idDet/firmar",                         access, instructorAlumno.firmarMiRecibo);
 router.post("/vuelos/:id_vuelo/avanzar",                      access, instructorVuelo.avanzarEstadoVuelo);
 router.post("/vuelos/:id_vuelo/inasistencia",                 access, instructorVuelo.registrarInasistencia);
+// Rutas con parada: cierre del tramo en destino (TAC/HOBBS de llegada).
+router.post("/vuelos/:id_vuelo/aterrizaje-tramo",             access, instructorVuelo.registrarAterrizajeTramo);
 router.patch("/alumnos/:id_alumno/limites",                   access, instructorAlumno.actualizarLimitesAlumno);
 router.patch("/alumnos/:id_alumno/habilitar-vuelo-extra",     access, instructorAlumno.habilitarVueloExtra);
 router.get("/instructores-vuelo",                             access, instructorAlumno.getInstructoresVuelo);
