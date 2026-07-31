@@ -53,6 +53,19 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   return res.data;
 };
 
+// Rutas con parada: registra el aterrizaje en el aeropuerto intermedio (cierra
+// este tramo y precarga la vouchera del siguiente).
+export const registrarAterrizajeTramo = async (id_vuelo, { tacometro, hobbs }) => {
+  const res = await axios.post(`${API_URL}/turno/vuelos/${id_vuelo}/aterrizaje-tramo`, { tacometro, hobbs });
+  return res.data;
+};
+
+// Cancela este tramo y todos los siguientes de la ruta.
+export const cancelarTramosRestantes = async (id_vuelo, motivo) => {
+  const res = await axios.post(`${API_URL}/turno/vuelos/${id_vuelo}/cancelar-tramos-restantes`, { motivo });
+  return res.data;
+};
+
 // Revertir un avance de estado hecho por error (vuelve al estado anterior real
 // del vuelo, tomado de su propio historial).
 export const revertirEstadoVuelo = async (id_vuelo) => {

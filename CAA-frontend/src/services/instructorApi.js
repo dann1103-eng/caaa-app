@@ -53,6 +53,13 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   return res.data;
 };
 
+// Rutas con parada: registra el aterrizaje en el aeropuerto intermedio (cierra
+// este tramo y precarga la vouchera del siguiente). Ownership-checked por backend.
+export const registrarAterrizajeTramoInstructor = async (id_vuelo, { tacometro, hobbs }) => {
+  const res = await axios.post(`${API_URL}/instructor/vuelos/${id_vuelo}/aterrizaje-tramo`, { tacometro, hobbs });
+  return res.data;
+};
+
 export const actualizarLimitesAlumno = async (id_alumno, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia) => {
   const res = await axios.patch(
     `${API_URL}/instructor/alumnos/${id_alumno}/limites`,

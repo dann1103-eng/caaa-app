@@ -142,6 +142,18 @@ export const cancelarSolicitudSemana = async (id_solicitud) => {
   return res.data;
 };
 
+// Rutas con parada: una ruta = varios vuelos (tramos) independientes ligados
+// por id_detalle. Lista los tramos y permite reasignar el alumno de UNO solo.
+export const getTramosRuta = async (id_detalle) => {
+  const res = await axios.get(`${API_URL}/admin/rutas/${id_detalle}/tramos`);
+  return res.data;
+};
+
+export const asignarAlumnoTramo = async (id_vuelo, id_alumno) => {
+  const res = await axios.patch(`${API_URL}/admin/vuelos/${id_vuelo}/alumno-tramo`, { id_alumno });
+  return res.data;
+};
+
 // ── Instructores ──────────────────────────────────────────────────────────────
 export const getInstructoresActivos = async () => {
   const res = await axios.get(`${API_URL}/admin/instructores-activos`);
