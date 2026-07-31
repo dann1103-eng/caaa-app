@@ -57,6 +57,7 @@ exports.getReporteVueloInstructor = async (req, res) => {
               rv.regreso_emergencia, rv.motivo_emergencia, rv.detalle_emergencia,
               rv.editado_en, rv.motivo_edicion,
               v.categoria, v.tipo_instruccion, v.debitar_saldo,
+              v.grupo_ruta, v.orden_tramo, v.total_tramos, v.icao_origen, v.icao_destino,
               EXISTS(
                 SELECT 1 FROM movimiento_cuenta mc
                 WHERE mc.id_vuelo = v.id_vuelo AND mc.tipo = 'CARGO_VUELO'
@@ -93,6 +94,11 @@ exports.getReporteVueloInstructor = async (req, res) => {
       tipo_instruccion: row.tipo_instruccion,
       debitar_saldo: row.debitar_saldo,
       se_debito: row.se_debito,
+      grupo_ruta: row.grupo_ruta,
+      orden_tramo: row.orden_tramo,
+      total_tramos: row.total_tramos,
+      icao_origen: row.icao_origen,
+      icao_destino: row.icao_destino,
     };
     const reporte = row.id_reporte ? {
       id_reporte: row.id_reporte,
@@ -418,9 +424,16 @@ exports.firmarReporteVuelo = async (req, res) => {
         horasAcumuladasAntes = Number(alumnoSnap.rows[0]?.horas_acumuladas || 0);
       }
 
-      // Validar checklist solo si NO es inasistencia y NO es simulador (el
-      // checklist post-vuelo es de aeronave física — frenos, hélice, etc.).
-      if (!esInasistencia && !esSimulador) {
+      // Validar checklist solo si NO es inasistencia, NO es simulador, Y solo en
+      // el tramo final de una ruta (los tramos que cierran fuera de casa no
+      // regresan al hangar — el avión se revisa cuando vuelve).
+      const tramoRes = await client.query(
+        `SELECT grupo_ruta, orden_tramo, total_tramos FROM vuelo WHERE id_vuelo = $1`, [id]
+      );
+      const infoTramo = tramoRes.rows[0] || {};
+      const esTramoNoFinal = infoTramo.grupo_ruta != null
+        && Number(infoTramo.orden_tramo) < Number(infoTramo.total_tramos);
+      if (!esInasistencia && !esSimulador && !esTramoNoFinal) {
         const checklistRes = await client.query(
           'SELECT id_vuelo FROM checklist_postvuelo WHERE id_vuelo = $1',
           [id]
