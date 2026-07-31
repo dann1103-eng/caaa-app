@@ -50,6 +50,10 @@ router.patch("/solicitudes-semana/:id_solicitud/cancelar", adminAccess, adminVue
 // las solicitudes de esa semana y notifica in-app a cada alumno/instructor afectado.
 router.patch("/semanas/:id_semana/rechazar-todo", adminAccess, adminVuelo.rechazarSemanaCompleta);
 
+// Rutas con parada: tramos + reasignación de alumno por tramo (modal "Asignar alumnos por tramo").
+router.get("/rutas/:id_detalle/tramos", adminAccess, adminVuelo.getTramosRuta);
+router.patch("/vuelos/:id_vuelo/alumno-tramo", adminAccess, adminVuelo.asignarAlumnoTramo);
+
 // --- Aeronaves ---
 router.get("/aeronaves", adminAccess, adminAeronave.getAeronavesActivas);
 router.get("/aeronaves/:id/vuelos-futuros-count", adminAccess, adminAeronave.getVuelosFuturosAeronave);

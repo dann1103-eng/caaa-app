@@ -1318,6 +1318,17 @@ exports.editarTripulacion = async (req, res) => {
       [nuevoAlumno, nuevoInstructor, nuevaAeronave, almas, pasajeros, nuevoDia, nuevoBloque, nuevoFin, vuelo.fecha_inicio, vuelo.id_vuelo]
     );
 
+    // Rutas con parada: instructor y aeronave son de TODA la ruta (el alumno
+    // sí es por tramo y se cambia con el modal de asignación).
+    const gRes = await client.query(`SELECT grupo_ruta FROM vuelo WHERE id_vuelo = $1`, [vuelo.id_vuelo]);
+    if (gRes.rows[0]?.grupo_ruta != null) {
+      await client.query(
+        `UPDATE vuelo SET id_instructor = $1, id_aeronave = $2
+          WHERE grupo_ruta = $3 AND id_vuelo <> $4 AND estado NOT IN ('CANCELADO','COMPLETADO')`,
+        [nuevoInstructor, nuevaAeronave, gRes.rows[0].grupo_ruta, vuelo.id_vuelo]
+      );
+    }
+
     await logAuditoria(client, {
       accion: instructorCambio && !alumnoCambio && !aeronaveCambio ? "CAMBIAR_INSTRUCTOR_VUELO" : "OTRO",
       entidad: "vuelo",

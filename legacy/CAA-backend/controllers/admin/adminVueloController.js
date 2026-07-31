@@ -769,3 +769,66 @@ exports.rechazarSemanaCompleta = catchAsync(async (req, res) => {
     client.release();
   }
 });
+
+// Tramos de una ruta con parada (para el modal "Asignar alumnos por tramo").
+exports.getTramosRuta = catchAsync(async (req, res) => {
+  const { id_detalle } = req.params;
+  const r = await db.query(
+    `SELECT v.id_vuelo, v.orden_tramo, v.total_tramos, v.icao_origen, v.icao_destino,
+            v.estado, v.id_alumno,
+            u.nombre AS alumno_nombre, u.apellido AS alumno_apellido
+       FROM vuelo v
+       JOIN alumno al ON al.id_alumno = v.id_alumno
+       JOIN usuario u ON u.id_usuario = al.id_usuario
+      WHERE v.grupo_ruta = $1
+      ORDER BY v.orden_tramo`,
+    [Number(id_detalle)]
+  );
+  res.json(r.rows);
+});
+
+// Reasignar el alumno de UN tramo (caso: la ida la vuela un alumno y el
+// retorno otro; el instructor es el mismo en toda la ruta). Valida licencia
+// del alumno nuevo contra la aeronave; sin chequeo de conflicto de horario
+// (criterio de staff, mismo trato que el agendado directo de programación).
+exports.asignarAlumnoTramo = catchAsync(async (req, res) => {
+  const { id_vuelo } = req.params;
+  const { id_alumno } = req.body;
+  if (!id_alumno) return res.status(400).json({ message: "Falta id_alumno" });
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const vRes = await client.query(
+      `SELECT id_vuelo, grupo_ruta, estado, id_aeronave FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`,
+      [Number(id_vuelo)]
+    );
+    if (!vRes.rows.length || vRes.rows[0].grupo_ruta == null) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Este vuelo no es un tramo de ruta." });
+    }
+    if (!["PUBLICADO", "PROGRAMADO", "EN_ESPERA_TRAMO"].includes(vRes.rows[0].estado)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "El tramo ya inició o cerró — no se puede reasignar." });
+    }
+    const lic = await client.query(
+      `SELECT 1 FROM alumno a
+         JOIN licencia_aeronave la ON la.id_licencia = a.id_licencia AND la.id_aeronave = $2
+        WHERE a.id_alumno = $1`,
+      [Number(id_alumno), vRes.rows[0].id_aeronave]
+    );
+    if (lic.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "La aeronave no está habilitada para la licencia de ese alumno." });
+    }
+    await client.query(`UPDATE vuelo SET id_alumno = $1 WHERE id_vuelo = $2`, [Number(id_alumno), Number(id_vuelo)]);
+    await client.query("COMMIT");
+    const io = req.app.get("io");
+    if (io) io.emit("vuelo_estado_changed", { id_vuelo: Number(id_vuelo) });
+    res.json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+});
