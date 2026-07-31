@@ -22,8 +22,10 @@ router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzar
 
 // Rutas con parada: cierre del tramo en destino (TAC/HOBBS de llegada) y
 // cancelación de los tramos que aún no volaron. Mismo gate que avanzar estado.
-router.post("/vuelos/:id_vuelo/aterrizaje-tramo", authMiddleware, turnoController.registrarAterrizajeTramo);
-router.post("/vuelos/:id_vuelo/cancelar-tramos-restantes", authMiddleware, turnoController.cancelarTramosRestantes);
+router.post("/vuelos/:id_vuelo/aterrizaje-tramo", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.registrarAterrizajeTramo);
+// Cancelar los tramos restantes de una ruta es tan destructivo como retroceder
+// un estado: va con la misma capacidad, no solo con sesión iniciada.
+router.post("/vuelos/:id_vuelo/cancelar-tramos-restantes", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.cancelarTramosRestantes);
 
 // Revertir un avance de estado hecho por error. Mutación sensible (reescribe
 // historial operativo) → mismo gate de capacidad que editarTripulacion/mantenimiento.

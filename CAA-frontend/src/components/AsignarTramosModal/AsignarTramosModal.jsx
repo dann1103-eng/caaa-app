@@ -9,9 +9,16 @@ export default function AsignarTramosModal({ id_detalle, onClose, onSaved }) {
   const [tramos, setTramos] = useState([]);
   const [alumnos, setAlumnos] = useState([]);
   const [saving, setSaving] = useState(null);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    getTramosRuta(id_detalle).then(setTramos).catch(() => toast.error("No se pudieron cargar los tramos."));
+    setCargando(true);
+    setError("");
+    getTramosRuta(id_detalle)
+      .then(setTramos)
+      .catch(() => setError("No se pudieron cargar los tramos de esta ruta."))
+      .finally(() => setCargando(false));
     getAlumnosListAdmin().then((r) => setAlumnos(r || [])).catch(() => {});
   }, [id_detalle]);
 
@@ -35,8 +42,19 @@ export default function AsignarTramosModal({ id_detalle, onClose, onSaved }) {
       <div className="atm-modal" onClick={(e) => e.stopPropagation()}>
         <h3><i className="bi bi-people"></i> Asignar alumnos por tramo</h3>
         <p className="atm-sub">Cada tramo cobra y acredita horas al alumno asignado. Solo se pueden reasignar tramos que aún no volaron.</p>
+        {cargando && <p className="atm-sub">Cargando tramos…</p>}
+        {!cargando && error && <p className="atm-sub" style={{ color: "var(--c-danger-700)" }}>{error}</p>}
+        {!cargando && !error && tramos.length === 0 && (
+          <p className="atm-sub">
+            Los tramos se crean al publicar la semana — todavía no hay vuelos que asignar.
+          </p>
+        )}
         {tramos.map((t) => {
           const editable = ["PUBLICADO", "PROGRAMADO", "EN_ESPERA_TRAMO"].includes(t.estado);
+          // El alumno actual puede no estar en la lista (ficha de DEMO/práctica,
+          // o alumno dado de baja): sin esta opción el select mostraría por
+          // defecto al primero de la lista, que es otra persona.
+          const faltaEnLista = !alumnos.some((a) => a.id_alumno === t.id_alumno);
           return (
             <div key={t.id_vuelo} className="atm-field">
               <label>Tramo {t.orden_tramo}/{t.total_tramos} · {t.icao_origen}→{t.icao_destino} · {t.estado}</label>
@@ -46,6 +64,11 @@ export default function AsignarTramosModal({ id_detalle, onClose, onSaved }) {
                 onChange={(e) => cambiar(t, e.target.value)}
                 style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--c-line-2, #cbd5e1)" }}
               >
+                {faltaEnLista && (
+                  <option value={t.id_alumno}>
+                    {[t.alumno_nombre, t.alumno_apellido].filter(Boolean).join(" ") || "Alumno actual"}
+                  </option>
+                )}
                 {alumnos.map((a) => (
                   <option key={a.id_alumno} value={a.id_alumno}>{a.nombre} {a.apellido}</option>
                 ))}

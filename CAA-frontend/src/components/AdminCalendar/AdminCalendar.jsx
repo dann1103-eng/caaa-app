@@ -1202,7 +1202,9 @@ function PopoverContent({
           </button>
         )}
 
-        {onAsignarTramos && activePopover.item.con_parada && (
+        {/* Solo con id_vuelo: los tramos nacen al publicar la semana, así que en
+            la semana próxima (sin publicar) todavía no hay nada que asignar. */}
+        {onAsignarTramos && activePopover.item.con_parada && activePopover.item.id_vuelo && (
           <button type="button" className="btn-move-v" style={{ width: '100%', marginTop: 8 }}
             onClick={() => onAsignarTramos(activePopover.item.id_detalle)}>
             <i className="bi bi-people"></i> Asignar alumnos por tramo

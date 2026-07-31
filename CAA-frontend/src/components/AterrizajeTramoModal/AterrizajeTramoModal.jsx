@@ -28,7 +28,7 @@ export default function AterrizajeTramoModal({ vuelo, onSubmit, onClose }) {
   };
 
   return (
-    <div className="atm-overlay" onClick={onClose}>
+    <div className="atm-overlay" onClick={() => !saving && onClose()}>
       <div className="atm-modal" onClick={(e) => e.stopPropagation()}>
         <h3><i className="bi bi-airplane-engines"></i> Aterrizamos en {vuelo.icao_destino}</h3>
         <p className="atm-sub">
