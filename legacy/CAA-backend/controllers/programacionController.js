@@ -836,6 +836,7 @@ exports.agendarVueloDirecto = async (req, res) => {
       id_semana, id_alumno: idAlumnoBody, id_instructor, dia_semana, id_bloque, id_bloque_fin,
       id_aeronave, tipo_vuelo, es_extracurricular, id_usuario_practicante, id_licencia_chequeo,
       tipo_instruccion: tipoInstruccionBody, categoria: categoriaBody, nombre_externo: nombreExternoBody,
+      con_parada, tramos_ruta,
     } = req.body;
     const categoria = normalizarCategoria(categoriaBody);
 
@@ -860,6 +861,14 @@ exports.agendarVueloDirecto = async (req, res) => {
     if (!semRes.rows[0].publicada) return res.status(400).json({ message: "La semana no está publicada — usá el agendado normal." });
 
     const fin = Number(id_bloque_fin || id_bloque);
+
+    const { normalizarParadas } = require("../utils/rutaTramos");
+    const conParada = (tipo_vuelo === "RUTA") && con_parada === true;
+    let paradasRuta = null;
+    if (conParada) {
+      try { paradasRuta = normalizarParadas(tramos_ruta); }
+      catch (e) { return res.status(400).json({ message: e.message }); }
+    }
 
     // Conflictos contra vuelos reales (no cancelados), por rango de bloques.
     // Un vuelo marcado como inasistencia (reporte_vuelo.es_inasistencia) nunca
@@ -944,9 +953,9 @@ exports.agendarVueloDirecto = async (req, res) => {
     const id_solicitud = ss.rows[0].id_solicitud;
 
     const sv = await client.query(
-      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id_detalle`,
-      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
+      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, con_parada, tramos_ruta)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id_detalle`,
+      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva, conParada, paradasRuta ? JSON.stringify(paradasRuta) : null]
     );
     const id_detalle = sv.rows[0].id_detalle;
 

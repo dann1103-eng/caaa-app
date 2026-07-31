@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const { resolverVueloEspecial } = require("../utils/practicanteHelper");
 const { mantenimientoCubreFechaSQL, soloFecha } = require("../utils/mantenimientoUtils");
+const { normalizarParadas } = require("../utils/rutaTramos");
 
 /**
  * Lógica compartida de solicitudes de vuelo (semana próxima, no publicada).
@@ -245,6 +246,7 @@ async function aplicarMovimientos(client, {
 async function insertarSolicitudVuelo(client, {
   id_alumno, id_semana, dia_semana, id_bloque, id_bloque_fin,
   id_aeronave, tipo_vuelo, id_instructor, es_extracurricular,
+  con_parada, tramos_ruta,
   validarLicencia = true,
   categoria, id_licencia_chequeo, id_usuario_practicante, tipo_instruccion, nombre_externo,
   saltarConflictoAeronave = false, saltarConflictoInstructor = false,
@@ -331,10 +333,13 @@ async function insertarSolicitudVuelo(client, {
     saltarConflictoAeronave, saltarConflictoInstructor,
   });
 
+  const conParada = (tipo_vuelo === "RUTA") && con_parada === true;
+  const paradasNorm = conParada ? normalizarParadas(tramos_ruta) : null;
+
   const ins = await client.query(
     `INSERT INTO solicitud_vuelo
-       (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, categoria, tipo_instruccion, nombre_externo, id_licencia_chequeo)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, categoria, tipo_instruccion, nombre_externo, id_licencia_chequeo, con_parada, tramos_ruta)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
      RETURNING id_detalle`,
     [
       id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave,
@@ -342,6 +347,7 @@ async function insertarSolicitudVuelo(client, {
       id_instructor || null, es_extracurricular === true,
       resuelto.categoria, resuelto.tipo_instruccion || "NORMAL", resuelto.nombre_externo,
       resuelto.id_licencia_chequeo,
+      conParada, paradasNorm ? JSON.stringify(paradasNorm) : null,
     ]
   );
   return {

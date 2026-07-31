@@ -3,6 +3,7 @@ const catchAsync = require("../utils/catchAsync");
 const { DateTime } = require("luxon");
 const { verificarSaldoSuficiente, getSaldoAlumno, estimarCostoVuelos } = require("../utils/saldoHelper");
 const { mantenimientoCubreFechaSQL, soloFecha } = require("../utils/mantenimientoUtils");
+const { normalizarParadas } = require("../utils/rutaTramos");
 
 /**
  * Un alumno queda habilitado para vuelos extracurriculares solo cuando ya
@@ -467,9 +468,11 @@ exports.guardarSolicitud = async (req, res) => {
         );
       }
 
+      const conParada = v.tipo_vuelo === "RUTA" && v.con_parada === true;
+      const paradas = conParada ? normalizarParadas(v.tramos_ruta) : null;
       await client.query(
-        `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, es_extracurricular) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque, v.es_extracurricular === true]
+        `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, es_extracurricular, con_parada, tramos_ruta) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque, v.es_extracurricular === true, conParada, paradas ? JSON.stringify(paradas) : null]
       );
     }
 
@@ -484,6 +487,9 @@ exports.guardarSolicitud = async (req, res) => {
     console.error("guardarSolicitud:", e);
     // Mensajes específicos en vez del genérico 500, para que el alumno sepa
     // qué corregir.
+    if (e.status === 400) {
+      return res.status(400).json({ message: e.message });
+    }
     if (e.message === "Aeronave no permitida") {
       return res.status(400).json({
         message: "Una de las aeronaves seleccionadas no está habilitada para tu licencia.",
