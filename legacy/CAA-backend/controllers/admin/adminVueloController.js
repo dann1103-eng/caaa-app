@@ -6,6 +6,7 @@ const { horarioAlumnoEmail, horarioInstructorEmail } = require("../../utils/emai
 const { getNextSemanaId, getCurrentSemanaId, crearSemanaFutura } = require("../../utils/adminHelpers");
 const { dispararOfertaPorCancelacion } = require("../../controllers/standbyController");
 const { notificarUsuario } = require("../../utils/notificaciones");
+const { normalizarParadas, construirTramos } = require("../../utils/rutaTramos");
 
 exports.getSemanas = catchAsync(async (req, res) => {
   const result = await db.query(`
@@ -121,7 +122,50 @@ exports.publicarSemana = catchAsync(async (req, res) => {
       WHERE sv.id_semana = $1
         AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
         AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
+        AND COALESCE(sv.con_parada, false) = false
     `, [id_semana]);
+
+    // Rutas con parada: N filas de vuelo por solicitud (una por tramo),
+    // enlazadas por grupo_ruta = id_detalle. Tramo 1 nace PUBLICADO; los
+    // demás EN_ESPERA_TRAMO (los abre el instructor desde destino).
+    const rutasRes = await client.query(`
+      SELECT sv.id_detalle, sv.id_semana, ss.id_alumno,
+             COALESCE(sv.id_instructor, al.id_instructor) AS id_instructor,
+             sv.id_aeronave, sv.dia_semana, sv.id_bloque, sv.id_bloque_fin,
+             COALESCE(sv.es_extracurricular, FALSE) AS es_extracurricular,
+             COALESCE(sv.tipo_instruccion, 'NORMAL') AS tipo_instruccion,
+             COALESCE(sv.categoria, 'NORMAL') AS categoria,
+             sv.nombre_externo, sv.id_licencia_chequeo, sv.debitar_saldo, sv.tramos_ruta,
+             sw.fecha_inicio + (sv.dia_semana - 1) AS fecha_vuelo
+        FROM solicitud_vuelo sv
+        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        JOIN alumno al ON al.id_alumno = ss.id_alumno
+        JOIN semana_vuelo sw ON sw.id_semana = sv.id_semana
+       WHERE sv.id_semana = $1 AND sv.con_parada = true
+         AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
+         AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
+    `, [id_semana]);
+
+    for (const r of rutasRes.rows) {
+      const tramos = construirTramos({
+        paradas: normalizarParadas(r.tramos_ruta),
+        id_bloque: r.id_bloque,
+        id_bloque_fin: r.id_bloque_fin,
+      });
+      for (const t of tramos) {
+        await client.query(`
+          INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, debitar_saldo, estado, creado_por, fecha_vuelo, grupo_ruta, orden_tramo, total_tramos, icao_origen, icao_destino)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,$15,'ADMIN',$16,$1,$17,$18,$19,$20)
+        `, [
+          r.id_detalle, r.id_semana, r.id_alumno, r.id_instructor, r.id_aeronave,
+          r.dia_semana, t.id_bloque, t.id_bloque_fin, r.es_extracurricular,
+          r.tipo_instruccion, r.categoria, r.nombre_externo, r.id_licencia_chequeo,
+          r.debitar_saldo,
+          t.orden_tramo === 1 ? "PUBLICADO" : "EN_ESPERA_TRAMO",
+          r.fecha_vuelo, t.orden_tramo, t.total_tramos, t.icao_origen, t.icao_destino,
+        ]);
+      }
+    }
 
     const vuelosRes = await client.query(`
       SELECT

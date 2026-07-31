@@ -862,7 +862,7 @@ exports.agendarVueloDirecto = async (req, res) => {
 
     const fin = Number(id_bloque_fin || id_bloque);
 
-    const { normalizarParadas } = require("../utils/rutaTramos");
+    const { normalizarParadas, construirTramos } = require("../utils/rutaTramos");
     const conParada = (tipo_vuelo === "RUTA") && con_parada === true;
     let paradasRuta = null;
     if (conParada) {
@@ -959,14 +959,30 @@ exports.agendarVueloDirecto = async (req, res) => {
     );
     const id_detalle = sv.rows[0].id_detalle;
 
-    const vue = await client.query(
-      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PUBLICADO','PROGRAMACION',
-               (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1))
-       RETURNING id_vuelo`,
-      [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
-    );
-    const id_vuelo = vue.rows[0].id_vuelo;
+    let id_vuelo;
+    if (conParada) {
+      const tramos = construirTramos({ paradas: paradasRuta, id_bloque, id_bloque_fin: fin });
+      for (const t of tramos) {
+        const vueT = await client.query(
+          `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo, grupo_ruta, orden_tramo, total_tramos, icao_origen, icao_destino)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,'PROGRAMACION',
+                   (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1),
+                   $1,$15,$16,$17,$18)
+           RETURNING id_vuelo`,
+          [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, t.id_bloque, t.id_bloque_fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva, t.orden_tramo === 1 ? "PUBLICADO" : "EN_ESPERA_TRAMO", t.orden_tramo, t.total_tramos, t.icao_origen, t.icao_destino]
+        );
+        if (t.orden_tramo === 1) id_vuelo = vueT.rows[0].id_vuelo;
+      }
+    } else {
+      const vue = await client.query(
+        `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PUBLICADO','PROGRAMACION',
+                 (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1))
+         RETURNING id_vuelo`,
+        [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
+      );
+      id_vuelo = vue.rows[0].id_vuelo;
+    }
 
     // Notificar (in-app) al alumno y al instructor.
     const uids = await client.query(
