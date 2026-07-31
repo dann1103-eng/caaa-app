@@ -49,6 +49,8 @@ export default function AgendarVueloModal({
   const [idAeronave, setIdAeronave] = useState("");
   const [tipoVuelo, setTipoVuelo] = useState("LOCAL");
   const [bloqueFin, setBloqueFin] = useState(String(id_bloque));
+  const [conParada, setConParada] = useState(false);
+  const [paradas, setParadas] = useState([""]);
   const [extra, setExtra] = useState(false);
   const [permitidas, setPermitidas] = useState(null); // ids permitidas por licencia
   const [saving, setSaving] = useState(false);
@@ -208,6 +210,15 @@ export default function AgendarVueloModal({
       return;
     }
 
+    if (tipoVuelo === "RUTA" && conParada) {
+      const limpias = paradas.map(p => p.trim().toUpperCase()).filter(Boolean);
+      if (limpias.length === 0 || limpias.some(p => !/^[A-Z]{4}$/.test(p))) {
+        toast.error("Completá el código ICAO de cada parada (4 letras)");
+        setSaving(false);
+        return;
+      }
+    }
+
     const payloadBase = {
       id_semana,
       id_instructor: idInstructor ? Number(idInstructor) : null,
@@ -217,6 +228,10 @@ export default function AgendarVueloModal({
       id_aeronave: Number(idAeronave),
       tipo_vuelo: tipoVuelo,
       categoria,
+      con_parada: tipoVuelo === "RUTA" && conParada,
+      tramos_ruta: (tipoVuelo === "RUTA" && conParada)
+        ? paradas.map(p => p.trim().toUpperCase()).filter(Boolean)
+        : null,
     };
     const payload =
       categoria === "CHEQUEO_LINEA" ? {
@@ -482,6 +497,38 @@ export default function AgendarVueloModal({
                     <option key={b.id_bloque} value={b.id_bloque}>{String(b.hora_fin).slice(0,5)}</option>
                   ))}
                 </select>
+              </div>
+            )}
+            {tipoVuelo === "RUTA" && (
+              <div className="avm-field" style={{ marginTop: 6 }}>
+                <label className="avm-check">
+                  <input type="checkbox" checked={conParada} onChange={(e) => setConParada(e.target.checked)} />
+                  Con parada (un vuelo por tramo)
+                </label>
+                {conParada && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    <span style={{ fontWeight: 700 }}>MSSS</span>
+                    {paradas.map((p, i) => (
+                      <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        →
+                        <input type="text" value={p} maxLength={4} placeholder="ICAO"
+                          onChange={(e) => {
+                            const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+                            setParadas(prev => prev.map((x, j) => (j === i ? val : x)));
+                          }}
+                          style={{ width: 64, textTransform: 'uppercase' }} />
+                        {paradas.length > 1 && (
+                          <button type="button" onClick={() => setParadas(prev => prev.filter((_, j) => j !== i))}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer' }}>✕</button>
+                        )}
+                      </span>
+                    ))}
+                    <span>→ <b>MSSS</b></span>
+                    {paradas.length < 4 && (
+                      <button type="button" onClick={() => setParadas(prev => [...prev, ""])}>+ tramo</button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
