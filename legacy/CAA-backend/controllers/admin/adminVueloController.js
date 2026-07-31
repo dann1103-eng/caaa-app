@@ -855,7 +855,10 @@ exports.asignarAlumnoTramo = catchAsync(async (req, res) => {
     await client.query(`UPDATE vuelo SET id_alumno = $1 WHERE id_vuelo = $2`, [Number(id_alumno), Number(id_vuelo)]);
 
     await logAuditoria(client, {
-      accion: "ASIGNAR_ALUMNO_TRAMO",
+      // audit_action es un ENUM en Postgres: cualquier valor fuera de la lista
+      // revienta el INSERT con 500. Igual que el resto del archivo, lo específico
+      // va en descripcion.
+      accion: "OTRO",
       entidad: "vuelo",
       id_entidad: Number(id_vuelo),
       actor: req.user,
