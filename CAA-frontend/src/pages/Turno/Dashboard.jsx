@@ -18,6 +18,8 @@ import {
   abrirReporteOperacionesDia,
   getFlotaMantenimiento,
   completarMantenimientoAeronave,
+  registrarAterrizajeTramo,
+  cancelarTramosRestantes,
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
@@ -29,6 +31,7 @@ import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloMo
 import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
 import AgendarClaseModal from "../../components/AgendarClaseModal/AgendarClaseModal";
 import ReservarSalonModal from "../../components/ReservarSalonModal/ReservarSalonModal";
+import AterrizajeTramoModal from "../../components/AterrizajeTramoModal/AterrizajeTramoModal";
 import { getCalendarioAdmin, getAeronavesActivasAdmin, getBloquesHorario } from "../../services/adminApi";
 import {
   getSesiones, getAulaCursos, crearSesion, cancelarSesionClase, reasignarSalonSesion,
@@ -42,6 +45,7 @@ const ESTADO_LABEL = {
   PROGRAMADO:     "Programado",
   SALIDA_HANGAR:  "Salida hangar",
   EN_PROGRESO:    "En progreso",
+  EN_ESPERA_TRAMO: "En espera en destino",
   REGRESO_HANGAR: "Regreso hangar",
   FINALIZANDO:    "Finalizando",
   COMPLETADO:     "Completado",
@@ -58,7 +62,7 @@ const ESTADO_COLOR = {
 };
 
 // Estados en los que TURNO puede avanzar el vuelo
-const ESTADOS_AVANZABLES = new Set(["PUBLICADO", "PROGRAMADO", "SALIDA_HANGAR", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"]);
+const ESTADOS_AVANZABLES = new Set(["PUBLICADO", "PROGRAMADO", "SALIDA_HANGAR", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO", "EN_ESPERA_TRAMO"]);
 
 const NEXT_LABEL = {
   PUBLICADO:      "→ Salida hangar",
@@ -67,6 +71,7 @@ const NEXT_LABEL = {
   EN_PROGRESO:    "→ Regreso hangar",
   REGRESO_HANGAR: "→ Finalizando",
   FINALIZANDO:    "→ Completar vuelo",
+  EN_ESPERA_TRAMO: "→ Iniciar tramo",
 };
 
 // Estados a los que TURNO puede revertir (avión o simulador): cualquier estado
@@ -102,7 +107,16 @@ function VueloCard({ vuelo, onRefresh }) {
   const [advancing, setAdvancing] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [aterrizando, setAterrizando] = useState(false);
+  const [cancelandoTramos, setCancelandoTramos] = useState(false);
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
+
+  // Rutas con parada: N tramos independientes que comparten grupo_ruta. Los
+  // tramos que no son el último se cierran SOLO con el mini-form de
+  // aterrizaje (nunca con el botón genérico de avanzar).
+  const esTramo = vuelo.grupo_ruta != null;
+  const esTramoNoFinal = esTramo && Number(vuelo.orden_tramo) < Number(vuelo.total_tramos);
+  const esAterrizajeTramo = esTramoNoFinal && vuelo.estado === "EN_PROGRESO";
 
   const handleAvanzar = async () => {
     // Evento de "salida" (a hangar / inicio de sesión): si ocurre antes de la
@@ -145,6 +159,20 @@ function VueloCard({ vuelo, onRefresh }) {
     }
   };
 
+  const handleCancelarTramos = async () => {
+    if (!window.confirm(`¿Cancelar este tramo y todos los siguientes de la ruta (${vuelo.icao_origen}→${vuelo.icao_destino} y posteriores)?`)) return;
+    setCancelandoTramos(true);
+    try {
+      await cancelarTramosRestantes(vuelo.id_vuelo, "Cancelado desde Turno");
+      toast.success("Tramos restantes cancelados");
+      onRefresh();
+    } catch (e) {
+      toast.error(e.response?.data?.message || "No se pudieron cancelar los tramos restantes");
+    } finally {
+      setCancelandoTramos(false);
+    }
+  };
+
   const handleInasistencia = async () => {
     if (!window.confirm(`¿Registrar inasistencia para ${vuelo.alumno_nombre}? El vuelo pasará a COMPLETADO con 0 min.`)) return;
     setAdvancing(true);
@@ -167,7 +195,7 @@ function VueloCard({ vuelo, onRefresh }) {
   // en otro vuelo (guardia de "avión ocupado").
   const canAdvance = isSim
     ? ESTADOS_AVANZABLES_SIM.has(vuelo.estado)
-    : (ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO');
+    : (ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO' && !esAterrizajeTramo);
   const nextLabel = isSim ? NEXT_LABEL_SIM[vuelo.estado] : NEXT_LABEL[vuelo.estado];
   const btnDisabled = advancing;
   const canRevert = ESTADOS_REVERTIBLES.has(vuelo.estado);
@@ -184,6 +212,11 @@ function VueloCard({ vuelo, onRefresh }) {
               </span>
             )}
             <span className={`trn__tag ${tagClass}`}>{ESTADO_LABEL[vuelo.estado] ?? vuelo.estado}</span>
+            {esTramo && (
+              <span className="trn__tag trn__tag--gris" title={`Ruta con parada — tramo ${vuelo.orden_tramo} de ${vuelo.total_tramos}`}>
+                RUTA T{vuelo.orden_tramo}/{vuelo.total_tramos} · {vuelo.icao_origen}→{vuelo.icao_destino}
+              </span>
+            )}
             {vuelo.salida_anticipada && (
               <span className="trn__tag trn__tag--anticipada" title="Este vuelo salió antes de la hora programada">
                 Salida anticipada
@@ -235,6 +268,20 @@ function VueloCard({ vuelo, onRefresh }) {
             {advancing ? "Procesando…" : (nextLabel ?? "Avanzar")}
           </button>
         )}
+        {esAterrizajeTramo && (
+          <button className="trn__btn-avanzar" onClick={() => setAterrizando(true)}>
+            Aterrizamos en {vuelo.icao_destino}
+          </button>
+        )}
+        {vuelo.estado === "EN_ESPERA_TRAMO" && (
+          <button
+            className="trn__btn-cancelar"
+            disabled={cancelandoTramos}
+            onClick={handleCancelarTramos}
+          >
+            {cancelandoTramos ? "Cancelando…" : "Cancelar tramos restantes"}
+          </button>
+        )}
       </div>
 
       {editando && (
@@ -242,6 +289,14 @@ function VueloCard({ vuelo, onRefresh }) {
           vuelo={vuelo}
           onClose={() => setEditando(false)}
           onSaved={onRefresh}
+        />
+      )}
+
+      {aterrizando && (
+        <AterrizajeTramoModal
+          vuelo={vuelo}
+          onClose={() => setAterrizando(false)}
+          onSubmit={(datos) => registrarAterrizajeTramo(vuelo.id_vuelo, datos).then(onRefresh)}
         />
       )}
     </div>

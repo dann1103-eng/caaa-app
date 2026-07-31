@@ -6,6 +6,7 @@ import Header from "../../components/Header/Header";
 import ToastMantenimiento from "../../components/ToastMantenimiento/ToastMantenimiento";
 import ChecklistPostvueloModal from "../../components/ChecklistPostvueloModal/ChecklistPostvueloModal";
 import ReporteVueloModal from "../../components/ReporteVueloModal/ReporteVueloModal";
+import AterrizajeTramoModal from "../../components/AterrizajeTramoModal/AterrizajeTramoModal";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
 import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/EstadoOperacionesWidget";
 import ScheduleWeekTable from "../../components/ScheduleWeekTable/ScheduleWeekTable";
@@ -19,6 +20,7 @@ import {
   avanzarEstadoVuelo,
   getReportesPendientes,
   registrarInasistencia,
+  registrarAterrizajeTramoInstructor,
 } from "../../services/instructorApi";
 import { getCalendarioPublico } from "../../services/programacionApi";
 import { SOCKET_URL } from "../../api/axiosConfig";
@@ -31,6 +33,7 @@ const ESTADO_TAG = {
   PROGRAMADO:     { label: "Programado",     cls: "ins__tag--publicado" },
   SALIDA_HANGAR:  { label: "Salida hangar",  cls: "ins__tag--salida" },
   EN_PROGRESO:    { label: "En progreso",    cls: "ins__tag--vuelo" },
+  EN_ESPERA_TRAMO: { label: "En espera en destino", cls: "ins__tag--gris" },
   REGRESO_HANGAR: { label: "Regreso hangar", cls: "ins__tag--regreso" },
   FINALIZANDO:    { label: "Finalizando",    cls: "ins__tag--finalizando" },
   COMPLETADO:     { label: "Completado",     cls: "ins__tag--completado" },
@@ -93,7 +96,14 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
   const navigate = useNavigate();
   const [progreso, setProgreso] = useState(() => calcProgreso(vuelo));
   const [tiempoMin, setTiempoMin] = useState("");
+  const [aterrizando, setAterrizando] = useState(false);
   const timerRef = useRef(null);
+
+  // Rutas con parada: N tramos independientes que comparten grupo_ruta. Los
+  // tramos que no son el último se cierran SOLO con el mini-form de
+  // aterrizaje (nunca con el botón genérico de avanzar).
+  const esTramo = vuelo.grupo_ruta != null;
+  const esTramoNoFinal = esTramo && Number(vuelo.orden_tramo) < Number(vuelo.total_tramos);
 
   useEffect(() => {
     setProgreso(calcProgreso(vuelo));
@@ -120,7 +130,13 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
   const esSemanaProxima = weekMode === "next";
   const canOperate = isToday && !esSemanaProxima;
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
-  const btnLabel = isSim ? BTN_LABEL_SIM[vuelo.estado] : BTN_LABEL[vuelo.estado];
+  const btnLabel = isSim
+    ? BTN_LABEL_SIM[vuelo.estado]
+    : (esTramo
+        ? (vuelo.estado === "EN_ESPERA_TRAMO"
+            ? `Iniciar tramo a ${vuelo.icao_destino}`
+            : (esTramoNoFinal && vuelo.estado === "EN_PROGRESO" ? null : BTN_LABEL[vuelo.estado]))
+        : BTN_LABEL[vuelo.estado]);
 
   const handleConfirmar = () => {
     // Evento de "salida" (a hangar / inicio de sesión): si ocurre antes de la
@@ -168,6 +184,11 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
         </div>
         <div className="ins__card-tags">
           <span className={`ins__tag ${tagInfo.cls}`}>{tagInfo.label}</span>
+          {esTramo && (
+            <span className="ins__tag" title={`Ruta con parada — tramo ${vuelo.orden_tramo} de ${vuelo.total_tramos}`}>
+              RUTA T{vuelo.orden_tramo}/{vuelo.total_tramos} · {vuelo.icao_origen}→{vuelo.icao_destino}
+            </span>
+          )}
           {vuelo.salida_anticipada && (
             <span className="ins__tag ins__tag--anticipada" title="Este vuelo salió antes de la hora programada">
               Salida anticipada
@@ -207,13 +228,20 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
         {canOperate && !isCompletado && (
           <div className="ins__action-row">
             <div className="ins__btn-group">
-              <button
-                className="ins__btn-avanzar"
-                onClick={handleConfirmar}
-                disabled={btnDisabled}
-              >
-                {isAdvancing ? "Procesando…" : btnLabel}
-              </button>
+              {btnLabel && (
+                <button
+                  className="ins__btn-avanzar"
+                  onClick={handleConfirmar}
+                  disabled={btnDisabled}
+                >
+                  {isAdvancing ? "Procesando…" : btnLabel}
+                </button>
+              )}
+              {esTramoNoFinal && vuelo.estado === "EN_PROGRESO" && (
+                <button className="ins__btn-avanzar" onClick={() => setAterrizando(true)}>
+                  Aterrizamos en {vuelo.icao_destino}
+                </button>
+              )}
               {canMarkInasistencia && (
                 <button
                   className="ins__btn-inasistencia"
@@ -255,6 +283,14 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
           </button>
         )}
       </div>
+
+      {aterrizando && (
+        <AterrizajeTramoModal
+          vuelo={vuelo}
+          onClose={() => setAterrizando(false)}
+          onSubmit={(datos) => registrarAterrizajeTramoInstructor(vuelo.id_vuelo, datos).then(onRefresh)}
+        />
+      )}
     </div>
   );
 }
