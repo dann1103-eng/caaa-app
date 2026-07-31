@@ -59,7 +59,7 @@ export default function AgendarVuelo() {
   // Comparar si hay cambios reales respecto a lo cargado de la BD
   const tieneCambios = (() => {
     if (selecciones.length !== initialSelecciones.length) return true;
-    const normalize = (s) => `${s.dia_semana}-${s.id_bloque}-${s.id_aeronave}-${s.tipo_vuelo || 'LOCAL'}-${s.id_bloque_fin || ''}-${s.es_extracurricular ? 'X' : ''}`;
+    const normalize = (s) => `${s.dia_semana}-${s.id_bloque}-${s.id_aeronave}-${s.tipo_vuelo || 'LOCAL'}-${s.id_bloque_fin || ''}-${s.es_extracurricular ? 'X' : ''}-${(s.tramos_ruta || []).join(',')}`;
     const set1 = new Set(selecciones.map(normalize));
     const set2 = new Set(initialSelecciones.map(normalize));
     if (set1.size !== set2.size) return true;
@@ -207,6 +207,8 @@ export default function AgendarVuelo() {
   const [rutaDia, setRutaDia] = useState("1");
   const [rutaBloqueInicio, setRutaBloqueInicio] = useState("");
   const [rutaBloqueFin, setRutaBloqueFin] = useState("");
+  const [rutaConParada, setRutaConParada] = useState(false);
+  const [rutaParadas, setRutaParadas] = useState([""]); // ICAOs intermedios
 
   const DIAS = [
     { id: 1, label: "Lunes" },
@@ -235,7 +237,14 @@ export default function AgendarVuelo() {
       toast.warning("El bloque de llegada debe ser igual o posterior al de salida");
       return;
     }
-    
+    if (rutaConParada) {
+      const limpias = rutaParadas.map(p => p.trim().toUpperCase()).filter(Boolean);
+      if (limpias.length === 0 || limpias.some(p => !/^[A-Z]{4}$/.test(p))) {
+        toast.warning("Completá el código ICAO de cada parada (4 letras, ej. MGGT)");
+        return;
+      }
+    }
+
     // Add to selecciones
     setSelecciones(prev => [
       ...prev.filter(s => s.tipo_vuelo !== 'RUTA'), // Only 1 route, or keep appending? Let's just append
@@ -244,14 +253,18 @@ export default function AgendarVuelo() {
         id_bloque: Number(rutaBloqueInicio),
         id_aeronave: Number(rutaAeronave),
         tipo_vuelo: 'RUTA',
-        id_bloque_fin: Number(rutaBloqueFin)
+        id_bloque_fin: Number(rutaBloqueFin),
+        con_parada: rutaConParada,
+        tramos_ruta: rutaConParada ? rutaParadas.map(p => p.trim().toUpperCase()).filter(Boolean) : null,
       }
     ]);
-    
+
     toast.success("Ruta añadida a la selección");
     setRutaAeronave("");
     setRutaBloqueInicio("");
     setRutaBloqueFin("");
+    setRutaConParada(false);
+    setRutaParadas([""]);
   };
 
   const handleAgregarExtra = () => {
@@ -554,6 +567,51 @@ export default function AgendarVuelo() {
                   </select>
                 </div>
               </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginTop: 8 }}>
+                <input type="checkbox" checked={rutaConParada} onChange={(e) => setRutaConParada(e.target.checked)} />
+                Con parada en otro aeropuerto (genera un vuelo por tramo)
+              </label>
+              {rutaConParada && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>MSSS</span>
+                    {rutaParadas.map((p, i) => (
+                      <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <i className="bi bi-arrow-right"></i>
+                        <input
+                          type="text"
+                          value={p}
+                          maxLength={4}
+                          placeholder="ICAO"
+                          onChange={(e) => {
+                            const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+                            setRutaParadas(prev => prev.map((x, j) => (j === i ? val : x)));
+                          }}
+                          style={{ width: 70, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', padding: '4px 6px' }}
+                        />
+                        {rutaParadas.length > 1 && (
+                          <button type="button" title="Quitar parada"
+                            onClick={() => setRutaParadas(prev => prev.filter((_, j) => j !== i))}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--c-danger-700)' }}>
+                            <i className="bi bi-x-circle"></i>
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                    <i className="bi bi-arrow-right"></i>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>MSSS</span>
+                  </div>
+                  {rutaParadas.length < 4 && (
+                    <button type="button" onClick={() => setRutaParadas(prev => [...prev, ""])}
+                      style={{ marginTop: 6, fontSize: 'var(--text-sm)' }} className="btn btn-outline-secondary btn-sm">
+                      + Agregar tramo
+                    </button>
+                  )}
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--c-ink-3)', margin: '6px 0 0' }}>
+                    Cada tramo será un vuelo con su propio loadsheet y vouchera. El primer código es tu primera parada.
+                  </p>
+                </div>
+              )}
               <div style={{ alignSelf: 'flex-end' }}>
                 <button onClick={handleAgregarRuta} disabled={calendarBloqueado} style={{ background: 'var(--c-brand-700)', color: 'oklch(99% 0 0)', border: 'none', padding: '10px 20px', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: calendarBloqueado ? 'not-allowed' : 'pointer' }}>Agregar a Selección</button>
               </div>
@@ -614,7 +672,7 @@ export default function AgendarVuelo() {
                   const aero = findAero(s.id_aeronave);
                   const dia = DIAS.find(d => d.id === Number(s.dia_semana))?.label;
                   const bloqueStr = s.tipo_vuelo === 'RUTA'
-                    ? `Salida: Bloque ${s.id_bloque} | Llegada: Bloque ${s.id_bloque_fin}`
+                    ? `Salida: Bloque ${s.id_bloque} | Llegada: Bloque ${s.id_bloque_fin}${s.con_parada ? ` | MSSS→${(s.tramos_ruta || []).join('→')}→MSSS` : ''}`
                     : `Bloque: ${s.id_bloque}`;
                   return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: s.es_extracurricular ? 'var(--c-info-50)' : 'var(--c-surface-1)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: s.es_extracurricular ? '1px solid var(--c-info-100)' : '1px solid var(--c-line-1)' }}>
