@@ -609,6 +609,8 @@ export default function AgendarVuelo() {
                   )}
                   <p style={{ fontSize: 'var(--text-sm)', color: 'var(--c-ink-3)', margin: '6px 0 0' }}>
                     Cada tramo será un vuelo con su propio loadsheet y vouchera. El primer código es tu primera parada.
+                    {" "}Una vez agendada, la ruta <b>no se puede mover de día</b>: para cambiarla hay que cancelarla y
+                    volver a agendarla en el día y bloque que quieras.
                   </p>
                 </div>
               )}

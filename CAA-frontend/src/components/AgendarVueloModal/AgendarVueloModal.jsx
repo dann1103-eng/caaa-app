@@ -529,6 +529,12 @@ export default function AgendarVueloModal({
                     )}
                   </div>
                 )}
+                {conParada && (
+                  <p className="avm-hint" style={{ marginTop: 6 }}>
+                    Cada tramo será un vuelo aparte (loadsheet y vouchera propios). Una vez agendada, la ruta
+                    <b> no se puede mover de día</b>: para cambiarla hay que cancelarla y volver a agendarla.
+                  </p>
+                )}
               </div>
             )}
           </div>
