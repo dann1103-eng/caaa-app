@@ -433,14 +433,28 @@ exports.registrarInasistencia = async (req, res) => {
   const { id_vuelo } = req.params;
   const user = req.user;
   const io = req.app.get("io");
+  let tramosCancelados = [];
 
   const client = await db.connect();
   try {
     await client.query("BEGIN");
 
+    // Rutas con parada: la inasistencia solo aplica al primer tramo (el
+    // alumno/instructor no se presenta al inicio de la ruta). Si esto es un
+    // tramo posterior, no tiene sentido marcar inasistencia sobre él solo.
+    const tramoRes = await client.query(
+      `SELECT grupo_ruta, orden_tramo FROM vuelo WHERE id_vuelo = $1`,
+      [id_vuelo]
+    );
+    const tramo = tramoRes.rows[0];
+    if (tramo?.grupo_ruta != null && Number(tramo.orden_tramo) > 1) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "La inasistencia solo aplica al primer tramo de una ruta." });
+    }
+
     // 1. Marcar el vuelo como COMPLETADO y 0 min
     const upd = await client.query(
-      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0 
+      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0
        WHERE id_vuelo = $1 RETURNING id_vuelo, id_aeronave`,
       [id_vuelo]
     );
@@ -465,6 +479,26 @@ exports.registrarInasistencia = async (req, res) => {
       [id_vuelo, user?.id_usuario ?? null]
     );
 
+    // Rutas con parada: la inasistencia en el primer tramo cancela toda la
+    // ruta (los tramos siguientes ya no tienen sentido sin el primero).
+    if (tramo?.grupo_ruta != null) {
+      const canc = await client.query(
+        `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW(),
+                justificacion_cancelacion = 'Inasistencia en el primer tramo de la ruta'
+          WHERE grupo_ruta = $1 AND orden_tramo > 1
+            AND estado NOT IN ('CANCELADO','COMPLETADO')
+          RETURNING id_vuelo`,
+        [tramo.grupo_ruta]
+      );
+      tramosCancelados = canc.rows;
+      for (const row of canc.rows) {
+        await client.query(
+          `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por) VALUES ($1, 'CANCELADO', $2)`,
+          [row.id_vuelo, user?.id_usuario ?? null]
+        );
+      }
+    }
+
     await logAuditoria(client, {
       accion: "OTRO",
       entidad: "vuelo",
@@ -476,11 +510,14 @@ exports.registrarInasistencia = async (req, res) => {
     await client.query("COMMIT");
 
     if (io) {
-      io.emit("vuelo_estado_changed", { 
-        id_vuelo: Number(id_vuelo), 
-        estado: 'COMPLETADO', 
-        registrado_en: ts.rows[0].registrado_en 
+      io.emit("vuelo_estado_changed", {
+        id_vuelo: Number(id_vuelo),
+        estado: 'COMPLETADO',
+        registrado_en: ts.rows[0].registrado_en
       });
+      for (const row of tramosCancelados) {
+        io.emit("vuelo_estado_changed", { id_vuelo: row.id_vuelo, estado: "CANCELADO" });
+      }
     }
 
     res.json({ message: "Inasistencia registrada correctamente" });

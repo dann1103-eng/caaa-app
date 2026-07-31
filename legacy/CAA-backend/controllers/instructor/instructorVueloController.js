@@ -461,6 +461,7 @@ exports.registrarInasistencia = async (req, res) => {
   const { id_vuelo } = req.params;
   const user = req.user;
   const io = req.app.get("io");
+  let tramosCancelados = [];
 
   const id_instructor = await resolverIdInstructor(user.id_usuario);
   if (!id_instructor) return res.status(403).json({ message: "No sos instructor activo" });
@@ -469,11 +470,30 @@ exports.registrarInasistencia = async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Rutas con parada: la inasistencia solo aplica al primer tramo (el
+    // alumno/instructor no se presenta al inicio de la ruta). Si esto es un
+    // tramo posterior, no tiene sentido marcar inasistencia sobre él solo.
+    // Se filtra por id_instructor igual que el UPDATE de abajo, para no
+    // filtrar la estructura de una ruta que no le pertenece a este instructor.
+    const tramoRes = await client.query(
+      `SELECT grupo_ruta, orden_tramo FROM vuelo WHERE id_vuelo = $1 AND id_instructor = $2`,
+      [id_vuelo, id_instructor]
+    );
+    if (tramoRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Vuelo no encontrado o no asignado" });
+    }
+    const tramo = tramoRes.rows[0];
+    if (tramo?.grupo_ruta != null && Number(tramo.orden_tramo) > 1) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "La inasistencia solo aplica al primer tramo de una ruta." });
+    }
+
     // (Se removió el candado de "hora programada": marcar la inasistencia de un
     // no-show ANTES de su hora es justo lo que libera el avión para adelantar
     // otro vuelo con esa misma aeronave.)
     const upd = await client.query(
-      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0 
+      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0
        WHERE id_vuelo = $1 AND id_instructor = $2 RETURNING id_vuelo`,
       [id_vuelo, id_instructor]
     );
@@ -496,6 +516,26 @@ exports.registrarInasistencia = async (req, res) => {
       [id_vuelo, user?.id_usuario ?? null]
     );
 
+    // Rutas con parada: la inasistencia en el primer tramo cancela toda la
+    // ruta (los tramos siguientes ya no tienen sentido sin el primero).
+    if (tramo?.grupo_ruta != null) {
+      const canc = await client.query(
+        `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW(),
+                justificacion_cancelacion = 'Inasistencia en el primer tramo de la ruta'
+          WHERE grupo_ruta = $1 AND orden_tramo > 1
+            AND estado NOT IN ('CANCELADO','COMPLETADO')
+          RETURNING id_vuelo`,
+        [tramo.grupo_ruta]
+      );
+      tramosCancelados = canc.rows;
+      for (const row of canc.rows) {
+        await client.query(
+          `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por) VALUES ($1, 'CANCELADO', $2)`,
+          [row.id_vuelo, user?.id_usuario ?? null]
+        );
+      }
+    }
+
     await logAuditoria(client, {
       accion: "OTRO",
       entidad: "vuelo",
@@ -507,12 +547,15 @@ exports.registrarInasistencia = async (req, res) => {
     await client.query("COMMIT");
 
     if (io) {
-      io.emit("vuelo_estado_changed", { 
-        id_vuelo: Number(id_vuelo), 
-        estado: 'COMPLETADO', 
+      io.emit("vuelo_estado_changed", {
+        id_vuelo: Number(id_vuelo),
+        estado: 'COMPLETADO',
         registrado_en: ts.rows[0].registrado_en,
         es_inasistencia: true
       });
+      for (const row of tramosCancelados) {
+        io.emit("vuelo_estado_changed", { id_vuelo: row.id_vuelo, estado: "CANCELADO" });
+      }
     }
 
     res.json({ message: "Inasistencia registrada" });
