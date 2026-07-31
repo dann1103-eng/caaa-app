@@ -1225,7 +1225,8 @@ exports.editarTripulacion = async (req, res) => {
 
     const vueloRes = await client.query(
       `SELECT v.id_vuelo, v.id_semana, v.dia_semana, v.id_bloque, v.id_bloque_fin, v.estado,
-              v.id_alumno, v.id_instructor, v.id_aeronave, v.es_extracurricular, sw.publicada, sw.fecha_inicio
+              v.id_alumno, v.id_instructor, v.id_aeronave, v.es_extracurricular, v.grupo_ruta,
+              sw.publicada, sw.fecha_inicio
          FROM vuelo v
          JOIN semana_vuelo sw ON sw.id_semana = v.id_semana
         WHERE v.id_vuelo = $1 FOR UPDATE OF v`,
@@ -1244,6 +1245,14 @@ exports.editarTripulacion = async (req, res) => {
     if (["CANCELADO", "COMPLETADO"].includes(vuelo.estado)) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: `No se puede editar un vuelo ${vuelo.estado.toLowerCase()}` });
+    }
+
+    // Rutas con parada: el día es de TODA la ruta (todos los tramos comparten
+    // fecha). Moverlo tramo por tramo la partiría en dos fechas y dejaría el
+    // retorno sin poder volarse. Se cancela y reagenda la ruta completa.
+    if (vuelo.grupo_ruta != null && Number(dia_semana) !== Number(vuelo.dia_semana)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "No se puede mover de día un tramo de una ruta con parada — cancelá y reagendá la ruta completa." });
     }
 
     const finActual = vuelo.id_bloque_fin || vuelo.id_bloque;
@@ -1320,13 +1329,34 @@ exports.editarTripulacion = async (req, res) => {
 
     // Rutas con parada: instructor y aeronave son de TODA la ruta (el alumno
     // sí es por tramo y se cambia con el modal de asignación).
-    const gRes = await client.query(`SELECT grupo_ruta FROM vuelo WHERE id_vuelo = $1`, [vuelo.id_vuelo]);
-    if (gRes.rows[0]?.grupo_ruta != null) {
+    if (vuelo.grupo_ruta != null) {
       await client.query(
         `UPDATE vuelo SET id_instructor = $1, id_aeronave = $2
           WHERE grupo_ruta = $3 AND id_vuelo <> $4 AND estado NOT IN ('CANCELADO','COMPLETADO')`,
-        [nuevoInstructor, nuevaAeronave, gRes.rows[0].grupo_ruta, vuelo.id_vuelo]
+        [nuevoInstructor, nuevaAeronave, vuelo.grupo_ruta, vuelo.id_vuelo]
       );
+
+      // La aeronave nueva aplica a todos los tramos: verificar que ninguno choque
+      // con otro vuelo de esa aeronave en su propio rango de bloques.
+      const choque = await client.query(
+        `SELECT v2.id_vuelo, b.hora_inicio
+           FROM vuelo t
+           JOIN vuelo v2 ON v2.id_aeronave = t.id_aeronave
+                        AND v2.fecha_vuelo = t.fecha_vuelo
+                        AND v2.id_vuelo <> t.id_vuelo
+                        AND (v2.grupo_ruta IS NULL OR v2.grupo_ruta <> t.grupo_ruta)
+                        AND v2.estado NOT IN ('CANCELADO','COMPLETADO')
+                        AND NOT (COALESCE(v2.id_bloque_fin, v2.id_bloque) < t.id_bloque
+                                 OR v2.id_bloque > COALESCE(t.id_bloque_fin, t.id_bloque))
+           JOIN bloque_horario b ON b.id_bloque = v2.id_bloque
+          WHERE t.grupo_ruta = $1 AND t.estado NOT IN ('CANCELADO','COMPLETADO')
+          LIMIT 1`,
+        [vuelo.grupo_ruta]
+      );
+      if (choque.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: `Esa aeronave ya está ocupada por otro vuelo (${String(choque.rows[0].hora_inicio).slice(0,5)}) en el horario de otro tramo de la ruta.` });
+      }
     }
 
     await logAuditoria(client, {

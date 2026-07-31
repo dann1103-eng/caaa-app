@@ -789,8 +789,12 @@ exports.getTramosRuta = catchAsync(async (req, res) => {
 
 // Reasignar el alumno de UN tramo (caso: la ida la vuela un alumno y el
 // retorno otro; el instructor es el mismo en toda la ruta). Valida licencia
-// del alumno nuevo contra la aeronave; sin chequeo de conflicto de horario
-// (criterio de staff, mismo trato que el agendado directo de programación).
+// del alumno nuevo contra la aeronave con el MISMO criterio canónico que
+// services/solicitudService.js:273-289 (espejado en turnoController.js:1302):
+// se salta si es_extracurricular o si la categoría es DEMO/CHEQUEO_LINEA, y
+// si es CHEQUEO valida contra id_licencia_chequeo en vez de la licencia
+// propia del alumno. Sin chequeo de conflicto de horario (criterio de staff,
+// mismo trato que el agendado directo de programación).
 exports.asignarAlumnoTramo = catchAsync(async (req, res) => {
   const { id_vuelo } = req.params;
   const { id_alumno } = req.body;
@@ -799,31 +803,59 @@ exports.asignarAlumnoTramo = catchAsync(async (req, res) => {
   try {
     await client.query("BEGIN");
     const vRes = await client.query(
-      `SELECT id_vuelo, grupo_ruta, estado, id_aeronave FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`,
+      `SELECT id_vuelo, grupo_ruta, estado, id_aeronave, es_extracurricular, categoria, id_licencia_chequeo
+         FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`,
       [Number(id_vuelo)]
     );
     if (!vRes.rows.length || vRes.rows[0].grupo_ruta == null) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: "Este vuelo no es un tramo de ruta." });
     }
-    if (!["PUBLICADO", "PROGRAMADO", "EN_ESPERA_TRAMO"].includes(vRes.rows[0].estado)) {
+    const vuelo = vRes.rows[0];
+    if (!["PUBLICADO", "PROGRAMADO", "EN_ESPERA_TRAMO"].includes(vuelo.estado)) {
       await client.query("ROLLBACK");
       return res.status(409).json({ message: "El tramo ya inició o cerró — no se puede reasignar." });
     }
-    const lic = await client.query(
-      `SELECT 1 FROM alumno a
-         JOIN licencia_aeronave la ON la.id_licencia = a.id_licencia AND la.id_aeronave = $2
-        WHERE a.id_alumno = $1`,
-      [Number(id_alumno), vRes.rows[0].id_aeronave]
-    );
-    if (lic.rows.length === 0) {
+
+    const alRes = await client.query(`SELECT 1 FROM alumno WHERE id_alumno = $1`, [Number(id_alumno)]);
+    if (alRes.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "La aeronave no está habilitada para la licencia de ese alumno." });
+      return res.status(404).json({ message: "Alumno no encontrado" });
     }
+
+    if (!vuelo.es_extracurricular && (vuelo.categoria === "NORMAL" || vuelo.categoria === "CHEQUEO")) {
+      const idLicenciaCheck = vuelo.categoria === "CHEQUEO" && vuelo.id_licencia_chequeo ? Number(vuelo.id_licencia_chequeo) : null;
+      const lic = idLicenciaCheck
+        ? await client.query(
+            `SELECT 1 FROM licencia_aeronave WHERE id_licencia = $1 AND id_aeronave = $2`,
+            [idLicenciaCheck, vuelo.id_aeronave]
+          )
+        : await client.query(
+            `SELECT 1 FROM alumno a
+               JOIN licencia_aeronave la ON la.id_licencia = a.id_licencia AND la.id_aeronave = $2
+              WHERE a.id_alumno = $1`,
+            [Number(id_alumno), vuelo.id_aeronave]
+          );
+      if (lic.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "La aeronave no está habilitada para la licencia de ese alumno." });
+      }
+    }
+
     await client.query(`UPDATE vuelo SET id_alumno = $1 WHERE id_vuelo = $2`, [Number(id_alumno), Number(id_vuelo)]);
+
+    await logAuditoria(client, {
+      accion: "ASIGNAR_ALUMNO_TRAMO",
+      entidad: "vuelo",
+      id_entidad: Number(id_vuelo),
+      actor: req.user,
+      req,
+      descripcion: `Alumno del tramo #${id_vuelo} (ruta #${vuelo.grupo_ruta}) reasignado a alumno #${id_alumno}`,
+    });
+
     await client.query("COMMIT");
     const io = req.app.get("io");
-    if (io) io.emit("vuelo_estado_changed", { id_vuelo: Number(id_vuelo) });
+    if (io) io.emit("vuelo_estado_changed", { id_vuelo: Number(id_vuelo), estado: vuelo.estado });
     res.json({ ok: true });
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
