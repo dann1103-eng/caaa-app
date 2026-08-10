@@ -8,6 +8,8 @@ import MisClasesList from "../../components/MisClasesList/MisClasesList";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/EstadoOperacionesWidget";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
+import ScheduleWeekTable from "../../components/ScheduleWeekTable/ScheduleWeekTable";
+import { getCalendarioPublico } from "../../services/programacionApi";
 import {
   getMiHorario,
   getMiInfo,
@@ -64,7 +66,19 @@ export default function AlumnoDashboard() {
   const [misClases, setMisClases] = useState([]);
   const [loadingClases, setLoadingClases] = useState(false);
   const [ofertas, setOfertas] = useState([]);
+  const [calendarioEscuela, setCalendarioEscuela] = useState([]);
   const cargarOfertas = () => getMisOfertas().then((d) => setOfertas(Array.isArray(d) ? d : [])).catch(() => setOfertas([]));
+
+  // Programación de toda la escuela (mismo dato que consumen Proyección y el
+  // dashboard del instructor). Sirve para que el alumno vea qué horarios están
+  // libres o se liberaron antes de pedir un vuelo.
+  useEffect(() => {
+    const cargarCalendarioEscuela = () =>
+      getCalendarioPublico().then((data) => setCalendarioEscuela(Array.isArray(data) ? data : [])).catch(() => {});
+    cargarCalendarioEscuela();
+    const t = setInterval(cargarCalendarioEscuela, 20000);
+    return () => clearInterval(t);
+  }, []);
 
   const fetchClases = useCallback(async () => {
     setLoadingClases(true);
@@ -197,6 +211,11 @@ export default function AlumnoDashboard() {
   const instructorNombre = info
     ? [info.instructor_nombre, info.instructor_apellido].filter(Boolean).join(" ") || "—"
     : "—";
+
+  // Día de hoy en formato de la BD (ISO: lunes=1 … domingo=7), para que el
+  // calendario de la escuela abra en la pestaña del día actual.
+  const hoyNum = new Date().getDay();
+  const diaHoyDb = hoyNum === 0 ? 7 : hoyNum;
 
   const semanaLabel = weekMode === "current" ? "Semana actual" : weekMode === "next" ? "Semana siguiente" : "Mis Cancelaciones";
   const estadoLabel = weekMode === "current" ? "En curso" : weekMode === "next" ? "Próxima" : "Variado";
@@ -399,6 +418,24 @@ export default function AlumnoDashboard() {
           <aside className="dash__sidebar">
             <MetarWidget />
           </aside>
+        </div>
+
+        {/* ── Programación de la semana (toda la escuela) ──
+            Solo lectura: le sirve al alumno para ver qué horarios están libres
+            o se liberaron antes de pedir un vuelo. Mismo componente y misma
+            fuente que el dashboard del instructor y la Proyección. */}
+        <div className="dash__schedule">
+          <h3 className="dash__schedule-title">
+            <i className="bi bi-calendar3"></i>
+            Programación de la semana (toda la escuela)
+          </h3>
+          <p className="dash__schedule-hint">
+            Consultá los espacios libres o los vuelos cancelados para pedir tus horas.
+            Se actualiza solo cada 20 segundos.
+          </p>
+          <div className="pp">
+            <ScheduleWeekTable vuelos={calendarioEscuela} diaHoy={diaHoyDb} />
+          </div>
         </div>
       </div>
     </>

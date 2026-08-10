@@ -378,3 +378,40 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Programación de la semana (toda la escuela) ──
+   Calendario de solo lectura al pie del dashboard, para que el alumno detecte
+   espacios libres o cancelaciones. Mismo componente que usa el instructor; el
+   wrapper `.pp` de adentro trae su propia paleta oscura. */
+.dash__schedule {
+  margin-top: 20px;
+}
+
+.dash__schedule-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--c-ink-1);
+  margin: 0 0 4px;
+}
+
+.dash__schedule-title i { color: var(--c-brand-700); }
+
+.dash__schedule-hint {
+  font-size: var(--text-sm);
+  color: var(--c-ink-3);
+  margin: 0 0 12px;
+}
+
+/* `.pp` (la paleta de Proyección) trae `height:100vh; overflow:hidden` porque
+   allá es una pantalla completa de tablero. Acá es una sección más del
+   dashboard: se neutraliza para que tome la altura de su contenido. */
+.dash__schedule .pp {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 12px;
+  border-radius: var(--radius-md);
+}
