@@ -385,6 +385,11 @@
    wrapper `.pp` de adentro trae su propia paleta oscura. */
 .dash__schedule {
   margin-top: 20px;
+  /* El calendario está pensado para el tablero ancho de Proyección: en móvil
+     sus tabs de día son más anchos que la pantalla. Sin esto, ese sobrante
+     ensancha TODA la página y el dashboard entero se desliza de lado.
+     Los tabs conservan su propio scroll horizontal interno. */
+  overflow-x: hidden;
 }
 
 .dash__schedule-title {
