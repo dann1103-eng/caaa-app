@@ -1584,8 +1584,16 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
+> **Última revisión: 2026-07-28.** Resueltos desde la pasada anterior: ~~tarifa del YS-155~~ ($150, §26.C) ·
+> ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
+
 ### 🧾 Higiene inmediata
-- **Tarifa del YS-155-PE (Cherokee 140)**: sin ella los vuelos cierran sin cobrar y **en silencio** (§22.G).
+- **Multa de `javier.espinoza`**: anotada en el Excel de saldos ("multa por aplicar 13/07/26") y **nunca
+  aplicada** (§26.F). Se aplica con el botón Multa de su cuenta corriente.
+- **Combustible usable del YS-259-PE (310Q)**: la plantilla usa hoy la **capacidad** (102 principal / 41 aux).
+  Falta que Daniel confirme el usable — 2 números, no afecta el chequeo de peso/CG (§26.C).
+- **Anular desde los listados de Recibos/Facturas** sigue con el modelo viejo (inserta fila ANULACION en el
+  ledger), inconsistente con el borrado directo que ahora usa la cuenta corriente (§26.A).
 - Untracked viejos en el repo principal (superados por `20260624000004_semana_22jun_completa.sql`, evaluar borrar):
   `seed_semana_22jun2026.js`, `20260624000001/2/3_*.sql`.
 
@@ -1642,3 +1650,193 @@ el que tiene montos queda **solo para Administración/Admin**.
   botón "Reporte del día" del dashboard de Turno pasa a llamarla. `Administracion/Reportes.jsx` **no se
   toca** — Administración conserva el reporte completo con montos, sin cambios.
 - Sin migración (no toca esquema).
+
+---
+
+## 26. Sesión 2026-07-22 — Cuenta corriente tipo Excel, precios especiales, pago del Refresh, cuadre de saldos y **loadsheet DB-first**
+
+**TODO DESPLEGADO Y VERIFICADO.** Sesión larga con Samuel trabajando en paralelo (merges limpios).
+Migraciones `20260722000001`..`000005` aplicadas en Supabase.
+
+### A. Cuenta corriente se comporta como Excel (commit `52cec70`)
+**Problema raíz:** el saldo por fila vivía **congelado** en `movimiento_cuenta.saldo_resultante_usd`
+(calculado al crear, asumiendo que el movimiento siempre va al final). Meter un movimiento con fecha
+ANTERIOR lo insertaba arriba en el orden pero **no recalculaba** los de abajo → saldos incoherentes.
+- **Saldo corrido al LEER**: `cuentaController.getExtracto` usa `SUM(monto_usd) OVER (ORDER BY fecha, id)`
+  en un CTE. Campo nuevo `saldo_corrido`; el front usa `saldo_corrido ?? saldo_resultante_usd`.
+- **Borrado directo**: `anularMovimiento` pasó de "marcar anulado + fila ANULACION" a **DELETE real**.
+  Param `borrar_documento`: si hay recibo/factura ligado, el front **pregunta** si borrar también el
+  documento. Botón "Borrar" (papelera) en vez de "Anular". Daniel decidió: **cualquier** movimiento es
+  borrable (incluidos los cargos automáticos de vuelo).
+- **Fecha al crear** el abono (antes el movimiento caía siempre en `NOW()`).
+- Limpieza `supabase/dump/limpiar_anulaciones_cuenta.sql` (ya corrida): borró 10 filas del modelo viejo
+  en 3 alumnos; **netea a cero por alumno ⇒ ningún saldo cambió**.
+- ⚠️ **Inconsistencia conocida NO tocada:** `recibosController.anular` y `facturasController.anular`
+  (anular desde los **listados** de Recibos/Facturas, no desde la cuenta) siguen con el modelo viejo e
+  insertan una fila ANULACION en el ledger.
+- **Arquitectura del ledger:** `monto_usd` es SIGNADO (+depósito / −cargo); `saldo_actual_usd` = SUM
+  (independiente del orden). Solo el saldo POR FILA depende del orden → por eso se calcula al leer.
+
+### B. Precios especiales por avión + fix del deslogueo de u1 (commits `9e78631`, `fbc5b99`, mig `...000001`)
+- **Deslogueo aleatorio de u1**: la sesión única (`usuario.current_session_id`) rota el UUID en cada
+  **login**; como u1 se usa desde varias máquinas y el TV de proyección, cada login mataba las demás
+  sesiones de u1. Fix: `SESION_MULTIPLE = new Set(["u1"])` en `authMiddleware.js` exime **solo a u1**.
+  Para eximir otra cuenta: agregar su username al Set. ⚠️ Se exime por **username** — si u1 se renombra,
+  el fix deja de aplicar.
+- **Precios especiales**: `aeronave_tarifa` += `nombre`, `es_estandar`. El estándar conserva su versionado
+  por fecha; los especiales son **montos fijos editables** (decisión de Daniel), sin versionado. Tabla
+  `alumno_tarifa_aeronave (id_alumno, id_aeronave, id_tarifa)`, todo ON DELETE CASCADE (borrar el precio
+  → cae la asignación → el alumno vuelve al estándar). El cobro busca primero el especial del alumno.
+  UI: Tarifas → botón "Precios" por avión; Ficha del alumno → pestaña **"Precios por avión"**.
+- ⚠️ **Gotcha de verificación:** el `authMiddleware` de `/administracion` es **a nivel de router** ⇒
+  CUALQUIER path bajo `/administracion` da **401 sin token, aunque la ruta no exista**. El truco
+  "curl → 404 vs 401" NO sirve ahí.
+
+### C. Dos pendientes viejos resueltos
+- **Tarifa del YS-155-PE**: se le puso estándar **$150** (§24 la marcaba como higiene inmediata; sin ella
+  los vuelos cerraban **sin cobrar y en silencio**). No salía en la lista porque ésta sale
+  `FROM aeronave_tarifa` y el avión no tenía ninguna fila.
+- **Loadsheets de los 2 aviones nuevos** (migs `...000002`/`000003`): YS-259-PE (Cessna 310Q, datos del POH
+  que mandó Daniel + envolvente que confirmó visualmente) y YS-155-PE (vacío 1275 @ 85.7, máx 2150/1950,
+  fuel 50/48; brazos y envolvente **heredados del Cherokee PA-28** por decisión de Daniel).
+  ⚠️ El 310 tiene **dos tanques** (principal arm 35 / aux 47): `calcWB` suma todas las estaciones ⇒ el
+  despegue sale exacto, pero `computeWbResults` usa `.find(s=>s.is_fuel)` (el primero) para el CG de
+  aterrizaje ⇒ asume quema del principal (aproximación aceptable). **Pendiente menor:** confirmar el
+  combustible **usable** del 310 (hoy usa capacidad 102/41).
+
+### D. Tres fixes de operación (commit `9568844`)
+- **Proyección responsive en celular**: el tablero era 100vh / overflow-hidden / 2 columnas (diseñado para
+  TV). Bloque `@media (max-width:768px)`: una columna, scroll natural, METAR crudo oculto, tablas con
+  scroll horizontal interno.
+- **ADMIN entra al dashboard de Turno** (`ProtectedTurno` + link en AdminSidebar) para publicar avisos.
+- **Warnings de saldo bajo al agendar — advertencia, NUNCA bloqueo**: el 403 de saldo del alumno es
+  **forzable** (`forzar_saldo` en el body; la respuesta trae `forzable:true`) → el alumno confirma y agenda
+  igual (caso "deposito el fin de semana"). Banner en Agendar; badge **$** ámbar en los calendarios del
+  staff (`saldo_bajo`/`saldo_alumno`/`tarifa_estimada` por vuelo). `estimarCostoVuelos` pasó a usar la
+  tarifa **efectiva** (especial → estándar por id → texto legacy).
+
+### E. Pago del Refresh del instructor (commits `f14328e..649b170`, mig `...000004`)
+El instructor que pide un vuelo de práctica sub-tipo **REFRESH** ve su saldo y el costo estimado, y elige
+si **debitar de su saldo al completarse** (checkbox, default sí cuando cubre) o pagar al momento. CHEQUEO
+nunca cobra. **Nunca se bloquea el pedido; nunca queda saldo negativo por esta vía.**
+- `debitar_saldo BOOLEAN` en `solicitud_vuelo` y `vuelo` (NULL = staff/manual). `publicarSemana` la copia.
+- `GET /instructor/solicitudes/practica/saldo?id_aeronave=N` → `{saldo, costo_estimado, cubre}`.
+  `crearSolicitudPractica` **revalida server-side** (devuelve `debitar_saldo_ajustado` + aviso).
+- `cargarVueloACuentaDentroTx` += `modo_refresh` (cobra sin horas de licencia ni curso, nota 'Refresh') y
+  `solo_si_saldo_cubre` (el chequeo va **DESPUÉS del FOR UPDATE**, atómico; si el saldo dejó de cubrir,
+  `{skipped:true}` y se sincera `vuelo.debitar_saldo=false`).
+- UI: Usuarios→Personal columna **Saldo** (gatea por **ficha**, no por rol) + botón "Cuenta corriente";
+  badge **R$** en AdminCalendar (azul=debita / ámbar=al momento); vouchera con línea "Pago:" basada en
+  **`se_debito`** (el cargo real, no la intención).
+- Costo estimado = tarifa efectiva **× 1h** (misma convención que el badge $ del calendario).
+
+### F. Cuadre masivo de saldos al 18-jul + horas iniciales editables
+Fuente: `SALDOS AL 21 DE JULIO 2026.xlsx`, hoja **`REPORTE SALDOS ACTIVOS 2026`** (crece a lo ancho: una
+tanda de columnas por semana). Leer con openpyxl **`read_only=True`** (sin eso tarda >2 min).
+- **Fórmula**: `ajuste inicial = saldo_Excel_18jul − (movimientos con fecha < 2026-07-19)`.
+  ⚠️ `movimiento_cuenta.fecha` es **timestamp**: el corte correcto es `fecha < '2026-07-19'` (incluye todo
+  el sábado 18). Con `<= '2026-07-18'` se pierden los movimientos de ese día.
+- **80 ajustes actualizados + 3 creados**; **20 alumnos** con horas del Excel; total **$310,632.52**.
+- **Julio Santillana**: ficha espejo de practicante creada (id_alumno 107) con **$1,293** — revierte la
+  decisión de junio de descartar su saldo. **Hector Guevara**: alumno nuevo (`hector.guevara`/`caaa2026`,
+  instructor Tejada, id_alumno 108) con **$870**.
+- **Feature**: campo **"Horas totales acumuladas"** editable en la ficha del alumno (Perfil), para setear
+  el saldo inicial de horas. El front **solo lo manda si cambió** (no pisa horas sumadas por un vuelo
+  firmado mientras la ficha estaba abierta).
+- ⚠️ **Pendiente**: la multa de `javier.espinoza` está anotada en el Excel ("multa por aplicar 13/07/26")
+  y **no se aplicó**.
+
+### G. 🏗️ Loadsheet: modo práctica + editor de W&B — **cambio arquitectónico (DB-first)**
+**Antes:** el calculador leía las plantillas de peso&balance de un **archivo estático del frontend**
+(`CAA-frontend/src/loadsheet/data/aircraft.js`); `wb_plantilla` existía pero era un **espejo muerto** que
+ya había divergido (el 155 tenía 5 estaciones en BD vs 4 en el archivo).
+**Ahora:** el calculador lee de `wb_plantilla` **mapeada a la forma AIRCRAFT** (`utils/wbPlantilla.js`),
+**keyed por MATRÍCULA real** (`aeronave.codigo`) — esto de paso corrigió el typo histórico del 270
+(`aircraft.js` tenía `reg:'YS-270-P'`). **Fallback a `aircraft.js`** si un avión no tiene fila;
+**el archivo NO se borró** (queda de fallback/seed). Re-siembra autoritativa con verificación de
+paridad 6/6: `supabase/dump/seed_wb_plantilla_desde_aircraft.js`.
+- **Modo práctica** `/alumno/loadsheet/practica`, `/instructor/loadsheet/practica` y
+  `/admin/loadsheet/practica`: sandbox **efímero** sin vuelo (elige avión libre, precarga el nombre de
+  `getSession()`, sin guardar/enviar, imprime/PDF). Link "Practicar loadsheet" en el Header (alumno e
+  instructor) y en el sidebar de ADMIN (sección Taller).
+- **Editor de W&B** en la pestaña "Peso y balance" de la ficha del avión (**solo ADMIN**): template
+  completo (cabecera, aceite, estaciones add/remove, envolvente normal+utility) con **vista previa en vivo
+  del envelope** (reusa `EnvelopeCanvas`). `GET/PUT /admin/aeronaves/registro/:id/wb-plantilla`.
+- ⚠️ El selector de práctica **incluye aviones en mantenimiento**, solo excluye los dados de baja
+  (`NOT (activa=false AND estado='ACTIVO')`): practicar el W&B de un avión en taller es inofensivo.
+- ⚠️ `empty_moment` es **solo-lectura/derivado** (weight×arm) — el calculador lo recomputa; el mapper lo
+  calcula defensivo para el NOT NULL.
+
+---
+
+## 27. Sesión 2026-07-28 — **Regreso por emergencia** en la vouchera
+
+**DESPLEGADO Y VERIFICADO** (mig `20260728000001`, commits `ca80d28..d759b0c`).
+Spec: `docs/superpowers/specs/2026-07-28-regreso-por-emergencia-design.md` · Plan en `docs/superpowers/plans/`.
+
+### El caso
+Vuelos que **salen del hangar y no llegan a volar**: se quedan en pista y se regresan por mal clima o una
+falla. El avión **sí se movió** (TAC/Hobbs marcaron) ⇒ sus horas deben contar para mantenimiento; pero el
+alumno **no voló** ⇒ no se le cobra, y por lo tanto **al instructor tampoco se le paga** esa hora.
+
+### El concepto que ordena todo
+- **Horas técnicas del avión** = TAC real → `aeronave.horas_acumuladas`, mantenimiento 50/100h, lecturas
+  de los reportes. **Un regreso por emergencia las cuenta normal.**
+- **Horas facturables** = plata y progreso (cobro, horas de licencia, avance de curso, pago al instructor).
+  **Un regreso por emergencia las pone en cero.**
+
+### Qué quedó
+- `reporte_vuelo.regreso_emergencia` + `motivo_emergencia` (CLIMA/FALLA_MECANICA/OTRO, CHECK) +
+  `detalle_emergencia`.
+- `firmarReporteVuelo`: `actualizarHorasAeronave` **intacto**; el gate de horas de licencia y el bloque
+  del cobro ganan `&& !esEmergencia` (el avance de curso vive dentro del cobro ⇒ también se salta);
+  `horas_cobradas` forzado a NULL; motivo obligatorio; rechaza emergencia en simulador y **rechaza
+  inasistencia+emergencia juntas**.
+- **Guard de re-firma (409)** con `pg_advisory_xact_lock(4711, id_vuelo)`.
+- **`utils/horasFacturables.js`**: `soloHorasFacturables(alias)` (agregados) y `sinRegresoEmergencia(alias)`
+  (desglose de nómina, que hoy SÍ lista inasistencias). Aplicado en los **6 sitios** que suman TAC:
+  `nominaController` (:224 la plata, :272 el desglose), `instructorAlumnoController:330`,
+  `usuariosController` (:569 agregado, :610 lista), `alumnoCuentaController:124`.
+- **PDFs**: reporte del día y operaciones del día imprimen **0 horas** + fila en rojo + leyenda; la
+  vouchera lleva sello con motivo; tag en el listado de Voucheras del día.
+- **Modal**: botón (oculto en simulador), banner con selector de motivo, badge, oculta "horas a cobrar",
+  y manda los 3 campos en los **tres** payloads (borrador, firma y PDF).
+- **Extras de la misma tanda**: ADMIN accede a "Practicar loadsheet" (`/admin/loadsheet/practica`); fix
+  del desborde horizontal de la tabla "Mis alumnos asignados" en móvil (`min-width:0` en el grid item +
+  `overflow-x: clip`, mismo patrón que Proyección).
+
+### ⚠️ Gotchas caros de esta feature (no repetir)
+- **`FOR UPDATE` no bloquea filas inexistentes.** El primer guard lockeaba `reporte_vuelo`, pero el
+  instructor firma **sin guardar borrador** (son botones distintos) ⇒ la fila no existe y dos requests
+  concurrentes pasaban ambas.
+- **Lockear `vuelo` invertía el orden de locks** vs `turnoMantenimientoController` (`aeronave → vuelo`)
+  ⇒ deadlock 40P01, **justo en el escenario de esta feature** (el avión vuelve por falla y Turno lo manda
+  a mantenimiento). Por eso el **advisory lock**, que no entra en el grafo.
+- **Poner `horas_cobradas` en NULL NO hace que los PDFs impriman 0**: caen al TAC
+  (`horas_cobradas != null ? … : tacH`). Y `0` no sirve: el server rechaza `<= 0`.
+- **Objetos literales que hay que actualizar aparte** (3 casi-misses distintos en esta feature):
+  `getReporteVueloInstructor`, `alumnoReporteController.getReporteVuelo` (el `{...row}` es solo para
+  `vuelo`), `rowToPdfParams` y `buildVoucheraContent` (**parámetros nombrados**, no el objeto crudo).
+- **`centro.unshift(...)`, no `else if`**: en el PDF de la vouchera la rama de inasistencia **reemplaza**
+  `centro` ⇒ un `else if` habría borrado las tablas de TAC.
+- **20 vuelos completados no tienen reporte** ⇒ el helper usa `COALESCE(...) = false`; un `= false` pelado
+  los habría borrado de la nómina en silencio.
+- El gate de "horas a cobrar" en el cliente eran **3 validaciones**, no una.
+
+### Limitación conocida (aceptada por Daniel)
+Si el instructor **firma normal por error**, la corrección **no es automática**: el modal queda en
+solo-lectura al firmar y el 409 impide re-firmar. Administración puede borrar el `CARGO_VUELO`, pero las
+horas de licencia, el avance de curso y la nómina de ese vuelo quedarían contados. Si el olvido resulta
+común, el siguiente paso es el flujo de corrección de Administración.
+
+### Guía operativa para instructores (cómo se usa)
+1. **Completar el checklist post-vuelo** (sigue siendo obligatorio — y si volvió por falla, más).
+2. Abrir la vouchera y **anotar TAC y Hobbs reales** (aunque la diferencia sea mínima: es lo que mantiene
+   al día el mantenimiento del avión).
+3. Elegir **tipo de vuelo** (sigue siendo obligatorio).
+4. Tocar **"Regreso por emergencia"**, elegir **motivo** (Clima / Falla mecánica / Otro) + detalle.
+   El campo "horas a cobrar" desaparece solo.
+5. **Firmar y enviar** al alumno.
+- Se puede **guardar como borrador** con la marca puesta y sigue ahí al reabrir.
+- **NO se usa** si el alumno no llegó (eso es Inasistencia) ni si el vuelo se hizo aunque fuera corto.
+- No aplica a simulador (el botón no aparece).
