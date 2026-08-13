@@ -30,7 +30,7 @@ export default function PrintSheet() {
     flowGal: fd.flowGal, flowKg: fd.flowKg,
     taxiMin: fd.taxiMin, tripMin: fd.tripMin,
     rarMin: fd.rarMin, alt1Min: fd.alt1Min, alt2Min: fd.alt2Min,
-    reserveMin: fd.reserveMin, minReqMin: fd.minReqMin, tfobGal,
+    reserveMin: fd.reserveMin, tfobGal,
   })
   const fmtG = (v) => (v != null && v !== 0) ? v.toFixed(2) : ''
   const fmtK = (v) => (v != null && v !== 0) ? v.toFixed(1) : ''

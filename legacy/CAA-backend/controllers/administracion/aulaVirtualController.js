@@ -5,6 +5,7 @@ const { notificarRoles, notificarUsuario } = require("../../utils/notificaciones
 const transporter = require("../../utils/mailer");
 const { examenFinalEmail } = require("../../utils/emailTemplates");
 const { resolverIdInstructor } = require("../../utils/instructorHelpers");
+const { choqueSalon, choqueInstructor } = require("../../utils/aulaChoques");
 
 // Destinatarios del correo de "examen final aprobado": MAIL_ADMIN_NOTIFY si está
 // definido (p.ej. el correo de Mayra / Administración), si no los correos de los
@@ -134,12 +135,18 @@ exports.listSesiones = async (req, res) => {
     const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
     const r = await db.query(`
       SELECT s.id, s.id_curso, s.id_unidad, s.fecha, s.hora_inicio, s.hora_fin, s.tema, s.id_instructor,
+             s.id_bloque, s.id_bloque_fin, s.id_salon, s.examen, s.estado, s.iniciada_en, s.cerrada_en,
              c.codigo AS curso_codigo, u.numero AS unidad_numero, u.nombre AS unidad_nombre,
+             sal.nombre AS salon_nombre,
+             TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre,
              (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id) AS total,
              (SELECT COUNT(*) FROM asistencia_alumno a WHERE a.id_sesion = s.id AND a.estado='PRESENTE') AS presentes
       FROM sesion_clase s
       JOIN curso c ON c.id = s.id_curso
       LEFT JOIN unidad_teorica u ON u.id = s.id_unidad
+      LEFT JOIN salon sal ON sal.id = s.id_salon
+      LEFT JOIN instructor i ON i.id_instructor = s.id_instructor
+      LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
       ${where}
       ORDER BY s.fecha DESC, s.hora_inicio DESC NULLS LAST, s.id DESC
     `, params);
@@ -152,35 +159,71 @@ exports.listSesiones = async (req, res) => {
 exports.crearSesion = async (req, res) => {
   const client = await db.connect();
   try {
-    const { id_curso, id_unidad, fecha, tema, hora_inicio, hora_fin } = req.body;
+    const {
+      id_curso, id_unidad, fecha, tema, id_bloque, id_bloque_fin, id_salon, examen, alumnos,
+    } = req.body;
     let { id_instructor } = req.body;
     if (!id_curso) return res.status(400).json({ ok: false, message: "id_curso requerido" });
+    if (!fecha || !id_bloque || !id_salon) {
+      return res.status(400).json({ ok: false, message: "fecha, id_bloque y id_salon son requeridos" });
+    }
+    if (!Array.isArray(alumnos) || alumnos.length === 0) {
+      return res.status(400).json({ ok: false, message: "Elegí al menos un alumno para la clase" });
+    }
 
     // Un INSTRUCTOR solo puede crear sesiones a su propio nombre (no spoofear
-    // id_instructor por el body). Admin/Administración sí pueden asignar.
+    // id_instructor por el body). Admin/Administración/Turno sí pueden asignar.
     if (req.user?.rol === "INSTRUCTOR") {
       id_instructor = await resolverIdInstructor(req.user.id_usuario);
+      // Debe ser un curso que tiene asignado (mismo criterio que listCursos).
+      const asign = await db.query(
+        `SELECT 1 FROM instructor_curso WHERE id_instructor = $1 AND id_curso = $2`,
+        [id_instructor, id_curso]
+      );
+      if (asign.rows.length === 0) {
+        return res.status(403).json({ ok: false, message: "No tenés asignado ese curso." });
+      }
+    } else if (!id_instructor) {
+      return res.status(400).json({ ok: false, message: "id_instructor requerido" });
+    }
+
+    // Los alumnos elegidos deben ser fichas activas reales (la misma lista que
+    // ofrece el selector, que es la del agendado de vuelos). Ya no se exige
+    // inscripción en el curso: inscripcion_curso no se alimenta en la
+    // operación real y bloqueaba todo agendado de clases.
+    const validos = await db.query(
+      `SELECT id_alumno FROM alumno
+        WHERE activo = true AND NOT COALESCE(es_practicante, false) AND NOT COALESCE(es_externo, false)
+          AND id_alumno = ANY($1::int[])`,
+      [alumnos]
+    );
+    if (validos.rows.length !== alumnos.length) {
+      return res.status(400).json({ ok: false, message: "Uno o más alumnos no son fichas de alumno activas." });
     }
 
     await client.query("BEGIN");
-    const r = await client.query(`
-      INSERT INTO sesion_clase (id_curso, id_unidad, fecha, hora_inicio, hora_fin, tema, id_instructor, creado_por)
-      VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5, $6, $7, $8) RETURNING *
-    `, [id_curso, id_unidad || null, fecha || null, hora_inicio || null, hora_fin || null, tema || null, id_instructor || null, req.user?.id_usuario || null]);
+    await choqueSalon(client, { id_salon, fecha, id_bloque, id_bloque_fin });
+    await choqueInstructor(client, { id_instructor, fecha, id_bloque, id_bloque_fin });
 
-    // Pre-cargar la lista con todos los alumnos activos del curso (default PRESENTE).
+    const r = await client.query(`
+      INSERT INTO sesion_clase (id_curso, id_unidad, fecha, hora_inicio, hora_fin, tema, id_instructor, creado_por,
+                                 id_bloque, id_bloque_fin, id_salon, examen, estado)
+      VALUES ($1, $2, $3, NULL, NULL, $4, $5, $6, $7, $8, $9, $10, 'PROGRAMADA') RETURNING *
+    `, [id_curso, id_unidad || null, fecha, tema || null, id_instructor, req.user?.id_usuario || null,
+        id_bloque, id_bloque_fin || null, id_salon, examen === true]);
+
     await client.query(`
       INSERT INTO asistencia_alumno (id_sesion, id_alumno, estado, registrado_por)
-      SELECT $1, ic.id_alumno, 'PRESENTE', $2
-      FROM inscripcion_curso ic
-      WHERE ic.id_curso = $3 AND ic.estado = 'ACTIVO'
-      ON CONFLICT (id_sesion, id_alumno) DO NOTHING
-    `, [r.rows[0].id, req.user?.id_usuario || null, id_curso]);
+      SELECT $1, x, 'PRESENTE', $2 FROM UNNEST($3::int[]) AS x
+    `, [r.rows[0].id, req.user?.id_usuario || null, alumnos]);
 
     await client.query("COMMIT");
     res.json({ ok: true, data: r.rows[0] });
   } catch (e) {
     await client.query("ROLLBACK");
+    if (e.code === "CHOQUE_SALON" || e.code === "CHOQUE_INSTRUCTOR") {
+      return res.status(409).json({ ok: false, message: e.message });
+    }
     res.status(500).json({ ok: false, message: e.message });
   } finally {
     client.release();
@@ -611,6 +654,355 @@ exports.miAulaVirtual = async (req, res) => {
         materiales: materiales.rows
       }
     });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Solo se puede editar/cancelar mientras está PROGRAMADA (antes de iniciar).
+// Mismo permiso que crear: instructor dueño + Admin/Administración/Turno.
+async function assertPropiaOSStaff(req, sesion) {
+  if (req.user?.rol === "INSTRUCTOR") {
+    const idIns = await resolverIdInstructor(req.user.id_usuario);
+    if (Number(sesion.id_instructor) !== Number(idIns)) {
+      const e = new Error("No podés modificar la clase de otro instructor.");
+      e.code = "FORBIDDEN";
+      throw e;
+    }
+  }
+}
+
+exports.editarSesion = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id } = req.params;
+    const { id_curso, id_unidad, fecha, tema, id_bloque, id_bloque_fin, id_salon, examen, alumnos } = req.body;
+
+    const cur = await client.query(`SELECT * FROM sesion_clase WHERE id = $1 FOR UPDATE`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    const sesion = cur.rows[0];
+    if (sesion.estado !== "PROGRAMADA") {
+      return res.status(400).json({ ok: false, message: "Solo se puede editar una clase que todavía no inició." });
+    }
+    await assertPropiaOSStaff(req, sesion);
+
+    await client.query("BEGIN");
+    await choqueSalon(client, { id_salon, fecha, id_bloque, id_bloque_fin, excluirIdSesion: Number(id) });
+    await choqueInstructor(client, { id_instructor: sesion.id_instructor, fecha, id_bloque, id_bloque_fin, excluirIdSesion: Number(id) });
+
+    const r = await client.query(`
+      UPDATE sesion_clase SET id_curso=$1, id_unidad=$2, fecha=$3, tema=$4,
+             id_bloque=$5, id_bloque_fin=$6, id_salon=$7, examen=$8
+       WHERE id = $9 RETURNING *
+    `, [id_curso, id_unidad || null, fecha, tema || null, id_bloque, id_bloque_fin || null, id_salon, examen === true, id]);
+
+    if (Array.isArray(alumnos)) {
+      await client.query(`DELETE FROM asistencia_alumno WHERE id_sesion = $1`, [id]);
+      await client.query(`
+        INSERT INTO asistencia_alumno (id_sesion, id_alumno, estado, registrado_por)
+        SELECT $1, x, 'PRESENTE', $2 FROM UNNEST($3::int[]) AS x
+      `, [id, req.user?.id_usuario || null, alumnos]);
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    if (e.code === "CHOQUE_SALON" || e.code === "CHOQUE_INSTRUCTOR") {
+      return res.status(409).json({ ok: false, message: e.message });
+    }
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.cancelarSesion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cur = await db.query(`SELECT * FROM sesion_clase WHERE id = $1`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    if (cur.rows[0].estado !== "PROGRAMADA") {
+      return res.status(400).json({ ok: false, message: "Solo se puede cancelar una clase que todavía no inició." });
+    }
+    await assertPropiaOSStaff(req, cur.rows[0]);
+    await db.query(`UPDATE sesion_clase SET estado = 'CANCELADA' WHERE id = $1`, [id]);
+    res.json({ ok: true, message: "Clase cancelada" });
+  } catch (e) {
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+const { notificarStaff } = require("../../utils/webpush");
+
+exports.iniciarSesion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cur = await db.query(`
+      SELECT sc.*, c.codigo AS curso_codigo, u.numero AS unidad_numero, u.nombre AS unidad_nombre,
+             s.nombre AS salon_nombre, TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
+        FROM sesion_clase sc
+        JOIN curso c ON c.id = sc.id_curso
+        LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+        LEFT JOIN salon s ON s.id = sc.id_salon
+        LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+        LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+       WHERE sc.id = $1
+    `, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    const sesion = cur.rows[0];
+    if (sesion.estado !== "PROGRAMADA") {
+      return res.status(400).json({ ok: false, message: "La clase ya inició, cerró o fue cancelada." });
+    }
+    await assertPropiaOSStaff(req, sesion);
+
+    await db.query(`UPDATE sesion_clase SET estado = 'EN_CURSO', iniciada_en = NOW() WHERE id = $1`, [id]);
+
+    // Best-effort: nunca puede tumbar la acción si falla.
+    notificarStaff({
+      title: "Clase de teoría iniciada",
+      body: `${sesion.salon_nombre} — ${sesion.instructor_nombre} inició ${sesion.curso_codigo}${sesion.unidad_nombre ? ` · ${sesion.unidad_nombre}` : ""}`,
+    }, { excluirUid: req.user?.id_usuario, tipo: "CLASE_TEORIA" }).catch(() => {});
+
+    res.json({ ok: true, message: "Clase iniciada" });
+  } catch (e) {
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.cerrarSesion = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cur = await db.query(`SELECT * FROM sesion_clase WHERE id = $1`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    if (cur.rows[0].estado !== "EN_CURSO") {
+      return res.status(400).json({ ok: false, message: "Solo se puede cerrar una clase que está en curso." });
+    }
+    await assertPropiaOSStaff(req, cur.rows[0]);
+    await db.query(`UPDATE sesion_clase SET estado = 'CERRADA', cerrada_en = NOW() WHERE id = $1`, [id]);
+    res.json({ ok: true, message: "Clase cerrada — queda pendiente de firma para los alumnos presentes." });
+  } catch (e) {
+    if (e.code === "FORBIDDEN") return res.status(403).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.reasignarSalon = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const { id } = req.params;
+    const { id_salon } = req.body;
+    if (!id_salon) return res.status(400).json({ ok: false, message: "id_salon requerido" });
+
+    const cur = await client.query(`SELECT * FROM sesion_clase WHERE id = $1 FOR UPDATE`, [id]);
+    if (cur.rows.length === 0) return res.status(404).json({ ok: false, message: "Sesión no encontrada" });
+    const sesion = cur.rows[0];
+    if (!["PROGRAMADA", "EN_CURSO"].includes(sesion.estado)) {
+      return res.status(400).json({ ok: false, message: "Solo se puede reasignar salón mientras la clase está programada o en curso." });
+    }
+
+    await client.query("BEGIN");
+    await choqueSalon(client, {
+      id_salon, fecha: sesion.fecha, id_bloque: sesion.id_bloque, id_bloque_fin: sesion.id_bloque_fin,
+      excluirIdSesion: Number(id),
+    });
+    const r = await client.query(`UPDATE sesion_clase SET id_salon = $1 WHERE id = $2 RETURNING *`, [id_salon, id]);
+    await client.query("COMMIT");
+    res.json({ ok: true, data: r.rows[0] });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    if (e.code === "CHOQUE_SALON") return res.status(409).json({ ok: false, message: e.message });
+    res.status(500).json({ ok: false, message: e.message });
+  } finally {
+    client.release();
+  }
+};
+
+exports.listSalones = async (req, res) => {
+  try {
+    const r = await db.query(`SELECT id, nombre FROM salon WHERE activo = true ORDER BY id`);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Para el picker del formulario de agendar: libre/ocupado (y por quién) en un
+// horario dado. Mismo patrón que getAeronavesDisponibles.
+exports.disponibilidadSalones = async (req, res) => {
+  try {
+    const { fecha, id_bloque, id_bloque_fin } = req.query;
+    if (!fecha || !id_bloque) return res.status(400).json({ ok: false, message: "fecha e id_bloque son requeridos" });
+    const fin = Number(id_bloque_fin || id_bloque);
+
+    const r = await db.query(`
+      SELECT s.id, s.nombre,
+             sc.id IS NOT NULL AS ocupado_clase, c.codigo AS curso_codigo,
+             rs.id IS NOT NULL AS ocupado_reserva, rs.motivo
+        FROM salon s
+        LEFT JOIN sesion_clase sc ON sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado <> 'CANCELADA'
+          AND NOT ($3 < sc.id_bloque OR $2 > COALESCE(sc.id_bloque_fin, sc.id_bloque))
+        LEFT JOIN curso c ON c.id = sc.id_curso
+        LEFT JOIN reserva_salon rs ON rs.id_salon = s.id AND rs.fecha = $1
+          AND NOT ($3 < rs.id_bloque OR $2 > COALESCE(rs.id_bloque_fin, rs.id_bloque))
+       WHERE s.activo = true
+       ORDER BY s.id
+    `, [fecha, id_bloque, fin]);
+
+    res.json({
+      ok: true,
+      data: r.rows.map((row) => ({
+        id: row.id, nombre: row.nombre,
+        libre: !row.ocupado_clase && !row.ocupado_reserva,
+        motivo: row.ocupado_clase ? `Clase de ${row.curso_codigo}` : row.ocupado_reserva ? `Reservado (${row.motivo})` : null,
+      })),
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Alumnos para el multi-select del formulario de agendar clase. Misma lista
+// que el agendado de vuelos (adminUsuarioController.getAlumnosListAdmin):
+// todos los alumnos activos, sin fichas especiales. Antes salía de
+// inscripcion_curso (estado ACTIVO), pero esa tabla no se alimenta en la
+// operación real y el selector quedaba vacío. Se ignora el id_curso de la
+// ruta (se conserva la URL por compatibilidad).
+exports.rosterCurso = async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT a.id_alumno, TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre
+        FROM alumno a
+        JOIN usuario u ON u.id_usuario = a.id_usuario
+       WHERE a.activo = true
+         AND NOT COALESCE(a.es_practicante, false) AND NOT COALESCE(a.es_externo, false)
+       ORDER BY u.apellido, u.nombre
+    `);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// Para el selector de Turno al agendar una clase "a nombre de": instructores de
+// TEORÍA activos. OJO: `adminVueloController.getInstructoresActivos` (ya usado
+// para vuelos) filtra `es_instructor_vuelo=true` — un instructor solo-teoría
+// nunca aparecería ahí, por eso este es un endpoint nuevo y separado.
+exports.listInstructoresTeoria = async (req, res) => {
+  try {
+    const r = await db.query(`
+      SELECT i.id_instructor, TRIM(u.nombre || ' ' || COALESCE(u.apellido, '')) AS nombre
+        FROM instructor i
+        JOIN usuario u ON u.id_usuario = i.id_usuario
+       WHERE i.activo = true AND i.es_instructor_teoria = true
+       ORDER BY u.nombre
+    `);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// RESERVA DE SALÓN (uso especial, sin sesión de clase)
+// ─────────────────────────────────────────────────────────────────────
+
+const MOTIVOS_SALON = ["REUNION", "EVENTO", "ADMINISTRATIVO", "OTRO"];
+
+exports.listReservasSalon = async (req, res) => {
+  try {
+    const { fecha } = req.query;
+    const params = [];
+    let where = "";
+    if (fecha) { params.push(fecha); where = "WHERE rs.fecha = $1"; }
+    const r = await db.query(`
+      SELECT rs.id, rs.id_salon, s.nombre AS salon_nombre, rs.fecha, rs.id_bloque, rs.id_bloque_fin,
+             rs.motivo, rs.descripcion
+        FROM reserva_salon rs
+        JOIN salon s ON s.id = rs.id_salon
+        ${where}
+       ORDER BY rs.fecha, rs.id_bloque
+    `, params);
+    res.json({ ok: true, data: r.rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.crearReservaSalon = async (req, res) => {
+  try {
+    const { id_salon, fecha, id_bloque, id_bloque_fin, motivo, descripcion, notificar } = req.body;
+    if (!id_salon || !fecha || !id_bloque) {
+      return res.status(400).json({ ok: false, message: "id_salon, fecha e id_bloque son requeridos" });
+    }
+    const motivoFinal = MOTIVOS_SALON.includes(motivo) ? motivo : "OTRO";
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await choqueSalon(client, { id_salon, fecha, id_bloque, id_bloque_fin });
+      const ins = await client.query(`
+        INSERT INTO reserva_salon (id_salon, fecha, id_bloque, id_bloque_fin, motivo, descripcion, creado_por)
+        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id
+      `, [id_salon, fecha, id_bloque, id_bloque_fin || null, motivoFinal, descripcion || null, req.user?.id_usuario || null]);
+      await client.query("COMMIT");
+
+      // Aviso opcional a los interesados (elegido por quien reserva en el
+      // modal): in-app + push, best-effort — nunca aborta la reserva.
+      // "INSTRUCTOR" = solo instructores (ej. la reunión semanal),
+      // "STAFF" = todo el personal, "TODOS" = personal y alumnos.
+      if (["INSTRUCTOR", "STAFF", "TODOS"].includes(notificar)) {
+        (async () => {
+          try {
+            const { notificarPorRol, ROLES_STAFF } = require("../../utils/webpush");
+            const info = await db.query(`
+              SELECT s.nombre AS salon, bi.hora_inicio
+                FROM salon s, bloque_horario bi
+               WHERE s.id = $1 AND bi.id_bloque = $2
+            `, [id_salon, id_bloque]);
+            const salonNombre = info.rows[0]?.salon || "Salón";
+            const hora = String(info.rows[0]?.hora_inicio || "").slice(0, 5);
+            const fechaStr = new Date(`${fecha}T00:00:00`).toLocaleDateString("es-SV", {
+              weekday: "short", day: "2-digit", month: "2-digit",
+            });
+            const LABELS = { REUNION: "Reunión", EVENTO: "Evento", ADMINISTRATIVO: "Administrativo", OTRO: "Reserva" };
+            const mensaje = `${LABELS[motivoFinal]}${descripcion ? `: ${descripcion}` : ""} — ${salonNombre}, ${fechaStr} ${hora}`;
+            const roles = notificar === "INSTRUCTOR" ? ["INSTRUCTOR"]
+              : notificar === "STAFF" ? ROLES_STAFF
+              : [...ROLES_STAFF, "ALUMNO"];
+            await notificarRoles(null, roles, { tipo: "SALON", mensaje });
+            notificarPorRol({
+              title: `📅 ${LABELS[motivoFinal]} — ${salonNombre}`,
+              body: mensaje,
+              tag: "reserva-salon",
+            }, notificar === "TODOS" ? null : roles).catch(() => {});
+          } catch (e) {
+            console.error("[reserva-salon] notificar interesados:", e.message);
+          }
+        })();
+      }
+
+      res.json({ ok: true, id: ins.rows[0].id });
+    } catch (e) {
+      await client.query("ROLLBACK");
+      if (e.code === "CHOQUE_SALON") return res.status(409).json({ ok: false, message: e.message });
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    res.status(500).json({ ok: false, message: e.message });
+  }
+};
+
+exports.eliminarReservaSalon = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const r = await db.query(`DELETE FROM reserva_salon WHERE id = $1 RETURNING id`, [id]);
+    if (r.rows.length === 0) return res.status(404).json({ ok: false, message: "Reserva no encontrada" });
+    res.json({ ok: true, message: "Reserva eliminada" });
   } catch (e) {
     res.status(500).json({ ok: false, message: e.message });
   }

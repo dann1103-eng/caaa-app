@@ -672,7 +672,7 @@ exports.reasignarAeronave = async (req, res) => {
     const conflicto = await client.query(
       `SELECT 1 FROM vuelo
        WHERE id_semana = $1 AND id_bloque = $2 AND dia_semana = $3
-         AND id_aeronave = $4 AND estado NOT IN ('CANCELADO')`,
+         AND id_aeronave = $4 AND estado NOT IN ('CANCELADO', 'COMPLETADO')`,
       [vuelo.id_semana, vuelo.id_bloque, vuelo.dia_semana, id_aeronave]
     );
     if (conflicto.rows.length > 0) {
@@ -730,7 +730,7 @@ exports.getAeronavesDisponibles = async (req, res) => {
              AND v.id_semana = $1
              AND v.id_bloque = $2
              AND v.dia_semana = $3
-             AND v.estado NOT IN ('CANCELADO')
+             AND v.estado NOT IN ('CANCELADO', 'COMPLETADO')
          )
          AND NOT EXISTS (
            SELECT 1 FROM mantenimiento_aeronave m
@@ -807,7 +807,7 @@ exports.agendarSolicitud = async (req, res) => {
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.status === 400 || e.code === "VALIDATION") return res.status(400).json({ message: e.message });
-    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23505") return res.status(409).json({ message: e.detail ? `Conflicto de datos: ${e.message}` : (e.message || "Ese bloque y aeronave ya está ocupado") });
     if (e.code === "23506") return res.status(409).json({ message: "El alumno ya tiene un vuelo en ese horario" });
     if (e.code === "23507") return res.status(409).json({ message: "El instructor ya tiene un vuelo en ese horario" });
     console.error("agendarSolicitud:", e);
@@ -836,6 +836,7 @@ exports.agendarVueloDirecto = async (req, res) => {
       id_semana, id_alumno: idAlumnoBody, id_instructor, dia_semana, id_bloque, id_bloque_fin,
       id_aeronave, tipo_vuelo, es_extracurricular, id_usuario_practicante, id_licencia_chequeo,
       tipo_instruccion: tipoInstruccionBody, categoria: categoriaBody, nombre_externo: nombreExternoBody,
+      con_parada, tramos_ruta,
     } = req.body;
     const categoria = normalizarCategoria(categoriaBody);
 
@@ -861,14 +862,25 @@ exports.agendarVueloDirecto = async (req, res) => {
 
     const fin = Number(id_bloque_fin || id_bloque);
 
+    const { normalizarParadas, construirTramos } = require("../utils/rutaTramos");
+    const conParada = (tipo_vuelo === "RUTA") && con_parada === true;
+    let paradasRuta = null;
+    if (conParada) {
+      try { paradasRuta = normalizarParadas(tramos_ruta); }
+      catch (e) { return res.status(400).json({ message: e.message }); }
+    }
+
     // Conflictos contra vuelos reales (no cancelados), por rango de bloques.
     // Un vuelo marcado como inasistencia (reporte_vuelo.es_inasistencia) nunca
     // llegó a ocupar la aeronave/al alumno/al instructor de verdad — no debe
     // seguir bloqueando ese horario para un reemplazo (aplica también a RUTAs
     // que abarcan varios bloques: el no-show libera todos los que reservaba).
+    // Un vuelo COMPLETADO libera igual: ya cerró, no puede ocupar el avión a
+    // futuro — caso real: una RUTA de 2 bloques que regresa temprano y se
+    // quiere agendar el vuelo de regreso dentro de su segundo bloque.
     const conflicto = async (campo, valor, label, code) => {
       const columna = campo === "aeronave" ? "id_aeronave" : campo === "alumno" ? "id_alumno" : "id_instructor";
-      const q = `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado <> 'CANCELADO'
+      const q = `SELECT 1 FROM vuelo WHERE id_semana=$1 AND dia_semana=$2 AND ${columna}=$3 AND estado NOT IN ('CANCELADO', 'COMPLETADO')
              AND NOT ($5 < id_bloque OR $4 > COALESCE(id_bloque_fin, id_bloque))
              AND NOT EXISTS (SELECT 1 FROM reporte_vuelo rv WHERE rv.id_vuelo = vuelo.id_vuelo AND rv.es_inasistencia = true)
              LIMIT 1`;
@@ -941,20 +953,40 @@ exports.agendarVueloDirecto = async (req, res) => {
     const id_solicitud = ss.rows[0].id_solicitud;
 
     const sv = await client.query(
-      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id_detalle`,
-      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
+      `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, id_instructor, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, con_parada, tramos_ruta)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id_detalle`,
+      [id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo || "LOCAL", fin, id_instructor, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva, conParada, paradasRuta ? JSON.stringify(paradasRuta) : null]
     );
     const id_detalle = sv.rows[0].id_detalle;
 
-    const vue = await client.query(
-      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PUBLICADO','PROGRAMACION',
-               (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1))
-       RETURNING id_vuelo`,
-      [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
-    );
-    const id_vuelo = vue.rows[0].id_vuelo;
+    let id_vuelo;
+    if (conParada) {
+      const tramos = construirTramos({ paradas: paradasRuta, id_bloque, id_bloque_fin: fin });
+      for (const t of tramos) {
+        // ⚠️ uq_vuelo_detalle es UNIQUE sobre vuelo.id_detalle: los N tramos NO
+        // pueden compartirlo. Solo el tramo 1 lo lleva; los demás van con NULL
+        // (Postgres admite varios NULL en un índice único). El vínculo entre
+        // tramos es grupo_ruta, que sí conserva el id_detalle de la solicitud.
+        const vueT = await client.query(
+          `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo, grupo_ruta, orden_tramo, total_tramos, icao_origen, icao_destino)
+           VALUES ($19,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,'PROGRAMACION',
+                   (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1),
+                   $1,$15,$16,$17,$18)
+           RETURNING id_vuelo`,
+          [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, t.id_bloque, t.id_bloque_fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva, t.orden_tramo === 1 ? "PUBLICADO" : "EN_ESPERA_TRAMO", t.orden_tramo, t.total_tramos, t.icao_origen, t.icao_destino, t.orden_tramo === 1 ? id_detalle : null]
+        );
+        if (t.orden_tramo === 1) id_vuelo = vueT.rows[0].id_vuelo;
+      }
+    } else {
+      const vue = await client.query(
+        `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PUBLICADO','PROGRAMACION',
+                 (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana=$2) + ($6 - 1))
+         RETURNING id_vuelo`,
+        [id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo || "LOCAL", fin, es_extracurricular === true, tipoInstruccion, categoria, nombreExterno, idLicenciaChequeoEfectiva]
+      );
+      id_vuelo = vue.rows[0].id_vuelo;
+    }
 
     // Notificar (in-app) al alumno y al instructor.
     const uids = await client.query(
@@ -983,7 +1015,7 @@ exports.agendarVueloDirecto = async (req, res) => {
   } catch (e) {
     await client.query("ROLLBACK");
     if (e.code === "VALIDATION") return res.status(400).json({ message: e.message });
-    if (e.code === "23505") return res.status(409).json({ message: "Ese bloque y aeronave ya está ocupado" });
+    if (e.code === "23505") return res.status(409).json({ message: e.detail ? `Conflicto de datos: ${e.message}` : (e.message || "Ese bloque y aeronave ya está ocupado") });
     if (e.code === "23506") return res.status(409).json({ message: "El alumno ya tiene un vuelo en ese horario" });
     if (e.code === "23507") return res.status(409).json({ message: "El instructor ya tiene un vuelo en ese horario" });
     console.error("agendarVueloDirecto:", e);
@@ -1075,6 +1107,93 @@ exports.guardarSolicitudProgramacion = async (req, res) => {
     res.status(500).json({ message: "Error al guardar la solicitud", detail: e.message });
   } finally {
     client.release();
+  }
+};
+
+// Widget de ocupación de salones — "ahora mismo", reusado en Proyección,
+// Turno, Programación, Admin y la Agenda del instructor. El estado se deriva
+// de sesion_clase.estado (EN_CURSO manda, no el bloque programado), no de la
+// hora del reloj.
+exports.getSalonesOcupacion = async (req, res) => {
+  try {
+    const hoy = await db.query(`SELECT (NOW() AT TIME ZONE 'America/El_Salvador')::date AS d`);
+    const fecha = hoy.rows[0].d;
+
+    const r = await db.query(`
+      SELECT s.id, s.nombre,
+             en_curso.curso_codigo AS ec_curso, en_curso.unidad_nombre AS ec_unidad, en_curso.instructor_nombre AS ec_instructor,
+             reserva.motivo AS rs_motivo, reserva.descripcion AS rs_descripcion,
+             proxima.tipo AS px_tipo, proxima.hora_inicio AS px_hora, proxima.titulo AS px_titulo,
+             proxima.detalle AS px_detalle, proxima.instructor_nombre AS px_instructor
+        FROM salon s
+        LEFT JOIN LATERAL (
+          SELECT c.codigo AS curso_codigo, u.nombre AS unidad_nombre,
+                 TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
+            FROM sesion_clase sc
+            JOIN curso c ON c.id = sc.id_curso
+            LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+            LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+            LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+           WHERE sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado = 'EN_CURSO'
+           LIMIT 1
+        ) en_curso ON true
+        LEFT JOIN LATERAL (
+          SELECT motivo, descripcion FROM reserva_salon rs2
+            JOIN bloque_horario bh ON bh.id_bloque = rs2.id_bloque
+           WHERE rs2.id_salon = s.id AND rs2.fecha = $1
+             AND bh.hora_inicio <= (NOW() AT TIME ZONE 'America/El_Salvador')::time
+             AND COALESCE((SELECT hora_fin FROM bloque_horario WHERE id_bloque = rs2.id_bloque_fin), bh.hora_fin)
+                 >= (NOW() AT TIME ZONE 'America/El_Salvador')::time
+           LIMIT 1
+        ) reserva ON true
+        LEFT JOIN LATERAL (
+          -- Lo próximo que viene en este salón hoy, sea clase o reserva de uso
+          -- especial — lo que empiece primero después de ahora.
+          SELECT tipo, hora_inicio, titulo, detalle, instructor_nombre FROM (
+            SELECT 'CLASE'::text AS tipo, bh.hora_inicio, c.codigo AS titulo, u.nombre AS detalle,
+                   TRIM(ui.nombre || ' ' || COALESCE(ui.apellido,'')) AS instructor_nombre
+              FROM sesion_clase sc
+              JOIN bloque_horario bh ON bh.id_bloque = sc.id_bloque
+              JOIN curso c ON c.id = sc.id_curso
+              LEFT JOIN unidad_teorica u ON u.id = sc.id_unidad
+              LEFT JOIN instructor i ON i.id_instructor = sc.id_instructor
+              LEFT JOIN usuario ui ON ui.id_usuario = i.id_usuario
+             WHERE sc.id_salon = s.id AND sc.fecha = $1 AND sc.estado = 'PROGRAMADA'
+               AND bh.hora_inicio > (NOW() AT TIME ZONE 'America/El_Salvador')::time
+            UNION ALL
+            SELECT 'RESERVA'::text AS tipo, bh2.hora_inicio, rs3.motivo AS titulo, rs3.descripcion AS detalle,
+                   NULL AS instructor_nombre
+              FROM reserva_salon rs3
+              JOIN bloque_horario bh2 ON bh2.id_bloque = rs3.id_bloque
+             WHERE rs3.id_salon = s.id AND rs3.fecha = $1
+               AND bh2.hora_inicio > (NOW() AT TIME ZONE 'America/El_Salvador')::time
+          ) combinado
+          ORDER BY hora_inicio LIMIT 1
+        ) proxima ON true
+       WHERE s.activo = true
+       ORDER BY s.id
+    `, [fecha]);
+
+    const data = r.rows.map((row) => {
+      if (row.ec_curso) {
+        return { id: row.id, nombre: row.nombre, estado: "EN_SESION", instructor: row.ec_instructor, curso: row.ec_curso, unidad: row.ec_unidad };
+      }
+      if (row.rs_motivo) {
+        return { id: row.id, nombre: row.nombre, estado: "RESERVADO", motivo: row.rs_motivo, descripcion: row.rs_descripcion };
+      }
+      if (row.px_tipo === "CLASE") {
+        return { id: row.id, nombre: row.nombre, estado: "PROXIMA", tipo: "CLASE", hora: row.px_hora, instructor: row.px_instructor, curso: row.px_titulo, unidad: row.px_detalle };
+      }
+      if (row.px_tipo === "RESERVA") {
+        return { id: row.id, nombre: row.nombre, estado: "PROXIMA", tipo: "RESERVA", hora: row.px_hora, motivo: row.px_titulo, descripcion: row.px_detalle };
+      }
+      return { id: row.id, nombre: row.nombre, estado: "LIBRE" };
+    });
+
+    res.json(data);
+  } catch (e) {
+    console.error("getSalonesOcupacion:", e);
+    res.status(500).json({ message: "Error al obtener ocupación de salones" });
   }
 };
 

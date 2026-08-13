@@ -56,7 +56,10 @@ exports.getCalendario = async (req, res) => {
       JOIN aeronave ae ON ae.id_aeronave = sv.id_aeronave
       JOIN alumno al ON al.id_alumno = ss.id_alumno
       JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
+      -- Rutas con parada: los N tramos comparten id_detalle, así que sin este
+      -- filtro una sola solicitud produciría N filas en el calendario.
       LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle AND v.id_semana = sv.id_semana
+        AND (v.grupo_ruta IS NULL OR v.orden_tramo = 1)
       JOIN instructor i ON i.id_instructor = COALESCE(v.id_instructor, sv.id_instructor, al.id_instructor_vuelo, al.id_instructor)
       JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
       WHERE sv.id_semana = $1

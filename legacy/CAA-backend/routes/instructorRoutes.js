@@ -30,6 +30,8 @@ router.get("/recibo/:idDet",                                  access, instructor
 router.patch("/recibo/:idDet/firmar",                         access, instructorAlumno.firmarMiRecibo);
 router.post("/vuelos/:id_vuelo/avanzar",                      access, instructorVuelo.avanzarEstadoVuelo);
 router.post("/vuelos/:id_vuelo/inasistencia",                 access, instructorVuelo.registrarInasistencia);
+// Rutas con parada: cierre del tramo en destino (TAC/HOBBS de llegada).
+router.post("/vuelos/:id_vuelo/aterrizaje-tramo",             access, instructorVuelo.registrarAterrizajeTramo);
 router.patch("/alumnos/:id_alumno/limites",                   access, instructorAlumno.actualizarLimitesAlumno);
 router.patch("/alumnos/:id_alumno/habilitar-vuelo-extra",     access, instructorAlumno.habilitarVueloExtra);
 router.get("/instructores-vuelo",                             access, instructorAlumno.getInstructoresVuelo);
@@ -39,6 +41,7 @@ router.get("/reportes-pendientes",                            access, instructor
 router.get("/vuelos/:id/reporte-vuelo",                       access, instructorReporte.getReporteVueloInstructor);
 router.put("/vuelos/:id/reporte-vuelo",                       access, instructorReporte.guardarReporteVueloInstructor);
 router.patch("/vuelos/:id/reporte-vuelo/firmar",              access, instructorReporte.firmarReporteVuelo);
+router.patch("/vuelos/:id/reporte-vuelo/editar",              access, instructorReporte.editarReporteVueloFirmado);
 router.get("/vuelos/:id/checklist-postvuelo",                 access, instructorReporte.getChecklistPostvuelo);
 router.post("/vuelos/:id/checklist-postvuelo",                access, instructorReporte.guardarChecklistPostvuelo);
 router.delete("/vuelos/:id/checklist-postvuelo",              access, instructorReporte.eliminarChecklistPostvuelo);

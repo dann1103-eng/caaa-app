@@ -143,6 +143,29 @@ export default function EditarTripulacionModal({ vuelo, onClose, onSaved }) {
             <p className="avm-hint">Cargando catálogos…</p>
           ) : (
             <>
+              {/* Rutas con parada: el día es de TODA la ruta (los tramos comparten
+                  fecha). El backend rechaza el cambio de día con 409; se avisa acá
+                  para que no se descubra recién al guardar. */}
+              {vuelo.grupo_ruta != null && (
+                <div className="avm-warn" style={{
+                  background: "var(--c-warn-50, #fffbeb)",
+                  border: "1px solid var(--c-warn-200, #fde68a)",
+                  color: "var(--c-warn-700, #92400e)",
+                  borderRadius: 8, padding: "10px 12px", marginBottom: 12, fontSize: "0.82rem",
+                }}>
+                  <strong>
+                    <i className="bi bi-exclamation-triangle-fill"></i>{" "}
+                    Tramo {vuelo.orden_tramo}/{vuelo.total_tramos} de una ruta con parada
+                    {vuelo.icao_origen ? ` (${vuelo.icao_origen}→${vuelo.icao_destino})` : ""}
+                  </strong>
+                  <div style={{ marginTop: 4 }}>
+                    El instructor y la aeronave se aplican a <b>todos los tramos</b> de la ruta.
+                    El <b>día no se puede mover</b>: si querés cambiarlo, cancelá la ruta y volvé a
+                    agendarla en el día y bloque que necesitás.
+                  </div>
+                </div>
+              )}
+
               <div className="avm-field" ref={alumnoBoxRef}>
                 <label>Alumno</label>
                 <div className="avm-combo">
@@ -203,7 +226,14 @@ export default function EditarTripulacionModal({ vuelo, onClose, onSaved }) {
               <div className="avm-row">
                 <div className="avm-field" style={{ flex: 1 }}>
                   <label>Día</label>
-                  <select value={diaSel} onChange={(e) => setDiaSel(Number(e.target.value))}>
+                  <select
+                    value={diaSel}
+                    disabled={vuelo.grupo_ruta != null}
+                    title={vuelo.grupo_ruta != null
+                      ? "El día es de toda la ruta: cancelá y volvé a agendarla para moverla."
+                      : undefined}
+                    onChange={(e) => setDiaSel(Number(e.target.value))}
+                  >
                     {[1, 2, 3, 4, 5, 6].map((d) => <option key={d} value={d}>{DIAS[d]}</option>)}
                   </select>
                 </div>

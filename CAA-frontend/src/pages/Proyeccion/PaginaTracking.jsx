@@ -19,9 +19,37 @@ const MSSS_LAT = 13.6969;
 const MSSS_LON = -89.1233;
 const MSSS_ZOOM = 11;
 
+// La matrícula real (la que ADS-B Exchange indexa) conserva el PRIMER guion
+// (país-serie, ej. "YS-127P") pero no los siguientes — el código en BD a
+// veces trae un guion extra antes del sufijo de una sola letra (ej.
+// "YS-127-P" en vez de "YS-127P"), y buscando con ESE guion de más
+// (o sin ningún guion) el visor no encuentra la aeronave. Quitar solo los
+// guiones después del primero, no todos.
+function normalizarMatricula(codigo) {
+  const partes = (codigo || "").split("-");
+  if (partes.length <= 1) return codigo || "";
+  return `${partes[0]}-${partes.slice(1).join("")}`;
+}
+
 function trackUrl(codigo) {
-  const reg = (codigo || "").replace(/-/g, "");
+  const reg = normalizarMatricula(codigo);
   return `https://globe.adsbexchange.com/?reg=${encodeURIComponent(reg)}&lat=${MSSS_LAT}&lon=${MSSS_LON}&zoom=${MSSS_ZOOM}&hideSideBar&hideButtons`;
+}
+
+/* FlightRadar24 bloquea iframes (X-Frame-Options), pero un popup con
+   window.open sí funciona: en PC abre una ventana flotante ENCIMA de la
+   proyección sin navegar la pestaña principal. El nombre de ventana por
+   matrícula reutiliza el mismo popup si se vuelve a tocar el botón (no
+   acumula ventanas). Esta función solo se ofrece en escritorio (el botón
+   se oculta por CSS en móvil): en móvil/PWA un popup se abre como pestaña
+   nueva y sí te saca de la app — ahí se queda solo el mosaico ADS-B. */
+function abrirFR24(codigo) {
+  const reg = normalizarMatricula(codigo).toLowerCase();
+  window.open(
+    `https://www.flightradar24.com/data/aircraft/${encodeURIComponent(reg)}`,
+    `fr24_${reg}`,
+    "width=1000,height=700,menubar=no,toolbar=no,location=yes,status=no"
+  );
 }
 
 export default function PaginaTracking() {
@@ -92,7 +120,17 @@ export default function PaginaTracking() {
           <div className="pt__tile pt__tile--busqueda">
             <div className="pt__tile-head">
               <span className="pt__tile-codigo">{busqueda}</span>
-              <span className="pt__tile-modelo">Búsqueda</span>
+              <span className="pt__tile-head-right">
+                <span className="pt__tile-modelo">Búsqueda</span>
+                <button
+                  type="button"
+                  className="pt__fr24-btn"
+                  title="Abrir en FlightRadar24 (ventana flotante)"
+                  onClick={() => abrirFR24(busqueda)}
+                >
+                  <i className="bi bi-box-arrow-up-right"></i> FR24
+                </button>
+              </span>
             </div>
             <div className="pt__tile-frame">
               <iframe
@@ -117,7 +155,17 @@ export default function PaginaTracking() {
                 <div key={a.id_aeronave} className="pt__tile">
                   <div className="pt__tile-head">
                     <span className="pt__tile-codigo">{a.codigo}</span>
-                    <span className="pt__tile-modelo">{a.modelo}</span>
+                    <span className="pt__tile-head-right">
+                      <span className="pt__tile-modelo">{a.modelo}</span>
+                      <button
+                        type="button"
+                        className="pt__fr24-btn"
+                        title="Abrir en FlightRadar24 (ventana flotante)"
+                        onClick={() => abrirFR24(a.codigo)}
+                      >
+                        <i className="bi bi-box-arrow-up-right"></i> FR24
+                      </button>
+                    </span>
                   </div>
                   <div className="pt__tile-frame">
                     <iframe

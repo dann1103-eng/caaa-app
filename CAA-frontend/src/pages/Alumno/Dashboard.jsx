@@ -1,12 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { io as socketIO } from "socket.io-client";
 import { toast } from "sonner";
 import Header from "../../components/Header/Header";
 import MiHorarioList from "../../components/MiHorarioList/MiHorarioList";
+import MisClasesList from "../../components/MisClasesList/MisClasesList";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/EstadoOperacionesWidget";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
+import ScheduleWeekTable from "../../components/ScheduleWeekTable/ScheduleWeekTable";
+import { getCalendarioPublico } from "../../services/programacionApi";
 import {
   getMiHorario,
   getMiInfo,
@@ -61,13 +64,56 @@ export default function AlumnoDashboard() {
   const [estadoCancel, setEstadoCancel] = useState(null);
   const [info, setInfo] = useState(null);
   const [misClases, setMisClases] = useState([]);
+  const [loadingClases, setLoadingClases] = useState(false);
   const [ofertas, setOfertas] = useState([]);
+  const [calendarioEscuela, setCalendarioEscuela] = useState([]);
   const cargarOfertas = () => getMisOfertas().then((d) => setOfertas(Array.isArray(d) ? d : [])).catch(() => setOfertas([]));
+
+  // Programación de toda la escuela (mismo dato que consumen Proyección y el
+  // dashboard del instructor). Sirve para que el alumno vea qué horarios están
+  // libres o se liberaron antes de pedir un vuelo.
+  useEffect(() => {
+    const cargarCalendarioEscuela = () =>
+      getCalendarioPublico().then((data) => setCalendarioEscuela(Array.isArray(data) ? data : [])).catch(() => {});
+    cargarCalendarioEscuela();
+    const t = setInterval(cargarCalendarioEscuela, 20000);
+    return () => clearInterval(t);
+  }, []);
+
+  const fetchClases = useCallback(async () => {
+    setLoadingClases(true);
+    try {
+      const data = await getMisClases();
+      setMisClases(Array.isArray(data) ? data : []);
+    } catch {
+      setMisClases([]);
+    } finally {
+      setLoadingClases(false);
+    }
+  }, []);
+
   useEffect(() => {
     getMiInfo().then(setInfo).catch(() => { });
-    getMisClases().then((d) => setMisClases(Array.isArray(d) ? d : [])).catch(() => setMisClases([]));
+    fetchClases();
     cargarOfertas();
-  }, []);
+  }, [fetchClases]);
+
+  // Clases de teoría de la semana en curso (lunes a domingo, hora de El
+  // Salvador) — se muestran en la pestaña "Semana actual" junto a los vuelos,
+  // con la misma tarjeta (y botón de firma) de la pestaña "Mis clases".
+  const clasesSemanaActual = useMemo(() => {
+    const hoy = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/El_Salvador" })}T00:00:00`);
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    const desde = lunes.toLocaleDateString("en-CA");
+    const hasta = domingo.toLocaleDateString("en-CA");
+    return misClases.filter((c) => {
+      const f = String(c.fecha || "").slice(0, 10);
+      return f >= desde && f <= hasta;
+    });
+  }, [misClases]);
 
   const DIAS_OF = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   const aceptarOferta = async (id) => {
@@ -80,7 +126,7 @@ export default function AlumnoDashboard() {
   };
 
   const fetchVuelos = useCallback(async () => {
-    if (weekMode === "cancelaciones") return;
+    if (weekMode === "cancelaciones" || weekMode === "clases") return;
     setLoadingVuelos(true);
     try {
       const data = await getMiHorario(weekMode);
@@ -165,6 +211,11 @@ export default function AlumnoDashboard() {
   const instructorNombre = info
     ? [info.instructor_nombre, info.instructor_apellido].filter(Boolean).join(" ") || "—"
     : "—";
+
+  // Día de hoy en formato de la BD (ISO: lunes=1 … domingo=7), para que el
+  // calendario de la escuela abra en la pestaña del día actual.
+  const hoyNum = new Date().getDay();
+  const diaHoyDb = hoyNum === 0 ? 7 : hoyNum;
 
   const semanaLabel = weekMode === "current" ? "Semana actual" : weekMode === "next" ? "Semana siguiente" : "Mis Cancelaciones";
   const estadoLabel = weekMode === "current" ? "En curso" : weekMode === "next" ? "Próxima" : "Variado";
@@ -283,16 +334,35 @@ export default function AlumnoDashboard() {
               >
                 Mis cancelaciones
               </button>
+              <button
+                className={`dash__tab${weekMode === "clases" ? " dash__tab--active" : ""}`}
+                onClick={() => setWeekMode("clases")}
+              >
+                Mis clases
+              </button>
             </div>
 
-            {/* Flight list / Solicitudes */}
-            {weekMode !== "cancelaciones" ? (
-              <MiHorarioList
-                vuelos={vuelos}
-                weekMode={weekMode}
-                loading={loadingVuelos}
-                onRefresh={fetchVuelos}
-              />
+            {/* Flight list / Solicitudes / Clases */}
+            {weekMode === "clases" ? (
+              <MisClasesList clases={misClases} loading={loadingClases} onRefresh={fetchClases} />
+            ) : weekMode !== "cancelaciones" ? (
+              <>
+                <MiHorarioList
+                  vuelos={vuelos}
+                  weekMode={weekMode}
+                  loading={loadingVuelos}
+                  onRefresh={fetchVuelos}
+                />
+                {weekMode === "current" && clasesSemanaActual.length > 0 && (
+                  <div style={{ marginTop: "18px" }}>
+                    <div style={{ fontSize: "var(--text-xs)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--c-ink-3)", marginBottom: "8px" }}>
+                      <i className="bi bi-calendar-event" style={{ marginRight: 6 }} />
+                      Clases de teoría de esta semana
+                    </div>
+                    <MisClasesList clases={clasesSemanaActual} loading={loadingClases} onRefresh={fetchClases} />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="mhl__list" style={{ marginTop: '20px' }}>
                 {estadoCancel && (
@@ -346,27 +416,26 @@ export default function AlumnoDashboard() {
 
           {/* ── Sidebar ── */}
           <aside className="dash__sidebar">
-            {misClases.length > 0 && (
-              <div className="dash__widget" style={{ background: 'var(--c-surface-1)', border: '1px solid var(--c-line-1)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontWeight: 700, color: 'var(--c-ink-1)' }}>
-                  <i className="bi bi-mortarboard" style={{ color: 'var(--c-brand-700)' }}></i> Próximas clases
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {misClases.map((c) => (
-                    <div key={c.id} style={{ fontSize: 'var(--text-sm)', borderLeft: '3px solid var(--c-brand-700)', paddingLeft: 8 }}>
-                      <div style={{ fontWeight: 600, color: 'var(--c-ink-1)', fontVariantNumeric: 'tabular-nums' }}>
-                        {new Date(c.fecha).toLocaleDateString('es-SV', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })}
-                        {c.hora_inicio ? ` · ${String(c.hora_inicio).slice(0,5)}` : ''}{c.hora_fin ? `–${String(c.hora_fin).slice(0,5)}` : ''}
-                      </div>
-                      <div style={{ color: 'var(--c-ink-2)' }}>{c.curso_codigo}{c.tema ? ` · ${c.tema}` : ''}</div>
-                      {c.instructor_nombre && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--c-ink-3)' }}>{c.instructor_nombre}</div>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <MetarWidget />
           </aside>
+        </div>
+
+        {/* ── Programación de la semana (toda la escuela) ──
+            Solo lectura: le sirve al alumno para ver qué horarios están libres
+            o se liberaron antes de pedir un vuelo. Mismo componente y misma
+            fuente que el dashboard del instructor y la Proyección. */}
+        <div className="dash__schedule">
+          <h3 className="dash__schedule-title">
+            <i className="bi bi-calendar3"></i>
+            Programación de la semana (toda la escuela)
+          </h3>
+          <p className="dash__schedule-hint">
+            Consultá los espacios libres o los vuelos cancelados para pedir tus horas.
+            Se actualiza solo cada 20 segundos.
+          </p>
+          <div className="pp">
+            <ScheduleWeekTable vuelos={calendarioEscuela} diaHoy={diaHoyDb} />
+          </div>
         </div>
       </div>
     </>

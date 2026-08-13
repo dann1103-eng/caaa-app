@@ -5,7 +5,7 @@ import {
   getAulaCursos, getAulaUnidades,
   getMaterialUnidad, subirMaterialUnidad, getMaterialUrl, eliminarMaterial,
   getEvaluaciones, getAlumnosEvaluacion, registrarNota,
-  getSesiones, crearSesion, getAsistencia, registrarAsistencia,
+  getSesiones, getAsistencia, registrarAsistencia,
 } from "../../services/administracionApi";
 
 const ESTADOS_ASIST = ["PRESENTE", "AUSENTE", "TARDE", "JUSTIFICADO"];
@@ -24,9 +24,7 @@ export default function InstructorAulaVirtual() {
   const [evalAlumnos, setEvalAlumnos] = useState(null); // {ev, lista}
 
   const [sesiones, setSesiones] = useState([]);
-  const [sesionForm, setSesionForm] = useState({ fecha: new Date().toISOString().slice(0, 10), hora_inicio: "", hora_fin: "", tema: "", id_unidad: "" });
   const [asistencia, setAsistencia] = useState(null); // {sesion, lista}
-  const [misProximas, setMisProximas] = useState([]);
 
   useEffect(() => {
     getAulaCursos().then(r => {
@@ -34,7 +32,6 @@ export default function InstructorAulaVirtual() {
       setCursos(cs);
       if (cs.length && !cursoSel) setCursoSel(String(cs[0].id));
     }).catch(() => toast.error("No se pudieron cargar los cursos"));
-    getSesiones({ mias: 1, futuras: 1 }).then(r => setMisProximas(r?.data || [])).catch(() => setMisProximas([]));
   }, []);
 
   useEffect(() => {
@@ -75,15 +72,6 @@ export default function InstructorAulaVirtual() {
   };
 
   // ── Asistencia ──
-  const crearSes = async () => {
-    if (!cursoSel) return;
-    try {
-      await crearSesion({ id_curso: Number(cursoSel), id_unidad: sesionForm.id_unidad || null, fecha: sesionForm.fecha, hora_inicio: sesionForm.hora_inicio || null, hora_fin: sesionForm.hora_fin || null, tema: sesionForm.tema });
-      toast.success("Sesión creada (lista pre-cargada como presentes)");
-      setSesionForm({ fecha: new Date().toISOString().slice(0, 10), hora_inicio: "", hora_fin: "", tema: "", id_unidad: "" });
-      setSesiones((await getSesiones({ id_curso: cursoSel }))?.data || []);
-    } catch (e) { toast.error(e?.response?.data?.message || "Error"); }
-  };
   const abrirAsistencia = async (s) => {
     try { setAsistencia({ sesion: s, lista: (await getAsistencia(s.id))?.data || [] }); }
     catch { toast.error("Error al cargar asistencia"); }
@@ -103,25 +91,6 @@ export default function InstructorAulaVirtual() {
           <i className="bi bi-mortarboard-fill me-2"></i>Aula Virtual — Instructor
         </h1>
         <p style={{ color: "var(--c-ink-2)", marginBottom: 16 }}>Material, calificaciones y asistencia de tus cursos teóricos.</p>
-
-        {misProximas.length > 0 && (
-          <div style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-line-1)", borderRadius: "var(--radius-md)", padding: 14, marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, color: "var(--c-ink-1)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-              <i className="bi bi-calendar-event" style={{ color: "var(--c-brand-700)" }}></i> Mis próximas clases
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              {misProximas.slice(0, 8).map(s => (
-                <div key={s.id} style={{ borderLeft: "3px solid var(--c-brand-700)", paddingLeft: 8, minWidth: 180 }}>
-                  <div style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums", color: "var(--c-ink-1)" }}>
-                    {new Date(s.fecha).toLocaleDateString("es-SV", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" })}
-                    {s.hora_inicio ? ` · ${String(s.hora_inicio).slice(0,5)}` : ""}{s.hora_fin ? `–${String(s.hora_fin).slice(0,5)}` : ""}
-                  </div>
-                  <div style={{ fontSize: "var(--text-sm)", color: "var(--c-ink-2)" }}>{s.curso_codigo}{s.tema ? ` · ${s.tema}` : ""}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", marginRight: 8 }}>Curso:</label>
@@ -223,21 +192,10 @@ export default function InstructorAulaVirtual() {
           <div style={{ background: "var(--c-surface-1)", border: "1px solid var(--c-line-1)", borderRadius: "var(--radius-md)", padding: 16 }}>
             {!asistencia ? (
               <>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end", marginBottom: 14, paddingBottom: 14, borderBottom: "1px solid var(--c-line-1)" }}>
-                  <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Fecha</label>
-                    <input type="date" value={sesionForm.fecha} onChange={(e) => setSesionForm({ ...sesionForm, fecha: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }} /></div>
-                  <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Desde</label>
-                    <input type="time" value={sesionForm.hora_inicio} onChange={(e) => setSesionForm({ ...sesionForm, hora_inicio: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }} /></div>
-                  <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Hasta</label>
-                    <input type="time" value={sesionForm.hora_fin} onChange={(e) => setSesionForm({ ...sesionForm, hora_fin: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }} /></div>
-                  <div><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Unidad (opcional)</label>
-                    <select value={sesionForm.id_unidad} onChange={(e) => setSesionForm({ ...sesionForm, id_unidad: e.target.value })} style={{ padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }}>
-                      <option value="">—</option>
-                      {unidades.map(u => <option key={u.id} value={u.id}>U{u.numero} {u.nombre}</option>)}
-                    </select></div>
-                  <div style={{ flex: 1, minWidth: 160 }}><label style={{ fontSize: "var(--text-xs)", display: "block", textTransform: "uppercase", letterSpacing: "var(--tracking-wide)", color: "var(--c-ink-3)", fontWeight: 600, marginBottom: 4 }}>Tema</label>
-                    <input value={sesionForm.tema} onChange={(e) => setSesionForm({ ...sesionForm, tema: e.target.value })} placeholder="Tema de la clase" style={{ width: "100%", padding: 6, border: "1px solid var(--c-line-2)", borderRadius: "var(--radius-sm)" }} /></div>
-                  <button onClick={crearSes} style={{ background: "var(--c-brand-700)", color: "oklch(99% 0 0)", border: "none", borderRadius: "var(--radius-sm)", padding: "8px 16px", fontWeight: 600, cursor: "pointer" }}>+ Pasar lista</button>
+                <div className="aula__aviso-agenda" style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--c-brand-50, #eef4ff)", border: "1px solid var(--c-brand-200, var(--c-line-1))", borderRadius: "var(--radius-md)", padding: "10px 14px", marginBottom: 14 }}>
+                  <i className="bi bi-calendar-event" style={{ color: "var(--c-brand-700)", fontSize: "1.1em" }}></i>
+                  <span style={{ color: "var(--c-ink-1)", fontSize: "var(--text-sm)" }}>Para agendar, iniciar y cerrar tus clases, ahora usá{" "}
+                    <a href="/instructor/agenda-teoria" style={{ color: "var(--c-brand-700)", fontWeight: 600 }}>Agenda de teoría</a>.</span>
                 </div>
                 {sesiones.length === 0 ? <p style={{ color: "var(--c-ink-2)" }}>Sin sesiones de clase aún.</p> :
                   sesiones.map(s => (

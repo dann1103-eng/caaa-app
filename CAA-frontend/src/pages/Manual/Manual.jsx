@@ -341,7 +341,7 @@ export default function Manual({ solo = null }) {
           <div className="man__kicker"><i className="bi bi-headset" />Manual 02</div>
           <h1 className="man__title">Instructor</h1>
           <p className="man__lede">El corazón de tu día: marcar cada vuelo desde que sale del hangar hasta que se cierra, y dejar el reporte y el loadsheet en orden.</p>
-          <div className="man__strip"><span>Marcar vuelo</span><span>Inasistencia</span><span>Checklist</span><span>Reporte</span><span>Loadsheet</span><span>Aula virtual</span></div>
+          <div className="man__strip"><span>Marcar vuelo</span><span>Inasistencia</span><span>Checklist</span><span>Reporte</span><span>Loadsheet</span><span>Agenda de teoría</span><span>Aula virtual</span></div>
 
           <SectionHead icon="bi-arrow-repeat" hint={<>Repasá la <a href="#ciclo" onClick={(e) => { e.preventDefault(); go("ciclo"); }}>página de referencia del ciclo de vida</a> si algún estado no te hace sentido.</>}>Marcar las etapas de un vuelo</SectionHead>
           <div className="man__steps">
@@ -397,13 +397,30 @@ export default function Manual({ solo = null }) {
             </Step>
           </div>
 
+          <SectionHead icon="bi-calendar-event" hint="Aparece en tu menú si sos instructor de teoría.">Agenda de teoría: tus clases en salón</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title={<>Entrá a <Chip><i className="bi bi-calendar-event" />Agenda de teoría</Chip> desde el menú</>}>
+              <p className="man__step-text">Ves un día a la vez (lo cambiás con el selector de fecha), el panel <strong>Salones de teoría</strong> con la ocupación en vivo, y tus clases de ese día con su estado.</p>
+            </Step>
+            <Step n={2} title={<>Tocá <Chip>+ Agendar clase</Chip></>}>
+              <p className="man__step-text">Elegís <strong>curso</strong> (y unidad, si aplica), <strong>fecha</strong>, <strong>bloque de inicio y fin</strong> (los mismos bloques horarios de los vuelos), <strong>salón</strong> y <strong>los alumnos</strong> que asistirán — al menos uno (la lista es la misma de todos los alumnos activos que ves al agendar vuelos). También podés marcar si habrá examen y anotar el tema.</p>
+              <p className="man__note man__note--info"><i className="bi bi-info-circle" />Los salones ocupados salen deshabilitados con el motivo. El sistema tampoco deja agendar si vos ya tenés otra clase <strong>o un vuelo</strong> en ese horario.</p>
+            </Step>
+            <Step n={3} title={<>El día de la clase: <Chip>Iniciar clase</Chip>, y al terminar, <Chip>Cerrar clase</Chip></>}>
+              <p className="man__step-text">La clase pasa por <Badge variant="gris">PROGRAMADA</Badge> → <Badge variant="naranja">EN CURSO</Badge> → <Badge variant="verde">CERRADA</Badge>. Al iniciarla, el salón se marca "EN SESIÓN" en todos los paneles y el staff recibe una notificación. <Chip variant="danger">Cancelar</Chip> solo está disponible mientras la clase sigue programada — una vez iniciada, se cierra, no se cancela.</p>
+            </Step>
+            <Step n={4} title="La asistencia se firma después de cerrar">
+              <p className="man__step-text">Los alumnos que elegiste al agendar quedan precargados como presentes; si hace falta corregir (ausente, tarde, justificado), pasás lista desde <strong>Aula Virtual → Asistencia</strong>. Al cerrar la clase, cada alumno presente <strong>firma digitalmente</strong> su asistencia desde su propia cuenta, en la pestaña "Mis clases".</p>
+            </Step>
+          </div>
+
           <SectionHead icon="bi-mortarboard">Otras tareas frecuentes</SectionHead>
           <div className="man__steps">
             <Step n={1} title="Editar el límite semanal de tus alumnos">
               <p className="man__step-text">Desde tu Dashboard, en la fila de cada alumno podés ajustar su límite de vuelos de avión y de simulador (0 a 6) sin depender de que sea "la semana próxima".</p>
             </Step>
             <Step n={2} title="Aula Virtual">
-              <p className="man__step-text">Tres pestañas: <span className="man__tabs" style={{ display: "inline-flex", verticalAlign: "middle" }}><span className="on">Material</span><span>Evaluaciones</span><span>Asistencia</span></span>. Subís material por unidad, calificás exámenes alumno por alumno (botón <Chip variant="outline">Calificar</Chip>) y pasás lista de asistencia por sesión.</p>
+              <p className="man__step-text">Tres pestañas: <span className="man__tabs" style={{ display: "inline-flex", verticalAlign: "middle" }}><span className="on">Material</span><span>Evaluaciones</span><span>Asistencia</span></span>. Subís material por unidad, calificás exámenes alumno por alumno (botón <Chip variant="outline">Calificar</Chip>) y pasás lista de asistencia por sesión. Las clases en sí se agendan, inician y cierran desde <strong>Agenda de teoría</strong>.</p>
             </Step>
           </div>
 
@@ -416,7 +433,7 @@ export default function Manual({ solo = null }) {
           <div className="man__kicker"><i className="bi bi-megaphone" />Manual 03</div>
           <h1 className="man__title">Turno</h1>
           <p className="man__lede">Sos el respaldo operativo del día: abrís y cerrás el turno, seguís el estado de todos los vuelos, mantenés informados a todos por el ticker, y cerrás el día con el reporte de vuelos por avión.</p>
-          <div className="man__strip"><span>Abrir / cerrar turno</span><span>Vuelos del día</span><span>Operaciones</span><span>Mantenimiento</span><span>Ticker</span><span>Reporte del día</span></div>
+          <div className="man__strip"><span>Abrir / cerrar turno</span><span>Vuelos del día</span><span>Agenda de teoría</span><span>Operaciones</span><span>Mantenimiento</span><span>Ticker</span><span>Reporte del día</span></div>
 
           <SectionHead icon="bi-sunrise" hint="Cada acción queda registrada con su hora exacta y quién la marcó — es la bitácora oficial de la jornada.">El ciclo del turno: apertura, almuerzo, cambio y cierre</SectionHead>
           <div className="man__steps">
@@ -458,6 +475,22 @@ export default function Manual({ solo = null }) {
             </Step>
           </div>
 
+          <SectionHead icon="bi-calendar-event" hint='En tu dashboard, sección "Agenda de teoría — hoy".'>Agenda de teoría y salones</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title={<>Agendá una clase a nombre de un instructor: <Chip>Agendar clase</Chip></>}>
+              <p className="man__step-text">Es el mismo formulario que usa el instructor, con un selector extra de <strong>Instructor</strong> (solo aparecen los habilitados para teoría). Elegís curso, fecha, bloques horarios, salón y alumnos; el sistema valida choques del salón y del instructor — incluidos <strong>sus vuelos</strong> de ese horario.</p>
+            </Step>
+            <Step n={2} title={<>Bloqueá un salón sin clase: <Chip variant="secondary">Reservar salón</Chip></>}>
+              <p className="man__step-text">Para usos especiales: <strong>Reunión, Evento, Administrativo u Otro</strong>, con fecha, bloques y una descripción opcional. La reserva bloquea el salón igual que una clase y se ve como <Badge variant="naranja">Reservado</Badge> en el panel de salones.</p>
+            </Step>
+            <Step n={3} title="Reasignar salón o cancelar una clase">
+              <p className="man__step-text"><Chip variant="ghost">Reasignar salón</Chip> mueve la clase a otro salón libre (disponible mientras está programada o en curso). <Chip variant="danger">Cancelar</Chip> solo aplica a clases que aún no iniciaron. Iniciar y cerrar la clase le corresponde al instructor.</p>
+            </Step>
+            <Step n={4} title='Monitoreá el panel "Salones de teoría"'>
+              <p className="man__step-text">Cada salón muestra su estado en vivo: <Badge variant="rojo">EN SESIÓN</Badge> (con instructor y curso), <Badge variant="naranja">Reservado</Badge>, <Badge variant="azul">Próxima</Badge> (la siguiente clase del día) o <Badge variant="verde">Libre</Badge>. Se actualiza solo, y el mismo panel se ve en Proyección, Programación y Admin.</p>
+            </Step>
+          </div>
+
           <SectionHead icon="bi-tools" hint="Para fallas detectadas en la inspección pre-vuelo o reportadas por taller a mitad del día.">Aeronave a mantenimiento imprevisto</SectionHead>
           <div className="man__steps">
             <Step n={1} title={<>En "Estado de la flota", tocá <Chip variant="secondary">Aeronave a mantenimiento</Chip></>}>
@@ -487,7 +520,7 @@ export default function Manual({ solo = null }) {
           <SectionHead icon="bi-clipboard2-check">Cerrar el día</SectionHead>
           <div className="man__steps">
             <Step n={1} title={<>Elegí la fecha y tocá <Chip>Reporte del día</Chip></>}>
-              <p className="man__step-text">Genera un PDF con los vuelos completados de ese día, agrupados por avión: tacómetro y hobbs inicial/final, monto cobrado e instructor. Es el reporte que se usa para cuadrar caja.</p>
+              <p className="man__step-text">Genera un PDF con los vuelos completados de ese día, agrupados por avión: alumno, instructor y horas de cada vuelo, con totales por aeronave. No incluye montos — el reporte con montos lo saca Administración desde su propio panel.</p>
             </Step>
             <Step n={2} title="¿Se te olvidó agendar un vuelo esta semana?">
               <p className="man__step-text">Tocá <Chip variant="secondary">Agendar vuelo</Chip> junto al reporte — agrega un vuelo omitido sin tener que ir al módulo de Programación.</p>

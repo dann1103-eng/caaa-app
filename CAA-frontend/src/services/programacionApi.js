@@ -107,3 +107,6 @@ export const guardarSolicitudProgramacion = async (id_alumno, id_instructor, vue
   });
   return res.data;
 };
+
+export const getSalonesOcupacion = async () =>
+  (await axios.get(`${API_URL}/programacion/salones-ocupacion`)).data;

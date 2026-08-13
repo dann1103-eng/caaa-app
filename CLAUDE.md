@@ -1840,3 +1840,94 @@ común, el siguiente paso es el flujo de corrección de Administración.
 - Se puede **guardar como borrador** con la marca puesta y sigue ahí al reabrir.
 - **NO se usa** si el alumno no llegó (eso es Inasistencia) ni si el vuelo se hizo aunque fuera corto.
 - No aplica a simulador (el botón no aparece).
+
+---
+
+## 28. Sesión 2026-07-31 — Rutas con parada (una ruta = N vuelos independientes)
+
+Pedido de Samuel: en las rutas el avión hace escala en otro aeropuerto, y eso son **operaciones
+separadas** (dos planes de vuelo, dos voucheras, se marca el aterrizaje en destino y la apertura del
+regreso). Dos casos reales que el modelo debía soportar: **cambio de alumno en ruta** (la ida la vuela
+uno y el retorno otro; van 3 personas y el instructor es el mismo) y **parada múltiple**
+(MSSS→A, A→B, B→MSSS). Spec en `docs/superpowers/specs/2026-07-31-rutas-con-parada-design.md`,
+plan en `docs/superpowers/plans/2026-07-31-rutas-con-parada.md`. Migración `20260731000002`.
+
+### A. Modelo — N filas de `vuelo` hermanas (enfoque A del spec)
+La **solicitud sigue siendo UNA** (`solicitud_vuelo.con_parada` + `tramos_ruta jsonb` = solo los ICAO
+intermedios; MSSS se autocompleta en ambas puntas). Al crear los vuelos se generan **N filas de
+`vuelo`**, una por tramo: `grupo_ruta` (= el `id_detalle` de la solicitud), `orden_tramo` 1..N,
+`total_tramos`, `icao_origen`, `icao_destino`. Como cada tramo es una fila de `vuelo` normal, **todo lo
+que ya operaba por vuelo funciona sin cambios estructurales**: loadsheet, vouchera, cargo a cuenta,
+tarjetas de Turno/Dueño, Proyección, reporte del día.
+- El rango de bloques se reparte en N partes iguales (`utils/rutaTramos.js` → `construirTramos`), y ese
+  horario por tramo es **presentacional**: la reserva real del avión es el rango completo y el gate
+  operativo de los tramos 2..N es la acción del instructor, no la hora.
+- **Límites del alumno: la ruta cuenta 1** (es un elemento del array `vuelos`), no N.
+- **Cobro y horas de licencia: por tramo**, al alumno de ese tramo — sale gratis porque
+  `cargarVueloACuentaDentroTx` ya cobra a `vuelo.id_alumno`.
+
+### B. 🚨 `uq_vuelo_detalle` — el bug que casi entierra el diseño
+`CREATE UNIQUE INDEX uq_vuelo_detalle ON vuelo(id_detalle)` (init_schema:2766) ⇒ **los N tramos NO
+pueden compartir `id_detalle`**, que era justo el supuesto del diseño. Peor: el catch de
+`agendarVueloDirecto` mapeaba **cualquier** `23505` a un mensaje **hardcodeado** "Ese bloque y aeronave
+ya está ocupado", así que la violación del índice único se disfrazaba de conflicto de horario y costó
+~20 min de depuración a ciegas (el síntoma era que LOCAL y RUTA-sin-parada funcionaban y RUTA-con-parada
+no, con el MISMO rango de bloques).
+- **Fix:** solo el **tramo 1** lleva `id_detalle`; los demás van con **NULL** (Postgres admite varios
+  NULL en un índice único). El vínculo entre tramos es **`grupo_ruta`**, que sí conserva el id_detalle.
+- **Consecuencia:** `rechazarSolicitudIndividual` y `cancelarSolicitud` (que cancelaban
+  `WHERE id_detalle = $1`) ya no alcanzaban a los hermanos ⇒ ahora filtran `(id_detalle = $1 OR
+  grupo_ruta = $1)`. El mensaje del 409 dejó de ser hardcodeado.
+- ⚠️ **Lección:** un catch que reescribe el mensaje de un código de error de Postgres convierte un bug
+  de esquema en un bug fantasma de negocio. Si un 409 "de negocio" aparece donde no tiene sentido,
+  sospechá del mapeo del `catch` antes que de los datos.
+
+### C. Estados por tramo — `EN_ESPERA_TRAMO` + mini-form de aterrizaje
+Estado nuevo `EN_ESPERA_TRAMO` (ampliado en **las dos** tablas hermanas: `vuelo_estado_check` y
+`vuelo_estado_tiempo_estado_check` — la lección de la migración `20260713000003`).
+- Tramo 1: `PUBLICADO → SALIDA_HANGAR → EN_PROGRESO → (mini-form) COMPLETADO`
+- Intermedios: `EN_ESPERA_TRAMO → EN_PROGRESO → (mini-form) COMPLETADO`
+- Tramo final: `EN_ESPERA_TRAMO → EN_PROGRESO → REGRESO_HANGAR → FINALIZANDO → COMPLETADO` (flujo normal)
+- **Los tramos no finales se cierran SOLO por el mini-form**, nunca por el botón genérico de avanzar
+  (`services/rutaTramoService.js` → `nextEstadoTramo` devuelve `undefined` en ese caso, y el frontend
+  oculta el botón). El mini-form pide **TAC y HOBBS de llegada** y los escribe directo en
+  `reporte_vuelo`: llegada del tramo N **y** salida del tramo N+1 (nunca pisa una vouchera firmada;
+  reabrible mientras el siguiente siga en espera).
+- **Checklist post-vuelo solo en el tramo final** (los que cierran fuera de casa no vuelven al hangar).
+- Guardas: no se inicia el tramo N si el N-1 no cerró; la guardia de "avión ocupado" ignora a los
+  hermanos del mismo `grupo_ruta`.
+- Endpoints: `POST /turno/vuelos/:id/aterrizaje-tramo` y `/cancelar-tramos-restantes` (ambos con
+  `requireCapacidad(["TURNO","ADMIN"], "OPERACIONES")`), `POST /instructor/vuelos/:id/aterrizaje-tramo`.
+
+### D. Cancelaciones e inasistencia = toda la ruta
+Cancelar un tramo cancela el grupo: `resolverSolicitudCancelacion`, mantenimiento imprevisto (que
+además ahora incluye `EN_ESPERA_TRAMO` en `WHERE_VUELOS_AFECTADOS`), rechazo y cancelación de solicitud.
+**Inasistencia solo aplica al tramo 1** (si el alumno no llega no hay ruta) y cancela el resto.
+Para una ruta cortada en la vida real: regreso anticipado en la vouchera del tramo volado + Turno
+cancela "los tramos restantes".
+
+### E. Alumno por tramo + tripulación de ruta
+`GET /admin/rutas/:id_detalle/tramos` y `PATCH /admin/vuelos/:id/alumno-tramo` (valida licencia con la
+regla canónica: salta el chequeo en extracurricular/DEMO/CHEQUEO_LINEA y usa `id_licencia_chequeo` en
+CHEQUEO). Modal **"Asignar alumnos por tramo"** en el popover del calendario (solo con `id_vuelo`: los
+tramos nacen al publicar). En `editarTripulacion` de Turno, **instructor y aeronave se propagan a toda
+la ruta** (con chequeo de conflicto de la aeronave nueva contra los bloques de cada tramo), y **mover de
+día una ruta se rechaza con 409** (partiría la ruta en dos fechas y dejaría el retorno sin poder volarse).
+
+### F. Dedupe del calendario
+Los tramos comparten `grupo_ruta`, y el calendario hace `LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle`
+⇒ se agregó `AND (v.grupo_ruta IS NULL OR v.orden_tramo = 1)` en `adminVueloController.getCalendario`
+**y** en `instructorSolicitudController.getCalendario` (esta segunda es fácil de olvidar: es una copia
+literal de la misma query en otro archivo).
+
+### G. UI
+Solicitud del alumno (`AgendarVuelo.jsx`) y modal de staff (`AgendarVueloModal.jsx`): checkbox "Con
+parada" + cadena `MSSS → [ICAO] → … → MSSS` con "+ Agregar tramo" (máx 4 paradas, ICAO de 4 letras
+validado en cliente y servidor). Badges `T2/3 · MGGT→MHTG` en Proyección, tarjeta del Dueño, calendario
+y horario del alumno (`tramoBadge`/`estadoVueloMeta` en `utils/vueloVisual.js`); un tramo esperando
+muestra **"EN MGGT — ESPERANDO"**. `AterrizajeTramoModal` (2 campos, pensado para el celular) en las
+tarjetas de Instructor y Turno. La vouchera muestra "Ruta con parada — Tramo X/Y · origen → destino".
+
+### Fuera de alcance (decidido con Samuel)
+Cambio de **instructor** entre tramos (es siempre el mismo), catálogo real de aeropuertos (solo se
+valida formato ICAO), loadsheet compartido entre tramos, y reprogramar horas de tramos sueltos.

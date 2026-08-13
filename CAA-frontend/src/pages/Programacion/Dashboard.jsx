@@ -14,6 +14,8 @@ import {
 import AdminCalendar from "../../components/AdminCalendar/AdminCalendar";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import StandbyModal from "../../components/StandbyModal/StandbyModal";
+import AsignarTramosModal from "../../components/AsignarTramosModal/AsignarTramosModal";
+import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import { getInstructoresActivos, cambiarInstructorVuelo, getReservasAeronave, eliminarReservaAeronave } from "../../services/adminApi";
 import "./Dashboard.css";
 
@@ -116,6 +118,7 @@ export default function ProgramacionDashboard({ embedded = false }) {
   const [agendarCell, setAgendarCell] = useState(null);
   const [reservas, setReservas] = useState([]);
   const [esperaSlot, setEsperaSlot] = useState(null);
+  const [tramosRuta, setTramosRuta] = useState(null);   // id_detalle de la ruta con parada a reasignar
   // Estado real de publicación de la semana detrás del tab actual — NO se
   // infiere del tab (week === "current"): una semana "Próxima" puede ya estar
   // publicada si se adelantó la publicación, y el tab por sí solo no lo dice.
@@ -380,6 +383,8 @@ export default function ProgramacionDashboard({ embedded = false }) {
           </div>
         </div>
 
+        <SalonesOcupacionWidget />
+
         <div className="prog__section">
           <div className="prog__section-header">
             <div>
@@ -449,7 +454,9 @@ export default function ProgramacionDashboard({ embedded = false }) {
                 onGuardarCambio={onGuardarCambio}
                 onEmptyCellClick={(cell) => setAgendarCell(cell)}
                 onGestionarEspera={(slot) => setEsperaSlot(slot)}
+                onAsignarTramos={(id_detalle) => setTramosRuta(id_detalle)}
                 reservas={reservas}
+                mostrarBuscador
                 onEliminarReserva={async (id) => {
                   try { await eliminarReservaAeronave(id); toast.success("Reserva eliminada"); reload(); }
                   catch (e) { toast.error(e?.response?.data?.message || "Error al eliminar la reserva"); }
@@ -462,6 +469,14 @@ export default function ProgramacionDashboard({ embedded = false }) {
 
       {esperaSlot && (
         <StandbyModal slot={esperaSlot} onClose={() => setEsperaSlot(null)} />
+      )}
+
+      {tramosRuta != null && (
+        <AsignarTramosModal
+          id_detalle={tramosRuta}
+          onClose={() => setTramosRuta(null)}
+          onSaved={() => reload()}
+        />
       )}
 
       {agendarCell && (

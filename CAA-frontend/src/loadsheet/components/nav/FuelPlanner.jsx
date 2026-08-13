@@ -18,7 +18,6 @@ export default function FuelPlanner() {
     alt1Min: fd.alt1Min,
     alt2Min: fd.alt2Min,
     reserveMin: fd.reserveMin,
-    minReqMin: fd.minReqMin,
     tfobGal,
   }), [fd, tfobGal])
 
@@ -209,24 +208,15 @@ export default function FuelPlanner() {
               </td>
             </tr>
 
-            {/* MIN REQUIRED — input manual del alumno */}
+            {/* MIN REQUIRED — auto: ALT 1 + ALT 2 + R/R 5% + FINAL RESERVE */}
             <tr className="border-b border-gray-200 bg-[var(--c-brand-50)]">
               <td className="px-2 py-1.5 text-xs font-bold text-[var(--c-brand-700)]">MIN REQUIRED</td>
               <td className="px-2 py-1.5 text-xs text-right font-mono font-bold text-[var(--c-brand-700)]">{fmtGal(fuel.minReqGal)}</td>
               <td className="px-2 py-1.5 text-xs text-right font-mono text-[var(--c-brand-700)]">{fmtKg(fuel.minReqKg)}</td>
-              <td className="p-0">
-                <input
-                  className={inputClass + ' font-bold text-[var(--c-brand-700)]'}
-                  type="number"
-                  min="0"
-                  value={fd.minReqMin}
-                  onChange={e => setField('minReqMin', e.target.value)}
-                  placeholder="min"
-                />
-              </td>
+              <td className="px-2 py-1.5 text-xs text-right font-mono font-bold text-[var(--c-brand-700)]">{fmtMin(fuel.minReqMin)}</td>
             </tr>
 
-            {/* EXTRA — auto: TFOB − MIN REQUIRED */}
+            {/* EXTRA — auto: TFOB − MIN REQUIRED − TAXI − TRIP (el reserve va dentro de MIN REQ) */}
             <tr className="border-b border-gray-200">
               <td className={labelClass}>EXTRA</td>
               <td className={autoClass}>{fmtGal(fuel.extraGal)}</td>

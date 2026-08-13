@@ -67,13 +67,16 @@ export default function AdminCalendar({
   canEditItem,               // (item) => bool: solo estas tarjetas son editables
   onPersistCardEdit,         // (move) => Promise: persistir cambios del popover
   onRechazar,                // (id_detalle) => Promise: acción del botón de rechazo
+  onAprobar,                 // (id_detalle) => Promise: acción del botón de aprobar (revisión previa a publicar)
   allowInstructorChange = true, // mostrar el selector de instructor en el popover
   onEmptyCellClick,          // ({dia_semana, id_bloque}) => void: click en celda vacía
   onGestionarEspera,         // (slot) => void: abrir gestor de lista de espera
+  onAsignarTramos,           // (id_detalle) => void: abrir modal de asignar alumnos por tramo (rutas con parada)
   onGuardarRemarks,          // (id_detalle, remarks) => Promise: remarks del instructor sobre el vuelo
-  rechazarLabel = "Rechazar Vuelo",
+  rechazarLabel,             // sin override: "Cancelar vuelo" en semana publicada, "Rechazar vuelo" en la próxima
   reservas = [],             // reservas de uso especial (sin alumno) a pintar
   onEliminarReserva,         // (id) => Promise: eliminar una reserva
+  mostrarBuscador = false,   // barra de búsqueda para filtrar tarjetas por alumno
 }) {
   const isEditable = true; // El Admin siempre puede editar, incluso post-publicación
   const puedeEditarItem = (item) => (typeof canEditItem === "function" ? !!canEditItem(item) : true);
@@ -97,6 +100,7 @@ export default function AdminCalendar({
   const [tempBloqueFin, setTempBloqueFin] = useState("");
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileDayOffset, setMobileDayOffset] = useState(0);
+  const [busquedaAlumno, setBusquedaAlumno] = useState("");
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -105,6 +109,9 @@ export default function AdminCalendar({
     // Socket real-time refresh
     const socket = socketIO(SOCKET_URL);
     socket.on("solicitud_rechazada", () => {
+      if (onRefresh) onRefresh();
+    });
+    socket.on("solicitud_aprobada", () => {
       if (onRefresh) onRefresh();
     });
     socket.on("guardar_cambios", () => {
@@ -141,6 +148,65 @@ export default function AdminCalendar({
 
   const isBloqueado = (dia_semana, id_bloque) =>
     safeBloqueos.some((x) => Number(x.dia_semana) === Number(dia_semana) && Number(x.id_bloque) === Number(id_bloque));
+
+  // ── Buscador: filtra las tarjetas por nombre de alumno (sin acentos) ──────
+  const normalizar = (s) => (s || "").toString().normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const busquedaNorm = normalizar(busquedaAlumno.trim());
+  const matchesBusqueda = (item) => !busquedaNorm || normalizar(item.alumno_nombre).includes(busquedaNorm);
+  // Las reservas de uso especial (sin alumno) no se filtran: no son "de alumno".
+  const visibleItems = busquedaNorm ? safeItems.filter(matchesBusqueda) : safeItems;
+
+  // ── Horas solicitadas por alumno esta semana (para el resumen en cada tarjeta) ──
+  const bloqueDuracionHoras = (id_bloque) => {
+    const b = bloques.find((x) => Number(x.id_bloque) === Number(id_bloque));
+    if (!b?.hora_inicio || !b?.hora_fin) return 0;
+    const [h1, m1] = b.hora_inicio.split(":").map(Number);
+    const [h2, m2] = b.hora_fin.split(":").map(Number);
+    return (h2 * 60 + m2 - (h1 * 60 + m1)) / 60;
+  };
+
+  const resumenPorAlumno = useMemo(() => {
+    const map = {};
+    for (const item of safeItems) {
+      if (item.estado_vuelo === "CANCELADO" || !item.id_alumno) continue;
+      const start = Number(item.id_bloque);
+      const end = item.id_bloque_fin ? Number(item.id_bloque_fin) : start;
+      let horas = 0;
+      for (let b = start; b <= end; b++) horas += bloqueDuracionHoras(b);
+      if (!map[item.id_alumno]) map[item.id_alumno] = { horas: 0, detalle: [] };
+      map[item.id_alumno].horas += horas;
+      map[item.id_alumno].detalle.push({ id_detalle: item.id_detalle, dia_semana: item.dia_semana, id_bloque: start, id_bloque_fin: end, horas });
+    }
+    return map;
+  }, [safeItems, bloques]);
+
+  const formatDetalleDia = (d) => {
+    const bIni = bloques.find((b) => Number(b.id_bloque) === Number(d.id_bloque));
+    const bFin = bloques.find((b) => Number(b.id_bloque) === Number(d.id_bloque_fin));
+    const diaLabel = DIAS.find((x) => x.id === Number(d.dia_semana))?.label || "";
+    const horaIni = bIni ? formatHora(bIni.hora_inicio) : "";
+    const horaFin = bFin ? formatHora(bFin.hora_fin) : "";
+    return d.id_bloque_fin !== d.id_bloque ? `${diaLabel} ${horaIni}–${horaFin}` : `${diaLabel} ${horaIni}`;
+  };
+
+  // Texto corto que va SIEMPRE visible en la tarjeta — un conteo de vuelos se
+  // entiende de un vistazo; un número de horas por sí solo no dice nada sin
+  // contexto (¿es mucho? ¿poco?) y obliga a hacer la cuenta mentalmente.
+  const resumenLabel = (item) => {
+    const r = resumenPorAlumno[item.id_alumno];
+    if (!r) return "";
+    const n = r.detalle.length;
+    return n === 1 ? "1 vuelo solicitado" : `${n} vuelos solicitados`;
+  };
+
+  // El detalle día/bloque + total de horas va en el tooltip (hover): no cabe
+  // en la tarjeta sin abrirla, y es lo que de verdad hace falta para detectar
+  // solicitudes encimadas o excesivas de un mismo alumno.
+  const resumenTooltip = (item) => {
+    const r = resumenPorAlumno[item.id_alumno];
+    if (!r) return "";
+    return `${resumenLabel(item)} (${r.horas.toFixed(1)}h en total):\n${r.detalle.map(formatDetalleDia).join("\n")}`;
+  };
 
   // ── Mapa de conflictos ────────────────────────────────────────────────────
   const conflictMap = useMemo(() => {
@@ -234,19 +300,14 @@ export default function AdminCalendar({
       return;
     }
 
-    // Toggle popover
-    const rect = e.currentTarget.getBoundingClientRect();
-    let x = rect.left + window.scrollX + rect.width + 10; // Al lado derecho de la card
-    let y = rect.top + window.scrollY; // Alineado al tope de la card
-
-    // Ajustar si se sale por la derecha
-    if (x + 280 > window.innerWidth) {
-      x = rect.left + window.scrollX - 290; // Al lado izquierdo de la card
-    }
-    // Si aún así se sale (muy estrecho), centrar
-    if (x < 0) x = 10;
-
-    setActivePopover({ item, x, y });
+    // El popover siempre abre centrado en pantalla (ver CSS .flight-popover):
+    // posicionarlo "al lado de la tarjeta" con getBoundingClientRect() se
+    // salía por abajo cada vez que el contenido era alto (remarks + otras
+    // solicitudes + Aprobar/Rechazar) y la tarjeta clicada estaba a media
+    // altura o más abajo — no había forma de hacer scroll para llegar a los
+    // botones. Centrado + max-height + overflow propio lo resuelve para
+    // cualquier tamaño de pantalla, sin tener que acertar una posición.
+    setActivePopover({ item });
     setTempAeronaveId(item.id_aeronave);
     setTempInstructorId(item.id_instructor);
     setTempBloqueInicio(item.id_bloque);
@@ -372,7 +433,15 @@ export default function AdminCalendar({
     }
     if (estado === "COMPLETADO") return "completado";
     if (estado === "CANCELADO") return "cancelado";
-    return "programado";
+    // Semana "next" (todavía sin publicar): verde SOLO tras aprobación explícita
+    // (botón "Aprobar" del popover, sv.estado='APROBADA') — no basta con que ya
+    // no esté en Borrador/Enviada, porque acá nunca hay un estado intermedio
+    // automático; el staff tiene que revisarlo a propósito.
+    if (week === "next") {
+      return item?.estado_vuelo_individual === "APROBADA" ? "agendado" : "programado";
+    }
+    // Semana publicada: ya es un vuelo real y confirmado — verde de una vez.
+    return "agendado";
   };
 
   const visibleDays = isMobile ? DIAS.slice(mobileDayOffset, mobileDayOffset + 3) : DIAS;
@@ -382,7 +451,7 @@ export default function AdminCalendar({
     let currentGridCol = 2; // Column 1 is Time
     return visibleDays.map((d, dIdx) => {
       const date = visibleDates[dIdx];
-      const itemsDelDia = safeItems.filter(i => Number(i.dia_semana) === Number(d.id) && i.estado_vuelo !== 'CANCELADO');
+      const itemsDelDia = visibleItems.filter(i => Number(i.dia_semana) === Number(d.id) && i.estado_vuelo !== 'CANCELADO');
       
       const locales = itemsDelDia.filter(i => {
         const type = (i.tipo_vuelo || i.tipo || '').toString().trim().toUpperCase();
@@ -400,7 +469,7 @@ export default function AdminCalendar({
       
       return { id: d.id, label: d.label, date, startCol, colsCount, numRutas, locales, rutas };
     });
-  }, [visibleDays, visibleDates, safeItems]);
+  }, [visibleDays, visibleDates, visibleItems]);
 
   const gridTemplateColumns = useMemo(() => {
     let cols = ['80px'];
@@ -415,7 +484,24 @@ export default function AdminCalendar({
 
   return (
     <div className={`admin-calendar-root ${selectedForMove ? 'mode-moving' : ''} ${isMobile ? 'is-mobile' : ''}`}>
-      
+
+      {mostrarBuscador && (
+        <div className="cal-buscador">
+          <i className="bi bi-search"></i>
+          <input
+            type="text"
+            placeholder="Buscar alumno para filtrar el calendario…"
+            value={busquedaAlumno}
+            onChange={(e) => setBusquedaAlumno(e.target.value)}
+          />
+          {busquedaAlumno && (
+            <button type="button" className="cal-buscador__clear" onClick={() => setBusquedaAlumno("")} aria-label="Limpiar búsqueda">
+              <i className="bi bi-x-lg"></i>
+            </button>
+          )}
+        </div>
+      )}
+
       {isMobile && (
         <div className="calendar-mobile-nav">
           <button 
@@ -660,6 +746,11 @@ export default function AdminCalendar({
                             {item.aeronave_codigo}
                             {item.instructor_nombre && ` • Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                           </div>
+                          {resumenPorAlumno[item.id_alumno] && (
+                            <div className="flight-horas-semana" title={resumenTooltip(item)}>
+                              <i className="bi bi-clock-history"></i> {resumenLabel(item)}
+                            </div>
+                          )}
                           {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
                         </div>
                       </div>
@@ -753,7 +844,9 @@ export default function AdminCalendar({
                               R$
                             </span>
                           )}
-                          <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>Ruta</span>
+                          <span style={{fontSize:'0.65rem', padding:'2px 4px', background:'rgba(0,0,0,0.05)', color:'var(--neutral-dark)', borderRadius:'4px', marginRight:'4px', display:'inline-block'}}>
+                            {item.con_parada ? `Ruta · MSSS→${(Array.isArray(item.tramos_ruta) ? item.tramos_ruta : []).join('→')}→MSSS` : 'Ruta'}
+                          </span>
                           {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                           {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
                           {item.alumno_nombre.split(" ")[0]}
@@ -763,6 +856,11 @@ export default function AdminCalendar({
                           {item.instructor_nombre && <br/>}
                           {item.instructor_nombre && `Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                         </div>
+                        {resumenPorAlumno[item.id_alumno] && (
+                          <div className="flight-horas-semana" title={resumenTooltip(item)}>
+                            <i className="bi bi-clock-history"></i> {resumenLabel(item)}
+                          </div>
+                        )}
                         {isSelected && <div className="move-indicator" style={{ fontSize: '0.65rem', color: 'var(--primary)', marginTop: '2px' }}>Moviendo...</div>}
                       </div>
 
@@ -777,7 +875,8 @@ export default function AdminCalendar({
 
 
       <div className="calendar-legend">
-        <div className="legend-item"><span className="dot programado"></span> Programado</div>
+        <div className="legend-item"><span className="dot programado"></span> Programado / Pendiente</div>
+        <div className="legend-item"><span className="dot agendado"></span> Aprobado</div>
         <div className="legend-item"><span className="dot progreso"></span> En progreso</div>
         <div className="legend-item"><span className="dot completado"></span> Completado</div>
         <div className="legend-item"><span className="dot lunch"></span> Almuerzo / Sin vuelos</div>
@@ -787,10 +886,7 @@ export default function AdminCalendar({
       {activePopover && (
         <>
           <div className="popover-overlay" onClick={closePopover} />
-          <div 
-            className="flight-popover"
-            style={{ top: activePopover.y, left: activePopover.x }}
-          >
+          <div className="flight-popover">
             <PopoverContent
               activePopover={activePopover}
               tempAeronaveId={tempAeronaveId}
@@ -808,9 +904,12 @@ export default function AdminCalendar({
               isEditable={isEditable && puedeEditarItem(activePopover.item)}
               allowInstructorChange={allowInstructorChange}
               onRechazar={onRechazar}
+              onAprobar={onAprobar}
+              week={week}
               onGestionarEspera={onGestionarEspera}
+              onAsignarTramos={onAsignarTramos}
               onGuardarRemarks={onGuardarRemarks}
-              rechazarLabel={rechazarLabel}
+              rechazarLabel={rechazarLabel || (week === "current" ? "Cancelar vuelo" : "Rechazar Vuelo")}
               loadingSave={loadingSave}
               handleSave={handleSave}
               closePopover={closePopover}
@@ -818,6 +917,8 @@ export default function AdminCalendar({
               setSelectedForMove={setSelectedForMove}
               onRefresh={onRefresh}
               getEstadoClass={getEstadoClass}
+              resumenPorAlumno={resumenPorAlumno}
+              formatDetalleDia={formatDetalleDia}
             />
           </div>
         </>
@@ -839,7 +940,10 @@ function PopoverContent({
   isEditable,
   allowInstructorChange = true,
   onRechazar,
+  onAprobar,
+  week,
   onGestionarEspera,
+  onAsignarTramos,
   onGuardarRemarks,
   rechazarLabel = "Rechazar Vuelo",
   loadingSave,
@@ -848,7 +952,9 @@ function PopoverContent({
   setDragging,
   setSelectedForMove,
   onRefresh,
-  getEstadoClass
+  getEstadoClass,
+  resumenPorAlumno,
+  formatDetalleDia
 }) {
   // Remarks del instructor sobre este vuelo. El popover se monta al abrirse,
   // así que el estado arranca con el valor actual del item.
@@ -863,6 +969,33 @@ function PopoverContent({
       activePopover.item.remarks_instructor = remarksDraft.trim() || null;
     } finally {
       setSavingRemarks(false);
+    }
+  }
+
+  // Aprobar: marca la solicitud como revisada antes de publicar la semana
+  // (solo tiene sentido en la semana "next", todavía sin publicar). Estado
+  // local propio (no basta con mutar activePopover.item: es una mutación de
+  // prop sin setState, así que React nunca repinta el popover con eso solo).
+  const [aprobando, setAprobando] = useState(false);
+  const [yaAprobado, setYaAprobado] = useState(activePopover.item.estado_vuelo_individual === "APROBADA");
+  async function handleAprobar() {
+    setAprobando(true);
+    const { toast } = await import("sonner");
+    try {
+      if (onAprobar) {
+        await onAprobar(activePopover.item.id_detalle);
+      } else {
+        const { aprobarSolicitudIndividual } = await import("../../services/adminApi");
+        await aprobarSolicitudIndividual(activePopover.item.id_detalle);
+      }
+      activePopover.item.estado_vuelo_individual = "APROBADA";
+      setYaAprobado(true);
+      toast.success("Vuelo aprobado");
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "Error al aprobar");
+    } finally {
+      setAprobando(false);
     }
   }
 
@@ -885,6 +1018,28 @@ function PopoverContent({
             <span><strong>Nota del alumno:</strong> {activePopover.item.comentario_alumno}</span>
           </div>
         )}
+
+        {/* Detalle de las OTRAS solicitudes de este mismo alumno esta semana
+            (día y hora) — para detectar de un vistazo si está pidiendo
+            demasiados vuelos o si se encima con algo que ya tiene. */}
+        {(() => {
+          const r = resumenPorAlumno?.[activePopover.item.id_alumno];
+          const otras = (r?.detalle || []).filter((d) => d.id_detalle !== activePopover.item.id_detalle);
+          if (otras.length === 0) return null;
+          return (
+            <div className="pop-alert" style={{ background: 'var(--c-surface-1, #f8fafc)', color: 'var(--c-ink-2, #334155)', border: '1px solid var(--c-line-1, #e2e8f0)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <i className="bi bi-calendar2-week" style={{ color: 'var(--c-ink-3, #64748b)', marginTop: 2 }}></i>
+              <div>
+                <strong>Otras solicitudes de {activePopover.item.alumno_nombre?.split(" ")[0]} esta semana ({otras.length}):</strong>
+                <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+                  {otras.map((d, i) => (
+                    <li key={i} style={{ fontSize: '0.8rem' }}>{formatDetalleDia(d)}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Remarks del instructor: el instructor los edita en SU calendario de
             solicitudes; programación/admin los ven en solo-lectura. */}
@@ -1045,6 +1200,36 @@ function PopoverContent({
           >
             <i className="bi bi-hourglass-split"></i> Lista de espera
           </button>
+        )}
+
+        {/* Solo con id_vuelo: los tramos nacen al publicar la semana, así que en
+            la semana próxima (sin publicar) todavía no hay nada que asignar. */}
+        {onAsignarTramos && activePopover.item.con_parada && activePopover.item.id_vuelo && (
+          <button type="button" className="btn-move-v" style={{ width: '100%', marginTop: 8 }}
+            onClick={() => onAsignarTramos(activePopover.item.id_detalle)}>
+            <i className="bi bi-people"></i> Asignar alumnos por tramo
+          </button>
+        )}
+
+        {/* allowInstructorChange=false marca la vista restringida del instructor
+            (Instructor/Solicitudes): ahí "aprobar" no aplica — es la revisión
+            que hace Programación/Admin sobre lo que el instructor ya envió. */}
+        {isEditable && week === "next" && allowInstructorChange && (
+          yaAprobado ? (
+            <div className="pop-alert" style={{ background: 'var(--c-success-50, #ecfdf5)', color: 'var(--c-success-700, #047857)', border: '1px solid var(--c-success-100, #a7f3d0)', display: 'flex', gap: 6, alignItems: 'center' }}>
+              <i className="bi bi-check-circle-fill"></i> Aprobado — listo para publicar.
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-approve-v"
+              onClick={handleAprobar}
+              disabled={aprobando}
+              style={{ width: '100%', marginBottom: 8 }}
+            >
+              {aprobando ? "Aprobando…" : <><i className="bi bi-check-lg"></i> Aprobar vuelo</>}
+            </button>
+          )
         )}
 
         {isEditable && (

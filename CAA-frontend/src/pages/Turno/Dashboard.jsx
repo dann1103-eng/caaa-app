@@ -18,15 +18,25 @@ import {
   abrirReporteOperacionesDia,
   getFlotaMantenimiento,
   completarMantenimientoAeronave,
+  registrarAterrizajeTramo,
+  cancelarTramosRestantes,
 } from "../../services/turnoApi";
 import SuspenderOperacionesModal from "../../components/SuspenderOperacionesModal/SuspenderOperacionesModal";
 import MantenimientoAeronaveModal from "../../components/MantenimientoAeronaveModal/MantenimientoAeronaveModal";
 import GestionarMantenimientoModal from "../../components/GestionarMantenimientoModal/GestionarMantenimientoModal";
 import TurnoDiaWidget from "../../components/TurnoDiaWidget/TurnoDiaWidget";
+import SalonesOcupacionWidget from "../../components/SalonesOcupacionWidget/SalonesOcupacionWidget";
 import GestionarSuspensionModal from "../../components/SuspenderOperacionesModal/GestionarSuspensionModal";
 import AgendarVueloModal from "../../components/AgendarVueloModal/AgendarVueloModal";
 import EditarTripulacionModal from "../../components/EditarTripulacionModal/EditarTripulacionModal";
+import AgendarClaseModal from "../../components/AgendarClaseModal/AgendarClaseModal";
+import ReservarSalonModal from "../../components/ReservarSalonModal/ReservarSalonModal";
+import AterrizajeTramoModal from "../../components/AterrizajeTramoModal/AterrizajeTramoModal";
 import { getCalendarioAdmin, getAeronavesActivasAdmin, getBloquesHorario } from "../../services/adminApi";
+import {
+  getSesiones, getAulaCursos, crearSesion, cancelarSesionClase, reasignarSalonSesion,
+  getSalones, getInstructoresTeoria, getReservasSalon, eliminarReservaSalon,
+} from "../../services/administracionApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
 
@@ -35,6 +45,7 @@ const ESTADO_LABEL = {
   PROGRAMADO:     "Programado",
   SALIDA_HANGAR:  "Salida hangar",
   EN_PROGRESO:    "En progreso",
+  EN_ESPERA_TRAMO: "En espera en destino",
   REGRESO_HANGAR: "Regreso hangar",
   FINALIZANDO:    "Finalizando",
   COMPLETADO:     "Completado",
@@ -51,7 +62,7 @@ const ESTADO_COLOR = {
 };
 
 // Estados en los que TURNO puede avanzar el vuelo
-const ESTADOS_AVANZABLES = new Set(["PUBLICADO", "PROGRAMADO", "SALIDA_HANGAR", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO"]);
+const ESTADOS_AVANZABLES = new Set(["PUBLICADO", "PROGRAMADO", "SALIDA_HANGAR", "EN_PROGRESO", "REGRESO_HANGAR", "FINALIZANDO", "EN_ESPERA_TRAMO"]);
 
 const NEXT_LABEL = {
   PUBLICADO:      "→ Salida hangar",
@@ -60,6 +71,7 @@ const NEXT_LABEL = {
   EN_PROGRESO:    "→ Regreso hangar",
   REGRESO_HANGAR: "→ Finalizando",
   FINALIZANDO:    "→ Completar vuelo",
+  EN_ESPERA_TRAMO: "→ Iniciar tramo",
 };
 
 // Estados a los que TURNO puede revertir (avión o simulador): cualquier estado
@@ -95,7 +107,16 @@ function VueloCard({ vuelo, onRefresh }) {
   const [advancing, setAdvancing] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [aterrizando, setAterrizando] = useState(false);
+  const [cancelandoTramos, setCancelandoTramos] = useState(false);
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
+
+  // Rutas con parada: N tramos independientes que comparten grupo_ruta. Los
+  // tramos que no son el último se cierran SOLO con el mini-form de
+  // aterrizaje (nunca con el botón genérico de avanzar).
+  const esTramo = vuelo.grupo_ruta != null;
+  const esTramoNoFinal = esTramo && Number(vuelo.orden_tramo) < Number(vuelo.total_tramos);
+  const esAterrizajeTramo = esTramoNoFinal && vuelo.estado === "EN_PROGRESO";
 
   const handleAvanzar = async () => {
     // Evento de "salida" (a hangar / inicio de sesión): si ocurre antes de la
@@ -138,6 +159,20 @@ function VueloCard({ vuelo, onRefresh }) {
     }
   };
 
+  const handleCancelarTramos = async () => {
+    if (!window.confirm(`¿Cancelar este tramo y todos los siguientes de la ruta (${vuelo.icao_origen}→${vuelo.icao_destino} y posteriores)?`)) return;
+    setCancelandoTramos(true);
+    try {
+      await cancelarTramosRestantes(vuelo.id_vuelo, "Cancelado desde Turno");
+      toast.success("Tramos restantes cancelados");
+      onRefresh();
+    } catch (e) {
+      toast.error(e.response?.data?.message || "No se pudieron cancelar los tramos restantes");
+    } finally {
+      setCancelandoTramos(false);
+    }
+  };
+
   const handleInasistencia = async () => {
     if (!window.confirm(`¿Registrar inasistencia para ${vuelo.alumno_nombre}? El vuelo pasará a COMPLETADO con 0 min.`)) return;
     setAdvancing(true);
@@ -160,7 +195,7 @@ function VueloCard({ vuelo, onRefresh }) {
   // en otro vuelo (guardia de "avión ocupado").
   const canAdvance = isSim
     ? ESTADOS_AVANZABLES_SIM.has(vuelo.estado)
-    : (ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO');
+    : (ESTADOS_AVANZABLES.has(vuelo.estado) && vuelo.estado !== 'FINALIZANDO' && !esAterrizajeTramo);
   const nextLabel = isSim ? NEXT_LABEL_SIM[vuelo.estado] : NEXT_LABEL[vuelo.estado];
   const btnDisabled = advancing;
   const canRevert = ESTADOS_REVERTIBLES.has(vuelo.estado);
@@ -177,6 +212,11 @@ function VueloCard({ vuelo, onRefresh }) {
               </span>
             )}
             <span className={`trn__tag ${tagClass}`}>{ESTADO_LABEL[vuelo.estado] ?? vuelo.estado}</span>
+            {esTramo && (
+              <span className="trn__tag trn__tag--gris" title={`Ruta con parada — tramo ${vuelo.orden_tramo} de ${vuelo.total_tramos}`}>
+                RUTA T{vuelo.orden_tramo}/{vuelo.total_tramos} · {vuelo.icao_origen}→{vuelo.icao_destino}
+              </span>
+            )}
             {vuelo.salida_anticipada && (
               <span className="trn__tag trn__tag--anticipada" title="Este vuelo salió antes de la hora programada">
                 Salida anticipada
@@ -228,6 +268,20 @@ function VueloCard({ vuelo, onRefresh }) {
             {advancing ? "Procesando…" : (nextLabel ?? "Avanzar")}
           </button>
         )}
+        {esAterrizajeTramo && (
+          <button className="trn__btn-avanzar" onClick={() => setAterrizando(true)}>
+            Aterrizamos en {vuelo.icao_destino}
+          </button>
+        )}
+        {vuelo.estado === "EN_ESPERA_TRAMO" && (
+          <button
+            className="trn__btn-cancelar"
+            disabled={cancelandoTramos}
+            onClick={handleCancelarTramos}
+          >
+            {cancelandoTramos ? "Cancelando…" : "Cancelar tramos restantes"}
+          </button>
+        )}
       </div>
 
       {editando && (
@@ -235,6 +289,14 @@ function VueloCard({ vuelo, onRefresh }) {
           vuelo={vuelo}
           onClose={() => setEditando(false)}
           onSaved={onRefresh}
+        />
+      )}
+
+      {aterrizando && (
+        <AterrizajeTramoModal
+          vuelo={vuelo}
+          onClose={() => setAterrizando(false)}
+          onSubmit={(datos) => registrarAterrizajeTramo(vuelo.id_vuelo, datos).then(onRefresh)}
         />
       )}
     </div>
@@ -424,6 +486,16 @@ export default function TurnoDashboard() {
   // Gestionar un mantenimiento EN CURSO (agregar bloques/días) — mismo modal
   // que usa Admin; espera { id_mantenimiento, id_aeronave, aeronave_codigo }.
   const [gestionandoMant, setGestionandoMant] = useState(null);
+  // Agenda de teoría del día: agendar clase / reservar salón / cancelar / reasignar.
+  const [sesionesTeoria, setSesionesTeoria] = useState([]);
+  const [modalClaseAbierto, setModalClaseAbierto] = useState(false);
+  const [instructoresTeoria, setInstructoresTeoria] = useState([]);
+  const [cursosTeoria, setCursosTeoria] = useState([]);
+  const [salonesCatalogo, setSalonesCatalogo] = useState([]);
+  const [modalReservaAbierto, setModalReservaAbierto] = useState(false);
+  const [reasignando, setReasignando] = useState(null); // id_sesion en edición de salón
+  const [bloquesCatalogo, setBloquesCatalogo] = useState([]);
+  const [reservasHoy, setReservasHoy] = useState([]);
 
   const handleAbrirAgendar = async () => {
     setAbriendoAgendar(true);
@@ -491,6 +563,24 @@ export default function TurnoDashboard() {
       /* silencioso */
     }
   }, []);
+
+  const cargarTeoria = useCallback(async () => {
+    try {
+      const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/El_Salvador" });
+      const [ses, ins, cur, sal, blq, res] = await Promise.all([
+        getSesiones({}), getInstructoresTeoria(), getAulaCursos(), getSalones(), getBloquesHorario(),
+        getReservasSalon(hoy),
+      ]);
+      setSesionesTeoria((ses?.data || []).filter((s) => s.fecha?.slice(0, 10) === hoy));
+      setInstructoresTeoria(ins?.data || []);
+      setCursosTeoria(cur?.data || []);
+      setSalonesCatalogo(sal?.data || []);
+      setBloquesCatalogo(Array.isArray(blq) ? blq : []);
+      setReservasHoy(res?.data || []);
+    } catch { /* silencioso */ }
+  }, []);
+
+  useEffect(() => { cargarTeoria(); }, [cargarTeoria]);
 
   // Carga inicial
   useEffect(() => {
@@ -677,6 +767,9 @@ export default function TurnoDashboard() {
         {/* ── METAR ─────────────────────────────────────────────────── */}
         <MetarWidget />
 
+        {/* ── Salones de teoría ─────────────────────────────────────── */}
+        <SalonesOcupacionWidget />
+
         {/* ── Turno del día (apertura/pausa/cambio/cierre + asistencia) ── */}
         <TurnoDiaWidget />
 
@@ -749,6 +842,86 @@ export default function TurnoDashboard() {
           </div>
         </div>
 
+        {/* ── Agenda de teoría — hoy ───────────────────────────────── */}
+        <div className="turno__seccion">
+          <div className="turno__seccion-header">
+            <h3>Agenda de teoría — hoy</h3>
+            <div className="turno__seccion-botones">
+              <button className="turno__btn-secundario" onClick={() => setModalReservaAbierto(true)}>
+                Reservar salón
+              </button>
+              <button className="turno__btn-primario" onClick={() => setModalClaseAbierto(true)}>
+                Agendar clase
+              </button>
+            </div>
+          </div>
+
+          {sesionesTeoria.length === 0 ? (
+            <p className="turno__vacio">Sin clases de teoría agendadas hoy.</p>
+          ) : sesionesTeoria.map((s) => (
+            <div key={s.id} className="turno__fila-teoria">
+              <span>{s.curso_codigo} — {s.instructor_nombre || "Sin instructor"}</span>
+              <span className="turno__fila-estado">{s.estado}</span>
+
+              {reasignando === s.id ? (
+                <select
+                  defaultValue=""
+                  onChange={async (e) => {
+                    if (!e.target.value) return;
+                    try {
+                      await reasignarSalonSesion(s.id, Number(e.target.value));
+                      toast.success("Salón reasignado");
+                      setReasignando(null);
+                      cargarTeoria();
+                    } catch (err) {
+                      toast.error(err?.response?.data?.message || "Error al reasignar");
+                    }
+                  }}
+                >
+                  <option value="">Elegir salón nuevo…</option>
+                  {salonesCatalogo.map((sl) => <option key={sl.id} value={sl.id}>{sl.nombre}</option>)}
+                </select>
+              ) : (
+                ["PROGRAMADA", "EN_CURSO"].includes(s.estado) && (
+                  <button onClick={() => setReasignando(s.id)}>Reasignar salón</button>
+                )
+              )}
+
+              {s.estado === "PROGRAMADA" && (
+                <button onClick={async () => {
+                  try { await cancelarSesionClase(s.id); toast.success("Clase cancelada"); cargarTeoria(); }
+                  catch (e) { toast.error(e?.response?.data?.message || "Error"); }
+                }}>
+                  Cancelar
+                </button>
+              )}
+            </div>
+          ))}
+
+          {reservasHoy.length > 0 && (
+            <>
+              <div className="turno__fila-teoria turno__fila-teoria--titulo">
+                <span>Reservas de salón (uso especial)</span>
+              </div>
+              {reservasHoy.map((r) => (
+                <div key={r.id} className="turno__fila-teoria">
+                  <span>{r.salon_nombre} — {r.motivo}{r.descripcion ? ` (${r.descripcion})` : ""}</span>
+                  <span className="turno__fila-estado">
+                    {bloquesCatalogo.find((b) => b.id_bloque === r.id_bloque)?.hora_inicio?.slice(0, 5) || ""}
+                    {r.id_bloque_fin ? `–${bloquesCatalogo.find((b) => b.id_bloque === r.id_bloque_fin)?.hora_fin?.slice(0, 5) || ""}` : ""}
+                  </span>
+                  <button onClick={async () => {
+                    try { await eliminarReservaSalon(r.id); toast.success("Reserva cancelada"); cargarTeoria(); }
+                    catch (e) { toast.error(e?.response?.data?.message || "Error al cancelar la reserva"); }
+                  }}>
+                    Cancelar reserva
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
         {/* ── Contenido ─────────────────────────────────────────────── */}
         {loading ? (
           <p className="trn__loading">Cargando…</p>
@@ -807,6 +980,27 @@ export default function TurnoDashboard() {
           aeronaves={agendarCtx.aeronaves}
           onClose={() => setAgendarCtx(null)}
           onCreated={() => { setAgendarCtx(null); cargarVuelos(); }}
+        />
+      )}
+
+      {modalClaseAbierto && (
+        <AgendarClaseModal
+          cursos={cursosTeoria}
+          bloques={bloquesCatalogo}
+          instructores={instructoresTeoria}
+          instructoresPicker
+          crearFn={crearSesion}
+          onClose={() => setModalClaseAbierto(false)}
+          onSaved={cargarTeoria}
+        />
+      )}
+
+      {modalReservaAbierto && (
+        <ReservarSalonModal
+          salones={salonesCatalogo}
+          bloques={bloquesCatalogo}
+          onClose={() => setModalReservaAbierto(false)}
+          onSaved={cargarTeoria}
         />
       )}
     </>

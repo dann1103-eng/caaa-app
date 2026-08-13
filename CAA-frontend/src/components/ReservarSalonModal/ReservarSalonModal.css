@@ -1,0 +1,16 @@
+.rsm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.rsm-modal { background: var(--c-surface-1); border-radius: var(--radius-md); padding: 20px; width: 100%; max-width: 420px; max-height: 92dvh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.rsm-header { display: flex; justify-content: space-between; align-items: center; }
+.rsm-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--c-ink-3); }
+.rsm-field { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-sm); color: var(--c-ink-2); }
+.rsm-field select, .rsm-field input[type="text"], .rsm-field input[type="date"] { padding: 8px; border: 1px solid var(--c-line-2); border-radius: var(--radius-sm); }
+.rsm-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.rsm-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.rsm-btn-primario { background: var(--c-brand-700); color: #fff; border: none; padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; font-weight: 600; }
+.rsm-btn-secundario { background: none; border: 1px solid var(--c-line-2); padding: 10px 16px; border-radius: var(--radius-sm); cursor: pointer; }
+
+/* 3 columnas no entran en un teléfono angosto — Salón/Fecha/Bloque quedaban
+   ilegibles amontonados. */
+@media (max-width: 480px) {
+  .rsm-row { grid-template-columns: 1fr; }
+}

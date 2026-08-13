@@ -2,6 +2,12 @@ const db = require("../../config/db");
 const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor, getSemanaActual, registrarHorasInstructor } = require("../../utils/instructorHelpers");
 const { notificarStaff } = require("../../utils/webpush");
+const {
+  esTramo,
+  nextEstadoTramo,
+  asegurarTramoAnteriorCerrado,
+  registrarAterrizajeTramo: registrarAterrizajeTramoCore,
+} = require("../../services/rutaTramoService");
 
 const NEXT_ESTADO_INSTRUCTOR = {
   PUBLICADO:      "SALIDA_HANGAR",
@@ -38,6 +44,11 @@ exports.getVuelosHoy = async (req, res) => {
          v.duracion_estimada_min,
          v.tiempo_vuelo_min,
          v.salida_anticipada,
+         v.grupo_ruta,
+         v.orden_tramo,
+         v.total_tramos,
+         v.icao_origen,
+         v.icao_destino,
          bh.hora_inicio,
          bh.hora_fin,
          a.codigo  AS aeronave_codigo,
@@ -104,6 +115,11 @@ exports.getVuelosSemana = async (req, res) => {
          v.duracion_estimada_min,
          v.tiempo_vuelo_min,
          v.salida_anticipada,
+         v.grupo_ruta,
+         v.orden_tramo,
+         v.total_tramos,
+         v.icao_origen,
+         v.icao_destino,
          bh.hora_inicio,
          bh.hora_fin,
          a.codigo  AS aeronave_codigo,
@@ -190,6 +206,7 @@ exports.avanzarEstadoVuelo = async (req, res) => {
 
     const vueloRes = await client.query(
       `SELECT v.id_vuelo, v.estado, v.id_aeronave, v.id_alumno, v.id_instructor,
+              v.grupo_ruta, v.orden_tramo, v.total_tramos, v.icao_origen, v.icao_destino,
               a.codigo AS aeronave_codigo, rv.es_inasistencia
        FROM vuelo v
        JOIN aeronave a ON a.id_aeronave = v.id_aeronave
@@ -213,18 +230,33 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     const aeroRes = await client.query("SELECT tipo FROM aeronave WHERE id_aeronave = $1", [vuelo.id_aeronave]);
     const esSimulador = aeroRes.rows[0]?.tipo === 'SIMULADOR';
 
-    let nuevoEstado = (esSimulador ? NEXT_ESTADO_INSTRUCTOR_SIM : NEXT_ESTADO_INSTRUCTOR)[vuelo.estado];
+    // Rutas con parada: cada tramo tiene su propia máquina de estados (ver
+    // services/rutaTramoService.js). Los tramos NO finales se cierran con el
+    // mini-form de aterrizaje, no con este botón genérico.
+    const vueloEsTramo = esTramo(vuelo);
+    const eraEspera = vuelo.estado === "EN_ESPERA_TRAMO";
+    let nuevoEstado = vueloEsTramo
+      ? nextEstadoTramo(vuelo)
+      : (esSimulador ? NEXT_ESTADO_INSTRUCTOR_SIM : NEXT_ESTADO_INSTRUCTOR)[vuelo.estado];
 
     if (!nuevoEstado) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "El vuelo no puede avanzar de estado" });
+      const msg = vueloEsTramo && vuelo.estado === "EN_PROGRESO"
+        ? "Este tramo se cierra registrando el aterrizaje en destino (TAC/HOBBS)."
+        : "El vuelo no puede avanzar de estado";
+      return res.status(400).json({ message: msg });
     }
 
     // GUARDIA DE AVIÓN/SIMULADOR OCUPADO: no sacar a hangar (o iniciar sesión de
     // simulador) si ya está en uso en otro vuelo (mismo criterio que Turno).
-    const esEventoSalida = nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO");
+    const esEventoSalida = nuevoEstado === "SALIDA_HANGAR"
+      || (esSimulador && nuevoEstado === "EN_PROGRESO")
+      || (vueloEsTramo && eraEspera && nuevoEstado === "EN_PROGRESO");
 
     if (esEventoSalida) {
+      if (vueloEsTramo) {
+        await asegurarTramoAnteriorCerrado(client, vuelo);
+      }
       const ocup = await client.query(
         `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
            FROM vuelo v2
@@ -233,8 +265,9 @@ exports.avanzarEstadoVuelo = async (req, res) => {
           WHERE v2.id_aeronave = $1
             AND v2.id_vuelo <> $2
             AND v2.estado IN ('SALIDA_HANGAR','EN_PROGRESO','REGRESO_HANGAR')
+            AND ($3::int IS NULL OR v2.grupo_ruta IS DISTINCT FROM $3::int)
           LIMIT 1`,
-        [vuelo.id_aeronave, Number(id_vuelo)]
+        [vuelo.id_aeronave, Number(id_vuelo), vuelo.grupo_ruta ?? null]
       );
       if (ocup.rows.length > 0) {
         await client.query("ROLLBACK");
@@ -398,6 +431,21 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       })();
     }
 
+    // Push al staff cuando arranca un tramo intermedio/final de una ruta con
+    // parada (no hay salida de hangar: el avión ya está afuera, en el destino
+    // del tramo anterior).
+    if (vueloEsTramo && eraEspera && nuevoEstado === "EN_PROGRESO") {
+      (async () => {
+        try {
+          await notificarStaff({
+            title: "🛫 Inició tramo de ruta",
+            body: `Vuelo #${id_vuelo} · tramo ${vuelo.orden_tramo}/${vuelo.total_tramos} hacia ${vuelo.icao_destino}`,
+            url: "/turno", tag: "hangar",
+          }, { excluirUid: user?.id_usuario, tipo: "VUELO_ESTADO" });
+        } catch (e) { console.error("push tramo:", e.message); }
+      })();
+    }
+
     res.json({
       id_vuelo: Number(id_vuelo),
       estado: nuevoEstado,
@@ -408,6 +456,10 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     });
   } catch (e) {
     await client.query("ROLLBACK");
+    // Errores de negocio de rutas con parada (rutaTramoService) traen .status.
+    if (e.status) {
+      return res.status(e.status).json({ message: e.message });
+    }
     console.error("avanzarEstadoVuelo instructor:", e);
     res.status(500).json({ message: "Error al avanzar estado" });
   } finally {
@@ -419,6 +471,7 @@ exports.registrarInasistencia = async (req, res) => {
   const { id_vuelo } = req.params;
   const user = req.user;
   const io = req.app.get("io");
+  let tramosCancelados = [];
 
   const id_instructor = await resolverIdInstructor(user.id_usuario);
   if (!id_instructor) return res.status(403).json({ message: "No sos instructor activo" });
@@ -427,11 +480,30 @@ exports.registrarInasistencia = async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Rutas con parada: la inasistencia solo aplica al primer tramo (el
+    // alumno/instructor no se presenta al inicio de la ruta). Si esto es un
+    // tramo posterior, no tiene sentido marcar inasistencia sobre él solo.
+    // Se filtra por id_instructor igual que el UPDATE de abajo, para no
+    // filtrar la estructura de una ruta que no le pertenece a este instructor.
+    const tramoRes = await client.query(
+      `SELECT grupo_ruta, orden_tramo FROM vuelo WHERE id_vuelo = $1 AND id_instructor = $2`,
+      [id_vuelo, id_instructor]
+    );
+    if (tramoRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Vuelo no encontrado o no asignado" });
+    }
+    const tramo = tramoRes.rows[0];
+    if (tramo?.grupo_ruta != null && Number(tramo.orden_tramo) > 1) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "La inasistencia solo aplica al primer tramo de una ruta." });
+    }
+
     // (Se removió el candado de "hora programada": marcar la inasistencia de un
     // no-show ANTES de su hora es justo lo que libera el avión para adelantar
     // otro vuelo con esa misma aeronave.)
     const upd = await client.query(
-      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0 
+      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0
        WHERE id_vuelo = $1 AND id_instructor = $2 RETURNING id_vuelo`,
       [id_vuelo, id_instructor]
     );
@@ -454,6 +526,26 @@ exports.registrarInasistencia = async (req, res) => {
       [id_vuelo, user?.id_usuario ?? null]
     );
 
+    // Rutas con parada: la inasistencia en el primer tramo cancela toda la
+    // ruta (los tramos siguientes ya no tienen sentido sin el primero).
+    if (tramo?.grupo_ruta != null) {
+      const canc = await client.query(
+        `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW(),
+                justificacion_cancelacion = 'Inasistencia en el primer tramo de la ruta'
+          WHERE grupo_ruta = $1 AND orden_tramo > 1
+            AND estado NOT IN ('CANCELADO','COMPLETADO')
+          RETURNING id_vuelo`,
+        [tramo.grupo_ruta]
+      );
+      tramosCancelados = canc.rows;
+      for (const row of canc.rows) {
+        await client.query(
+          `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por) VALUES ($1, 'CANCELADO', $2)`,
+          [row.id_vuelo, user?.id_usuario ?? null]
+        );
+      }
+    }
+
     await logAuditoria(client, {
       accion: "OTRO",
       entidad: "vuelo",
@@ -465,12 +557,15 @@ exports.registrarInasistencia = async (req, res) => {
     await client.query("COMMIT");
 
     if (io) {
-      io.emit("vuelo_estado_changed", { 
-        id_vuelo: Number(id_vuelo), 
-        estado: 'COMPLETADO', 
+      io.emit("vuelo_estado_changed", {
+        id_vuelo: Number(id_vuelo),
+        estado: 'COMPLETADO',
         registrado_en: ts.rows[0].registrado_en,
         es_inasistencia: true
       });
+      for (const row of tramosCancelados) {
+        io.emit("vuelo_estado_changed", { id_vuelo: row.id_vuelo, estado: "CANCELADO" });
+      }
     }
 
     res.json({ message: "Inasistencia registrada" });
@@ -478,6 +573,54 @@ exports.registrarInasistencia = async (req, res) => {
     await client.query("ROLLBACK");
     console.error("registrarInasistencia instructor:", e);
     res.status(500).json({ message: "Error al registrar inasistencia" });
+  } finally {
+    client.release();
+  }
+};
+
+// Mini-form de aterrizaje en destino (rutas con parada): cierra el tramo actual
+// con TAC/HOBBS de llegada y precarga la salida del tramo siguiente. Mismo
+// núcleo que el de Turno, pero con gate de pertenencia (solo el instructor
+// asignado al vuelo).
+exports.registrarAterrizajeTramo = async (req, res) => {
+  const { id_vuelo } = req.params;
+  const { tacometro, hobbs } = req.body;
+  const io = req.app.get("io");
+
+  const id_instructor = await resolverIdInstructor(req.user.id_usuario);
+  if (!id_instructor) return res.status(403).json({ message: "No sos instructor activo" });
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const vRes = await client.query(
+      `SELECT id_vuelo, estado, grupo_ruta, orden_tramo, total_tramos, icao_destino, id_instructor
+         FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`,
+      [Number(id_vuelo)]
+    );
+    if (vRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Vuelo no encontrado" });
+    }
+    if (vRes.rows[0].id_instructor !== id_instructor) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "No estás asignado a este vuelo" });
+    }
+    const out = await registrarAterrizajeTramoCore(client, {
+      vuelo: vRes.rows[0], tacometro, hobbs, id_usuario: req.user?.id_usuario,
+    });
+    await client.query("COMMIT");
+    if (io && !out.reabierto) {
+      io.emit("vuelo_estado_changed", {
+        id_vuelo: Number(id_vuelo), estado: "COMPLETADO", registrado_en: out.registrado_en,
+      });
+    }
+    res.json({ id_vuelo: Number(id_vuelo), ...out });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (e.status) return res.status(e.status).json({ message: e.message });
+    console.error("registrarAterrizajeTramo instructor:", e);
+    res.status(500).json({ message: "Error al registrar el aterrizaje" });
   } finally {
     client.release();
   }

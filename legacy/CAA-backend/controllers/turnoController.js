@@ -3,6 +3,12 @@ const { logAuditoria } = require("../utils/auditoria");
 const transporter = require("../utils/mailer");
 const { notificarStaff } = require("../utils/webpush");
 const { notificarUsuario } = require("../utils/notificaciones");
+const {
+  esTramo,
+  nextEstadoTramo,
+  asegurarTramoAnteriorCerrado,
+  registrarAterrizajeTramo: registrarAterrizajeTramoCore,
+} = require("../services/rutaTramoService");
 
 // Flujo unificado TURNO + INSTRUCTOR
 const NEXT_ESTADO = {
@@ -60,6 +66,11 @@ exports.getVuelosHoy = async (req, res) => {
          v.aprobado_dueno_en,
          v.categoria,
          v.nombre_externo,
+         v.grupo_ruta,
+         v.orden_tramo,
+         v.total_tramos,
+         v.icao_origen,
+         v.icao_destino,
          bh.hora_inicio,
          bh.hora_fin,
          a.codigo  AS aeronave_codigo,
@@ -112,8 +123,9 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     await client.query("BEGIN");
 
     const vueloRes = await client.query(
-      `SELECT v.id_vuelo, v.estado, v.id_aeronave, rv.es_inasistencia 
-       FROM vuelo v 
+      `SELECT v.id_vuelo, v.estado, v.id_aeronave, rv.es_inasistencia,
+              v.grupo_ruta, v.orden_tramo, v.total_tramos, v.icao_origen, v.icao_destino
+       FROM vuelo v
        LEFT JOIN reporte_vuelo rv ON rv.id_vuelo = v.id_vuelo
        WHERE v.id_vuelo = $1 FOR UPDATE OF v`,
       [Number(id_vuelo)]
@@ -128,11 +140,21 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     const aeroRes = await client.query("SELECT tipo FROM aeronave WHERE id_aeronave = $1", [vuelo.id_aeronave]);
     const esSimulador = aeroRes.rows[0]?.tipo === 'SIMULADOR';
 
-    let nuevoEstado = (esSimulador ? NEXT_ESTADO_SIM : NEXT_ESTADO)[vuelo.estado];
+    // Rutas con parada: cada tramo tiene su propia máquina de estados (ver
+    // services/rutaTramoService.js). Los tramos NO finales se cierran con el
+    // mini-form de aterrizaje, no con este botón genérico.
+    const vueloEsTramo = esTramo(vuelo);
+    const eraEspera = vuelo.estado === "EN_ESPERA_TRAMO";
+    let nuevoEstado = vueloEsTramo
+      ? nextEstadoTramo(vuelo)
+      : (esSimulador ? NEXT_ESTADO_SIM : NEXT_ESTADO)[vuelo.estado];
 
     if (!nuevoEstado) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "El vuelo no puede avanzar de estado" });
+      const msg = vueloEsTramo && vuelo.estado === "EN_PROGRESO"
+        ? "Este tramo se cierra registrando el aterrizaje en destino (TAC/HOBBS)."
+        : "El vuelo no puede avanzar de estado";
+      return res.status(400).json({ message: msg });
     }
 
     // GUARDIA DE AVIÓN/SIMULADOR OCUPADO (reemplaza el viejo candado de "hora
@@ -141,9 +163,14 @@ exports.avanzarEstadoVuelo = async (req, res) => {
     // "iniciar sesión" (simulador) es que no esté ya físicamente en uso en otro
     // vuelo. Marcar la inasistencia del vuelo que la ocupa (lo deja COMPLETADO)
     // la libera y habilita usarla con el adelantado.
-    const esEventoSalida = nuevoEstado === "SALIDA_HANGAR" || (esSimulador && nuevoEstado === "EN_PROGRESO");
+    const esEventoSalida = nuevoEstado === "SALIDA_HANGAR"
+      || (esSimulador && nuevoEstado === "EN_PROGRESO")
+      || (vueloEsTramo && eraEspera && nuevoEstado === "EN_PROGRESO");
 
     if (esEventoSalida) {
+      if (vueloEsTramo) {
+        await asegurarTramoAnteriorCerrado(client, vuelo);
+      }
       const ocup = await client.query(
         `SELECT TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS quien
            FROM vuelo v2
@@ -152,8 +179,9 @@ exports.avanzarEstadoVuelo = async (req, res) => {
           WHERE v2.id_aeronave = $1
             AND v2.id_vuelo <> $2
             AND v2.estado IN ('SALIDA_HANGAR','EN_PROGRESO','REGRESO_HANGAR')
+            AND ($3::int IS NULL OR v2.grupo_ruta IS DISTINCT FROM $3::int)
           LIMIT 1`,
-        [vuelo.id_aeronave, Number(id_vuelo)]
+        [vuelo.id_aeronave, Number(id_vuelo), vuelo.grupo_ruta ?? null]
       );
       if (ocup.rows.length > 0) {
         await client.query("ROLLBACK");
@@ -294,9 +322,28 @@ exports.avanzarEstadoVuelo = async (req, res) => {
       })();
     }
 
+    // Push al staff cuando arranca un tramo intermedio/final de una ruta con
+    // parada (no hay salida de hangar: el avión ya está afuera, en el destino
+    // del tramo anterior).
+    if (vueloEsTramo && eraEspera && nuevoEstado === "EN_PROGRESO") {
+      (async () => {
+        try {
+          await notificarStaff({
+            title: "🛫 Inició tramo de ruta",
+            body: `Vuelo #${id_vuelo} · tramo ${vuelo.orden_tramo}/${vuelo.total_tramos} hacia ${vuelo.icao_destino}`,
+            url: "/turno", tag: "hangar",
+          }, { excluirUid: user?.id_usuario, tipo: "VUELO_ESTADO" });
+        } catch (e) { console.error("push tramo:", e.message); }
+      })();
+    }
+
     res.json({ id_vuelo: Number(id_vuelo), estado: nuevoEstado, registrado_en, duracion_estimada_min: duracionMin });
   } catch (e) {
     await client.query("ROLLBACK");
+    // Errores de negocio de rutas con parada (rutaTramoService) traen .status.
+    if (e.status) {
+      return res.status(e.status).json({ message: e.message });
+    }
     console.error("avanzarEstadoVuelo:", e);
     res.status(500).json({ message: "Error al avanzar estado" });
   } finally {
@@ -391,14 +438,28 @@ exports.registrarInasistencia = async (req, res) => {
   const { id_vuelo } = req.params;
   const user = req.user;
   const io = req.app.get("io");
+  let tramosCancelados = [];
 
   const client = await db.connect();
   try {
     await client.query("BEGIN");
 
+    // Rutas con parada: la inasistencia solo aplica al primer tramo (el
+    // alumno/instructor no se presenta al inicio de la ruta). Si esto es un
+    // tramo posterior, no tiene sentido marcar inasistencia sobre él solo.
+    const tramoRes = await client.query(
+      `SELECT grupo_ruta, orden_tramo FROM vuelo WHERE id_vuelo = $1`,
+      [id_vuelo]
+    );
+    const tramo = tramoRes.rows[0];
+    if (tramo?.grupo_ruta != null && Number(tramo.orden_tramo) > 1) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "La inasistencia solo aplica al primer tramo de una ruta." });
+    }
+
     // 1. Marcar el vuelo como COMPLETADO y 0 min
     const upd = await client.query(
-      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0 
+      `UPDATE vuelo SET estado = 'COMPLETADO', tiempo_vuelo_min = 0
        WHERE id_vuelo = $1 RETURNING id_vuelo, id_aeronave`,
       [id_vuelo]
     );
@@ -423,6 +484,26 @@ exports.registrarInasistencia = async (req, res) => {
       [id_vuelo, user?.id_usuario ?? null]
     );
 
+    // Rutas con parada: la inasistencia en el primer tramo cancela toda la
+    // ruta (los tramos siguientes ya no tienen sentido sin el primero).
+    if (tramo?.grupo_ruta != null) {
+      const canc = await client.query(
+        `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW(),
+                justificacion_cancelacion = 'Inasistencia en el primer tramo de la ruta'
+          WHERE grupo_ruta = $1 AND orden_tramo > 1
+            AND estado NOT IN ('CANCELADO','COMPLETADO')
+          RETURNING id_vuelo`,
+        [tramo.grupo_ruta]
+      );
+      tramosCancelados = canc.rows;
+      for (const row of canc.rows) {
+        await client.query(
+          `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por) VALUES ($1, 'CANCELADO', $2)`,
+          [row.id_vuelo, user?.id_usuario ?? null]
+        );
+      }
+    }
+
     await logAuditoria(client, {
       accion: "OTRO",
       entidad: "vuelo",
@@ -434,11 +515,14 @@ exports.registrarInasistencia = async (req, res) => {
     await client.query("COMMIT");
 
     if (io) {
-      io.emit("vuelo_estado_changed", { 
-        id_vuelo: Number(id_vuelo), 
-        estado: 'COMPLETADO', 
-        registrado_en: ts.rows[0].registrado_en 
+      io.emit("vuelo_estado_changed", {
+        id_vuelo: Number(id_vuelo),
+        estado: 'COMPLETADO',
+        registrado_en: ts.rows[0].registrado_en
       });
+      for (const row of tramosCancelados) {
+        io.emit("vuelo_estado_changed", { id_vuelo: row.id_vuelo, estado: "CANCELADO" });
+      }
     }
 
     res.json({ message: "Inasistencia registrada correctamente" });
@@ -1146,7 +1230,8 @@ exports.editarTripulacion = async (req, res) => {
 
     const vueloRes = await client.query(
       `SELECT v.id_vuelo, v.id_semana, v.dia_semana, v.id_bloque, v.id_bloque_fin, v.estado,
-              v.id_alumno, v.id_instructor, v.id_aeronave, v.es_extracurricular, sw.publicada, sw.fecha_inicio
+              v.id_alumno, v.id_instructor, v.id_aeronave, v.es_extracurricular, v.grupo_ruta,
+              sw.publicada, sw.fecha_inicio
          FROM vuelo v
          JOIN semana_vuelo sw ON sw.id_semana = v.id_semana
         WHERE v.id_vuelo = $1 FOR UPDATE OF v`,
@@ -1165,6 +1250,14 @@ exports.editarTripulacion = async (req, res) => {
     if (["CANCELADO", "COMPLETADO"].includes(vuelo.estado)) {
       await client.query("ROLLBACK");
       return res.status(400).json({ message: `No se puede editar un vuelo ${vuelo.estado.toLowerCase()}` });
+    }
+
+    // Rutas con parada: el día es de TODA la ruta (todos los tramos comparten
+    // fecha). Moverlo tramo por tramo la partiría en dos fechas y dejaría el
+    // retorno sin poder volarse. Se cancela y reagenda la ruta completa.
+    if (vuelo.grupo_ruta != null && Number(dia_semana) !== Number(vuelo.dia_semana)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "No se puede mover de día un tramo de una ruta con parada — cancelá y reagendá la ruta completa." });
     }
 
     const finActual = vuelo.id_bloque_fin || vuelo.id_bloque;
@@ -1238,6 +1331,38 @@ exports.editarTripulacion = async (req, res) => {
         WHERE id_vuelo=$10`,
       [nuevoAlumno, nuevoInstructor, nuevaAeronave, almas, pasajeros, nuevoDia, nuevoBloque, nuevoFin, vuelo.fecha_inicio, vuelo.id_vuelo]
     );
+
+    // Rutas con parada: instructor y aeronave son de TODA la ruta (el alumno
+    // sí es por tramo y se cambia con el modal de asignación).
+    if (vuelo.grupo_ruta != null) {
+      await client.query(
+        `UPDATE vuelo SET id_instructor = $1, id_aeronave = $2
+          WHERE grupo_ruta = $3 AND id_vuelo <> $4 AND estado NOT IN ('CANCELADO','COMPLETADO')`,
+        [nuevoInstructor, nuevaAeronave, vuelo.grupo_ruta, vuelo.id_vuelo]
+      );
+
+      // La aeronave nueva aplica a todos los tramos: verificar que ninguno choque
+      // con otro vuelo de esa aeronave en su propio rango de bloques.
+      const choque = await client.query(
+        `SELECT v2.id_vuelo, b.hora_inicio
+           FROM vuelo t
+           JOIN vuelo v2 ON v2.id_aeronave = t.id_aeronave
+                        AND v2.fecha_vuelo = t.fecha_vuelo
+                        AND v2.id_vuelo <> t.id_vuelo
+                        AND (v2.grupo_ruta IS NULL OR v2.grupo_ruta <> t.grupo_ruta)
+                        AND v2.estado NOT IN ('CANCELADO','COMPLETADO')
+                        AND NOT (COALESCE(v2.id_bloque_fin, v2.id_bloque) < t.id_bloque
+                                 OR v2.id_bloque > COALESCE(t.id_bloque_fin, t.id_bloque))
+           JOIN bloque_horario b ON b.id_bloque = v2.id_bloque
+          WHERE t.grupo_ruta = $1 AND t.estado NOT IN ('CANCELADO','COMPLETADO')
+          LIMIT 1`,
+        [vuelo.grupo_ruta]
+      );
+      if (choque.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: `Esa aeronave ya está ocupada por otro vuelo (${String(choque.rows[0].hora_inicio).slice(0,5)}) en el horario de otro tramo de la ruta.` });
+      }
+    }
 
     await logAuditoria(client, {
       accion: instructorCambio && !alumnoCambio && !aeronaveCambio ? "CAMBIAR_INSTRUCTOR_VUELO" : "OTRO",
@@ -1343,6 +1468,94 @@ exports.editarTripulacion = async (req, res) => {
     }
     console.error("editarTripulacion:", e);
     res.status(500).json({ message: "Error al editar tripulación" });
+  } finally {
+    client.release();
+  }
+};
+
+// Mini-form de aterrizaje en destino (rutas con parada): cierra el tramo actual
+// con TAC/HOBBS de llegada y precarga la salida del tramo siguiente.
+exports.registrarAterrizajeTramo = async (req, res) => {
+  const { id_vuelo } = req.params;
+  const { tacometro, hobbs } = req.body;
+  const io = req.app.get("io");
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const vRes = await client.query(
+      `SELECT id_vuelo, estado, grupo_ruta, orden_tramo, total_tramos, icao_destino
+         FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`,
+      [Number(id_vuelo)]
+    );
+    if (vRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Vuelo no encontrado" });
+    }
+    const out = await registrarAterrizajeTramoCore(client, {
+      vuelo: vRes.rows[0], tacometro, hobbs, id_usuario: req.user?.id_usuario,
+    });
+    await client.query("COMMIT");
+    if (io && !out.reabierto) {
+      io.emit("vuelo_estado_changed", {
+        id_vuelo: Number(id_vuelo), estado: "COMPLETADO", registrado_en: out.registrado_en,
+      });
+    }
+    res.json({ id_vuelo: Number(id_vuelo), ...out });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    if (e.status) return res.status(e.status).json({ message: e.message });
+    console.error("registrarAterrizajeTramo:", e);
+    res.status(500).json({ message: "Error al registrar el aterrizaje" });
+  } finally {
+    client.release();
+  }
+};
+
+// Cancela este tramo y todos los siguientes de la misma ruta (solo los que aún
+// no volaron). Para rutas cortadas en la vida real (clima en destino, etc.):
+// el tramo que sí voló se cierra con regreso anticipado en su vouchera.
+exports.cancelarTramosRestantes = async (req, res) => {
+  const { id_vuelo } = req.params;
+  const { motivo } = req.body;
+  const io = req.app.get("io");
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const vRes = await client.query(
+      `SELECT grupo_ruta, orden_tramo FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`,
+      [Number(id_vuelo)]
+    );
+    if (!vRes.rows.length || vRes.rows[0].grupo_ruta == null) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Este vuelo no es un tramo de ruta." });
+    }
+    const { grupo_ruta, orden_tramo } = vRes.rows[0];
+    const cancelados = await client.query(
+      `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW(),
+              tipo_cancelacion = 'NORMAL',
+              justificacion_cancelacion = $3
+        WHERE grupo_ruta = $1 AND orden_tramo >= $2
+          AND estado IN ('PUBLICADO','PROGRAMADO','EN_ESPERA_TRAMO')
+        RETURNING id_vuelo`,
+      [grupo_ruta, orden_tramo, String(motivo || "Tramos restantes de la ruta cancelados por Turno").trim()]
+    );
+    for (const row of cancelados.rows) {
+      await client.query(
+        `INSERT INTO vuelo_estado_tiempo (id_vuelo, estado, registrado_por) VALUES ($1, 'CANCELADO', $2)`,
+        [row.id_vuelo, req.user?.id_usuario ?? null]
+      );
+    }
+    await client.query("COMMIT");
+    if (io) {
+      for (const row of cancelados.rows) {
+        io.emit("vuelo_estado_changed", { id_vuelo: row.id_vuelo, estado: "CANCELADO" });
+      }
+    }
+    res.json({ cancelados: cancelados.rows.map((r) => r.id_vuelo) });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("cancelarTramosRestantes:", e);
+    res.status(500).json({ message: "Error al cancelar los tramos restantes" });
   } finally {
     client.release();
   }

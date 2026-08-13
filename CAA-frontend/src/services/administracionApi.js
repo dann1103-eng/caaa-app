@@ -210,3 +210,38 @@ export const abrirPyLPDF = async ({ desde, hasta, mensual, categorias }) => {
 // ── Avisos (ticker + push, por perfil) ─────────────────────────────────
 export const publicarAviso = async ({ mensaje, destinatarios, enviarTicker, enviarPush }) =>
   (await axios.post(`${BASE}/avisos`, { mensaje, destinatarios, enviarTicker, enviarPush })).data;
+
+// ── Agenda de teoría (salones, ciclo de vida, reservas) ─────────────────────
+export const getSalones = async () => (await axios.get(`${BASE}/aula/salones`)).data;
+
+export const getDisponibilidadSalones = async (fecha, id_bloque, id_bloque_fin) =>
+  (await axios.get(`${BASE}/aula/salones/disponibilidad`, { params: { fecha, id_bloque, id_bloque_fin } })).data;
+
+export const getRosterCurso = async (id_curso) =>
+  (await axios.get(`${BASE}/aula/cursos/${id_curso}/roster`)).data;
+
+export const getInstructoresTeoria = async () => (await axios.get(`${BASE}/aula/instructores`)).data;
+
+export const editarSesionClase = async (id, payload) =>
+  (await axios.patch(`${BASE}/aula/sesiones/${id}`, payload)).data;
+
+export const cancelarSesionClase = async (id) =>
+  (await axios.post(`${BASE}/aula/sesiones/${id}/cancelar`)).data;
+
+export const iniciarSesionClase = async (id) =>
+  (await axios.post(`${BASE}/aula/sesiones/${id}/iniciar`)).data;
+
+export const cerrarSesionClase = async (id) =>
+  (await axios.post(`${BASE}/aula/sesiones/${id}/cerrar`)).data;
+
+export const reasignarSalonSesion = async (id, id_salon) =>
+  (await axios.patch(`${BASE}/aula/sesiones/${id}/salon`, { id_salon })).data;
+
+export const getReservasSalon = async (fecha) =>
+  (await axios.get(`${BASE}/aula/reservas-salon`, { params: { fecha } })).data;
+
+export const crearReservaSalon = async (payload) =>
+  (await axios.post(`${BASE}/aula/reservas-salon`, payload)).data;
+
+export const eliminarReservaSalon = async (id) =>
+  (await axios.delete(`${BASE}/aula/reservas-salon/${id}`)).data;

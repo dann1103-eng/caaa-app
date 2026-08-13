@@ -43,8 +43,16 @@ router.get("/bloques-bloqueados", adminAccess, adminVuelo.getBloquesBloqueados);
 router.get("/instructores-activos", adminAccess, adminVuelo.getInstructoresActivos);
 router.patch("/solicitudes/:id_detalle/cambiar-instructor", adminAccess, adminVuelo.cambiarInstructorVuelo);
 router.patch("/solicitudes/:id_detalle/rechazar", adminAccess, adminVuelo.rechazarSolicitudIndividual);
+router.patch("/solicitudes/:id_detalle/aprobar", adminAccess, adminVuelo.aprobarSolicitudIndividual);
 router.patch("/solicitudes-semana/:id_solicitud/rechazar", adminAccess, adminVuelo.rechazarSolicitudSemana);
 router.patch("/solicitudes-semana/:id_solicitud/cancelar", adminAccess, adminVuelo.cancelarSolicitud);
+// Cierre extraordinario de una semana completa (p.ej. vacaciones): rechaza TODAS
+// las solicitudes de esa semana y notifica in-app a cada alumno/instructor afectado.
+router.patch("/semanas/:id_semana/rechazar-todo", adminAccess, adminVuelo.rechazarSemanaCompleta);
+
+// Rutas con parada: tramos + reasignación de alumno por tramo (modal "Asignar alumnos por tramo").
+router.get("/rutas/:id_detalle/tramos", adminAccess, adminVuelo.getTramosRuta);
+router.patch("/vuelos/:id_vuelo/alumno-tramo", adminAccess, adminVuelo.asignarAlumnoTramo);
 
 // --- Aeronaves ---
 router.get("/aeronaves", adminAccess, adminAeronave.getAeronavesActivas);
@@ -79,6 +87,8 @@ router.post("/aeronaves/:id/iniciar-mantenimiento", adminAccess, adminMantenimie
 router.post("/aeronaves/:id/completar-mantenimiento", adminAccess, adminMantenimiento.completarMantenimiento);
 router.delete("/mantenimiento/:id", adminAccess, adminMantenimiento.cancelarMantenimiento);
 router.post("/aeronaves/:id/agregar-bloques-mantenimiento", adminAccess, adminMantenimiento.agregarBloquesMantenimiento);
+router.post("/aeronaves/:id/reconciliar-cancelaciones-mantenimiento", adminAccess, adminMantenimiento.reconciliarCancelaciones);
+router.post("/vuelos/:id_vuelo/restaurar-cancelacion", adminAccess, adminMantenimiento.restaurarVueloCancelado);
 
 // --- Reserva de aeronave (uso especial sin alumno: traslado/prueba/etc.) ---
 router.get("/reservas", adminAccess, reservaAeronave.listarReservas);

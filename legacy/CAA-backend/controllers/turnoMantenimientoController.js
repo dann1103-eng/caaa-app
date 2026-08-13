@@ -23,7 +23,7 @@ const HOY_SV = `(NOW() AT TIME ZONE 'America/El_Salvador')::date`;
 // estimada del mantenimiento (mañana..fecha_fin).
 const WHERE_VUELOS_AFECTADOS = `
   v.id_aeronave = $1
-  AND v.estado IN ('PUBLICADO', 'SOLICITADO', 'AJUSTADO', 'PROGRAMADO')
+  AND v.estado IN ('PUBLICADO', 'SOLICITADO', 'AJUSTADO', 'PROGRAMADO', 'EN_ESPERA_TRAMO')
   AND (
     (v.fecha_vuelo = ${HOY_SV}
      AND EXISTS (
@@ -152,6 +152,21 @@ exports.iniciarMantenimientoAeronave = catchAsync(async (req, res) => {
       [id, bloques, fecha_fin || null, `Mantenimiento imprevisto de ${codigo}: ${String(descripcion).trim()}`]
     );
     const idsCancelados = cancelRes.rows.map((r) => r.id_vuelo);
+
+    // Rutas con parada: si cayó un tramo, caen también sus hermanos que aún no
+    // volaron (el avión no va a estar para completar la ruta).
+    if (idsCancelados.length > 0) {
+      const hermanos = await client.query(
+        `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW(),
+                tipo_cancelacion = 'NORMAL',
+                justificacion_cancelacion = $2
+          WHERE grupo_ruta IN (SELECT grupo_ruta FROM vuelo WHERE id_vuelo = ANY($1::int[]) AND grupo_ruta IS NOT NULL)
+            AND estado IN ('PUBLICADO','PROGRAMADO','EN_ESPERA_TRAMO')
+          RETURNING id_vuelo`,
+        [idsCancelados, `Mantenimiento imprevisto de ${codigo}: ${String(descripcion).trim()}`]
+      );
+      for (const row of hermanos.rows) idsCancelados.push(row.id_vuelo);
+    }
 
     let tripulaciones = [];
     if (idsCancelados.length > 0) {

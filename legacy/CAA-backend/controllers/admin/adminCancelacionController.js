@@ -73,7 +73,15 @@ exports.resolverSolicitudCancelacion = catchAsync(async (req, res) => {
     await client.query(`UPDATE solicitud_cancelacion SET estado = $1, resuelto_en = NOW(), resuelto_por = $2 WHERE id_solicitud_cancelacion = $3`, [decision, req.user.id_usuario, id]);
     
     if (decision === 'ACEPTADA') {
-      await client.query(`UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW() WHERE id_vuelo = $1`, [solRes.rows[0].id_vuelo]);
+      // Rutas con parada: aceptar la cancelación de un tramo cancela TODA la
+      // ruta (los demás tramos comparten grupo_ruta y no tienen sentido solos).
+      await client.query(
+        `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW()
+          WHERE (id_vuelo = $1
+             OR grupo_ruta = (SELECT grupo_ruta FROM vuelo WHERE id_vuelo = $1 AND grupo_ruta IS NOT NULL))
+            AND estado NOT IN ('CANCELADO','COMPLETADO')`,
+        [solRes.rows[0].id_vuelo]
+      );
       // Lista de espera: ofrecer el cupo liberado al siguiente candidato (si hay
       // margen suficiente). NO se dispara en cierres de operaciones (esa ruta no
       // llama aquí). No debe abortar la cancelación si algo falla.

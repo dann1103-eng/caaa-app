@@ -2,9 +2,11 @@
  * calcFuel — Calcula combustible a partir de tiempos ingresados (minutos)
  * y los flujos de combustible (gal/h y KG/h).
  *
- * Todos los tiempos son inputs manuales del alumno.
+ * TAXI/TRIP/R-R/ALT1/ALT2/FINAL RESERVE son inputs manuales del alumno.
  * TFOB viene del combustible cargado en W&B (Step 2).
- * EXTRA = TFOB − MIN REQUIRED (auto-calculado).
+ * MIN REQUIRED = ALT 1 + ALT 2 + R/R 5% + FINAL RESERVE (auto-calculado).
+ * EXTRA = TFOB − MIN REQUIRED − TAXI − TRIP (auto-calculado; el FINAL RESERVE
+ * ya va dentro de MIN REQUIRED, no se resta aparte).
  *
  * @param {object} params
  * @param {number} params.flowGal     - Fuel flow en US gal/h
@@ -17,7 +19,7 @@
  * @param {number} params.reserveMin  - Tiempo de FINAL RESERVE en minutos (manual)
  * @param {number} params.tfobGal     - Total Fuel On Board en US gal (desde W&B Step 2)
  */
-export function calcFuel({ flowGal, flowKg, taxiMin, tripMin, rarMin, alt1Min, alt2Min, reserveMin, minReqMin: manualMinReqMin, tfobGal }) {
+export function calcFuel({ flowGal, flowKg, taxiMin, tripMin, rarMin, alt1Min, alt2Min, reserveMin, tfobGal }) {
   const fG = parseFloat(flowGal) || 0
   const fK = parseFloat(flowKg) || 0
   const txMin = parseFloat(taxiMin) || 0
@@ -26,7 +28,6 @@ export function calcFuel({ flowGal, flowKg, taxiMin, tripMin, rarMin, alt1Min, a
   const a1Min = parseFloat(alt1Min) || 0
   const a2Min = parseFloat(alt2Min) || 0
   const rsMin = parseFloat(reserveMin) || 0
-  const mrMin = parseFloat(manualMinReqMin) || 0
   const tfobG = parseFloat(tfobGal) || 0
 
   // Convierte minutos a galones y KG usando los flujos ingresados
@@ -46,7 +47,8 @@ export function calcFuel({ flowGal, flowKg, taxiMin, tripMin, rarMin, alt1Min, a
   const reserveGal = minToGal(rsMin)
   const reserveKg  = minToKg(rsMin)
 
-  // MIN REQUIRED — ingresado manualmente por el alumno (en minutos)
+  // MIN REQUIRED — auto: ALT 1 + ALT 2 + R/R 5% + FINAL RESERVE
+  const mrMin = a1Min + a2Min + rrMin + rsMin
   const minReqGal = minToGal(mrMin)
   const minReqKg  = minToKg(mrMin)
   const minReqMin = mrMin
@@ -56,8 +58,10 @@ export function calcFuel({ flowGal, flowKg, taxiMin, tripMin, rarMin, alt1Min, a
   const tfobKg      = fG > 0 ? tfobG * (fK / fG) : tfobG * (fK || 0)
   const tfobMin     = fG > 0 ? (tfobG / fG) * 60 : 0
 
-  // EXTRA — auto: TFOB − MIN REQUIRED
-  const extraGal = tfobG - minReqGal
+  // EXTRA — auto: TFOB − MIN REQUIRED − TAXI − TRIP. El FINAL RESERVE ya no se
+  // resta aparte: viene contemplado dentro de MIN REQUIRED (restarlo acá lo
+  // descontaría dos veces).
+  const extraGal = tfobG - minReqGal - taxiGal - tripGal
   const extraKg  = fG > 0 ? (extraGal / fG) * fK : 0
   const extraMin = fG > 0 ? (extraGal / fG) * 60 : 0
 

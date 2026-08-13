@@ -53,6 +53,13 @@ export const avanzarEstadoVuelo = async (id_vuelo, body = {}) => {
   return res.data;
 };
 
+// Rutas con parada: registra el aterrizaje en el aeropuerto intermedio (cierra
+// este tramo y precarga la vouchera del siguiente). Ownership-checked por backend.
+export const registrarAterrizajeTramoInstructor = async (id_vuelo, { tacometro, hobbs }) => {
+  const res = await axios.post(`${API_URL}/instructor/vuelos/${id_vuelo}/aterrizaje-tramo`, { tacometro, hobbs });
+  return res.data;
+};
+
 export const actualizarLimitesAlumno = async (id_alumno, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia) => {
   const res = await axios.patch(
     `${API_URL}/instructor/alumnos/${id_alumno}/limites`,
@@ -99,6 +106,13 @@ export const guardarReporteVueloInstructor = async (id_vuelo, datos) => {
 
 export const firmarReporteVuelo = async (id_vuelo, datos) => {
   const res = await axios.patch(`${API_URL}/instructor/vuelos/${id_vuelo}/reporte-vuelo/firmar`, datos);
+  return res.data;
+};
+
+// Corrige una vouchera ya firmada (PENDIENTE_ALUMNO) mientras el alumno todavía
+// no la firmó — el instructor se equivocó al llenarla.
+export const editarReporteVueloFirmado = async (id_vuelo, datos) => {
+  const res = await axios.patch(`${API_URL}/instructor/vuelos/${id_vuelo}/reporte-vuelo/editar`, datos);
   return res.data;
 };
 

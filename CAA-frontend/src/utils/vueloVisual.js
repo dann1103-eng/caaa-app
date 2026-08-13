@@ -26,6 +26,7 @@ export const ESTADO_VUELO_META = {
   FINALIZANDO:    { label: "FINALIZANDO",     cls: "pp__tbl-badge--finaliz"  },
   PROGRAMADO:     { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
   PUBLICADO:      { label: "STANDBY",         cls: "pp__tbl-badge--programado" },
+  EN_ESPERA_TRAMO: { label: "EN ESPERA",      cls: "pp__tbl-badge--programado" },
 };
 
 // Tipo de vuelo (elegido al agendar en Programación) — describe qué se va a
@@ -102,4 +103,20 @@ export function aeroBadgeStyle(codigo) {
   const c = colorAeronave(codigo);
   if (!c) return undefined;
   return { color: c, background: hexToRgba(c, 0.1), borderColor: hexToRgba(c, 0.2) };
+}
+
+// Badge "T2/3 · MGGT→MHTG" para tramos de ruta con parada; null si no aplica.
+export function tramoBadge(v) {
+  if (v?.grupo_ruta == null) return null;
+  return `T${v.orden_tramo}/${v.total_tramos} · ${v.icao_origen}→${v.icao_destino}`;
+}
+
+// Etiqueta de estado con contexto de tramo: un tramo esperando en destino
+// muestra "EN MGGT — ESPERANDO" en vez del genérico.
+export function estadoVueloMeta(v) {
+  const base = ESTADO_VUELO_META[v?.estado] || { label: v?.estado, cls: "pp__tbl-badge--envuelo" };
+  if (v?.estado === "EN_ESPERA_TRAMO" && v?.icao_origen) {
+    return { ...base, label: `EN ${v.icao_origen} — ESPERANDO` };
+  }
+  return base;
 }

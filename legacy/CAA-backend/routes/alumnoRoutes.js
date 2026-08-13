@@ -60,6 +60,7 @@ router.get("/mi-proximo-mantenimiento", alumnoAccess, alumnoVuelo.getMiProximoMa
 router.get("/bloques-bloqueados", alumnoAccess, alumnoVuelo.getBloquesBloqueados);
 router.get("/condiciones-cancelacion", alumnoAccess, alumnoVuelo.getCondicionesCancelacion);
 router.get("/mis-clases", alumnoAccess, alumnoVuelo.getMisClases);
+router.post("/mis-clases/:id_sesion/firmar", alumnoAccess, alumnoVuelo.firmarAsistenciaClase);
 
 // Lista de espera (stand-by): ofertas de cupos liberados.
 const standby = require("../controllers/standbyController");

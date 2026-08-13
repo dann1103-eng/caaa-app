@@ -5,6 +5,8 @@ const transporter = require("../../utils/mailer");
 const { horarioAlumnoEmail, horarioInstructorEmail } = require("../../utils/emailTemplates");
 const { getNextSemanaId, getCurrentSemanaId, crearSemanaFutura } = require("../../utils/adminHelpers");
 const { dispararOfertaPorCancelacion } = require("../../controllers/standbyController");
+const { notificarUsuario } = require("../../utils/notificaciones");
+const { normalizarParadas, construirTramos } = require("../../utils/rutaTramos");
 
 exports.getSemanas = catchAsync(async (req, res) => {
   const result = await db.query(`
@@ -120,7 +122,55 @@ exports.publicarSemana = catchAsync(async (req, res) => {
       WHERE sv.id_semana = $1
         AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
         AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
+        AND COALESCE(sv.con_parada, false) = false
     `, [id_semana]);
+
+    // Rutas con parada: N filas de vuelo por solicitud (una por tramo),
+    // enlazadas por grupo_ruta = id_detalle. Tramo 1 nace PUBLICADO; los
+    // demás EN_ESPERA_TRAMO (los abre el instructor desde destino).
+    const rutasRes = await client.query(`
+      SELECT sv.id_detalle, sv.id_semana, ss.id_alumno,
+             COALESCE(sv.id_instructor, al.id_instructor) AS id_instructor,
+             sv.id_aeronave, sv.dia_semana, sv.id_bloque, sv.id_bloque_fin,
+             COALESCE(sv.es_extracurricular, FALSE) AS es_extracurricular,
+             COALESCE(sv.tipo_instruccion, 'NORMAL') AS tipo_instruccion,
+             COALESCE(sv.categoria, 'NORMAL') AS categoria,
+             sv.nombre_externo, sv.id_licencia_chequeo, sv.debitar_saldo, sv.tramos_ruta,
+             sw.fecha_inicio + (sv.dia_semana - 1) AS fecha_vuelo
+        FROM solicitud_vuelo sv
+        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        JOIN alumno al ON al.id_alumno = ss.id_alumno
+        JOIN semana_vuelo sw ON sw.id_semana = sv.id_semana
+       WHERE sv.id_semana = $1 AND sv.con_parada = true
+         AND ss.estado NOT IN ('RECHAZADA','CANCELADA')
+         AND (sv.estado IS NULL OR sv.estado <> 'RECHAZADA')
+    `, [id_semana]);
+
+    for (const r of rutasRes.rows) {
+      const tramos = construirTramos({
+        paradas: normalizarParadas(r.tramos_ruta),
+        id_bloque: r.id_bloque,
+        id_bloque_fin: r.id_bloque_fin,
+      });
+      for (const t of tramos) {
+        // ⚠️ uq_vuelo_detalle es UNIQUE sobre vuelo.id_detalle: los N tramos NO
+        // pueden compartirlo. Solo el tramo 1 lo lleva (queda ligado a la
+        // solicitud); los demás van con NULL — Postgres admite varios NULL en
+        // un índice único. El vínculo entre tramos es grupo_ruta, no id_detalle.
+        await client.query(`
+          INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion, categoria, nombre_externo, id_licencia_chequeo, debitar_saldo, estado, creado_por, fecha_vuelo, grupo_ruta, orden_tramo, total_tramos, icao_origen, icao_destino)
+          VALUES ($21,$2,$3,$4,$5,$6,$7,'RUTA',$8,$9,$10,$11,$12,$13,$14,$15,'ADMIN',$16,$1,$17,$18,$19,$20)
+        `, [
+          r.id_detalle, r.id_semana, r.id_alumno, r.id_instructor, r.id_aeronave,
+          r.dia_semana, t.id_bloque, t.id_bloque_fin, r.es_extracurricular,
+          r.tipo_instruccion, r.categoria, r.nombre_externo, r.id_licencia_chequeo,
+          r.debitar_saldo,
+          t.orden_tramo === 1 ? "PUBLICADO" : "EN_ESPERA_TRAMO",
+          r.fecha_vuelo, t.orden_tramo, t.total_tramos, t.icao_origen, t.icao_destino,
+          t.orden_tramo === 1 ? r.id_detalle : null,
+        ]);
+      }
+    }
 
     const vuelosRes = await client.query(`
       SELECT
@@ -231,7 +281,7 @@ exports.getCalendario = catchAsync(async (req, res) => {
 
   const result = await db.query(`
     SELECT
-      sv.id_detalle, sv.id_solicitud, ss.estado AS estado_solicitud, sv.estado AS estado_vuelo_individual,
+      sv.id_detalle, sv.id_solicitud, sv.con_parada, sv.tramos_ruta, ss.estado AS estado_solicitud, sv.estado AS estado_vuelo_individual,
       ss.comentario_alumno, sv.remarks_instructor,
       v.id_vuelo, v.estado AS estado_vuelo, COALESCE(v.estado, ss.estado) AS estado_mostrar,
       sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
@@ -274,6 +324,7 @@ exports.getCalendario = catchAsync(async (req, res) => {
     JOIN alumno al ON al.id_alumno = ss.id_alumno
     JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
     LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle AND v.id_semana = sv.id_semana
+      AND (v.grupo_ruta IS NULL OR v.orden_tramo = 1)
     JOIN instructor i ON i.id_instructor = COALESCE(v.id_instructor, sv.id_instructor, al.id_instructor)
     JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
     LEFT JOIN cuenta_corriente_alumno cc ON cc.id_alumno = ss.id_alumno
@@ -530,7 +581,10 @@ exports.rechazarSolicitudIndividual = catchAsync(async (req, res) => {
     // CANCELARLA de verdad (antes quedaba viva y seguía apareciendo para
     // Turno/operaciones aunque desapareciera del calendario de programación).
     await client.query(
-      "UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW() WHERE id_detalle = $1 AND estado <> 'CANCELADO'",
+      // Rutas con parada: solo el tramo 1 lleva id_detalle (uq_vuelo_detalle),
+      // así que hay que alcanzar a los hermanos por grupo_ruta o quedarían vivos.
+      `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW()
+        WHERE (id_detalle = $1 OR grupo_ruta = $1) AND estado <> 'CANCELADO'`,
       [id_detalle]
     );
 
@@ -559,6 +613,49 @@ exports.rechazarSolicitudIndividual = catchAsync(async (req, res) => {
   }
 });
 
+// Marca una solicitud individual como revisada/aprobada por Programación ANTES
+// de publicar la semana — no cambia nada en el flujo de publicación (que ya
+// publica cualquier basket que no esté RECHAZADA, ver publicarSemana): es
+// puramente una marca visual para que el staff sepa qué ya revisó.
+exports.aprobarSolicitudIndividual = catchAsync(async (req, res) => {
+  const { id_detalle } = req.params;
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const detailRes = await client.query("SELECT id_solicitud, estado FROM solicitud_vuelo WHERE id_detalle = $1", [id_detalle]);
+    if (detailRes.rows.length === 0) throw new Error("Registro no encontrado");
+    const { id_solicitud, estado } = detailRes.rows[0];
+
+    if (estado === "RECHAZADA") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Este vuelo fue rechazado — no se puede aprobar." });
+    }
+
+    await client.query("UPDATE solicitud_vuelo SET estado = 'APROBADA' WHERE id_detalle = $1", [id_detalle]);
+
+    await logAuditoria(client, {
+      accion: "OTRO",
+      entidad: "solicitud_vuelo",
+      id_entidad: id_detalle,
+      actor: req.user,
+      descripcion: `Vuelo individual #${id_detalle} (Solicitud #${id_solicitud}) aprobado por admin/programación`,
+    });
+
+    await client.query("COMMIT");
+
+    const io = req.app.get("io");
+    if (io) io.emit("solicitud_aprobada", { id_solicitud, id_detalle });
+
+    res.json({ message: "Vuelo aprobado" });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
 exports.cancelarSolicitud = catchAsync(async (req, res) => {
   const { id_solicitud } = req.params;
   const client = await db.connect();
@@ -569,7 +666,8 @@ exports.cancelarSolicitud = catchAsync(async (req, res) => {
     // Si la semana ya estaba publicada, cancelar los vuelos reales
     const cancelados = await client.query(`
       UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW()
-      WHERE id_detalle IN (SELECT id_detalle FROM solicitud_vuelo WHERE id_solicitud = $1)
+      WHERE (id_detalle IN (SELECT id_detalle FROM solicitud_vuelo WHERE id_solicitud = $1)
+             OR grupo_ruta IN (SELECT id_detalle FROM solicitud_vuelo WHERE id_solicitud = $1))
         AND estado <> 'CANCELADO'
       RETURNING id_vuelo
     `, [id_solicitud]);
@@ -595,6 +693,185 @@ exports.cancelarSolicitud = catchAsync(async (req, res) => {
     res.json({ message: "Solicitud cancelada" });
   } catch (e) {
     await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// Rechaza TODAS las solicitudes (borrador y en revisión) de una semana completa
+// de una sola vez — pensado para cierres extraordinarios (vacaciones, etc.) que
+// afectan a toda la escuela, no a un alumno puntual. Notifica in-app a cada
+// alumno e instructor que tenía algo pedido para esa semana. Si por algún
+// motivo la semana ya tuviera vuelos reales publicados, también los cancela
+// (no debería pasar con una semana sin publicar, pero cubre el caso).
+exports.rechazarSemanaCompleta = catchAsync(async (req, res) => {
+  const { id_semana } = req.params;
+  const { mensaje } = req.body;
+  if (!mensaje) return res.status(400).json({ message: "mensaje requerido" });
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const semanaRes = await client.query(
+      "SELECT id_semana FROM semana_vuelo WHERE id_semana = $1 FOR UPDATE",
+      [id_semana]
+    );
+    if (semanaRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Semana no encontrada" });
+    }
+
+    const afectados = await client.query(`
+      SELECT DISTINCT u_al.id_usuario FROM solicitud_vuelo sv
+        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        JOIN alumno al ON al.id_alumno = ss.id_alumno
+        JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
+       WHERE sv.id_semana = $1
+      UNION
+      SELECT DISTINCT u_ins.id_usuario FROM solicitud_vuelo sv
+        JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+        JOIN alumno al ON al.id_alumno = ss.id_alumno
+        JOIN instructor i ON i.id_instructor = COALESCE(sv.id_instructor, al.id_instructor)
+        JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
+       WHERE sv.id_semana = $1
+    `, [id_semana]);
+
+    const detalle = await client.query(
+      `UPDATE solicitud_vuelo SET estado = 'RECHAZADA' WHERE id_semana = $1 RETURNING id_detalle`,
+      [id_semana]
+    );
+
+    await client.query(
+      `UPDATE solicitud_semana SET estado = 'RECHAZADA', fecha_actualizacion = NOW() WHERE id_semana = $1`,
+      [id_semana]
+    );
+
+    await client.query(
+      `UPDATE vuelo SET estado = 'CANCELADO', fecha_cancelacion = NOW() WHERE id_semana = $1 AND estado <> 'CANCELADO'`,
+      [id_semana]
+    );
+
+    for (const row of afectados.rows) {
+      await notificarUsuario(client, row.id_usuario, { tipo: "OPERACIONES_SUSPENDIDAS", mensaje });
+    }
+
+    await logAuditoria(client, {
+      accion: "OTRO",
+      entidad: "semana_vuelo",
+      id_entidad: id_semana,
+      actor: req.user,
+      descripcion: `Semana #${id_semana} rechazada completa (cierre extraordinario): ${mensaje}`,
+    });
+
+    await client.query("COMMIT");
+
+    res.json({
+      message: "Semana rechazada y usuarios notificados",
+      solicitudes_rechazadas: detalle.rows.length,
+      usuarios_notificados: afectados.rows.length,
+    });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// Tramos de una ruta con parada (para el modal "Asignar alumnos por tramo").
+exports.getTramosRuta = catchAsync(async (req, res) => {
+  const { id_detalle } = req.params;
+  const r = await db.query(
+    `SELECT v.id_vuelo, v.orden_tramo, v.total_tramos, v.icao_origen, v.icao_destino,
+            v.estado, v.id_alumno,
+            u.nombre AS alumno_nombre, u.apellido AS alumno_apellido
+       FROM vuelo v
+       JOIN alumno al ON al.id_alumno = v.id_alumno
+       JOIN usuario u ON u.id_usuario = al.id_usuario
+      WHERE v.grupo_ruta = $1
+      ORDER BY v.orden_tramo`,
+    [Number(id_detalle)]
+  );
+  res.json(r.rows);
+});
+
+// Reasignar el alumno de UN tramo (caso: la ida la vuela un alumno y el
+// retorno otro; el instructor es el mismo en toda la ruta). Valida licencia
+// del alumno nuevo contra la aeronave con el MISMO criterio canónico que
+// services/solicitudService.js:273-289 (espejado en turnoController.js:1302):
+// se salta si es_extracurricular o si la categoría es DEMO/CHEQUEO_LINEA, y
+// si es CHEQUEO valida contra id_licencia_chequeo en vez de la licencia
+// propia del alumno. Sin chequeo de conflicto de horario (criterio de staff,
+// mismo trato que el agendado directo de programación).
+exports.asignarAlumnoTramo = catchAsync(async (req, res) => {
+  const { id_vuelo } = req.params;
+  const { id_alumno } = req.body;
+  if (!id_alumno) return res.status(400).json({ message: "Falta id_alumno" });
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const vRes = await client.query(
+      `SELECT id_vuelo, grupo_ruta, estado, id_aeronave, es_extracurricular, categoria, id_licencia_chequeo
+         FROM vuelo WHERE id_vuelo = $1 FOR UPDATE`,
+      [Number(id_vuelo)]
+    );
+    if (!vRes.rows.length || vRes.rows[0].grupo_ruta == null) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Este vuelo no es un tramo de ruta." });
+    }
+    const vuelo = vRes.rows[0];
+    if (!["PUBLICADO", "PROGRAMADO", "EN_ESPERA_TRAMO"].includes(vuelo.estado)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "El tramo ya inició o cerró — no se puede reasignar." });
+    }
+
+    const alRes = await client.query(`SELECT 1 FROM alumno WHERE id_alumno = $1`, [Number(id_alumno)]);
+    if (alRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Alumno no encontrado" });
+    }
+
+    if (!vuelo.es_extracurricular && (vuelo.categoria === "NORMAL" || vuelo.categoria === "CHEQUEO")) {
+      const idLicenciaCheck = vuelo.categoria === "CHEQUEO" && vuelo.id_licencia_chequeo ? Number(vuelo.id_licencia_chequeo) : null;
+      const lic = idLicenciaCheck
+        ? await client.query(
+            `SELECT 1 FROM licencia_aeronave WHERE id_licencia = $1 AND id_aeronave = $2`,
+            [idLicenciaCheck, vuelo.id_aeronave]
+          )
+        : await client.query(
+            `SELECT 1 FROM alumno a
+               JOIN licencia_aeronave la ON la.id_licencia = a.id_licencia AND la.id_aeronave = $2
+              WHERE a.id_alumno = $1`,
+            [Number(id_alumno), vuelo.id_aeronave]
+          );
+      if (lic.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "La aeronave no está habilitada para la licencia de ese alumno." });
+      }
+    }
+
+    await client.query(`UPDATE vuelo SET id_alumno = $1 WHERE id_vuelo = $2`, [Number(id_alumno), Number(id_vuelo)]);
+
+    await logAuditoria(client, {
+      // audit_action es un ENUM en Postgres: cualquier valor fuera de la lista
+      // revienta el INSERT con 500. Igual que el resto del archivo, lo específico
+      // va en descripcion.
+      accion: "OTRO",
+      entidad: "vuelo",
+      id_entidad: Number(id_vuelo),
+      actor: req.user,
+      req,
+      descripcion: `Alumno del tramo #${id_vuelo} (ruta #${vuelo.grupo_ruta}) reasignado a alumno #${id_alumno}`,
+    });
+
+    await client.query("COMMIT");
+    const io = req.app.get("io");
+    if (io) io.emit("vuelo_estado_changed", { id_vuelo: Number(id_vuelo), estado: vuelo.estado });
+    res.json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
     throw e;
   } finally {
     client.release();
