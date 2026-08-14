@@ -303,6 +303,7 @@ exports.getCalendario = catchAsync(async (req, res) => {
       COALESCE(cc.saldo_actual_usd, 0) AS saldo_alumno,
       COALESCE(tesp.tarifa_hora_usd, test.tarifa_hora_usd) AS tarifa_estimada,
       COALESCE(v.categoria, sv.categoria) AS categoria,
+      COALESCE(v.id_licencia_chequeo, sv.id_licencia_chequeo) AS id_licencia_chequeo,
       COALESCE(v.tipo_instruccion, sv.tipo_instruccion) AS tipo_instruccion,
       COALESCE(v.debitar_saldo, sv.debitar_saldo) AS debitar_saldo,
       (
@@ -413,10 +414,46 @@ exports.guardarCambios = catchAsync(async (req, res) => {
 
     await client.query("BEGIN");
     for (let m of moves) {
+      // Tipo de vuelo (categoría) editable desde el popover del calendario.
+      // SOLO NORMAL y CHEQUEO: las otras tres (DEMO/PRUEBA/CHEQUEO_LINEA)
+      // REEMPLAZAN el id_alumno por una ficha placeholder o espejo
+      // (resolverVueloEspecial), así que aplicadas a la solicitud de un alumno
+      // real lo dejarían fuera de su propio vuelo. Esas se crean desde cero en
+      // el modal de agendar, donde el campo de alumno cambia en consecuencia.
+      let categoria = null;
+      let idLicenciaChequeo = null;
+      if (m.categoria != null) {
+        categoria = String(m.categoria).toUpperCase();
+        if (categoria !== "NORMAL" && categoria !== "CHEQUEO") {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            message: "Desde la tarjeta solo se puede cambiar entre Normal y Chequeo — las demás categorías reemplazan al alumno y se agendan por separado.",
+          });
+        }
+        if (categoria === "CHEQUEO") {
+          // Misma regla que resolverVueloEspecial: si no eligen licencia, se
+          // guarda la propia del alumno (la Proyección siempre muestra sigla).
+          idLicenciaChequeo = m.id_licencia_chequeo
+            ? Number(m.id_licencia_chequeo)
+            : (await client.query(
+                `SELECT al.id_licencia
+                   FROM solicitud_vuelo sv
+                   JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+                   JOIN alumno al ON al.id_alumno = ss.id_alumno
+                  WHERE sv.id_detalle = $1`,
+                [m.id_detalle]
+              )).rows[0]?.id_licencia ?? null;
+        }
+      }
+
       // 1. Actualizar solicitud
       await client.query(
-        `UPDATE solicitud_vuelo SET dia_semana = $1, id_bloque = $2, id_aeronave = $3, id_bloque_fin = $4 WHERE id_detalle = $5`,
-        [m.dia_semana, m.id_bloque, m.id_aeronave, m.id_bloque_fin || null, m.id_detalle]
+        `UPDATE solicitud_vuelo
+            SET dia_semana = $1, id_bloque = $2, id_aeronave = $3, id_bloque_fin = $4,
+                categoria = COALESCE($6, categoria),
+                id_licencia_chequeo = CASE WHEN $6 IS NULL THEN id_licencia_chequeo ELSE $7 END
+          WHERE id_detalle = $5`,
+        [m.dia_semana, m.id_bloque, m.id_aeronave, m.id_bloque_fin || null, m.id_detalle, categoria, idLicenciaChequeo]
       );
 
       // 2. Si existe el vuelo (semana publicada), actualizarlo y notificar
@@ -446,11 +483,13 @@ exports.guardarCambios = catchAsync(async (req, res) => {
         // Actualizar tabla vuelo (incluyendo fecha_vuelo si cambió dia_semana)
         // Usamos ::DATE para forzar el tipo y evitar el error de "expression is of type integer"
         await client.query(`
-          UPDATE vuelo 
+          UPDATE vuelo
           SET dia_semana = $1, id_bloque = $2, id_aeronave = $3, id_bloque_fin = $4,
-              fecha_vuelo = ($5::DATE + ($1 - 1))
+              fecha_vuelo = ($5::DATE + ($1 - 1)),
+              categoria = COALESCE($7, categoria),
+              id_licencia_chequeo = CASE WHEN $7 IS NULL THEN id_licencia_chequeo ELSE $8 END
           WHERE id_detalle = $6
-        `, [m.dia_semana, m.id_bloque, m.id_aeronave, m.id_bloque_fin || null, fechaBase, m.id_detalle]);
+        `, [m.dia_semana, m.id_bloque, m.id_aeronave, m.id_bloque_fin || null, fechaBase, m.id_detalle, categoria, idLicenciaChequeo]);
 
         // Si la semana ya estaba publicada, notificar al alumno
         if (v.publicada && v.alumno_correo) {

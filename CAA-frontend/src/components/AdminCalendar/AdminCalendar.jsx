@@ -98,9 +98,24 @@ export default function AdminCalendar({
   const [tempInstructorId, setTempInstructorId] = useState("");
   const [tempBloqueInicio, setTempBloqueInicio] = useState("");
   const [tempBloqueFin, setTempBloqueFin] = useState("");
+  // Tipo de vuelo (categoría) editable desde la tarjeta. Solo NORMAL/CHEQUEO:
+  // las otras categorías reemplazan al alumno (ver comentario en el backend).
+  const [tempCategoria, setTempCategoria] = useState("NORMAL");
+  const [tempLicenciaChequeo, setTempLicenciaChequeo] = useState("");
+  const [licencias, setLicencias] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileDayOffset, setMobileDayOffset] = useState(0);
   const [busquedaAlumno, setBusquedaAlumno] = useState("");
+
+  // Catálogo de licencias para el selector "licencia a chequear" del popover.
+  // Solo lo necesita el staff (el instructor no edita la categoría).
+  useEffect(() => {
+    if (!allowInstructorChange) return;
+    import("../../services/adminApi")
+      .then(({ getLicencias }) => getLicencias())
+      .then((d) => setLicencias(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, [allowInstructorChange]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -312,6 +327,8 @@ export default function AdminCalendar({
     setTempInstructorId(item.id_instructor);
     setTempBloqueInicio(item.id_bloque);
     setTempBloqueFin(item.id_bloque_fin || item.id_bloque);
+    setTempCategoria(item.categoria || "NORMAL");
+    setTempLicenciaChequeo(item.id_licencia_chequeo || "");
   };
 
   const handleCardLongPress = (e, item) => {
@@ -352,18 +369,30 @@ export default function AdminCalendar({
         }
       }
 
-      // 2. Cambiar Aeronave o Rango si varió
+      // 2. Cambiar Aeronave, Rango o Tipo de vuelo si varió
       const aeroChanged = Number(tempAeronaveId) !== Number(item.id_aeronave);
       const startChanged = Number(tempBloqueInicio) !== Number(item.id_bloque);
       const endChanged = Number(tempBloqueFin) !== Number(item.id_bloque_fin || item.id_bloque);
+      const catActual = item.categoria || "NORMAL";
+      const licActual = item.id_licencia_chequeo || "";
+      const catChanged = tempCategoria !== catActual
+        || (tempCategoria === "CHEQUEO" && String(tempLicenciaChequeo || "") !== String(licActual));
 
-      if (aeroChanged || startChanged || endChanged) {
+      if (aeroChanged || startChanged || endChanged || catChanged) {
         const move = {
           id_detalle: item.id_detalle,
           dia_semana: item.dia_semana,
           id_bloque: Number(tempBloqueInicio),
           id_bloque_fin: item.tipo_vuelo === 'RUTA' ? Number(tempBloqueFin) : null,
-          id_aeronave: Number(tempAeronaveId)
+          id_aeronave: Number(tempAeronaveId),
+          // Solo se manda cuando cambió: el backend usa COALESCE, así que
+          // null = "no tocar la categoría actual".
+          ...(catChanged ? {
+            categoria: tempCategoria,
+            id_licencia_chequeo: tempCategoria === "CHEQUEO" && tempLicenciaChequeo
+              ? Number(tempLicenciaChequeo)
+              : null,
+          } : {}),
         };
 
         // Persistencia real inmediata: el caller puede inyectar su endpoint
@@ -893,6 +922,11 @@ export default function AdminCalendar({
               setTempAeronaveId={setTempAeronaveId}
               tempInstructorId={tempInstructorId}
               setTempInstructorId={setTempInstructorId}
+              tempCategoria={tempCategoria}
+              setTempCategoria={setTempCategoria}
+              tempLicenciaChequeo={tempLicenciaChequeo}
+              setTempLicenciaChequeo={setTempLicenciaChequeo}
+              licencias={licencias}
               tempBloqueInicio={tempBloqueInicio}
               setTempBloqueInicio={setTempBloqueInicio}
               tempBloqueFin={tempBloqueFin}
@@ -931,6 +965,9 @@ function PopoverContent({
   activePopover,
   tempAeronaveId, setTempAeronaveId,
   tempInstructorId, setTempInstructorId,
+  tempCategoria, setTempCategoria,
+  tempLicenciaChequeo, setTempLicenciaChequeo,
+  licencias = [],
   tempBloqueInicio, setTempBloqueInicio,
   tempBloqueFin, setTempBloqueFin,
   aeronaves,
@@ -1125,6 +1162,32 @@ function PopoverContent({
                 <option key={ins.id_instructor} value={ins.id_instructor}>
                   {ins.nombre_completo}
                 </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Tipo de vuelo. Solo Normal/Chequeo: Demo, Prueba y Chequeo de línea
+            REEMPLAZAN al alumno por una ficha placeholder, así que no tienen
+            sentido sobre la solicitud de un alumno real — esas se agendan
+            desde cero con el botón de agendar. */}
+        {allowInstructorChange && (
+          <div className="pop-field">
+            <label>Tipo de vuelo</label>
+            <select value={tempCategoria} disabled={!isEditable} onChange={e => setTempCategoria(e.target.value)}>
+              <option value="NORMAL">Normal</option>
+              <option value="CHEQUEO">Chequeo</option>
+            </select>
+          </div>
+        )}
+
+        {allowInstructorChange && tempCategoria === "CHEQUEO" && (
+          <div className="pop-field">
+            <label>Licencia a chequear</label>
+            <select value={tempLicenciaChequeo} disabled={!isEditable} onChange={e => setTempLicenciaChequeo(e.target.value)}>
+              <option value="">La licencia actual del alumno</option>
+              {licencias.map(l => (
+                <option key={l.id_licencia} value={l.id_licencia}>{l.nombre}</option>
               ))}
             </select>
           </div>
