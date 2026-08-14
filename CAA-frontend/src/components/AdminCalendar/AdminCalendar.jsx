@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
+import { siglaLicencia } from "../../utils/vueloVisual";
 import "./AdminCalendar.css";
 
 const DIAS = [
@@ -26,6 +27,32 @@ const abbrevNombre = (corto, full) => {
   const inicial = parts[0][0];
   const apellido = parts.length >= 3 ? parts[Math.floor(parts.length / 2)] : parts[1];
   return `${inicial}.${apellido}`;
+};
+
+// Píldora con la sigla de la licencia del alumno (PPL/CPL/IR/ME/CFI) en la
+// tarjeta. Sirve para saber de un vistazo qué está volando cada quien sin
+// abrir el popover; usa la misma tabla de siglas que Proyección.
+const LicenciaPill = ({ nombre }) => {
+  const sigla = siglaLicencia(nombre);
+  if (!sigla) return null;
+  return (
+    <span
+      title={`Licencia del alumno: ${nombre}`}
+      style={{
+        fontSize: '0.6rem',
+        fontWeight: 700,
+        color: 'var(--c-brand-700)',
+        background: 'var(--c-brand-50, rgba(27,54,93,0.08))',
+        padding: '1px 5px',
+        borderRadius: '999px',
+        marginRight: '4px',
+        display: 'inline-block',
+        letterSpacing: '0.02em',
+      }}
+    >
+      {sigla}
+    </span>
+  );
 };
 
 const getDatesForWeek = (week) => {
@@ -769,6 +796,7 @@ export default function AdminCalendar({
                             )}
                             {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                             {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
+                            <LicenciaPill nombre={item.alumno_licencia_nombre} />
                             {abbrevNombre(item.alumno_nombre_corto, item.alumno_nombre)}
                           </div>
                           <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>
@@ -878,6 +906,7 @@ export default function AdminCalendar({
                           </span>
                           {item.es_extracurricular && <span title="Vuelo extracurricular (prioridad menor)" style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--c-info-700)', background: 'var(--c-info-50)', padding: '1px 5px', borderRadius: '999px', marginRight: '4px' }}>EXC</span>}
                           {badge && <span className={`cal-badge ${badge.cls}`}>{badge.label}</span>}
+                            <LicenciaPill nombre={item.alumno_licencia_nombre} />
                           {item.alumno_nombre.split(" ")[0]}
                         </div>
                         <div className="flight-aeronave" style={{ fontSize: '0.7rem', color: 'var(--neutral-dark)' }}>

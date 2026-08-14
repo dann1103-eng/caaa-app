@@ -40,7 +40,7 @@ const LICENCIA_SIGLAS = {
   BIMOTOR: "ME",
   INSTRUCTOR: "CFI",
 };
-function siglaLicencia(nombre) {
+export function siglaLicencia(nombre) {
   if (!nombre) return null;
   return LICENCIA_SIGLAS[nombre.trim().toUpperCase()] || nombre.toUpperCase();
 }

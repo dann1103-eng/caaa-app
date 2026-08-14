@@ -42,6 +42,7 @@ exports.getCalendario = async (req, res) => {
         sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,
         ss.id_alumno, u_al.nombre || ' ' || u_al.apellido AS alumno_nombre,
         LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
+        lic_al.nombre AS alumno_licencia_nombre,
         i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
         LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
         COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular,
@@ -56,6 +57,7 @@ exports.getCalendario = async (req, res) => {
       JOIN aeronave ae ON ae.id_aeronave = sv.id_aeronave
       JOIN alumno al ON al.id_alumno = ss.id_alumno
       JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
+      LEFT JOIN licencia lic_al ON lic_al.id_licencia = al.id_licencia
       -- Rutas con parada: los N tramos comparten id_detalle, así que sin este
       -- filtro una sola solicitud produciría N filas en el calendario.
       LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle AND v.id_semana = sv.id_semana
