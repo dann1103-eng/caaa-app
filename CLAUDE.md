@@ -1587,13 +1587,12 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 > **Última revisión: 2026-08-17.** Resueltos desde la pasada anterior: ~~tarifa del YS-155~~ ($150, §26.C) ·
 > ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
 
-### 🚨 Bloqueante (2026-08-17)
-- **Desplegar el módulo de inventario** (§29): la migración `20260817000001` ya está aplicada en
-  Supabase pero el código sigue sin subir, así que Railway corre **código viejo contra esquema
-  nuevo** y los endpoints viejos de movimientos del Taller tiran 500. Merge de
-  `claude/workshop-inventory-system-292b6b` a `master` + push (el classifier bloqueó el push).
-- **Cuadre de bodega con el mecánico** (§29.F): 9 existencias en negativo y 24 diferencias contra el
-  Excel esperando conteo físico y su `AJ-001-2026`.
+### 🔬 Con el mecánico (2026-08-17, §29.F)
+- **Cuadre de bodega**: 9 existencias en negativo y 24 diferencias contra el Excel esperando conteo
+  físico y su `AJ-001-2026 · Cuadre de migración`. El software no las corrige a propósito.
+- **Ingesta de costos** (Taller + Contabilidad): 482 ítems sin costo y 37 entradas sin costear en la
+  pestaña "Costos pendientes". Al costear una entrada se genera su egreso en Contabilidad.
+- **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
 
 ### 🧾 Higiene inmediata
 - **Multa de `javier.espinoza`**: anotada en el Excel de saldos ("multa por aplicar 13/07/26") y **nunca
@@ -1948,11 +1947,14 @@ Réplica del Excel `INVENTARIO OMA CAAA-CONTADOR` en el sistema. Spec:
 `docs/superpowers/specs/2026-08-17-inventario-taller-design.md`. Commits `e1ed6b3` (spec) y
 `b70f786` (implementación), en la rama `claude/workshop-inventory-system-292b6b`.
 
-> ⚠️ **ESTADO AL CERRAR: migración APLICADA en Supabase, código SIN desplegar.** El backend de
-> Railway está corriendo **código viejo contra esquema nuevo**, así que
-> `POST /taller/repuestos/:id/movimiento` y `GET /taller/repuestos/:id/movimientos` (los endpoints
-> viejos del inventario) **tiran 500 hasta que se despliegue**. Nada más del sistema se ve afectado.
-> El push a `master` lo bloqueó el clasificador de auto-mode; hay que hacerlo a mano.
+> ✅ **DESPLEGADO Y VERIFICADO EN PRODUCCIÓN** (2026-08-17). Migración `20260817000001` aplicada en
+> Supabase, Excel cargado, backend en Railway y frontend en Vercel con el código nuevo. Verificado
+> contra prod con token real: 642 ítems / $7,791.88 · 243 REQ + 37 FA · kardex del `000039` con 186
+> movimientos y saldo −17 que cuadra con el catálogo · la ruta vieja `/taller/repuestos` da 404.
+>
+> ⚠️ Al verificar, recordar que **`/api/taller` tiene `authMiddleware` a nivel de router**: cualquier
+> path bajo ese prefijo da **401 aunque la ruta no exista**, así que el truco "404 vs 401" NO sirve
+> ahí (mismo caso que `/administracion`, §26.B). Hay que probar con token.
 
 ### A. El defecto que se venía a corregir
 La hoja de inventario calculaba el stock con
