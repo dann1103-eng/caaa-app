@@ -7,8 +7,9 @@ export default function ProtectedProgramacion({ children }) {
   if (!user) return <Navigate to="/login" replace />;
   // ADMIN puede agendar vuelos igual que PROGRAMACION; un INSTRUCTOR entra si
   // tiene el toggle puede_programar (el backend re-valida contra la BD).
+  // ADMINISTRACION (admin financiero) opera Operaciones igual que ADMIN.
   const esInstructorProgramador = user.rol === "INSTRUCTOR" && user.puede_programar;
-  if (!["PROGRAMACION", "ADMIN"].includes(user.rol) && !esInstructorProgramador) {
+  if (!["PROGRAMACION", "ADMIN", "ADMINISTRACION"].includes(user.rol) && !esInstructorProgramador) {
     return <Navigate to="/" replace />;
   }
 

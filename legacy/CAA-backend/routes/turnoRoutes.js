@@ -10,31 +10,50 @@ const turnoDia = require("../controllers/turnoDiaController");
 
 const proyeccionMiddleware = require("../middlewares/proyeccionMiddleware");
 
+// Gate ÚNICO de todas las mutaciones de Turno. Deja pasar a TURNO, ADMIN y
+// ADMINISTRACION por rol, y a un INSTRUCTOR activo con el toggle puede_operaciones
+// (jefe/sub-jefe de instrucción que hace de Turno) — el mismo criterio que ya
+// usaban editarTripulacion y el mantenimiento imprevisto.
+//
+// `turnoController` no tiene NINGÚN chequeo de rol propio (cero 403 en todo el
+// archivo), así que estas rutas son el único gate: las que quedaron con solo
+// authMiddleware dejaban que cualquier usuario con sesión — un ALUMNO incluido —
+// suspendiera las operaciones de la escuela o publicara avisos en Proyección.
+const opsAccess = requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES");
+
+// Lecturas: la pantalla de Proyección entra con su llave (proyeccionMiddleware);
+// /vuelos-hoy queda con sesión a secas porque expone lo mismo que ya muestra la
+// Proyección pública, y lo consume solo el dashboard de Turno.
 router.get("/vuelos-hoy",         authMiddleware, turnoController.getVuelosHoy);
 router.get("/estado-operaciones", proyeccionMiddleware, turnoController.getEstadoOperaciones);
-router.put("/estado-operaciones", authMiddleware, turnoController.setEstadoOperaciones);
 router.get("/ticker",             proyeccionMiddleware, turnoController.getTicker);
-router.post("/ticker",            authMiddleware, turnoController.publicarTicker);
-router.delete("/ticker",          authMiddleware, turnoController.limpiarTicker);
-router.delete("/ticker/:id",      authMiddleware, turnoController.limpiarUnicoTicker);
-router.post("/agregar-bloques-suspension", authMiddleware, turnoController.agregarBloquesSuspension);
-router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzarEstadoVuelo);
+
+router.put("/estado-operaciones", authMiddleware, opsAccess, turnoController.setEstadoOperaciones);
+router.post("/ticker",            authMiddleware, opsAccess, turnoController.publicarTicker);
+router.delete("/ticker",          authMiddleware, opsAccess, turnoController.limpiarTicker);
+router.delete("/ticker/:id",      authMiddleware, opsAccess, turnoController.limpiarUnicoTicker);
+router.post("/agregar-bloques-suspension", authMiddleware, opsAccess, turnoController.agregarBloquesSuspension);
+// El INSTRUCTOR NO usa esta ruta: tiene la suya propia y gateada
+// (POST /instructor/vuelos/:id/avanzar). Acá solo entra Turno.
+router.patch("/vuelos/:id_vuelo/estado", authMiddleware, opsAccess, turnoController.avanzarEstadoVuelo);
 
 // Rutas con parada: cierre del tramo en destino (TAC/HOBBS de llegada) y
 // cancelación de los tramos que aún no volaron. Mismo gate que avanzar estado.
-router.post("/vuelos/:id_vuelo/aterrizaje-tramo", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.registrarAterrizajeTramo);
+router.post("/vuelos/:id_vuelo/aterrizaje-tramo", authMiddleware, opsAccess, turnoController.registrarAterrizajeTramo);
 // Cancelar los tramos restantes de una ruta es tan destructivo como retroceder
 // un estado: va con la misma capacidad, no solo con sesión iniciada.
-router.post("/vuelos/:id_vuelo/cancelar-tramos-restantes", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.cancelarTramosRestantes);
+router.post("/vuelos/:id_vuelo/cancelar-tramos-restantes", authMiddleware, opsAccess, turnoController.cancelarTramosRestantes);
 
 // Revertir un avance de estado hecho por error. Mutación sensible (reescribe
 // historial operativo) → mismo gate de capacidad que editarTripulacion/mantenimiento.
-router.patch("/vuelos/:id_vuelo/estado/retroceder", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.revertirEstadoVuelo);
+router.patch("/vuelos/:id_vuelo/estado/retroceder", authMiddleware, opsAccess, turnoController.revertirEstadoVuelo);
 
 // Editar tripulación (alumno/instructor/aeronave) + almas a bordo. Mutación
 // más sensible que avanzar estado → gate de rol explícito (no solo JWT válido).
-router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.editarTripulacion);
-router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.registrarInasistencia);
+router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, opsAccess, turnoController.editarTripulacion);
+// Igual que avanzar estado: el instructor marca la inasistencia por su propia
+// ruta (POST /instructor/vuelos/:id/inasistencia); ésta la usa el dashboard de Turno.
+router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, opsAccess, turnoController.registrarInasistencia);
 
 // Reporte de cierre del día CON MONTOS (vuelos por avión, PDF). Insumo de
 // Administración para debitar saldos. Solo ADMIN/ADMINISTRACION por ROL — ni
@@ -44,32 +63,31 @@ router.get("/reporte-vuelos-dia", authMiddleware, roleMiddleware(["ADMIN", "ADMI
 // Reporte de cierre del día SIN montos (operaciones/tripulación/horas). El que
 // usa Turno. No consulta movimiento_cuenta: no hay saldo que filtrar. Mismo gate
 // de capacidad que las demás funciones de Turno (editarTripulacion arriba).
-router.get("/reporte-operaciones-dia", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.getReporteOperacionesDia);
+router.get("/reporte-operaciones-dia", authMiddleware, opsAccess, turnoController.getReporteOperacionesDia);
 
 // Mantenimiento imprevisto de una aeronave (falla detectada en pre-vuelo):
 // Turno la saca de servicio, cancela y notifica sus vuelos, y la reactiva
 // cuando taller termina. Mutaciones sensibles → gate de rol explícito.
-const turnoMantAccess = requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES");
-router.get("/mantenimiento/flota", authMiddleware, turnoMantAccess, turnoMantenimiento.getFlotaMantenimiento);
-router.post("/aeronaves/:id/preview-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.previewMantenimientoAeronave);
-router.post("/aeronaves/:id/mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.iniciarMantenimientoAeronave);
-router.post("/aeronaves/:id/completar-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.completarMantenimientoAeronave);
+router.get("/mantenimiento/flota", authMiddleware, opsAccess, turnoMantenimiento.getFlotaMantenimiento);
+router.post("/aeronaves/:id/preview-mantenimiento", authMiddleware, opsAccess, turnoMantenimiento.previewMantenimientoAeronave);
+router.post("/aeronaves/:id/mantenimiento", authMiddleware, opsAccess, turnoMantenimiento.iniciarMantenimientoAeronave);
+router.post("/aeronaves/:id/completar-mantenimiento", authMiddleware, opsAccess, turnoMantenimiento.completarMantenimientoAeronave);
 
 // Ciclo del turno del día (apertura / pausa almuerzo / cambio de turno /
 // cierre) + asistencia de instructores. El GET usa proyeccionMiddleware para
 // que la pantalla de Proyección lo lea con su llave.
 router.get("/dia", proyeccionMiddleware, turnoDia.getTurnoDia);
-router.get("/instructores", authMiddleware, turnoMantAccess, turnoDia.getInstructoresParaTurno);
-router.post("/dia/abrir", authMiddleware, turnoMantAccess, turnoDia.abrirTurno);
-router.post("/dia/pausa", authMiddleware, turnoMantAccess, turnoDia.pausarTurno);
-router.post("/dia/reanudar", authMiddleware, turnoMantAccess, turnoDia.reanudarTurno);
-router.post("/dia/cambio", authMiddleware, turnoMantAccess, turnoDia.cambioTurno);
-router.post("/dia/cerrar", authMiddleware, turnoMantAccess, turnoDia.cerrarTurno);
+router.get("/instructores", authMiddleware, opsAccess, turnoDia.getInstructoresParaTurno);
+router.post("/dia/abrir", authMiddleware, opsAccess, turnoDia.abrirTurno);
+router.post("/dia/pausa", authMiddleware, opsAccess, turnoDia.pausarTurno);
+router.post("/dia/reanudar", authMiddleware, opsAccess, turnoDia.reanudarTurno);
+router.post("/dia/cambio", authMiddleware, opsAccess, turnoDia.cambioTurno);
+router.post("/dia/cerrar", authMiddleware, opsAccess, turnoDia.cerrarTurno);
 
 // Ajustes puntuales de asistencia dentro del turno YA abierto (agregar a
 // alguien que llegó tarde, o marcar la salida de uno solo) sin forzar un
 // cambio de turno completo.
-router.post("/dia/asistencia", authMiddleware, turnoMantAccess, turnoDia.agregarInstructorTurno);
-router.post("/dia/asistencia/:id_asistencia/salida", authMiddleware, turnoMantAccess, turnoDia.marcarSalidaInstructor);
+router.post("/dia/asistencia", authMiddleware, opsAccess, turnoDia.agregarInstructorTurno);
+router.post("/dia/asistencia/:id_asistencia/salida", authMiddleware, opsAccess, turnoDia.marcarSalidaInstructor);
 
 module.exports = router;

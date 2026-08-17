@@ -9,8 +9,11 @@ export default function ProtectedTurno({ children }) {
   // de instrucción); el backend re-valida contra la BD. ADMIN entra como
   // super-usuario (igual que en Administración/Taller) — p.ej. para publicar
   // avisos del ticker; los gates del backend de /api/turno ya lo permiten.
+  // ADMINISTRACION (admin financiero) entra por lo mismo: opera Operaciones
+  // completo, igual que ADMIN.
   const esInstructorOperaciones = user.rol === "INSTRUCTOR" && user.puede_operaciones;
-  if (user.rol !== "TURNO" && user.rol !== "ADMIN" && !esInstructorOperaciones) return <Navigate to="/" replace />;
+  const rolesOperaciones = ["TURNO", "ADMIN", "ADMINISTRACION"];
+  if (!rolesOperaciones.includes(user.rol) && !esInstructorOperaciones) return <Navigate to="/" replace />;
 
   return children;
 }

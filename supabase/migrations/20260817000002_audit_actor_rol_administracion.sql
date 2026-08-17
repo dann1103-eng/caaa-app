@@ -1,0 +1,11 @@
+-- El rol ADMINISTRACION (admin financiero / contabilidad) pasa a operar también
+-- las interfaces de Operaciones (dashboard, agendar vuelos, turno, cancelaciones,
+-- auditoría). Esas acciones están auditadas: publicar semana, guardar cambios,
+-- cancelar vuelo, cambiar instructor, resolver cancelaciones, stand-by, reservas.
+--
+-- `logAuditoria` inserta actor_rol SIN try/catch y con el client de la transacción,
+-- así que un valor fuera del enum no solo pierde el registro: aborta la acción
+-- entera con rollback. Mismo caso exacto que TALLER en 20260723000002 (daba 500).
+--
+-- Aditivo: agrega un valor al enum, no toca ni reordena los existentes.
+ALTER TYPE public.audit_actor_rol ADD VALUE IF NOT EXISTS 'ADMINISTRACION';

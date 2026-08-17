@@ -7,6 +7,7 @@ import Manual from "./pages/Manual/Manual";
 import DashboardAlumno from "./pages/Alumno/Dashboard";
 import ProtectedAlumno from "./components/routes/ProtectedAlumno";
 import ProtectedAdmin from "./components/routes/ProtectedAdmin";
+import ProtectedOperaciones from "./components/routes/ProtectedOperaciones";
 import ProtectedProgramacion from "./components/routes/ProtectedProgramacion";
 import ProtectedProgramacionPage from "./components/routes/ProtectedProgramacionPage";
 import AgendarVuelo from "./pages/Alumno/AgendarVuelo";
@@ -229,11 +230,11 @@ function App() {
           <Route
             path="/admin/dashboard"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <DashboardAdmin />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
           {/* Agendar vuelos para ADMIN: el calendario de programación dentro del
@@ -241,21 +242,21 @@ function App() {
           <Route
             path="/admin/agendar"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <DashboardProgramacion embedded />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
           <Route
             path="/admin/auditoria"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <AuditoriaAdmin />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
           <Route
@@ -298,11 +299,11 @@ function App() {
           <Route
             path="/admin/cancelaciones"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <CancelacionesAdmin />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
 
