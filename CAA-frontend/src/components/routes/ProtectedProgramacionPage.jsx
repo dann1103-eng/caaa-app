@@ -12,8 +12,9 @@ export default function ProtectedProgramacionPage({ children }) {
 
   if (!user) return <Navigate to="/login" replace />;
   
+  // ADMINISTRACION (admin financiero) opera Operaciones igual que ADMIN.
   const rol = user?.rol?.toUpperCase() || "";
-  if (rol !== "PROGRAMACION" && rol !== "ADMIN") {
+  if (!["PROGRAMACION", "ADMIN", "ADMINISTRACION"].includes(rol)) {
     return <Navigate to="/" replace />;
   }
 

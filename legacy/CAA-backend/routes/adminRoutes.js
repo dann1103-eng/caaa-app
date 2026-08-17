@@ -15,7 +15,9 @@ const adminPushConfig = require("../controllers/admin/adminPushConfigController"
 
 // Roles de operaciones, o un INSTRUCTOR activo con el toggle puede_programar
 // (capacidad PROGRAMAR = todo lo que hace el rol PROGRAMACION).
-const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", "TURNO"], "PROGRAMAR")];
+// ADMINISTRACION entra como super-usuario de Operaciones (mismo alcance que ADMIN
+// acá); lo de Taller queda fuera, en aeronaveLectura/aeronaveEscritura.
+const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", "TURNO", "ADMINISTRACION"], "PROGRAMAR")];
 
 // El registro de aeronaves (módulo "Aeronaves") es más restrictivo que adminAccess:
 // dar de alta o de baja un avión no es algo que deba poder hacer Turno ni

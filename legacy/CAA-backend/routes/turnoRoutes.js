@@ -22,18 +22,18 @@ router.patch("/vuelos/:id_vuelo/estado", authMiddleware, turnoController.avanzar
 
 // Rutas con parada: cierre del tramo en destino (TAC/HOBBS de llegada) y
 // cancelación de los tramos que aún no volaron. Mismo gate que avanzar estado.
-router.post("/vuelos/:id_vuelo/aterrizaje-tramo", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.registrarAterrizajeTramo);
+router.post("/vuelos/:id_vuelo/aterrizaje-tramo", authMiddleware, requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES"), turnoController.registrarAterrizajeTramo);
 // Cancelar los tramos restantes de una ruta es tan destructivo como retroceder
 // un estado: va con la misma capacidad, no solo con sesión iniciada.
-router.post("/vuelos/:id_vuelo/cancelar-tramos-restantes", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.cancelarTramosRestantes);
+router.post("/vuelos/:id_vuelo/cancelar-tramos-restantes", authMiddleware, requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES"), turnoController.cancelarTramosRestantes);
 
 // Revertir un avance de estado hecho por error. Mutación sensible (reescribe
 // historial operativo) → mismo gate de capacidad que editarTripulacion/mantenimiento.
-router.patch("/vuelos/:id_vuelo/estado/retroceder", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.revertirEstadoVuelo);
+router.patch("/vuelos/:id_vuelo/estado/retroceder", authMiddleware, requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES"), turnoController.revertirEstadoVuelo);
 
 // Editar tripulación (alumno/instructor/aeronave) + almas a bordo. Mutación
 // más sensible que avanzar estado → gate de rol explícito (no solo JWT válido).
-router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.editarTripulacion);
+router.patch("/vuelos/:id_vuelo/tripulacion", authMiddleware, requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES"), turnoController.editarTripulacion);
 router.post("/vuelos/:id_vuelo/inasistencia", authMiddleware, turnoController.registrarInasistencia);
 
 // Reporte de cierre del día CON MONTOS (vuelos por avión, PDF). Insumo de
@@ -44,12 +44,12 @@ router.get("/reporte-vuelos-dia", authMiddleware, roleMiddleware(["ADMIN", "ADMI
 // Reporte de cierre del día SIN montos (operaciones/tripulación/horas). El que
 // usa Turno. No consulta movimiento_cuenta: no hay saldo que filtrar. Mismo gate
 // de capacidad que las demás funciones de Turno (editarTripulacion arriba).
-router.get("/reporte-operaciones-dia", authMiddleware, requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES"), turnoController.getReporteOperacionesDia);
+router.get("/reporte-operaciones-dia", authMiddleware, requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES"), turnoController.getReporteOperacionesDia);
 
 // Mantenimiento imprevisto de una aeronave (falla detectada en pre-vuelo):
 // Turno la saca de servicio, cancela y notifica sus vuelos, y la reactiva
 // cuando taller termina. Mutaciones sensibles → gate de rol explícito.
-const turnoMantAccess = requireCapacidad(["TURNO", "ADMIN"], "OPERACIONES");
+const turnoMantAccess = requireCapacidad(["TURNO", "ADMIN", "ADMINISTRACION"], "OPERACIONES");
 router.get("/mantenimiento/flota", authMiddleware, turnoMantAccess, turnoMantenimiento.getFlotaMantenimiento);
 router.post("/aeronaves/:id/preview-mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.previewMantenimientoAeronave);
 router.post("/aeronaves/:id/mantenimiento", authMiddleware, turnoMantAccess, turnoMantenimiento.iniciarMantenimientoAeronave);
