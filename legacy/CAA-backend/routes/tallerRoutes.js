@@ -58,11 +58,19 @@ router.patch("/inventario/items/:id", roleMiddleware(WRITE), inventario.editarIt
 router.get("/inventario/items/:id/kardex", roleMiddleware(READ_INV), inventario.kardex);
 router.get("/inventario/catalogos", roleMiddleware(READ_INV), inventario.catalogos);
 
-// Documentos
+// Documentos — requisición (borrador) → solicitud (descarga) → retorno (sobrantes)
 router.get("/inventario/documentos", roleMiddleware(READ_INV), documentos.listDocumentos);
 router.post("/inventario/documentos", roleMiddleware(WRITE), documentos.crearDocumento);
 router.get("/inventario/documentos/:id", roleMiddleware(READ_INV), documentos.getDocumento);
 router.post("/inventario/documentos/:id/anular", roleMiddleware(WRITE), documentos.anularDocumento);
+// La requisición es el único documento editable: es un borrador que no mueve
+// existencia. Al despacharse se congela.
+router.patch("/inventario/requisiciones/:id", roleMiddleware(WRITE), documentos.editarRequisicion);
+router.get("/inventario/documentos/:id/retornables", roleMiddleware(READ_INV), documentos.retornablesSolicitud);
+
+// Reportes que salen del kardex, sin tablas nuevas
+router.get("/inventario/entrega-aceites", roleMiddleware(READ_INV), inventario.entregaAceites);
+router.get("/inventario/duplicados-parte", roleMiddleware(READ_INV), inventario.duplicadosPorParte);
 
 // Costos pendientes — la cola conjunta de Taller y Contabilidad
 router.get("/inventario/pendientes-costo", roleMiddleware(READ_INV), inventario.pendientesCosto);

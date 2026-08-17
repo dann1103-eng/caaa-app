@@ -14,9 +14,44 @@ const {
   bloquearRepuestos,
   aplicarDeltas,
   recalcularStock,
+  MUEVE_STOCK,
 } = require("../../utils/inventarioHelpers");
 
-const TIPOS = ["ENTRADA", "SALIDA", "AJUSTE"];
+const TIPOS = ["ENTRADA", "SALIDA", "AJUSTE", "REQUISICION", "RETORNO"];
+
+/**
+ * Cuánto queda por devolver de cada ítem de una solicitud.
+ *
+ * Sale de restar, a lo que salió en la solicitud, lo que ya volvió en retornos
+ * vigentes. Los retornos anulados no cuentan, para que anular un retorno
+ * equivocado libere el saldo de nuevo.
+ */
+async function retornablesPorItem(conn, idSolicitud) {
+  const r = await conn.query(
+    `SELECT s.id_repuesto,
+            rp.codigo, rp.descripcion, rp.unidad,
+            SUM(ABS(s.cantidad))                    AS salio,
+            COALESCE(dev.devuelto, 0)               AS devuelto
+       FROM taller_movimiento_inventario s
+       JOIN taller_repuesto rp ON rp.id_repuesto = s.id_repuesto
+       LEFT JOIN (
+         SELECT m.id_repuesto, SUM(ABS(m.cantidad)) AS devuelto
+           FROM taller_movimiento_inventario m
+           JOIN taller_documento_inventario d ON d.id_documento = m.id_documento
+          WHERE d.id_solicitud_origen = $1 AND d.tipo = 'RETORNO' AND d.estado = 'VIGENTE'
+          GROUP BY m.id_repuesto
+       ) dev ON dev.id_repuesto = s.id_repuesto
+      WHERE s.id_documento = $1
+      GROUP BY s.id_repuesto, rp.codigo, rp.descripcion, rp.unidad, dev.devuelto`,
+    [idSolicitud]
+  );
+  return r.rows.map((x) => ({
+    ...x,
+    salio: Number(x.salio),
+    devuelto: Number(x.devuelto),
+    retornable: Number(x.salio) - Number(x.devuelto),
+  }));
+}
 
 /**
  * ¿Puede este usuario forzar una salida sin existencia (y anular documentos)?
@@ -39,7 +74,7 @@ const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v)
 // ── Listado y detalle ───────────────────────────────────────────────────────
 
 exports.listDocumentos = catchAsync(async (req, res) => {
-  const { tipo, desde, hasta, q, incluir_anulados } = req.query;
+  const { tipo, desde, hasta, q, incluir_anulados, sin_despachar } = req.query;
   const cond = ["1=1"];
   const params = [];
   const p = (v) => `$${params.push(v)}`;
@@ -50,7 +85,13 @@ exports.listDocumentos = catchAsync(async (req, res) => {
   if (incluir_anulados !== "true") cond.push("d.estado = 'VIGENTE'");
   if (q) {
     const ph = p(`%${q}%`);
-    cond.push(`(d.correlativo ILIKE ${ph} OR d.proveedor ILIKE ${ph} OR d.factura_no ILIKE ${ph} OR d.motivo ILIKE ${ph})`);
+    cond.push(`(d.correlativo ILIKE ${ph} OR d.proveedor ILIKE ${ph} OR d.factura_no ILIKE ${ph} OR d.motivo ILIKE ${ph} OR d.orden_trabajo_no ILIKE ${ph} OR d.solicitante ILIKE ${ph} OR d.entregado_a ILIKE ${ph})`);
+  }
+  // Lo que el técnico pidió y bodega todavía no entregó.
+  if (sin_despachar === "true") {
+    cond.push(`d.tipo = 'REQUISICION'`);
+    cond.push(`NOT EXISTS (SELECT 1 FROM taller_documento_inventario s
+                            WHERE s.id_requisicion = d.id_documento AND s.estado = 'VIGENTE')`);
   }
 
   const r = await db.query(
@@ -60,7 +101,13 @@ exports.listDocumentos = catchAsync(async (req, res) => {
             COUNT(m.id_mov)::int                       AS renglones,
             COALESCE(SUM(ABS(m.cantidad)), 0)          AS unidades,
             ROUND(COALESCE(SUM(ABS(m.cantidad) * COALESCE(m.costo_unitario, 0)), 0), 2) AS total,
-            TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS registrado_por_nombre
+            TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS registrado_por_nombre,
+            -- Estado DERIVADO, no columna: una requisición está despachada si
+            -- existe una solicitud vigente que la referencia.
+            (d.tipo = 'REQUISICION' AND EXISTS (
+               SELECT 1 FROM taller_documento_inventario s
+                WHERE s.id_requisicion = d.id_documento AND s.estado = 'VIGENTE'
+             )) AS despachada
        FROM taller_documento_inventario d
        LEFT JOIN taller_movimiento_inventario m ON m.id_documento = d.id_documento
        LEFT JOIN aeronave a ON a.id_aeronave = d.id_aeronave
@@ -103,7 +150,134 @@ exports.getDocumento = catchAsync(async (req, res) => {
       ORDER BY m.id_mov`,
     [id]
   );
-  res.json({ documento: cab.rows[0], renglones: det.rows });
+
+  // Documentos encadenados: la requisición de la que nació, la solicitud que la
+  // despachó, y los retornos de sobrantes.
+  const doc = cab.rows[0];
+  const [origen, despachos, retornos] = await Promise.all([
+    doc.id_requisicion
+      ? db.query("SELECT id_documento, correlativo, fecha FROM taller_documento_inventario WHERE id_documento = $1", [doc.id_requisicion])
+      : { rows: [] },
+    doc.tipo === "REQUISICION"
+      ? db.query("SELECT id_documento, correlativo, fecha, estado FROM taller_documento_inventario WHERE id_requisicion = $1 ORDER BY id_documento", [id])
+      : { rows: [] },
+    doc.tipo === "SALIDA"
+      ? db.query("SELECT id_documento, correlativo, fecha, estado FROM taller_documento_inventario WHERE id_solicitud_origen = $1 ORDER BY id_documento", [id])
+      : { rows: [] },
+  ]);
+
+  res.json({
+    documento: doc,
+    renglones: det.rows,
+    requisicion_origen: origen.rows[0] || null,
+    despachos: despachos.rows,          // solicitudes nacidas de esta requisición
+    retornos: retornos.rows,            // sobrantes devueltos de esta solicitud
+  });
+});
+
+/**
+ * Lo que queda por devolver de una solicitud, renglón por renglón.
+ * Alimenta el modal de retorno para que nadie tenga que hacer la resta a mano.
+ */
+exports.retornablesSolicitud = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const d = await db.query(
+    "SELECT tipo, estado, correlativo FROM taller_documento_inventario WHERE id_documento = $1",
+    [id]
+  );
+  if (!d.rows.length || d.rows[0].tipo !== "SALIDA") {
+    return res.status(404).json({ message: "Solicitud no encontrada" });
+  }
+  res.json({
+    solicitud: d.rows[0],
+    items: await retornablesPorItem(db, id),
+  });
+});
+
+/**
+ * Edita una requisición. Es el ÚNICO documento editable, y a propósito: la
+ * regla de "no se edita, se anula" existe porque los documentos mueven
+ * existencia, y un borrador que no mueve nada puede corregirse. Al despacharse
+ * se congela.
+ */
+exports.editarRequisicion = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const {
+    fecha, id_aeronave, cliente, solicitante, tacometro,
+    motivo, observaciones, nota, renglones,
+  } = req.body;
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const d = await client.query(
+      "SELECT * FROM taller_documento_inventario WHERE id_documento = $1 FOR UPDATE",
+      [id]
+    );
+    if (!d.rows.length || d.rows[0].tipo !== "REQUISICION") {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Requisición no encontrada" });
+    }
+    if (d.rows[0].estado !== "VIGENTE") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Esa requisición está anulada" });
+    }
+    const desp = await client.query(
+      "SELECT correlativo FROM taller_documento_inventario WHERE id_requisicion = $1 AND estado = 'VIGENTE' LIMIT 1",
+      [id]
+    );
+    if (desp.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: `Ya se despachó en ${desp.rows[0].correlativo}, así que no se puede editar.`,
+      });
+    }
+
+    await client.query(
+      `UPDATE taller_documento_inventario SET
+         fecha         = COALESCE($2::date, fecha),
+         id_aeronave   = $3,
+         cliente       = $4,
+         solicitante   = $5,
+         tacometro     = $6::numeric,
+         motivo        = $7,
+         observaciones = $8,
+         nota          = $9
+       WHERE id_documento = $1`,
+      [id, fecha || null, id_aeronave || null, cliente || null, solicitante || null,
+       tacometro ?? null, motivo || null, observaciones || null, nota || null]
+    );
+
+    // Los renglones se reemplazan enteros: es un borrador, no hay historia que
+    // preservar, y no tocan existencia.
+    if (Array.isArray(renglones)) {
+      if (!renglones.length) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "La requisición no puede quedar sin renglones" });
+      }
+      await client.query("DELETE FROM taller_movimiento_inventario WHERE id_documento = $1", [id]);
+      for (const [i, l] of renglones.entries()) {
+        const cant = num(l.cantidad);
+        if (!Number(l.id_repuesto) || cant === null || isNaN(cant) || cant <= 0) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ message: `Renglón ${i + 1}: ítem o cantidad inválidos` });
+        }
+        await client.query(
+          `INSERT INTO taller_movimiento_inventario (id_documento, id_repuesto, cantidad, costo_unitario, nota)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [id, Number(l.id_repuesto), cant, num(l.costo_unitario), l.nota || null]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
 });
 
 // ── Alta de documento ───────────────────────────────────────────────────────
@@ -125,6 +299,10 @@ exports.crearDocumento = catchAsync(async (req, res) => {
     proveedor, factura_no,
     id_aeronave, motivo, id_cumplimiento, id_mantenimiento,
     renglones, forzar, motivo_forzado,
+    // Campos del papel (requisición y solicitud CAAA-004-F)
+    id_requisicion, id_solicitud_origen,
+    orden_trabajo_no, numero_solicitud, tacometro, cliente,
+    solicitante, entregado_por, entregado_a, observaciones,
   } = req.body;
 
   if (!TIPOS.includes(tipo)) return res.status(400).json({ message: "Tipo de documento inválido" });
@@ -136,6 +314,9 @@ exports.crearDocumento = catchAsync(async (req, res) => {
   }
   if (tipo === "AJUSTE" && !String(motivo || "").trim()) {
     return res.status(400).json({ message: "El ajuste necesita un motivo" });
+  }
+  if (tipo === "RETORNO" && !id_solicitud_origen) {
+    return res.status(400).json({ message: "El retorno tiene que apuntar a la solicitud de la que salió el material" });
   }
   if (id_cumplimiento && id_mantenimiento) {
     return res.status(400).json({ message: "La salida se cuelga de una inspección o de un mantenimiento, no de ambos" });
@@ -160,8 +341,64 @@ exports.crearDocumento = catchAsync(async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    const mueveStock = MUEVE_STOCK.has(tipo);
+
+    // La solicitud puede nacer de una requisición; si viene, se valida.
+    if (id_requisicion) {
+      const rq = await client.query(
+        "SELECT tipo, estado FROM taller_documento_inventario WHERE id_documento = $1",
+        [id_requisicion]
+      );
+      if (!rq.rows.length || rq.rows[0].tipo !== "REQUISICION") {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "La requisición indicada no existe" });
+      }
+      if (rq.rows[0].estado !== "VIGENTE") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "Esa requisición está anulada" });
+      }
+    }
+
+    // El retorno se valida contra lo que de verdad salió en su solicitud.
+    if (tipo === "RETORNO") {
+      const sol = await client.query(
+        "SELECT tipo, estado, correlativo FROM taller_documento_inventario WHERE id_documento = $1 FOR UPDATE",
+        [id_solicitud_origen]
+      );
+      if (!sol.rows.length || sol.rows[0].tipo !== "SALIDA") {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "La solicitud indicada no existe" });
+      }
+      if (sol.rows[0].estado !== "VIGENTE") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: `La solicitud ${sol.rows[0].correlativo} está anulada` });
+      }
+      const saldos = new Map((await retornablesPorItem(client, id_solicitud_origen)).map((x) => [x.id_repuesto, x]));
+      const excedidos = [];
+      const acumulado = new Map();
+      for (const l of lineas) {
+        const s = saldos.get(l.id_repuesto);
+        const ya = acumulado.get(l.id_repuesto) || 0;
+        if (!s) {
+          excedidos.push({ id_repuesto: l.id_repuesto, retornable: 0, intentado: l.cantidad, descripcion: "(no salió en esa solicitud)" });
+        } else if (ya + l.cantidad > s.retornable + 1e-9) {
+          excedidos.push({ ...s, intentado: ya + l.cantidad });
+        }
+        acumulado.set(l.id_repuesto, ya + l.cantidad);
+      }
+      if (excedidos.length) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "No se puede devolver más de lo que salió en esa solicitud",
+          excedidos,
+        });
+      }
+    }
+
     const puede = await puedeForzar(client, req.user);
-    const mapa = await bloquearRepuestos(client, lineas.map((l) => l.id_repuesto));
+    const mapa = await bloquearRepuestos(
+      client, lineas.map((l) => l.id_repuesto), { lock: mueveStock }
+    );
 
     // Resolución de deltas + verificación de existencia.
     const deltas = new Map();
@@ -180,9 +417,16 @@ exports.crearDocumento = catchAsync(async (req, res) => {
       const stock = Number(item.stock_actual);
       let delta;
       let costo;
-      if (tipo === "ENTRADA") {
+      if (tipo === "REQUISICION") {
+        // Borrador: se guarda lo pedido con signo positivo, pero NO mueve stock.
+        delta = l.cantidad;
+        costo = l.costo_unitario;
+      } else if (tipo === "ENTRADA") {
         delta = l.cantidad;
         costo = l.costo_unitario;                       // opcional: sin costo, sin egreso
+      } else if (tipo === "RETORNO") {
+        delta = l.cantidad;                             // el sobrante vuelve al estante
+        costo = l.costo_unitario ?? Number(item.costo_unitario);
       } else if (tipo === "SALIDA") {
         delta = -l.cantidad;
         costo = l.costo_unitario ?? Number(item.costo_unitario); // foto del costo vigente
@@ -233,21 +477,33 @@ exports.crearDocumento = catchAsync(async (req, res) => {
     const anio = Number(String(fecha || "").slice(0, 4)) || new Date().getFullYear();
     const { numero, correlativo } = await siguienteCorrelativo(client, tipo, anio);
 
+    // La aeronave también viaja en la requisición y en el retorno (el papel la
+    // pide en los tres), no solo en la salida.
+    const llevaAeronave = ["SALIDA", "REQUISICION", "RETORNO"].includes(tipo);
     const cab = await client.query(
       `INSERT INTO taller_documento_inventario
          (tipo, anio, numero, correlativo, fecha, proveedor, factura_no,
-          id_aeronave, id_cumplimiento, id_mantenimiento, motivo, nota, registrado_por)
-       VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6,$7,$8,$9,$10,$11,$12,$13)
+          id_aeronave, id_cumplimiento, id_mantenimiento, motivo, nota, registrado_por,
+          id_requisicion, id_solicitud_origen, orden_trabajo_no, numero_solicitud,
+          tacometro, cliente, solicitante, entregado_por, entregado_a, observaciones)
+       VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6,$7,$8,$9,$10,$11,$12,$13,
+               $14,$15,$16,$17,$18::numeric,$19,$20,$21,$22,$23)
        RETURNING *`,
       [
         tipo, anio, numero, correlativo, fecha || null,
         tipo === "ENTRADA" ? proveedor || null : null,
         tipo === "ENTRADA" ? factura_no || null : null,
-        tipo === "SALIDA" ? id_aeronave || null : null,
+        llevaAeronave ? id_aeronave || null : null,
         tipo === "SALIDA" ? id_cumplimiento || null : null,
         tipo === "SALIDA" ? id_mantenimiento || null : null,
         motivo || null, nota || null,
         req.user?.id_usuario || null,
+        tipo === "SALIDA" ? id_requisicion || null : null,
+        tipo === "RETORNO" ? id_solicitud_origen || null : null,
+        orden_trabajo_no || null, numero_solicitud || null,
+        tacometro ?? null, cliente || null,
+        solicitante || null, entregado_por || null, entregado_a || null,
+        observaciones || null,
       ]
     );
     const doc = cab.rows[0];
@@ -267,7 +523,11 @@ exports.crearDocumento = catchAsync(async (req, res) => {
       );
     }
 
-    await aplicarDeltas(client, deltas, { fecha: doc.fecha, esEntrada: tipo === "ENTRADA" });
+    // La requisición es un borrador: queda registrada con sus renglones, pero
+    // la existencia no se toca hasta que bodega la despacha.
+    if (mueveStock) {
+      await aplicarDeltas(client, deltas, { fecha: doc.fecha, esEntrada: tipo === "ENTRADA" });
+    }
 
     // El gasto se contabiliza en la COMPRA, no en el consumo (la salida ya no
     // genera egreso: lo hacía y duplicaba el gasto). Sin costo no hay egreso —
@@ -344,6 +604,24 @@ exports.anularDocumento = catchAsync(async (req, res) => {
     if (doc.estado === "ANULADO") {
       await client.query("ROLLBACK");
       return res.status(409).json({ message: "Ese documento ya está anulado" });
+    }
+
+    // Una solicitud con sobrantes ya devueltos no se puede anular sola: primero
+    // hay que anular los retornos, porque si no la reversión del stock contaría
+    // dos veces el mismo material.
+    if (doc.tipo === "SALIDA") {
+      const ret = await client.query(
+        `SELECT correlativo FROM taller_documento_inventario
+          WHERE id_solicitud_origen = $1 AND estado = 'VIGENTE' ORDER BY correlativo`,
+        [id]
+      );
+      if (ret.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          message: `Esta solicitud tiene retornos vigentes (${ret.rows.map((x) => x.correlativo).join(", ")}). Anulalos primero.`,
+          retornos: ret.rows.map((x) => x.correlativo),
+        });
+      }
     }
 
     const items = await client.query(

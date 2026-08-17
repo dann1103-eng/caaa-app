@@ -14,6 +14,7 @@ const {
   siguienteCodigoItem,
   normalizarUnidad,
   normalizarClasificacion,
+  documentoCuentaSQL,
 } = require("../../utils/inventarioHelpers");
 
 // ── Catálogo ────────────────────────────────────────────────────────────────
@@ -203,18 +204,30 @@ exports.editarItem = catchAsync(async (req, res) => {
 exports.kardex = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { desde, hasta, incluir_anulados } = req.query;
-  const verAnulados = incluir_anulados === "true";
 
   const item = await db.query(
     `SELECT r.*,
-            (r.stock_actual <= r.stock_minimo) AS stock_bajo,
+            (r.stock_minimo > 0 AND r.stock_actual <= r.stock_minimo) AS stock_bajo,
             ROUND(r.stock_actual * COALESCE(r.costo_unitario, 0), 2) AS importe
        FROM taller_repuesto r WHERE r.id_repuesto = $1`,
     [id]
   );
   if (!item.rows.length) return res.status(404).json({ message: "Ítem no encontrado" });
 
-  const r = await db.query(
+  const k = await kardexDeItem(db, id, { desde, hasta, verAnulados: incluir_anulados === "true" });
+  res.json({ item: item.rows[0], ...k });
+});
+
+/**
+ * El kardex de un ítem: movimientos con saldo corrido, y el saldo inicial
+ * cuando hay filtro de fechas.
+ *
+ * Compartido por la pantalla de kardex y por la hoja de entrega de aceites,
+ * que es el mismo cálculo con otro formato — por eso vive en una sola función
+ * y no copiado en dos consultas.
+ */
+async function kardexDeItem(conn, idRepuesto, { desde, hasta, verAnulados } = {}) {
+  const r = await conn.query(
     `WITH base AS (
        SELECT m.id_mov, m.cantidad, m.costo_unitario, m.nota,
               m.forzado, m.motivo_forzado,
@@ -232,6 +245,9 @@ exports.kardex = catchAsync(async (req, res) => {
          LEFT JOIN mantenimiento_aeronave  ma ON ma.id_mantenimiento = d.id_mantenimiento
          LEFT JOIN usuario                 u  ON u.id_usuario = d.registrado_por
         WHERE m.id_repuesto = $1
+          -- La requisición es un borrador: sus renglones viven en esta misma
+          -- tabla pero no son movimiento de bodega.
+          AND d.tipo <> 'REQUISICION'
      ),
      ini AS (
        SELECT COALESCE(SUM(cantidad), 0) AS saldo
@@ -249,14 +265,71 @@ exports.kardex = catchAsync(async (req, res) => {
         AND ($3::date IS NULL OR b.fecha <= $3::date)
         AND ($4::boolean OR b.estado = 'VIGENTE')
       ORDER BY b.fecha, b.id_mov`,
-    [id, desde || null, hasta || null, verAnulados]
+    [idRepuesto, desde || null, hasta || null, !!verAnulados]
   );
-
-  res.json({
-    item: item.rows[0],
+  return {
     saldo_inicial: Number(r.rows[0]?.saldo_inicial ?? 0),
     movimientos: r.rows,
-  });
+  };
+}
+
+/**
+ * Hoja de "CONTROL DE ENTREGA DE ACEITES POR DÍA".
+ *
+ * No es una tabla nueva: es el kardex de los aceites. Las columnas del cuaderno
+ * (existencia → entregado → existencia actual) son exactamente el saldo corrido
+ * que el kardex ya calcula, así que acá solo se elige el rango y los ítems.
+ *
+ * A diferencia del papel, se muestran también las entradas: el cuaderno solo
+ * anota salidas y por eso su saldo se despega del real en cuanto llega una compra.
+ */
+exports.entregaAceites = catchAsync(async (req, res) => {
+  const { desde, hasta, ids } = req.query;
+
+  const seleccion = String(ids || "").split(",").map(Number).filter(Boolean);
+  const items = await db.query(
+    seleccion.length
+      ? `SELECT * FROM taller_repuesto WHERE id_repuesto = ANY($1::int[]) ORDER BY codigo`
+      : `SELECT * FROM taller_repuesto WHERE categoria = 'ACEITE' AND activo = true ORDER BY codigo`,
+    seleccion.length ? [seleccion] : []
+  );
+
+  const hojas = [];
+  for (const it of items.rows) {
+    const k = await kardexDeItem(db, it.id_repuesto, { desde, hasta });
+    hojas.push({ item: it, ...k });
+  }
+  res.json({ desde: desde || null, hasta: hasta || null, hojas });
+});
+
+/**
+ * Posibles duplicados: un mismo n° de parte repartido entre varios códigos.
+ *
+ * Salió del cotejo con los formatos en papel: `CH48110-1` existe como 000350
+ * (+10) y 000685 (−7), que es el mismo filtro con el saldo partido en dos. NO
+ * se fusionan solos — fusionar mueve saldos y es decisión del mecánico.
+ */
+exports.duplicadosPorParte = catchAsync(async (_req, res) => {
+  const r = await db.query(
+    `SELECT UPPER(TRIM(parte_no)) AS parte_no,
+            COUNT(*)::int AS codigos,
+            SUM(stock_actual) AS neto,
+            JSON_AGG(JSON_BUILD_OBJECT(
+              'id_repuesto', id_repuesto, 'codigo', codigo,
+              'descripcion', descripcion, 'stock', stock_actual,
+              'ultimo_movimiento_en', ultimo_movimiento_en
+            ) ORDER BY codigo) AS items
+       FROM taller_repuesto
+      WHERE parte_no IS NOT NULL AND TRIM(parte_no) <> ''
+        -- 'UNK' es el marcador de "no se sabe el n° de parte": agrupa 13 ítems
+        -- que no tienen nada que ver entre sí.
+        AND UPPER(TRIM(parte_no)) <> 'UNK'
+        AND activo = true
+      GROUP BY UPPER(TRIM(parte_no))
+     HAVING COUNT(*) > 1
+      ORDER BY BOOL_OR(stock_actual < 0) DESC, COUNT(*) DESC, 1`
+  );
+  res.json(r.rows);
 });
 
 // ── Cola de trabajo de Taller + Contabilidad ───────────────────────────────

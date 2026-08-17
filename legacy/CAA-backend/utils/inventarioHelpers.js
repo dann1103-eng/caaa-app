@@ -12,8 +12,30 @@
 // Arbitraria y propia de este módulo (la del cierre de vuelo es 4711).
 const LOCK_CORRELATIVO = 4712;
 
-const PREFIJO = { ENTRADA: "FA", SALIDA: "REQ", AJUSTE: "AJ" };
-const DIGITOS = { ENTRADA: 5, SALIDA: 3, AJUSTE: 3 };
+// La serie la define el PREFIJO, no el tipo: los 243 documentos históricos son
+// tipo SALIDA con prefijo REQ, porque en el Excel la requisición y la salida
+// eran el mismo papel. Por eso REQUISICION continúa esa numeración (desde 245
+// en 2026) y las solicitudes estrenan la suya.
+const PREFIJO = { ENTRADA: "FA", SALIDA: "SOL", AJUSTE: "AJ", REQUISICION: "REQ", RETORNO: "RET" };
+const DIGITOS = { ENTRADA: 5, SALIDA: 3, AJUSTE: 3, REQUISICION: 3, RETORNO: 3 };
+
+// Los tipos que tocan la existencia. La requisición es un borrador y no mueve
+// nada: por eso además es el único documento editable.
+const MUEVE_STOCK = new Set(["ENTRADA", "SALIDA", "AJUSTE", "RETORNO"]);
+
+/**
+ * Condición que decide si un documento cuenta para la existencia.
+ *
+ * Los renglones de una REQUISICION viven en la misma tabla que los demás, pero
+ * son un borrador: si no se filtraran, pedir material movería el stock sin que
+ * nadie lo haya despachado. Va como fragmento compartido y no copiado en cada
+ * consulta — la lección de las horas facturables (§27), donde el mismo criterio
+ * repartido en seis lugares se desincronizó.
+ *
+ * @param {string} alias  alias de taller_documento_inventario en la consulta
+ */
+const documentoCuentaSQL = (alias = "d") =>
+  `${alias}.estado = 'VIGENTE' AND ${alias}.tipo <> 'REQUISICION'`;
 
 const UNIDADES = ["UN", "QT", "GAL", "FT", "KIT", "JGO", "LB"];
 
@@ -27,18 +49,22 @@ const UNIDADES = ["UN", "QT", "GAL", "FT", "KIT", "JGO", "LB"];
  * de los repuestos ni con el de aeronave/vuelo de mantenimiento (§27).
  */
 async function siguienteCorrelativo(client, tipo, anio) {
+  const prefijo = PREFIJO[tipo];
   await client.query("SELECT pg_advisory_xact_lock($1, hashtext($2)::int)", [
     LOCK_CORRELATIVO,
-    `${tipo}-${anio}`,
+    `${prefijo}-${anio}`,
   ]);
+  // El MAX se busca por PREFIJO y no por tipo, para que la serie REQ arranque
+  // después de los históricos (que son tipo SALIDA con correlativo REQ-###) y
+  // no existan nunca dos papeles rotulados igual.
   const r = await client.query(
     `SELECT COALESCE(MAX(numero), 0) + 1 AS n
        FROM taller_documento_inventario
-      WHERE tipo = $1 AND anio = $2`,
-    [tipo, anio]
+      WHERE anio = $1 AND correlativo LIKE $2`,
+    [anio, `${prefijo}-%`]
   );
   const numero = Number(r.rows[0].n);
-  const correlativo = `${PREFIJO[tipo]}-${String(numero).padStart(DIGITOS[tipo], "0")}-${anio}`;
+  const correlativo = `${prefijo}-${String(numero).padStart(DIGITOS[tipo], "0")}-${anio}`;
   return { numero, correlativo };
 }
 
@@ -49,15 +75,17 @@ async function siguienteCorrelativo(client, tipo, anio) {
  * simultáneas que compartan ítems los toman siempre en el mismo orden. Sin
  * esto, la que pide {A,B} y la que pide {B,A} se traban mutuamente.
  */
-async function bloquearRepuestos(client, ids) {
+async function bloquearRepuestos(client, ids, { lock = true } = {}) {
   const unicos = [...new Set(ids.map(Number))].sort((a, b) => a - b);
   if (!unicos.length) return new Map();
+  // Sin lock cuando el documento no mueve existencia (la requisición es un
+  // borrador): ahí solo hace falta validar que los ítems existan y estén activos.
   const r = await client.query(
     `SELECT id_repuesto, codigo, descripcion, unidad, stock_actual, costo_unitario, activo
        FROM taller_repuesto
       WHERE id_repuesto = ANY($1::int[])
       ORDER BY id_repuesto
-      FOR UPDATE`,
+      ${lock ? "FOR UPDATE" : ""}`,
     [unicos]
   );
   return new Map(r.rows.map((x) => [x.id_repuesto, x]));
@@ -105,17 +133,17 @@ async function recalcularStock(client, ids) {
           SELECT SUM(m.cantidad)
             FROM taller_movimiento_inventario m
             JOIN taller_documento_inventario  d ON d.id_documento = m.id_documento
-           WHERE m.id_repuesto = r.id_repuesto AND d.estado = 'VIGENTE'), 0),
+           WHERE m.id_repuesto = r.id_repuesto AND ${documentoCuentaSQL("d")}), 0),
         ultimo_movimiento_en = (
           SELECT MAX(d.fecha)
             FROM taller_movimiento_inventario m
             JOIN taller_documento_inventario  d ON d.id_documento = m.id_documento
-           WHERE m.id_repuesto = r.id_repuesto AND d.estado = 'VIGENTE'),
+           WHERE m.id_repuesto = r.id_repuesto AND ${documentoCuentaSQL("d")}),
         ultima_entrada_en = (
           SELECT MAX(d.fecha)
             FROM taller_movimiento_inventario m
             JOIN taller_documento_inventario  d ON d.id_documento = m.id_documento
-           WHERE m.id_repuesto = r.id_repuesto AND d.estado = 'VIGENTE'
+           WHERE m.id_repuesto = r.id_repuesto AND ${documentoCuentaSQL("d")}
              AND d.tipo = 'ENTRADA')
       WHERE r.id_repuesto = ANY($1::int[])`,
     [unicos]
@@ -182,6 +210,8 @@ function extraerSerie(descripcion) {
 module.exports = {
   UNIDADES,
   PREFIJO,
+  MUEVE_STOCK,
+  documentoCuentaSQL,
   siguienteCorrelativo,
   siguienteCodigoItem,
   bloquearRepuestos,
