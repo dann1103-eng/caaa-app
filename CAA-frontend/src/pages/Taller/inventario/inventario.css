@@ -1,0 +1,189 @@
+/* Inventario de bodega (OMA). Se apoya en las utilidades `adf-*` del módulo de
+   Administración (estilo "Core Admin", ver DESIGN.md); acá solo va lo propio. */
+
+.inv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.inv-head__acciones { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Sub-navegación, mismo patrón que Contabilidad. La pestaña activa se marca con
+   el indicador rojo del acento de marca (≤10% de la pantalla, ver DESIGN.md). */
+.inv-tabs {
+  display: flex;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--c-line);
+  margin: var(--sp-4) 0 var(--sp-4);
+  overflow-x: auto;
+}
+.inv-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 0.9rem;
+  color: var(--c-ink-3);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.inv-tab:hover { color: var(--c-ink-1); }
+.inv-tab--activa {
+  color: var(--c-ink-1);
+  font-weight: 600;
+  border-bottom-color: var(--c-accent);
+}
+
+/* Barra de filtros */
+.inv-filtros {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.inv-filtros label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-ink-3);
+  margin-bottom: 3px;
+}
+.inv-filtros input,
+.inv-filtros select { min-width: 150px; }
+.inv-filtros .inv-buscador { min-width: 260px; }
+
+/* Atajos: bajo mínimo / en negativo / sin movimiento / sin costo */
+.inv-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.inv-chip {
+  border: 1px solid var(--c-line-2);
+  background: var(--c-surface);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  color: var(--c-ink-2);
+  cursor: pointer;
+}
+.inv-chip:hover { border-color: var(--c-ink-4); }
+.inv-chip--on {
+  background: var(--c-ink-1);
+  border-color: var(--c-ink-1);
+  color: #fff;
+}
+
+/* Tira de totales */
+.inv-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.inv-kpi {
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-2);
+  padding: var(--sp-3);
+  background: var(--c-surface);
+}
+.inv-kpi__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--c-ink-3);
+}
+.inv-kpi__valor {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-1);
+}
+.inv-kpi__valor--alerta { color: var(--c-danger-700); }
+.inv-kpi__nota {
+  font-size: 0.72rem;
+  color: var(--c-danger-700);
+  margin-top: 2px;
+}
+
+/* Filas de la tabla de existencias */
+.inv-fila--negativo td { background: var(--c-danger-50); }
+.inv-codigo {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-3);
+}
+.inv-clic { cursor: pointer; }
+.inv-clic:hover td { background: var(--c-surface-2); }
+
+/* Kardex */
+.inv-kardex__ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--c-line);
+  margin-bottom: var(--sp-3);
+}
+.inv-saldo {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.inv-fila-inicial td {
+  background: var(--c-surface-2);
+  font-style: italic;
+  color: var(--c-ink-3);
+}
+.inv-anulado td { opacity: 0.55; text-decoration: line-through; }
+
+/* Editor de renglones del documento */
+.inv-renglones { width: 100%; }
+.inv-renglones td { padding: 4px 6px; vertical-align: top; }
+.inv-renglones input[type="number"] { width: 100%; text-align: right; }
+
+/* Combobox de búsqueda de ítem */
+.inv-picker { position: relative; }
+.inv-picker__lista {
+  position: absolute;
+  z-index: 40;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+}
+.inv-picker__op {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.inv-picker__op--hl { background: var(--c-surface-2); }
+.inv-picker__op small { color: var(--c-ink-3); white-space: nowrap; }
+
+/* Aviso de existencia insuficiente (el 409) */
+.inv-faltantes {
+  border: 1px solid var(--c-danger-700);
+  background: var(--c-danger-50);
+  border-radius: var(--radius-2);
+  padding: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.inv-faltantes h4 {
+  font-size: 0.9rem;
+  margin: 0 0 var(--sp-2);
+  color: var(--c-danger-700);
+}
+.inv-faltantes ul { margin: 0 0 var(--sp-2); padding-left: 1.1rem; font-size: 0.85rem; }
+
+@media (max-width: 768px) {
+  .inv-head { flex-direction: column; }
+  .inv-filtros .inv-buscador { min-width: 100%; }
+}

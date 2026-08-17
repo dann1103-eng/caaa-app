@@ -31,7 +31,7 @@ aviso. Daño medido:
 - **11 claves duplicadas** (dos ítems con la misma descripción y sin PN: `CARBURADOR`, `MAGNETO`,
   `TACOMETRO`, …) → el SUMIFS le suma lo mismo a ambos.
 
-**Deuda de datos acumulada:** 500 de 662 ítems sin costo unitario (el importe total del inventario
+**Deuda de datos acumulada:** 500 de 636 ítems sin costo unitario (el importe total del inventario
 da $3,880 cuando solo los positivos ya suman $7,161) · 356 sin ubicación · 20 sin código · 1 código
 repetido (`000585`) · 29 valores de clasificación para ~15 categorías reales (`FERRETERIA` /
 `FERRETERIA `, `INSTRUMENTOS ` / `INSTUMENTOS ` / `INSTRUMENTO`) · la unidad de medida vive solo en
@@ -257,7 +257,12 @@ borrarlo y recargarlo.
 
 **Paso 0** — borrar los 3 repuestos y 2 movimientos de demo.
 
-**Paso 1 · Catálogo (662 ítems)**
+**Paso 1 · Catálogo (636 ítems)**
+
+> Corrección sobre la cifra que se manejó durante el diseño: la hoja tiene 662 filas con
+> algo, pero **26 son filas plantilla sin descripción** (solo las fórmulas evaluando a 0).
+> Los ítems reales son **636**. Con los 6 que se dan de alta desde movimientos (abajo), el
+> catálogo cargado queda en **642**.
 
 | Dato | Regla |
 |---|---|
@@ -274,8 +279,15 @@ tiene el año mal escrito (es 2026). Las entradas entran sin proveedor, sin fact
 Excel no los tiene — con el comentario original en la nota; van directo a la cola de la pantalla 4.
 
 Cruzando por código: **481 de 489** líneas de entrada y **433 de 440** de salida resuelven limpio.
-Quedan **15 líneas** (13 sin código, 2 con código inexistente); a esas se les intenta el cruce por
-descripción y lo que no resuelva va al reporte para carga manual.
+De las 15 restantes, 11 se cruzan por descripción y **6 corresponden a materiales que se movieron
+pero nunca se catalogaron** (`ORING AN6230B3`, `RADIADOR DE ACEITE`, `SHIELDED BARREL CONTACT`,
+`CHAVETA MS24665-134`, `CHAVETA 1/8`, `MANGUERA DE RESPIRADERO`): a esos se les **da de alta el ítem
+con los datos del propio movimiento**, marcados para que el mecánico complete ubicación y costo.
+Descartarlos habría reproducido justo el defecto del Excel que venimos a corregir.
+
+**Cero líneas perdidas:** entran los 489 renglones de entrada y los 440 de salida. Cuatro cantidades
+venían como texto (`1FT`, `2´.4´´`): se toma el número de adelante y el texto original queda anotado
+en el renglón.
 
 La aeronave de cada salida se extrae del comentario (389 de 440 líneas mencionan matrícula).
 **Las 51 sin matrícula quedan sin aeronave: la obligatoriedad aplica solo hacia adelante.**

@@ -26,6 +26,9 @@ exports.getAeronavesActivas = catchAsync(async (req, res) => {
        LIMIT 1
     ) mact ON true
     WHERE NOT (a.activa = false AND a.estado = 'ACTIVO')
+      -- Las aeronaves de terceros (OMA) reciben repuestos y mantenimiento,
+      -- pero NUNCA vuelan: fuera de todo selector de agendado.
+      AND a.es_externa = false
     ORDER BY a.codigo
   `);
   res.json(result.rows);
@@ -124,7 +127,10 @@ exports.listarAeronaves = catchAsync(async (req, res) => {
            (SELECT COUNT(*) FROM vuelo v WHERE v.id_aeronave = a.id_aeronave)::int AS total_vuelos,
            (a.id_wb_plantilla IS NOT NULL) AS tiene_wb
     FROM aeronave a
-    ORDER BY a.activa DESC, a.codigo
+    -- El módulo Aeronaves es el ÚNICO listado que sí muestra las aeronaves de
+    -- terceros (es donde se administran); van al final para no mezclarlas con
+    -- la flota propia.
+    ORDER BY a.es_externa, a.activa DESC, a.codigo
   `);
   res.json(r.rows);
 });

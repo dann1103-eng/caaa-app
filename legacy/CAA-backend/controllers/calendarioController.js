@@ -93,6 +93,7 @@ exports.getAeronavesPublicas = async (req, res) => {
              horas_acumuladas, horas_proxima_revision, tipo_proxima_revision,
              foto_url
       FROM aeronave
+      WHERE es_externa = false
       ORDER BY codigo
     `);
     res.json(result.rows);

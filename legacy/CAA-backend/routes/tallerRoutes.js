@@ -8,6 +8,7 @@ const dashboard = require("../controllers/taller/dashboardController");
 const componente = require("../controllers/taller/componenteController");
 const seguimiento = require("../controllers/taller/seguimientoController");
 const inventario = require("../controllers/taller/inventarioController");
+const documentos = require("../controllers/taller/documentoInventarioController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -16,6 +17,13 @@ router.use(authMiddleware);
 // Roles: TALLER (mecánico) y ADMIN (super-usuario) tienen acceso completo.
 const READ = ["TALLER", "ADMIN"];
 const WRITE = ["TALLER", "ADMIN"];
+
+// El inventario lo LEE también Administración: la ingesta de costos es trabajo
+// conjunto de Taller y Contabilidad, y el valor del inventario es dato contable.
+const READ_INV = ["TALLER", "ADMIN", "ADMINISTRACION"];
+// Costear una entrada NO mueve stock ni cantidades: solo pone el precio que el
+// Excel nunca tuvo. Por eso Administración sí escribe acá, y solo acá.
+const COSTEAR = ["TALLER", "ADMIN", "ADMINISTRACION"];
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
 router.get("/dashboard", roleMiddleware(READ), dashboard.dashboard);
@@ -38,11 +46,31 @@ router.post("/tareas/:id/cumplimiento", roleMiddleware(WRITE), seguimiento.regis
 router.get("/tareas/:id/historial", roleMiddleware(READ), seguimiento.historialTarea);
 router.get("/aeronaves/:id/historial", roleMiddleware(READ), seguimiento.historialAeronave);
 
-// ── Inventario de repuestos ────────────────────────────────────────────────
-router.get("/repuestos", roleMiddleware(READ), inventario.listRepuestos);
-router.post("/repuestos", roleMiddleware(WRITE), inventario.crearRepuesto);
-router.patch("/repuestos/:id", roleMiddleware(WRITE), inventario.editarRepuesto);
-router.post("/repuestos/:id/movimiento", roleMiddleware(WRITE), inventario.registrarMovimiento);
-router.get("/repuestos/:id/movimientos", roleMiddleware(READ), inventario.movimientos);
+// ── Inventario de bodega (OMA) ─────────────────────────────────────────────
+//
+// El stock NO se toca por acá: se mueve exclusivamente con documentos
+// (entrada / salida / ajuste), igual que la bodega en el Excel.
+
+// Catálogo de ítems y kardex
+router.get("/inventario/items", roleMiddleware(READ_INV), inventario.listItems);
+router.post("/inventario/items", roleMiddleware(WRITE), inventario.crearItem);
+router.patch("/inventario/items/:id", roleMiddleware(WRITE), inventario.editarItem);
+router.get("/inventario/items/:id/kardex", roleMiddleware(READ_INV), inventario.kardex);
+router.get("/inventario/catalogos", roleMiddleware(READ_INV), inventario.catalogos);
+
+// Documentos
+router.get("/inventario/documentos", roleMiddleware(READ_INV), documentos.listDocumentos);
+router.post("/inventario/documentos", roleMiddleware(WRITE), documentos.crearDocumento);
+router.get("/inventario/documentos/:id", roleMiddleware(READ_INV), documentos.getDocumento);
+router.post("/inventario/documentos/:id/anular", roleMiddleware(WRITE), documentos.anularDocumento);
+
+// Costos pendientes — la cola conjunta de Taller y Contabilidad
+router.get("/inventario/pendientes-costo", roleMiddleware(READ_INV), inventario.pendientesCosto);
+router.patch("/inventario/documentos/:id/costos", roleMiddleware(COSTEAR), documentos.completarCostos);
+
+// Apoyo y reportes
+router.get("/inventario/aeronaves", roleMiddleware(READ_INV), documentos.aeronavesBodega);
+router.get("/inventario/aeronaves/:id_aeronave/mantenimientos", roleMiddleware(READ_INV), documentos.opcionesMantenimiento);
+router.get("/inventario/consumo-aeronave", roleMiddleware(READ_INV), documentos.consumoAeronave);
 
 module.exports = router;

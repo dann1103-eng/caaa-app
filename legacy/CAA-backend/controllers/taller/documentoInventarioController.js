@@ -1,0 +1,509 @@
+/**
+ * Documentos de bodega: entradas (FA), salidas (REQ) y ajustes (AJ).
+ *
+ * Todo lo que mueve existencia pasa por acá. Un documento es una cabecera con N
+ * renglones, igual que la FA y la REQ del Excel de la OMA — donde FA-00001-2026
+ * llegó a tener 357 renglones.
+ *
+ * Spec: docs/superpowers/specs/2026-08-17-inventario-taller-design.md
+ */
+const db = require("../../config/db");
+const catchAsync = require("../../utils/catchAsync");
+const {
+  siguienteCorrelativo,
+  bloquearRepuestos,
+  aplicarDeltas,
+  recalcularStock,
+} = require("../../utils/inventarioHelpers");
+
+const TIPOS = ["ENTRADA", "SALIDA", "AJUSTE"];
+
+/**
+ * ¿Puede este usuario forzar una salida sin existencia (y anular documentos)?
+ *
+ * Se lee de la BD y no del token: un token viejo no debe seguir otorgando —ni
+ * negando— una capacidad que ya cambió. Mismo criterio que utils/capacidades.js.
+ */
+async function puedeForzar(conn, user) {
+  if (!user) return false;
+  if (user.rol === "ADMIN") return true;
+  const r = await conn.query(
+    "SELECT COALESCE(puede_forzar_inventario, false) AS ok FROM usuario WHERE id_usuario = $1",
+    [user.id_usuario]
+  );
+  return !!r.rows[0]?.ok;
+}
+
+const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
+
+// ── Listado y detalle ───────────────────────────────────────────────────────
+
+exports.listDocumentos = catchAsync(async (req, res) => {
+  const { tipo, desde, hasta, q, incluir_anulados } = req.query;
+  const cond = ["1=1"];
+  const params = [];
+  const p = (v) => `$${params.push(v)}`;
+
+  if (tipo && TIPOS.includes(tipo)) cond.push(`d.tipo = ${p(tipo)}`);
+  if (desde) cond.push(`d.fecha >= ${p(desde)}::date`);
+  if (hasta) cond.push(`d.fecha <= ${p(hasta)}::date`);
+  if (incluir_anulados !== "true") cond.push("d.estado = 'VIGENTE'");
+  if (q) {
+    const ph = p(`%${q}%`);
+    cond.push(`(d.correlativo ILIKE ${ph} OR d.proveedor ILIKE ${ph} OR d.factura_no ILIKE ${ph} OR d.motivo ILIKE ${ph})`);
+  }
+
+  const r = await db.query(
+    `SELECT d.*,
+            a.codigo AS aeronave_codigo,
+            a.es_externa AS aeronave_externa,
+            COUNT(m.id_mov)::int                       AS renglones,
+            COALESCE(SUM(ABS(m.cantidad)), 0)          AS unidades,
+            ROUND(COALESCE(SUM(ABS(m.cantidad) * COALESCE(m.costo_unitario, 0)), 0), 2) AS total,
+            TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS registrado_por_nombre
+       FROM taller_documento_inventario d
+       LEFT JOIN taller_movimiento_inventario m ON m.id_documento = d.id_documento
+       LEFT JOIN aeronave a ON a.id_aeronave = d.id_aeronave
+       LEFT JOIN usuario  u ON u.id_usuario = d.registrado_por
+      WHERE ${cond.join(" AND ")}
+      GROUP BY d.id_documento, a.codigo, a.es_externa, u.nombre, u.apellido
+      ORDER BY d.fecha DESC, d.id_documento DESC
+      LIMIT 500`,
+    params
+  );
+  res.json(r.rows);
+});
+
+exports.getDocumento = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const cab = await db.query(
+    `SELECT d.*,
+            a.codigo AS aeronave_codigo,
+            tp.nombre AS tarea_nombre,
+            ma.tipo   AS mantenimiento_tipo,
+            ma.descripcion AS mantenimiento_descripcion,
+            TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS registrado_por_nombre
+       FROM taller_documento_inventario d
+       LEFT JOIN aeronave                a  ON a.id_aeronave = d.id_aeronave
+       LEFT JOIN taller_cumplimiento     tc ON tc.id_cumplimiento = d.id_cumplimiento
+       LEFT JOIN taller_tarea_programada tp ON tp.id_tarea = tc.id_tarea
+       LEFT JOIN mantenimiento_aeronave  ma ON ma.id_mantenimiento = d.id_mantenimiento
+       LEFT JOIN usuario                 u  ON u.id_usuario = d.registrado_por
+      WHERE d.id_documento = $1`,
+    [id]
+  );
+  if (!cab.rows.length) return res.status(404).json({ message: "Documento no encontrado" });
+
+  const det = await db.query(
+    `SELECT m.*, r.codigo, r.descripcion, r.parte_no, r.unidad,
+            ROUND(ABS(m.cantidad) * COALESCE(m.costo_unitario, 0), 2) AS importe
+       FROM taller_movimiento_inventario m
+       JOIN taller_repuesto r ON r.id_repuesto = m.id_repuesto
+      WHERE m.id_documento = $1
+      ORDER BY m.id_mov`,
+    [id]
+  );
+  res.json({ documento: cab.rows[0], renglones: det.rows });
+});
+
+// ── Alta de documento ───────────────────────────────────────────────────────
+
+/**
+ * Crea un documento con sus renglones y mueve el stock, todo en una transacción.
+ *
+ * Semántica de `cantidad` por tipo (el cliente siempre manda números positivos):
+ *   ENTRADA  → suma            (delta = +cantidad)
+ *   SALIDA   → resta           (delta = −cantidad)
+ *   AJUSTE   → cantidad es la EXISTENCIA CONTADA; el servidor calcula el delta
+ *              contra el stock del sistema. Así el usuario teclea "conté 18" y
+ *              el kardex igual guarda un delta, que es lo que permite que el
+ *              saldo sea una suma acumulada.
+ */
+exports.crearDocumento = catchAsync(async (req, res) => {
+  const {
+    tipo, fecha, nota,
+    proveedor, factura_no,
+    id_aeronave, motivo, id_cumplimiento, id_mantenimiento,
+    renglones, forzar, motivo_forzado,
+  } = req.body;
+
+  if (!TIPOS.includes(tipo)) return res.status(400).json({ message: "Tipo de documento inválido" });
+  if (!Array.isArray(renglones) || renglones.length === 0) {
+    return res.status(400).json({ message: "El documento no tiene renglones" });
+  }
+  if (tipo === "SALIDA" && !id_aeronave) {
+    return res.status(400).json({ message: "La salida necesita una aeronave" });
+  }
+  if (tipo === "AJUSTE" && !String(motivo || "").trim()) {
+    return res.status(400).json({ message: "El ajuste necesita un motivo" });
+  }
+  if (id_cumplimiento && id_mantenimiento) {
+    return res.status(400).json({ message: "La salida se cuelga de una inspección o de un mantenimiento, no de ambos" });
+  }
+
+  // Normalización y validación de renglones ANTES de abrir la transacción.
+  const lineas = [];
+  for (const [i, l] of renglones.entries()) {
+    const idRep = Number(l.id_repuesto);
+    const cant = num(l.cantidad);
+    if (!idRep) return res.status(400).json({ message: `Renglón ${i + 1}: falta el ítem` });
+    if (cant === null || isNaN(cant)) return res.status(400).json({ message: `Renglón ${i + 1}: cantidad inválida` });
+    // El ajuste sí admite contar 0 (se acabó); entrada y salida, no.
+    if (tipo !== "AJUSTE" && cant <= 0) {
+      return res.status(400).json({ message: `Renglón ${i + 1}: la cantidad debe ser mayor que cero` });
+    }
+    if (cant < 0) return res.status(400).json({ message: `Renglón ${i + 1}: la cantidad no puede ser negativa` });
+    lineas.push({ id_repuesto: idRep, cantidad: cant, costo_unitario: num(l.costo_unitario), nota: l.nota || null });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const puede = await puedeForzar(client, req.user);
+    const mapa = await bloquearRepuestos(client, lineas.map((l) => l.id_repuesto));
+
+    // Resolución de deltas + verificación de existencia.
+    const deltas = new Map();
+    const faltantes = [];
+    for (const l of lineas) {
+      const item = mapa.get(l.id_repuesto);
+      if (!item) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: `El ítem ${l.id_repuesto} no existe` });
+      }
+      if (!item.activo) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: `El ítem ${item.codigo} ${item.descripcion} está inactivo` });
+      }
+
+      const stock = Number(item.stock_actual);
+      let delta;
+      let costo;
+      if (tipo === "ENTRADA") {
+        delta = l.cantidad;
+        costo = l.costo_unitario;                       // opcional: sin costo, sin egreso
+      } else if (tipo === "SALIDA") {
+        delta = -l.cantidad;
+        costo = l.costo_unitario ?? Number(item.costo_unitario); // foto del costo vigente
+      } else {
+        delta = l.cantidad - stock;                     // "conté N" → delta
+        costo = null;
+      }
+
+      if (delta < 0 && stock + delta < 0) {
+        faltantes.push({
+          id_repuesto: item.id_repuesto,
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          unidad: item.unidad,
+          disponible: stock,
+          solicitado: Math.abs(delta),
+          faltan: Math.abs(stock + delta),
+        });
+      }
+
+      l.delta = delta;
+      l.costo_final = costo;
+      const acc = deltas.get(l.id_repuesto) || { cantidad: 0, costo: null };
+      acc.cantidad += delta;
+      // El costo del catálogo solo lo pisa una ENTRADA que traiga costo.
+      if (tipo === "ENTRADA" && costo != null) acc.costo = costo;
+      deltas.set(l.id_repuesto, acc);
+    }
+
+    // El bloqueo por existencia: 409 salvo que quien lo pide tenga la capacidad
+    // Y escriba una justificación.
+    const forzado = faltantes.length > 0;
+    if (forzado) {
+      if (!forzar || !puede) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          message: "No hay existencia suficiente para esta salida",
+          faltantes,
+          forzable: puede,
+        });
+      }
+      if (!String(motivo_forzado || "").trim()) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "Para forzar la salida hay que escribir el motivo" });
+      }
+    }
+
+    const anio = Number(String(fecha || "").slice(0, 4)) || new Date().getFullYear();
+    const { numero, correlativo } = await siguienteCorrelativo(client, tipo, anio);
+
+    const cab = await client.query(
+      `INSERT INTO taller_documento_inventario
+         (tipo, anio, numero, correlativo, fecha, proveedor, factura_no,
+          id_aeronave, id_cumplimiento, id_mantenimiento, motivo, nota, registrado_por)
+       VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6,$7,$8,$9,$10,$11,$12,$13)
+       RETURNING *`,
+      [
+        tipo, anio, numero, correlativo, fecha || null,
+        tipo === "ENTRADA" ? proveedor || null : null,
+        tipo === "ENTRADA" ? factura_no || null : null,
+        tipo === "SALIDA" ? id_aeronave || null : null,
+        tipo === "SALIDA" ? id_cumplimiento || null : null,
+        tipo === "SALIDA" ? id_mantenimiento || null : null,
+        motivo || null, nota || null,
+        req.user?.id_usuario || null,
+      ]
+    );
+    const doc = cab.rows[0];
+
+    const idsForzados = new Set(faltantes.map((f) => f.id_repuesto));
+    for (const l of lineas) {
+      await client.query(
+        `INSERT INTO taller_movimiento_inventario
+           (id_documento, id_repuesto, cantidad, costo_unitario, nota, forzado, motivo_forzado)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          doc.id_documento, l.id_repuesto, l.delta, l.costo_final,
+          l.nota,
+          forzado && idsForzados.has(l.id_repuesto),
+          forzado && idsForzados.has(l.id_repuesto) ? String(motivo_forzado).trim() : null,
+        ]
+      );
+    }
+
+    await aplicarDeltas(client, deltas, { fecha: doc.fecha, esEntrada: tipo === "ENTRADA" });
+
+    // El gasto se contabiliza en la COMPRA, no en el consumo (la salida ya no
+    // genera egreso: lo hacía y duplicaba el gasto). Sin costo no hay egreso —
+    // el documento queda en la cola de "costos pendientes".
+    let egreso = null;
+    if (tipo === "ENTRADA") {
+      const total = lineas.reduce(
+        (s, l) => s + (l.costo_final != null ? l.cantidad * l.costo_final : 0), 0
+      );
+      if (total > 0) {
+        egreso = await crearEgresoDeEntrada(client, doc, total, req.user);
+      }
+    }
+
+    await client.query("COMMIT");
+    res.json({ documento: { ...doc, id_egreso: egreso }, forzado, faltantes });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+/** Egreso de Contabilidad por una compra de repuestos, enlazado a la cabecera. */
+async function crearEgresoDeEntrada(client, doc, total, user) {
+  const monto = Math.round(total * 100) / 100;
+  const concepto = `Compra ${doc.correlativo}${doc.factura_no ? ` (fact. ${doc.factura_no})` : ""}`;
+  const egr = await client.query(
+    `INSERT INTO egreso (categoria, proveedor, concepto, monto_usd, fecha, registrado_por)
+     VALUES ('REPUESTOS', $1, $2, $3, $4, $5) RETURNING id`,
+    [doc.proveedor || null, concepto, monto, doc.fecha, user?.id_usuario || null]
+  );
+  const id = egr.rows[0].id;
+  await client.query(
+    "UPDATE taller_documento_inventario SET id_egreso = $2 WHERE id_documento = $1",
+    [doc.id_documento, id]
+  );
+  return id;
+}
+
+// ── Anulación ───────────────────────────────────────────────────────────────
+
+/**
+ * Los documentos no se editan: se anulan y se rehacen.
+ *
+ * El correlativo NO se reutiliza (la fila queda, marcada ANULADO), así la
+ * numeración nunca miente. El stock se RECALCULA desde los movimientos vigentes
+ * en vez de revertirse por delta: si algo quedó descuadrado, la anulación lo
+ * deja bien en lugar de arrastrar el error.
+ */
+exports.anularDocumento = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { motivo_anulacion } = req.body;
+  if (!String(motivo_anulacion || "").trim()) {
+    return res.status(400).json({ message: "Escribí el motivo de la anulación" });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    if (!(await puedeForzar(client, req.user))) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "No tenés permiso para anular documentos de bodega" });
+    }
+
+    const d = await client.query(
+      "SELECT * FROM taller_documento_inventario WHERE id_documento = $1 FOR UPDATE",
+      [id]
+    );
+    if (!d.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Documento no encontrado" }); }
+    const doc = d.rows[0];
+    if (doc.estado === "ANULADO") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Ese documento ya está anulado" });
+    }
+
+    const items = await client.query(
+      "SELECT DISTINCT id_repuesto FROM taller_movimiento_inventario WHERE id_documento = $1",
+      [id]
+    );
+    const ids = items.rows.map((x) => x.id_repuesto);
+    // Mismo orden de bloqueo que el alta, para no invertir el grafo de locks.
+    await bloquearRepuestos(client, ids);
+
+    await client.query(
+      `UPDATE taller_documento_inventario
+          SET estado = 'ANULADO', anulado_en = NOW(), anulado_por = $2, motivo_anulacion = $3
+        WHERE id_documento = $1`,
+      [id, req.user?.id_usuario || null, String(motivo_anulacion).trim()]
+    );
+
+    // Si la entrada había generado un egreso, se borra: el gasto nunca ocurrió.
+    if (doc.id_egreso) {
+      await client.query("UPDATE taller_documento_inventario SET id_egreso = NULL WHERE id_documento = $1", [id]);
+      await client.query("DELETE FROM egreso WHERE id = $1", [doc.id_egreso]);
+    }
+
+    await recalcularStock(client, ids);
+    await client.query("COMMIT");
+    res.json({ ok: true, id_documento: Number(id) });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// ── Costos pendientes ───────────────────────────────────────────────────────
+
+/**
+ * Completa los costos de una entrada ya registrada y, si queda con monto,
+ * genera el egreso que había quedado pendiente.
+ *
+ * Es la única edición que admite un documento, y a propósito: no cambia
+ * cantidades ni stock, solo pone el dato que el Excel nunca tuvo.
+ */
+exports.completarCostos = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { costos, actualizar_catalogo } = req.body; // costos: [{id_mov, costo_unitario}]
+  if (!Array.isArray(costos) || !costos.length) {
+    return res.status(400).json({ message: "No mandaste costos" });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const d = await client.query(
+      "SELECT * FROM taller_documento_inventario WHERE id_documento = $1 FOR UPDATE",
+      [id]
+    );
+    if (!d.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Documento no encontrado" }); }
+    const doc = d.rows[0];
+    if (doc.tipo !== "ENTRADA") { await client.query("ROLLBACK"); return res.status(400).json({ message: "Solo las entradas se costean" }); }
+    if (doc.estado !== "VIGENTE") { await client.query("ROLLBACK"); return res.status(409).json({ message: "El documento está anulado" }); }
+
+    for (const c of costos) {
+      const costo = num(c.costo_unitario);
+      if (costo === null || isNaN(costo) || costo < 0) continue;
+      await client.query(
+        "UPDATE taller_movimiento_inventario SET costo_unitario = $2 WHERE id_mov = $1 AND id_documento = $3",
+        [c.id_mov, costo, id]
+      );
+      // Por defecto el costo de la compra pasa a ser el "último costo conocido"
+      // del ítem, que es el método de costeo elegido.
+      if (actualizar_catalogo !== false) {
+        await client.query(
+          `UPDATE taller_repuesto SET costo_unitario = $2
+             WHERE id_repuesto = (SELECT id_repuesto FROM taller_movimiento_inventario WHERE id_mov = $1)`,
+          [c.id_mov, costo]
+        );
+      }
+    }
+
+    const t = await client.query(
+      `SELECT COALESCE(SUM(ABS(cantidad) * COALESCE(costo_unitario, 0)), 0) AS total
+         FROM taller_movimiento_inventario WHERE id_documento = $1`,
+      [id]
+    );
+    const total = Number(t.rows[0].total);
+
+    let id_egreso = doc.id_egreso;
+    if (!id_egreso && total > 0) {
+      id_egreso = await crearEgresoDeEntrada(client, doc, total, req.user);
+    } else if (id_egreso) {
+      await client.query("UPDATE egreso SET monto_usd = $2 WHERE id = $1", [id_egreso, Math.round(total * 100) / 100]);
+    }
+
+    await client.query("COMMIT");
+    res.json({ ok: true, total, id_egreso });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+// ── Apoyo y reportes ────────────────────────────────────────────────────────
+
+/**
+ * Mantenimientos a los que se puede colgar una salida de ESA aeronave:
+ * inspecciones cumplidas hace poco y mantenimientos abiertos. Si no hay
+ * ninguno, el motivo en texto libre alcanza — como en el Excel.
+ */
+exports.opcionesMantenimiento = catchAsync(async (req, res) => {
+  const { id_aeronave } = req.params;
+  const r = await db.query(
+    `SELECT 'CUMPLIMIENTO' AS origen, tc.id_cumplimiento AS id, tc.fecha,
+            tp.nombre AS etiqueta, tp.tipo AS subtipo
+       FROM taller_cumplimiento tc
+       JOIN taller_tarea_programada tp ON tp.id_tarea = tc.id_tarea
+      WHERE tp.id_aeronave = $1 AND tc.fecha >= CURRENT_DATE - INTERVAL '120 days'
+      UNION ALL
+     SELECT 'MANTENIMIENTO', m.id_mantenimiento, m.fecha_programada,
+            COALESCE(NULLIF(m.descripcion, ''), m.tipo), m.tipo
+       FROM mantenimiento_aeronave m
+      WHERE m.id_aeronave = $1
+        AND (m.completado = false OR m.fecha_programada >= CURRENT_DATE - INTERVAL '120 days')
+      ORDER BY fecha DESC
+      LIMIT 40`,
+    [id_aeronave]
+  );
+  res.json(r.rows);
+});
+
+/** Aeronaves para el selector de salida: incluye las de terceros (§OMA). */
+exports.aeronavesBodega = catchAsync(async (_req, res) => {
+  const r = await db.query(
+    `SELECT id_aeronave, codigo, modelo, tipo, es_externa
+       FROM aeronave
+      WHERE NOT (activa = false AND estado = 'ACTIVO' AND es_externa = false)
+      ORDER BY es_externa, codigo`
+  );
+  res.json(r.rows);
+});
+
+/** Consumo de material por aeronave (y por mantenimiento al abrir). */
+exports.consumoAeronave = catchAsync(async (req, res) => {
+  const { desde, hasta } = req.query;
+  const r = await db.query(
+    `SELECT a.id_aeronave, a.codigo, a.modelo, a.es_externa,
+            COUNT(DISTINCT d.id_documento)::int        AS documentos,
+            COALESCE(SUM(ABS(m.cantidad)), 0)          AS unidades,
+            ROUND(COALESCE(SUM(ABS(m.cantidad) * COALESCE(m.costo_unitario, 0)), 0), 2) AS valor
+       FROM taller_documento_inventario d
+       JOIN taller_movimiento_inventario m ON m.id_documento = d.id_documento
+       JOIN aeronave a ON a.id_aeronave = d.id_aeronave
+      WHERE d.tipo = 'SALIDA' AND d.estado = 'VIGENTE'
+        AND ($1::date IS NULL OR d.fecha >= $1::date)
+        AND ($2::date IS NULL OR d.fecha <= $2::date)
+      GROUP BY a.id_aeronave
+      ORDER BY valor DESC, a.codigo`,
+    [desde || null, hasta || null]
+  );
+  res.json(r.rows);
+});
