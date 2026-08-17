@@ -1582,6 +1582,68 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ---
 
+## 30. Sesión 2026-08-17 (2ª tanda) — Papeleo del Taller, Fase 1: requisición → solicitud → retorno
+
+Daniel fotografió **los seis formatos en papel** de la OMA y se reconstruyó el circuito real,
+cotejado contra los datos ya cargados. Spec:
+`docs/superpowers/specs/2026-08-17-solicitud-almacen-sobrantes-design.md`.
+
+### El circuito (verificado con la inspección de 100 h del YS-127-P, julio 2026)
+
+```
+06-jul  REPORTE DE INSPECCIÓN   Operaciones entrega el avión · lo firma un PILOTO · qué inspección toca
+07-jul  REQUISICIONES           el técnico anota lo que necesitará                    (interna)
+09-jul  SOLICITUD AL ALMACÉN    descarga el inventario · lleva el N° de OT · sobrantes (AAC, CAAA-004-F)
+09-jul  ORDEN DE TRABAJO        certifica · Acción Correctiva · Parte Reemplazada      (AAC, CAAA-006-F)
+en paralelo:  ENTREGA DE ACEITES POR DÍA  ·  PRÉSTAMO DE PARTES                       (internas)
+```
+
+⚠️ **La OT se llena AL FINAL, no al principio** (dato de Daniel). Es el certificado, no el
+disparador. Por eso la requisición no puede exigir un N° de OT para existir.
+
+**Cotejos que confirmaron el modelo** (ninguno es suposición): la OT `CAAA/2026-0049` ↔
+`REQ-211-2026` y la `CAAA/2026-0042` ↔ `REQ-192-2026` coinciden en avión, tacómetro y trabajo ·
+`aeronave.horas_ultima_revision` del YS-127-P **es 8271.00**, el tacómetro de esa OT · en la
+requisición la columna rotulada *"Costo Unitario"* **lleva el código de bodega**, no costos (6/6
+verificados) · la hoja de aceites y el kardex registran **los mismos eventos** (8 de 10 cruzan).
+
+### Lo entregado (§ desplegado tras el push)
+
+- **Tres tipos de documento** donde había uno: `REQUISICION` (borrador, **no mueve stock**, único
+  editable) → `SALIDA` (la solicitud `CAAA-004-F`, descarga) → `RETORNO` (sobrantes, suma con su
+  **fecha real**). Migraciones `20260817000002`, `000003`, `000004`.
+- **Campos del papel**: `tacometro`, `cliente`, `solicitante`, `entregado_por`, `entregado_a`,
+  `observaciones`, `orden_trabajo_no`, `numero_solicitud`.
+- **Pestaña "Entrega de aceites"**: el cuaderno del jefe de taller como **reporte del kardex**, sin
+  tabla nueva. `000038`/`000039` pasaron de `UN` a `QT`.
+- **Reporte de duplicados por n° de parte**: `CH48110-1` existe como `000350` (+10) y `000685` (−7).
+
+### 🚨 Tres trampas que encontró la prueba E2E (no repetir)
+
+1. **La serie `REQ` tenía que continuar desde 245.** Los 243 históricos son tipo `SALIDA` con
+   correlativo `REQ-001..244`; una serie nueva desde 1 habría creado dos papeles rotulados igual.
+   El generador busca el `MAX` **por prefijo**, no por tipo.
+2. **`UNIQUE (tipo, anio, numero)` reventaba con `SOL-001-2026`** (mismo tipo/año/número que el
+   histórico `REQ-001-2026`). La unicidad pasó al **correlativo**, que es lo que la gente lee.
+3. **`tipo` era `VARCHAR(10)` y `REQUISICION` tiene 11.** Error 22001 al crear la primera.
+
+⚠️ **Y la trampa de diseño:** los renglones de la requisición viven en la MISMA tabla que suma el
+kardex. Sin filtrarlos, pedir material movería el stock sin que nadie lo despachara. Va por
+`documentoCuentaSQL()` en `utils/inventarioHelpers.js` — **fragmento compartido, no copiado**, la
+lección de las horas facturables (§27).
+
+### Pendiente de esta fase
+
+**Los tres PDFs** (requisición, solicitud `CAAA-004-F` con su apartado de retornos, y entrega de
+aceites). El código y la revisión del formulario deben ir **configurables**, no incrustados: la AAC
+puede publicar una Rev.01 y eso no debe ser un deploy.
+
+**Fase 2** = Reporte de Inspección + Orden de Trabajo. **Fase 3** = Préstamo de partes (bitácora
+bidireccional; dato de Daniel: *se puede cerrar una OT con un préstamo activo*, así que el estado
+del préstamo es independiente del de la OT).
+
+---
+
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
 > **Última revisión: 2026-08-17.** Resueltos desde la pasada anterior: ~~tarifa del YS-155~~ ($150, §26.C) ·
