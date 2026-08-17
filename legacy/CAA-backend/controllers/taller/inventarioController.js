@@ -233,6 +233,8 @@ async function kardexDeItem(conn, idRepuesto, { desde, hasta, verAnulados } = {}
               m.forzado, m.motivo_forzado,
               d.id_documento, d.correlativo, d.tipo, d.fecha, d.estado,
               d.proveedor, d.factura_no, d.motivo,
+              -- entregado_a alimenta la columna "Nombre" de la hoja de aceites.
+              d.entregado_a, d.orden_trabajo_no,
               a.codigo AS aeronave_codigo,
               tp.nombre AS tarea_nombre,
               ma.tipo   AS mantenimiento_tipo,

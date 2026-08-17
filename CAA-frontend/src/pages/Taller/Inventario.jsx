@@ -4,6 +4,7 @@ import Existencias from "./inventario/Existencias";
 import Documentos from "./inventario/Documentos";
 import ConsumoAeronave from "./inventario/ConsumoAeronave";
 import CostosPendientes from "./inventario/CostosPendientes";
+import EntregaAceites from "./inventario/EntregaAceites";
 import DocumentoModal from "./inventario/DocumentoModal";
 import "./inventario/inventario.css";
 
@@ -19,6 +20,7 @@ import "./inventario/inventario.css";
 const TABS = [
   { key: "existencias", label: "Existencias", icon: "bi-boxes" },
   { key: "documentos", label: "Documentos", icon: "bi-file-earmark-text" },
+  { key: "aceites", label: "Entrega de aceites", icon: "bi-droplet-half" },
   { key: "consumo", label: "Consumo por aeronave", icon: "bi-airplane" },
   { key: "costos", label: "Costos pendientes", icon: "bi-cash-coin" },
 ];
@@ -41,11 +43,14 @@ export default function Inventario() {
           </p>
         </div>
         <div className="inv-head__acciones">
+          <button className="adf-btn secondary" onClick={() => setNuevoDoc("REQUISICION")}>
+            <i className="bi bi-pencil-square"></i> Requisición
+          </button>
           <button className="adf-btn" onClick={() => setNuevoDoc("ENTRADA")}>
             <i className="bi bi-box-arrow-in-down"></i> Entrada
           </button>
           <button className="adf-btn" onClick={() => setNuevoDoc("SALIDA")}>
-            <i className="bi bi-box-arrow-up"></i> Salida
+            <i className="bi bi-box-arrow-up"></i> Solicitud
           </button>
           <button className="adf-btn secondary" onClick={() => setNuevoDoc("AJUSTE")}>
             <i className="bi bi-sliders"></i> Ajuste
@@ -67,6 +72,7 @@ export default function Inventario() {
 
       {tab === "existencias" && <Existencias key={`e${refresco}`} />}
       {tab === "documentos" && <Documentos key={`d${refresco}`} />}
+      {tab === "aceites" && <EntregaAceites key={`a${refresco}`} />}
       {tab === "consumo" && <ConsumoAeronave key={`c${refresco}`} />}
       {tab === "costos" && <CostosPendientes key={`p${refresco}`} />}
 

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getDocumentos, getDocumento, anularDocumento } from "../../../services/tallerApi";
 import { fmt, money, fecha, META_TIPO } from "./formato";
+import DocumentoModal from "./DocumentoModal";
 
 /** Las hojas ENTRADAS y SALIDAS del Excel, ahora navegables. */
 export default function Documentos() {
   const [docs, setDocs] = useState([]);
   const [f, setF] = useState({ tipo: "", desde: "", hasta: "", q: "" });
   const [verAnulados, setVerAnulados] = useState(false);
+  const [sinDespachar, setSinDespachar] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [abierto, setAbierto] = useState(null);
 
@@ -17,13 +19,14 @@ export default function Documentos() {
       setDocs(await getDocumentos({
         ...f,
         incluir_anulados: verAnulados ? "true" : undefined,
+        sin_despachar: sinDespachar ? "true" : undefined,
       }));
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudieron cargar los documentos");
     } finally {
       setCargando(false);
     }
-  }, [f, verAnulados]);
+  }, [f, verAnulados, sinDespachar]);
 
   useEffect(() => {
     const t = setTimeout(cargar, 250);
@@ -42,8 +45,10 @@ export default function Documentos() {
             <label>Tipo</label>
             <select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
               <option value="">Todos</option>
+              <option value="REQUISICION">Requisiciones</option>
+              <option value="SALIDA">Solicitudes</option>
+              <option value="RETORNO">Retornos</option>
               <option value="ENTRADA">Entradas</option>
-              <option value="SALIDA">Salidas</option>
               <option value="AJUSTE">Ajustes</option>
             </select>
           </div>
@@ -59,6 +64,13 @@ export default function Documentos() {
             <input type="checkbox" checked={verAnulados} onChange={(e) => setVerAnulados(e.target.checked)} />
             Ver anulados
           </label>
+          <button
+            className={`inv-chip ${sinDespachar ? "inv-chip--on" : ""}`}
+            onClick={() => setSinDespachar((v) => !v)}
+            title="Lo que el técnico pidió y bodega todavía no entregó"
+          >
+            Requisiciones sin despachar
+          </button>
         </div>
 
         {cargando ? (
@@ -82,7 +94,14 @@ export default function Documentos() {
                     <tr key={d.id_documento} className={`inv-clic ${d.estado === "ANULADO" ? "inv-anulado" : ""}`} onClick={() => setAbierto(d.id_documento)}>
                       <td className="inv-codigo">{d.correlativo}</td>
                       <td>{fecha(d.fecha)}</td>
-                      <td><span className={`adf-tag ${meta.tag || ""}`}>{meta.label}</span></td>
+                      <td>
+                        <span className={`adf-tag ${meta.tag || ""}`}>{meta.label}</span>
+                        {d.tipo === "REQUISICION" && (
+                          <span className="adf-tag" style={{ marginLeft: 6 }}>
+                            {d.despachada ? "Despachada" : "Pendiente"}
+                          </span>
+                        )}
+                      </td>
                       <td>
                         {d.tipo === "ENTRADA"
                           ? [d.proveedor, d.factura_no && `fact. ${d.factura_no}`].filter(Boolean).join(" · ") || <span style={{ color: "var(--c-ink-4)" }}>sin proveedor</span>
@@ -114,7 +133,9 @@ function DetalleModal({ id, onClose, onAnulado }) {
   const [anulando, setAnulando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
+  const [accion, setAccion] = useState(null); // 'despachar' | 'retorno' | 'editar'
 
+  const recargar = () => getDocumento(id).then(setData).catch(() => {});
   useEffect(() => {
     getDocumento(id).then(setData).catch((e) => toast.error(e.response?.data?.message || "No se pudo abrir"));
   }, [id]);
@@ -146,6 +167,22 @@ function DetalleModal({ id, onClose, onAnulado }) {
             {d?.estado === "ANULADO" && <span className="adf-tag red" style={{ marginLeft: 8 }}>Anulado</span>}
           </span>
           <div style={{ display: "flex", gap: 10 }}>
+            {/* La requisición se despacha (o se corrige) mientras no tenga solicitud. */}
+            {d?.tipo === "REQUISICION" && d.estado === "VIGENTE" && !data?.despachos?.length && (
+              <>
+                <button className="adf-btn" onClick={() => setAccion("despachar")}>
+                  <i className="bi bi-box-arrow-up"></i> Despachar
+                </button>
+                <button className="adf-btn secondary" onClick={() => setAccion("editar")}>
+                  <i className="bi bi-pencil"></i> Editar
+                </button>
+              </>
+            )}
+            {d?.tipo === "SALIDA" && d.estado === "VIGENTE" && (
+              <button className="adf-btn secondary" onClick={() => setAccion("retorno")}>
+                <i className="bi bi-arrow-return-left"></i> Registrar retorno
+              </button>
+            )}
             {d?.estado === "VIGENTE" && !pidiendoMotivo && (
               <button className="adf-btn danger" onClick={() => setPidiendoMotivo(true)}>Anular</button>
             )}
@@ -161,11 +198,28 @@ function DetalleModal({ id, onClose, onAnulado }) {
                 <Dato label="Tipo" valor={meta.label} />
                 {d.tipo === "ENTRADA" && <Dato label="Proveedor" valor={d.proveedor || "—"} />}
                 {d.tipo === "ENTRADA" && <Dato label="N° factura" valor={d.factura_no || "—"} />}
-                {d.tipo === "SALIDA" && <Dato label="Aeronave" valor={d.aeronave_codigo || "—"} />}
+                {d.aeronave_codigo && <Dato label="Aeronave" valor={d.aeronave_codigo} />}
+                {d.cliente && <Dato label="Cliente" valor={d.cliente} />}
+                {d.tacometro != null && <Dato label="Tacómetro" valor={fmt(d.tacometro)} />}
+                {d.orden_trabajo_no && <Dato label="Orden de trabajo" valor={d.orden_trabajo_no} />}
+                {d.numero_solicitud && <Dato label="N° solicitud" valor={d.numero_solicitud} />}
+                {d.solicitante && <Dato label="Solicitante" valor={d.solicitante} />}
+                {d.entregado_por && <Dato label="Entrega" valor={d.entregado_por} />}
+                {d.entregado_a && <Dato label="Recibe" valor={d.entregado_a} />}
                 {d.tipo === "SALIDA" && <Dato label="Mantenimiento" valor={d.tarea_nombre || d.mantenimiento_descripcion || d.mantenimiento_tipo || "—"} />}
                 <Dato label="Registró" valor={d.registrado_por_nombre || "—"} />
               </div>
               {d.motivo && <p style={{ fontSize: "0.9rem" }}><strong>Motivo:</strong> {d.motivo}</p>}
+              {d.observaciones && <p style={{ fontSize: "0.9rem" }}><strong>Observaciones:</strong> {d.observaciones}</p>}
+
+              {/* Documentos encadenados */}
+              {(data.requisicion_origen || data.despachos?.length > 0 || data.retornos?.length > 0) && (
+                <p className="adf-note">
+                  {data.requisicion_origen && <>Nace de la requisición <strong>{data.requisicion_origen.correlativo}</strong>. </>}
+                  {data.despachos?.length > 0 && <>Despachada en <strong>{data.despachos.map((x) => x.correlativo).join(", ")}</strong>. </>}
+                  {data.retornos?.length > 0 && <>Retornos: <strong>{data.retornos.map((x) => `${x.correlativo}${x.estado === "ANULADO" ? " (anulado)" : ""}`).join(", ")}</strong>.</>}
+                </p>
+              )}
               {d.estado === "ANULADO" && (
                 <p className="adf-note">Anulado por {d.anulado_por || "—"}: {d.motivo_anulacion}</p>
               )}
@@ -214,6 +268,16 @@ function DetalleModal({ id, onClose, onAnulado }) {
           )}
         </div>
       </div>
+
+      {accion && d && (
+        <DocumentoModal
+          tipo={accion === "retorno" ? "RETORNO" : accion === "editar" ? "REQUISICION" : "SALIDA"}
+          desde={accion === "editar" ? null : d}
+          editar={accion === "editar" ? d : null}
+          onClose={() => setAccion(null)}
+          onGuardado={() => { setAccion(null); recargar(); onAnulado(); }}
+        />
+      )}
     </div>
   );
 }

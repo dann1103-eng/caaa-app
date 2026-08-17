@@ -15,8 +15,10 @@ export const fecha = (v) => (v ? String(v).slice(0, 10) : "—");
 /** Etiqueta y color del tipo de documento. */
 export const META_TIPO = {
   ENTRADA: { label: "Entrada", tag: "green", icon: "bi-box-arrow-in-down" },
-  SALIDA: { label: "Salida", tag: "red", icon: "bi-box-arrow-up" },
+  SALIDA: { label: "Solicitud", tag: "red", icon: "bi-box-arrow-up" },
   AJUSTE: { label: "Ajuste", tag: "", icon: "bi-sliders" },
+  REQUISICION: { label: "Requisición", tag: "blue", icon: "bi-pencil-square" },
+  RETORNO: { label: "Retorno", tag: "green", icon: "bi-arrow-return-left" },
 };
 
 /** Hoy en formato YYYY-MM-DD, para precargar los campos de fecha. */

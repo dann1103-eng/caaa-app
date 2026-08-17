@@ -84,6 +84,19 @@ export const anularDocumento = async (id, motivo_anulacion) =>
  */
 export const crearDocumento = async (datos) => (await axios.post(`${INV()}/documentos`, datos)).data;
 
+// La requisición es el único documento editable: es un borrador que no mueve
+// existencia. Al despacharse se congela (el backend responde 409).
+export const editarRequisicion = async (id, datos) =>
+  (await axios.patch(`${INV()}/requisiciones/${id}`, datos)).data;
+
+/** Cuánto queda por devolver de cada renglón de una solicitud. */
+export const getRetornables = async (id) => (await axios.get(`${INV()}/documentos/${id}/retornables`)).data;
+
+// Reportes que salen del kardex
+export const getEntregaAceites = async (params = {}) =>
+  (await axios.get(`${INV()}/entrega-aceites`, { params })).data;
+export const getDuplicadosParte = async () => (await axios.get(`${INV()}/duplicados-parte`)).data;
+
 // Costos pendientes (cola conjunta de Taller y Contabilidad)
 export const getPendientesCosto = async () => (await axios.get(`${INV()}/pendientes-costo`)).data;
 export const completarCostos = async (id, costos, actualizar_catalogo = true) =>
