@@ -28,7 +28,9 @@ function estadoTarea(t) {
 exports.dashboard = catchAsync(async (req, res) => {
   // 1. Estado de flota (mismo cálculo que el módulo de mantenimiento).
   const flota = await db.query(`
-    SELECT a.id_aeronave, a.codigo, a.modelo, a.tipo, a.estado, a.activa,
+    -- El Taller SÍ ve las aeronaves de terceros: les da mantenimiento y les
+    -- requisa material. Son las únicas pantallas donde aparecen.
+    SELECT a.id_aeronave, a.codigo, a.modelo, a.tipo, a.estado, a.activa, a.es_externa,
            COALESCE(a.horas_acumuladas, 0) AS horas_acumuladas,
            a.horas_proxima_revision, a.tipo_proxima_revision,
            (a.horas_proxima_revision - a.horas_acumuladas) AS horas_restantes,

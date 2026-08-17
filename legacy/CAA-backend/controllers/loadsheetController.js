@@ -71,6 +71,7 @@ const listAeronaves = catchAsync(async (req, res) => {
             (id_wb_plantilla IS NOT NULL) AS tiene_plantilla
        FROM aeronave
       WHERE tipo <> 'SIMULADOR'
+        AND es_externa = false
         AND NOT (COALESCE(activa, true) = false AND estado = 'ACTIVO')
       ORDER BY codigo`
   );

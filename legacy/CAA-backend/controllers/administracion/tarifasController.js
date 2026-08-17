@@ -130,7 +130,7 @@ exports.getPreciosAlumno = async (req, res) => {
       ) est ON TRUE
       LEFT JOIN alumno_tarifa_aeronave ata
         ON ata.id_aeronave = a.id_aeronave AND ata.id_alumno = $1
-      WHERE a.activa = TRUE
+      WHERE a.activa = TRUE AND a.es_externa = FALSE
       ORDER BY a.codigo
     `, [id_alumno]);
     res.json({ ok: true, data: r.rows });
@@ -184,7 +184,7 @@ exports.listAeronaves = async (req, res) => {
     const r = await db.query(`
       SELECT id_aeronave, codigo, modelo, tipo
       FROM aeronave
-      WHERE activa = true
+      WHERE activa = true AND es_externa = false
       ORDER BY codigo
     `);
     res.json({ ok: true, data: r.rows });

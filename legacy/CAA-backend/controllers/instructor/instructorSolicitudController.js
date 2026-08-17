@@ -113,6 +113,7 @@ exports.getCalendario = async (req, res) => {
          LIMIT 1
       ) mact ON true
       WHERE NOT (a.activa = false AND a.estado = 'ACTIVO')
+        AND a.es_externa = false
       ORDER BY a.codigo
     `, [fecha_inicio]);
 

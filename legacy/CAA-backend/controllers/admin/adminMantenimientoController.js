@@ -8,7 +8,7 @@ exports.getMantenimientoAeronaves = catchAsync(async (req, res) => {
   const aeronavesRes = await db.query(`
     SELECT a.*, (a.horas_proxima_revision - a.horas_acumuladas) AS horas_restantes,
     EXISTS(SELECT 1 FROM mantenimiento_aeronave m WHERE m.id_aeronave = a.id_aeronave AND m.estado = 'PENDIENTE' AND m.completado = false) AS requiere_mantenimiento
-    FROM aeronave a WHERE a.activa = true ORDER BY a.codigo
+    FROM aeronave a WHERE a.activa = true AND a.es_externa = false ORDER BY a.codigo
   `);
   const mantenimientosRes = await db.query(`
     SELECT m.*, a.codigo AS aeronave_codigo FROM mantenimiento_aeronave m
@@ -303,6 +303,7 @@ exports.getAlertasMantenimiento = catchAsync(async (req, res) => {
            (horas_proxima_revision - horas_acumuladas) AS horas_restantes
     FROM aeronave
     WHERE activa = true
+      AND es_externa = false
       AND tipo != 'SIMULADOR'
       AND horas_acumuladas >= horas_proxima_revision - 5
     ORDER BY (horas_proxima_revision - horas_acumuladas) ASC

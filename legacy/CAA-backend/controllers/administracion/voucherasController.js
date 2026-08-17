@@ -12,6 +12,7 @@ exports.listAeronaves = async (req, res) => {
     const r = await db.query(`
       SELECT id_aeronave, codigo, modelo, tipo, activa
       FROM aeronave
+      WHERE es_externa = false
       ORDER BY codigo
     `);
     res.json({ ok: true, data: r.rows });

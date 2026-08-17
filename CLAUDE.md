@@ -1584,8 +1584,15 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-07-28.** Resueltos desde la pasada anterior: ~~tarifa del YS-155~~ ($150, §26.C) ·
+> **Última revisión: 2026-08-17.** Resueltos desde la pasada anterior: ~~tarifa del YS-155~~ ($150, §26.C) ·
 > ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
+
+### 🔬 Con el mecánico (2026-08-17, §29.F)
+- **Cuadre de bodega**: 9 existencias en negativo y 24 diferencias contra el Excel esperando conteo
+  físico y su `AJ-001-2026 · Cuadre de migración`. El software no las corrige a propósito.
+- **Ingesta de costos** (Taller + Contabilidad): 482 ítems sin costo y 37 entradas sin costear en la
+  pestaña "Costos pendientes". Al costear una entrada se genera su egreso en Contabilidad.
+- **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
 
 ### 🧾 Higiene inmediata
 - **Multa de `javier.espinoza`**: anotada en el Excel de saldos ("multa por aplicar 13/07/26") y **nunca
@@ -1931,3 +1938,111 @@ tarjetas de Instructor y Turno. La vouchera muestra "Ruta con parada — Tramo X
 ### Fuera de alcance (decidido con Samuel)
 Cambio de **instructor** entre tramos (es siempre el mismo), catálogo real de aeropuertos (solo se
 valida formato ICAO), loadsheet compartido entre tramos, y reprogramar horas de tramos sueltos.
+
+---
+
+## 29. Sesión 2026-08-17 — Inventario de la bodega OMA (documentos + kardex por ítem)
+
+Réplica del Excel `INVENTARIO OMA CAAA-CONTADOR` en el sistema. Spec:
+`docs/superpowers/specs/2026-08-17-inventario-taller-design.md`. Commits `e1ed6b3` (spec) y
+`b70f786` (implementación), en la rama `claude/workshop-inventory-system-292b6b`.
+
+> ✅ **DESPLEGADO Y VERIFICADO EN PRODUCCIÓN** (2026-08-17). Migración `20260817000001` aplicada en
+> Supabase, Excel cargado, backend en Railway y frontend en Vercel con el código nuevo. Verificado
+> contra prod con token real: 642 ítems / $7,791.88 · 243 REQ + 37 FA · kardex del `000039` con 186
+> movimientos y saldo −17 que cuadra con el catálogo · la ruta vieja `/taller/repuestos` da 404.
+>
+> ⚠️ Al verificar, recordar que **`/api/taller` tiene `authMiddleware` a nivel de router**: cualquier
+> path bajo ese prefijo da **401 aunque la ruta no exista**, así que el truco "404 vs 401" NO sirve
+> ahí (mismo caso que `/administracion`, §26.B). Hay que probar con token.
+
+### A. El defecto que se venía a corregir
+La hoja de inventario calculaba el stock con
+`SUMIFS(..., ENTRADAS[DESCRIPCION], ..., ENTRADAS[numero de parte], ...)` — o sea **cruzando texto
+libre**, no el código. Escribir `100AW` en vez de `100 AW` hacía **desaparecer el movimiento del
+stock sin ningún aviso**. Medido: 26 líneas de entrada y 9 de salida invisibles, 22 ítems
+descuadrados, 11 claves duplicadas. Ahora la llave es `taller_repuesto.codigo`.
+
+### B. Modelo (migración `20260817000001_inventario_taller.sql`)
+`taller_documento_inventario` **nueva** = la cabecera (FA/REQ/AJ, `UNIQUE(tipo,anio,numero)`,
+correlativo generado con `pg_advisory_xact_lock` que reinicia cada año) ·
+`taller_movimiento_inventario` pasa a ser su renglón (`id_documento` NOT NULL).
+
+- **`cantidad` es SIGNADA** (+entra / −sale / ±ajusta) para que el saldo del kardex sea una **suma
+  acumulada calculada AL LEER**, nunca congelada — la lección de la cuenta corriente (§26.A).
+- Al renglón se le **quitaron** `tipo`, `fecha`, `id_aeronave`, `id_egreso`, `registrado_por`: ahora
+  viven en la cabecera. Dos fuentes de verdad del mismo dato es la deriva que ya mordió varias veces.
+- `taller_repuesto` += `codigo` (único parcial), `ultimo_movimiento_en`, `ultima_entrada_en`,
+  `es_serializado`; `unidad` pasa a lista cerrada (`UN/QT/GAL/FT/KIT/JGO/LB`).
+- `usuario.puede_forzar_inventario` y `aeronave.es_externa`.
+
+### C. Reglas
+| | |
+|---|---|
+| **Entrada** | Proveedor + n° real de factura → **genera el egreso** en Contabilidad. Se **quitó** el egreso que disparaba la SALIDA, que duplicaba el gasto. **Costo opcional**: sin costo no hay egreso y el documento cae en "Costos pendientes". |
+| **Salida** | Aeronave obligatoria + opcionalmente colgada de un `taller_cumplimiento` o un `mantenimiento_aeronave` existente. **409 si no alcanza la existencia**, salvo `puede_forzar_inventario` + motivo escrito. Bloquea los ítems `FOR UPDATE` **en orden ascendente de id** (anti-deadlock). |
+| **Ajuste** | Se teclea la **existencia contada**; el servidor guarda el delta. Motivo obligatorio. |
+| **Anular** | Los documentos **no se editan**. Anular devuelve el stock (recalculado desde cero, no por delta), borra el egreso si lo había, y **el correlativo no se reutiliza**. |
+
+### D. 🚨 `aeronave.es_externa` — la parte de más radio de daño
+La OMA le da mantenimiento a aviones que **no son de la escuela** (`YS-361-PE` tiene una inspección
+anual completa en el Excel; también `YS-243-P` y `YS-22-C`). Se dieron de alta con `es_externa=true`.
+- **Filtradas en 16 consultas** que alimentan selectores de vuelo (agendar del alumno y del staff,
+  Programación, Turno, Proyección, Standby, Mantenimiento, Tarifas, Voucheras, Loadsheet).
+- **NO filtradas, a propósito**, en `adminAeronaveController.listarAeronaves` (módulo Aeronaves, donde
+  se administran) y en `taller/dashboardController` (el Taller sí las ve).
+- ⚠️ **No alcanza con darlas de alta como baja lógica** (`activa=false`): `sincronizarEstadoFlota`
+  recalcula `activa` según el mantenimiento del día, así que al cerrarles un mantenimiento el job las
+  devolvería a los selectores de vuelo. **Por eso es columna propia.** Al agregar una consulta nueva
+  que liste aeronaves, acordarse del filtro.
+
+### E. Carga del Excel — `supabase/dump/inventario_oma/` (**YA CORRIDA en prod**)
+Dos pasos porque **no hay módulo de Excel para Node** (§16): `extraer_excel.py` (Excel → JSON) y
+`cargar.js` (JSON → Supabase, con `--dry-run` y `--limpiar-demo`). Re-ejecutable: lo cargado va
+marcado `origen='EXCEL_2026'` y se borra al empezar.
+
+**Cargado: 642 ítems · 280 documentos · 929 renglones, sin perder una sola línea.** Arregla en el
+camino: `FA-0000025-2026` y `FA-00025-2026` eran el mismo documento; `FA-00019-2027` tenía el año mal
+tecleado (el año sale de la FECHA, no del texto); 6 materiales que se movían sin estar catalogados se
+**dan de alta** en vez de descartarse; 4 cantidades tipo `1FT` se interpretan guardando el texto
+original en la nota.
+
+⚠️ **Ojo con el conteo de ítems**: la hoja tiene 662 filas con algo, pero **26 son plantilla sin
+descripción** (fórmulas evaluando a 0). Los ítems reales son **636**.
+
+### F. 🔬 LO QUE FALTA HACER CON EL MECÁNICO (esto no lo arregla el software)
+El stock **no se importó**: sale de sumar los movimientos. El cargador dejó un reporte con:
+- **9 existencias en negativo** (`ACEITE 100 AW` −17, `FILTRO DE ACEITE` −7, `BUJIA REM40E` −6, …) —
+  son entradas que nunca se digitaron.
+- **24 diferencias contra el Excel** (`ARANDELAS` 75→35, `BUJIA` 8→16, `BOLT` 8→0, …) — el Excel
+  cruzaba por texto.
+- **208 ítems sin ningún movimiento en 2026** — candidatos a depurar.
+- **482 ítems sin costo** y **37 entradas sin costear** → pestaña "Costos pendientes".
+
+**Se cierran contando físicamente en bodega y registrando `AJ-001-2026 · Cuadre de migración`.**
+El detalle completo de los 73 avisos está en `supabase/dump/inventario_oma/inventario_oma.json`
+→ `"problemas"`.
+
+### G. Frontend — `/taller/inventario`
+Sub-navegación (patrón de Contabilidad): **Existencias · Documentos · Consumo por aeronave · Costos
+pendientes**, más el **kardex** al hacer clic en cualquier ítem (saldo corrido, y **saldo inicial**
+cuando se filtra por fechas — sin eso el kardex filtrado arranca en cero y no cuadra).
+Componentes en `CAA-frontend/src/pages/Taller/inventario/`. Lectura del módulo también para
+`ADMINISTRACION` (la ingesta de costos es trabajo conjunto con Contabilidad).
+
+Dos defectos de UI encontrados **mirando la pantalla**, no el código: "bajo mínimo" marcaba 253 ítems
+(todo ítem en cero, porque el mínimo por defecto es 0 → ahora exige `stock_minimo > 0`), y el "valor
+del inventario" reproducía el defecto del Excel de meter los negativos dentro del total (ahora suma
+solo existencias positivas: **$7,791.88**, e informa aparte los **−$5,479.54** que distorsionan).
+
+### H. Verificación
+49/49 E2E contra Supabase real con limpieza total (correlativos, egreso solo en la compra, 409 +
+forzado con motivo, ajuste por existencia contada, saldo corrido `10→15→12→−8→12`, **fecha
+retroactiva que recalcula todo lo de abajo**, anulación que devuelve stock y saca el documento del
+kardex, y que las externas no se cuelan en los selectores de vuelo). Las 4 pantallas revisadas en el
+navegador con los datos reales ya cargados.
+
+### Fuera de alcance (decidido con Daniel)
+Hojas de trabajo y el formato de materiales **sobrantes** (el gancho ya está: la salida se cuelga del
+mantenimiento) · devolución de sobrantes a bodega · costeo promedio ponderado o FIFO (se eligió
+**último costo conocido**) · facturar el trabajo a terceros · depurar los 208 ítems sin movimiento.

@@ -54,24 +54,44 @@ export const getHistorialAeronave = async (id) => {
   return res.data;
 };
 
-// ── Inventario de repuestos ────────────────────────────────────────────────
-export const getRepuestos = async (params = {}) => {
-  const res = await axios.get(`${API_URL}/taller/repuestos`, { params });
-  return res.data;
-};
-export const crearRepuesto = async (datos) => {
-  const res = await axios.post(`${API_URL}/taller/repuestos`, datos);
-  return res.data;
-};
-export const actualizarRepuesto = async (id, datos) => {
-  const res = await axios.patch(`${API_URL}/taller/repuestos/${id}`, datos);
-  return res.data;
-};
-export const registrarMovimiento = async (id, datos) => {
-  const res = await axios.post(`${API_URL}/taller/repuestos/${id}/movimiento`, datos);
-  return res.data;
-};
-export const getMovimientos = async (id) => {
-  const res = await axios.get(`${API_URL}/taller/repuestos/${id}/movimientos`);
-  return res.data;
-};
+// ── Inventario de bodega (OMA) ─────────────────────────────────────────────
+//
+// El stock NO se mueve por el ítem: se mueve con documentos (entrada FA,
+// salida REQ, ajuste AJ), igual que la bodega en el Excel.
+
+const INV = () => `${API_URL}/taller/inventario`;
+
+// Catálogo
+export const getItems = async (params = {}) => (await axios.get(`${INV()}/items`, { params })).data;
+export const crearItem = async (datos) => (await axios.post(`${INV()}/items`, datos)).data;
+export const actualizarItem = async (id, datos) => (await axios.patch(`${INV()}/items/${id}`, datos)).data;
+export const getKardex = async (id, params = {}) => (await axios.get(`${INV()}/items/${id}/kardex`, { params })).data;
+export const getCatalogosInventario = async () => (await axios.get(`${INV()}/catalogos`)).data;
+
+// Documentos
+export const getDocumentos = async (params = {}) => (await axios.get(`${INV()}/documentos`, { params })).data;
+export const getDocumento = async (id) => (await axios.get(`${INV()}/documentos/${id}`)).data;
+export const anularDocumento = async (id, motivo_anulacion) =>
+  (await axios.post(`${INV()}/documentos/${id}/anular`, { motivo_anulacion })).data;
+
+/**
+ * Crea un documento de bodega.
+ *
+ * Una salida sin existencia devuelve 409 con { faltantes, forzable }. Si el
+ * usuario tiene la capacidad de jefe de taller, se reintenta con
+ * { forzar: true, motivo_forzado }. El 409 se deja propagar a propósito: es la
+ * pantalla la que decide si ofrece forzar o solo informa.
+ */
+export const crearDocumento = async (datos) => (await axios.post(`${INV()}/documentos`, datos)).data;
+
+// Costos pendientes (cola conjunta de Taller y Contabilidad)
+export const getPendientesCosto = async () => (await axios.get(`${INV()}/pendientes-costo`)).data;
+export const completarCostos = async (id, costos, actualizar_catalogo = true) =>
+  (await axios.patch(`${INV()}/documentos/${id}/costos`, { costos, actualizar_catalogo })).data;
+
+// Apoyo y reportes
+export const getAeronavesBodega = async () => (await axios.get(`${INV()}/aeronaves`)).data;
+export const getMantenimientosAeronave = async (idAeronave) =>
+  (await axios.get(`${INV()}/aeronaves/${idAeronave}/mantenimientos`)).data;
+export const getConsumoAeronave = async (params = {}) =>
+  (await axios.get(`${INV()}/consumo-aeronave`, { params })).data;
