@@ -171,3 +171,14 @@ async function abrirPdf2(ruta, params = {}) {
   window.open(url, "_blank");
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+
+// ── Préstamo de partes (Fase 3) ────────────────────────────────────────────
+//
+// Bidireccional: RECIBIDO es lo que pedimos prestado, ENTREGADO lo que
+// prestamos. Su estado es independiente del de la orden de trabajo.
+export const getPrestamos = async (params = {}) => (await axios.get(`${TAL()}/prestamos`, { params })).data;
+export const getPrestamo = async (id) => (await axios.get(`${TAL()}/prestamos/${id}`)).data;
+export const crearPrestamo = async (datos) => (await axios.post(`${TAL()}/prestamos`, datos)).data;
+export const devolverPrestamo = async (id, datos) => (await axios.post(`${TAL()}/prestamos/${id}/devolver`, datos)).data;
+export const anularPrestamo = async (id, motivo_anulacion) =>
+  (await axios.post(`${TAL()}/prestamos/${id}/anular`, { motivo_anulacion })).data;

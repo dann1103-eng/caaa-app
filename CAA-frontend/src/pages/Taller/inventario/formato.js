@@ -19,6 +19,7 @@ export const META_TIPO = {
   AJUSTE: { label: "Ajuste", tag: "", icon: "bi-sliders" },
   REQUISICION: { label: "Requisición", tag: "blue", icon: "bi-pencil-square" },
   RETORNO: { label: "Retorno", tag: "green", icon: "bi-arrow-return-left" },
+  PRESTAMO: { label: "Préstamo", tag: "blue", icon: "bi-arrow-left-right" },
 };
 
 /** Hoy en formato YYYY-MM-DD, para precargar los campos de fecha. */

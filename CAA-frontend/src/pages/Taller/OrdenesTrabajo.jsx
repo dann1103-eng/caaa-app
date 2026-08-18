@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import ListaOrdenes from "./ordenes/ListaOrdenes";
 import FolderAvion from "./ordenes/FolderAvion";
+import Prestamos from "./ordenes/Prestamos";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
 
@@ -14,6 +15,7 @@ import "./ordenes/taller-tecnico.css";
 const TABS = [
   { key: "ordenes", label: "Órdenes de trabajo", icon: "bi-clipboard2-check" },
   { key: "avion", label: "Por avión", icon: "bi-airplane" },
+  { key: "prestamos", label: "Préstamos", icon: "bi-arrow-left-right" },
 ];
 
 export default function OrdenesTrabajo() {
@@ -41,6 +43,7 @@ export default function OrdenesTrabajo() {
 
       {tab === "ordenes" && <ListaOrdenes />}
       {tab === "avion" && <FolderAvion />}
+      {tab === "prestamos" && <Prestamos />}
     </>
   );
 }
