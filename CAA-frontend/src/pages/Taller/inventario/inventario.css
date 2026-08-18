@@ -15,7 +15,7 @@
 .inv-tabs {
   display: flex;
   gap: var(--sp-1);
-  border-bottom: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--c-line-1);
   margin: var(--sp-4) 0 var(--sp-4);
   overflow-x: auto;
 }
@@ -33,7 +33,7 @@
 .inv-tab--activa {
   color: var(--c-ink-1);
   font-weight: 600;
-  border-bottom-color: var(--c-accent);
+  border-bottom-color: var(--c-accent-500);
 }
 
 /* Botón grande de acción de cada sección.
@@ -50,13 +50,13 @@
   margin-bottom: var(--sp-2);
   padding: 0 var(--sp-4);
   border: none;
-  border-radius: var(--radius-2);
-  background: var(--c-primary);
+  border-radius: var(--radius-md);
+  background: var(--c-brand-500);
   color: #fff;
   font-size: 1.02rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-sm);
 }
 .inv-accion:hover { filter: brightness(1.08); }
 .inv-accion:active { transform: translateY(1px); }
@@ -70,7 +70,7 @@
 }
 
 /* La cola de trabajo de bodega, arriba de todo en Salidas. */
-.inv-pendientes { border-left: 3px solid var(--c-accent); }
+.inv-pendientes { border-left: 3px solid var(--c-accent-500); }
 
 /* Barra de filtros */
 .inv-filtros {
@@ -96,7 +96,7 @@
 .inv-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .inv-chip {
   border: 1px solid var(--c-line-2);
-  background: var(--c-surface);
+  background: var(--c-surface-1);
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 0.8rem;
@@ -118,10 +118,10 @@
   margin-bottom: var(--sp-4);
 }
 .inv-kpi {
-  border: 1px solid var(--c-line);
-  border-radius: var(--radius-2);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
   padding: var(--sp-3);
-  background: var(--c-surface);
+  background: var(--c-surface-1);
 }
 .inv-kpi__label {
   font-size: 0.72rem;
@@ -158,7 +158,7 @@
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--sp-3);
   padding-bottom: var(--sp-3);
-  border-bottom: 1px solid var(--c-line);
+  border-bottom: 1px solid var(--c-line-1);
   margin-bottom: var(--sp-3);
 }
 .inv-saldo {
@@ -188,10 +188,10 @@
   right: 0;
   max-height: 260px;
   overflow-y: auto;
-  background: var(--c-surface);
+  background: var(--c-surface-1);
   border: 1px solid var(--c-line-2);
-  border-radius: var(--radius-2);
-  box-shadow: var(--shadow-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
 }
 .inv-picker__op {
   padding: 6px 10px;
@@ -208,7 +208,7 @@
 .inv-faltantes {
   border: 1px solid var(--c-danger-700);
   background: var(--c-danger-50);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-md);
   padding: var(--sp-3);
   margin-top: var(--sp-3);
 }
