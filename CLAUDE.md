@@ -1582,72 +1582,11 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ---
 
-## 30. Sesión 2026-08-17 (2ª tanda) — Papeleo del Taller, Fase 1: requisición → solicitud → retorno
-
-Daniel fotografió **los seis formatos en papel** de la OMA y se reconstruyó el circuito real,
-cotejado contra los datos ya cargados. Spec:
-`docs/superpowers/specs/2026-08-17-solicitud-almacen-sobrantes-design.md`.
-
-### El circuito (verificado con la inspección de 100 h del YS-127-P, julio 2026)
-
-```
-06-jul  REPORTE DE INSPECCIÓN   Operaciones entrega el avión · lo firma un PILOTO · qué inspección toca
-07-jul  REQUISICIONES           el técnico anota lo que necesitará                    (interna)
-09-jul  SOLICITUD AL ALMACÉN    descarga el inventario · lleva el N° de OT · sobrantes (AAC, CAAA-004-F)
-09-jul  ORDEN DE TRABAJO        certifica · Acción Correctiva · Parte Reemplazada      (AAC, CAAA-006-F)
-en paralelo:  ENTREGA DE ACEITES POR DÍA  ·  PRÉSTAMO DE PARTES                       (internas)
-```
-
-⚠️ **La OT se llena AL FINAL, no al principio** (dato de Daniel). Es el certificado, no el
-disparador. Por eso la requisición no puede exigir un N° de OT para existir.
-
-**Cotejos que confirmaron el modelo** (ninguno es suposición): la OT `CAAA/2026-0049` ↔
-`REQ-211-2026` y la `CAAA/2026-0042` ↔ `REQ-192-2026` coinciden en avión, tacómetro y trabajo ·
-`aeronave.horas_ultima_revision` del YS-127-P **es 8271.00**, el tacómetro de esa OT · en la
-requisición la columna rotulada *"Costo Unitario"* **lleva el código de bodega**, no costos (6/6
-verificados) · la hoja de aceites y el kardex registran **los mismos eventos** (8 de 10 cruzan).
-
-### Lo entregado (§ desplegado tras el push)
-
-- **Tres tipos de documento** donde había uno: `REQUISICION` (borrador, **no mueve stock**, único
-  editable) → `SALIDA` (la solicitud `CAAA-004-F`, descarga) → `RETORNO` (sobrantes, suma con su
-  **fecha real**). Migraciones `20260817000002`, `000003`, `000004`.
-- **Campos del papel**: `tacometro`, `cliente`, `solicitante`, `entregado_por`, `entregado_a`,
-  `observaciones`, `orden_trabajo_no`, `numero_solicitud`.
-- **Pestaña "Entrega de aceites"**: el cuaderno del jefe de taller como **reporte del kardex**, sin
-  tabla nueva. `000038`/`000039` pasaron de `UN` a `QT`.
-- **Reporte de duplicados por n° de parte**: `CH48110-1` existe como `000350` (+10) y `000685` (−7).
-
-### 🚨 Tres trampas que encontró la prueba E2E (no repetir)
-
-1. **La serie `REQ` tenía que continuar desde 245.** Los 243 históricos son tipo `SALIDA` con
-   correlativo `REQ-001..244`; una serie nueva desde 1 habría creado dos papeles rotulados igual.
-   El generador busca el `MAX` **por prefijo**, no por tipo.
-2. **`UNIQUE (tipo, anio, numero)` reventaba con `SOL-001-2026`** (mismo tipo/año/número que el
-   histórico `REQ-001-2026`). La unicidad pasó al **correlativo**, que es lo que la gente lee.
-3. **`tipo` era `VARCHAR(10)` y `REQUISICION` tiene 11.** Error 22001 al crear la primera.
-
-⚠️ **Y la trampa de diseño:** los renglones de la requisición viven en la MISMA tabla que suma el
-kardex. Sin filtrarlos, pedir material movería el stock sin que nadie lo despachara. Va por
-`documentoCuentaSQL()` en `utils/inventarioHelpers.js` — **fragmento compartido, no copiado**, la
-lección de las horas facturables (§27).
-
-### Pendiente de esta fase
-
-**Los tres PDFs** (requisición, solicitud `CAAA-004-F` con su apartado de retornos, y entrega de
-aceites). El código y la revisión del formulario deben ir **configurables**, no incrustados: la AAC
-puede publicar una Rev.01 y eso no debe ser un deploy.
-
-**Fase 2** = Reporte de Inspección + Orden de Trabajo. **Fase 3** = Préstamo de partes (bitácora
-bidireccional; dato de Daniel: *se puede cerrar una OT con un préstamo activo*, así que el estado
-del préstamo es independiente del de la OT).
-
----
-
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-17.** Resueltos desde la pasada anterior: ~~tarifa del YS-155~~ ($150, §26.C) ·
-> ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
+> **Última revisión: 2026-08-17 (4ª tanda).** Resueltos desde la pasada anterior: ~~Taller fases 2-3~~
+> (§31 y §32) · ~~tarifa del YS-155~~ ($150, §26.C) · ~~loadsheet del YS-259 y del YS-155~~ (§26.C) ·
+> ~~deslogueo aleatorio de u1~~ (§26.B).
 
 ### 🔬 Con el mecánico (2026-08-17, §29.F)
 - **Cuadre de bodega**: 9 existencias en negativo y 24 diferencias contra el Excel esperando conteo
@@ -1655,6 +1594,11 @@ del préstamo es independiente del de la OT).
 - **Ingesta de costos** (Taller + Contabilidad): 482 ítems sin costo y 37 entradas sin costear en la
   pestaña "Costos pendientes". Al costear una entrada se genera su egreso en Contabilidad.
 - **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
+
+### 🔧 Para que el Taller sirva (bloquea el uso real, §32)
+- **Dar de alta a los mecánicos con su licencia TMA** (`Roger Pérez TMA 915`, `José Estrada TMA 692`):
+  sin `usuario.licencia_tma` **nadie puede firmar una orden de trabajo** (403 a propósito, §31.A).
+- **Manuales del avión** que se adjuntan a cada mantenimiento: Daniel los va a pasar.
 
 ### 🧾 Higiene inmediata
 - **Multa de `javier.espinoza`**: anotada en el Excel de saldos ("multa por aplicar 13/07/26") y **nunca
@@ -1676,8 +1620,10 @@ del préstamo es independiente del de la OT).
 - **3 botones de export** en Administración → Reportes siguen siendo placeholders (Excel Ingresos, Excel Egresos,
   PDF Estado de cuentas).
 - **PDF de onboarding** (§20.H): 11 páginas ya revisadas, falta corrida final + decidir dónde entregarlo.
-- **Taller fases 2-3** (órdenes de trabajo + squawks + MEL; libros del avión firmados). La pantalla
-  `/mantenimiento` operativa sigue en `/api/admin` ⇒ un TALLER puro no la opera.
+- **Taller — lo que quedó fuera de las 3 fases**: squawks y MEL, libros del avión firmados,
+  devolución de sobrantes a bodega, costeo promedio ponderado o FIFO (hoy es **último costo
+  conocido**), facturar el trabajo a terceros. La pantalla `/mantenimiento` operativa sigue en
+  `/api/admin` ⇒ un TALLER puro no la opera.
 - **Factura manual**: decidir si `emitirManual` deja de debitar el saldo (hoy sí, con `CARGO_OTRO`).
 - **Instructores externos** (p.ej. E.Roeder) siguen fuera del sistema.
 - (Opcional) Descontar **reservas de aeronave** también en el selector de agenda del alumno (§19.D.1).
@@ -2108,3 +2054,198 @@ navegador con los datos reales ya cargados.
 Hojas de trabajo y el formato de materiales **sobrantes** (el gancho ya está: la salida se cuelga del
 mantenimiento) · devolución de sobrantes a bodega · costeo promedio ponderado o FIFO (se eligió
 **último costo conocido**) · facturar el trabajo a terceros · depurar los 208 ítems sin movimiento.
+
+---
+
+## 30. Sesión 2026-08-17 (2ª tanda) — Papeleo del Taller, Fase 1: requisición → solicitud → retorno
+
+Daniel fotografió **los seis formatos en papel** de la OMA y se reconstruyó el circuito real,
+cotejado contra los datos ya cargados. Spec:
+`docs/superpowers/specs/2026-08-17-solicitud-almacen-sobrantes-design.md`.
+
+### El circuito (verificado con la inspección de 100 h del YS-127-P, julio 2026)
+
+```
+06-jul  REPORTE DE INSPECCIÓN   Operaciones entrega el avión · lo firma un PILOTO · qué inspección toca
+07-jul  REQUISICIONES           el técnico anota lo que necesitará                    (interna)
+09-jul  SOLICITUD AL ALMACÉN    descarga el inventario · lleva el N° de OT · sobrantes (AAC, CAAA-004-F)
+09-jul  ORDEN DE TRABAJO        certifica · Acción Correctiva · Parte Reemplazada      (AAC, CAAA-006-F)
+en paralelo:  ENTREGA DE ACEITES POR DÍA  ·  PRÉSTAMO DE PARTES                       (internas)
+```
+
+⚠️ **La OT se llena AL FINAL, no al principio** (dato de Daniel). Es el certificado, no el
+disparador. Por eso la requisición no puede exigir un N° de OT para existir.
+
+**Cotejos que confirmaron el modelo** (ninguno es suposición): la OT `CAAA/2026-0049` ↔
+`REQ-211-2026` y la `CAAA/2026-0042` ↔ `REQ-192-2026` coinciden en avión, tacómetro y trabajo ·
+`aeronave.horas_ultima_revision` del YS-127-P **es 8271.00**, el tacómetro de esa OT · en la
+requisición la columna rotulada *"Costo Unitario"* **lleva el código de bodega**, no costos (6/6
+verificados) · la hoja de aceites y el kardex registran **los mismos eventos** (8 de 10 cruzan).
+
+### Lo entregado (§ desplegado tras el push)
+
+- **Tres tipos de documento** donde había uno: `REQUISICION` (borrador, **no mueve stock**, único
+  editable) → `SALIDA` (la solicitud `CAAA-004-F`, descarga) → `RETORNO` (sobrantes, suma con su
+  **fecha real**). Migraciones `20260817000002`, `000003`, `000004`.
+- **Campos del papel**: `tacometro`, `cliente`, `solicitante`, `entregado_por`, `entregado_a`,
+  `observaciones`, `orden_trabajo_no`, `numero_solicitud`.
+- **Pestaña "Entrega de aceites"**: el cuaderno del jefe de taller como **reporte del kardex**, sin
+  tabla nueva. `000038`/`000039` pasaron de `UN` a `QT`.
+- **Reporte de duplicados por n° de parte**: `CH48110-1` existe como `000350` (+10) y `000685` (−7).
+
+### 🚨 Tres trampas que encontró la prueba E2E (no repetir)
+
+1. **La serie `REQ` tenía que continuar desde 245.** Los 243 históricos son tipo `SALIDA` con
+   correlativo `REQ-001..244`; una serie nueva desde 1 habría creado dos papeles rotulados igual.
+   El generador busca el `MAX` **por prefijo**, no por tipo.
+2. **`UNIQUE (tipo, anio, numero)` reventaba con `SOL-001-2026`** (mismo tipo/año/número que el
+   histórico `REQ-001-2026`). La unicidad pasó al **correlativo**, que es lo que la gente lee.
+3. **`tipo` era `VARCHAR(10)` y `REQUISICION` tiene 11.** Error 22001 al crear la primera.
+
+⚠️ **Y la trampa de diseño:** los renglones de la requisición viven en la MISMA tabla que suma el
+kardex. Sin filtrarlos, pedir material movería el stock sin que nadie lo despachara. Va por
+`documentoCuentaSQL()` en `utils/inventarioHelpers.js` — **fragmento compartido, no copiado**, la
+lección de las horas facturables (§27).
+
+### Los tres PDFs (cerrados en la misma tanda)
+
+`utils/pdfTaller.js`: `generarRequisicionPDF`, `generarSolicitudPDF` (la `CAAA-004-F` con su apartado
+de retornos) y `generarEntregaAceitesPDF`. **El código y la revisión del formulario NO van
+incrustados**: viven en la tabla `taller_formulario` (migración `20260817000005`, claves
+`REQUISICION`/`SOLICITUD`/`ACEITES`) y se editan desde la app ⇒ una Rev.01 de la AAC no obliga a un
+deploy.
+
+### El inventario habla el idioma de la bodega, no el del papel (corrección de Daniel)
+
+Primera entrega: los botones se llamaban como el **documento** ("Documentos", "Requisición") y todo
+vivía en una sola lista filtrada. Daniel: *"no veo ninguna opción de hacer cargas y descargas
+manuales… la sección de documentos no la entiendo del todo"*. Se renombró a la **acción de bodega**
+y se partió en pestañas propias: **Existencias · Entradas · Salidas · Aceites · Consumo por avión ·
+Costos pendientes**. `Documentos.jsx` quedó reusable (recibe `tipos`/`accion`/`mostrarPendientes`).
+**Lección**: nombrar la pantalla como el papel obliga al usuario a saber qué papel corresponde a lo
+que quiere hacer — justo lo que el sistema debería resolverle.
+
+---
+
+## 31. Sesión 2026-08-17 (3ª tanda) — Papeleo del Taller, Fase 2: orden de trabajo, reporte de inspección, rol TECNICO e interfaz nueva
+
+Spec: `docs/superpowers/specs/2026-08-17-orden-trabajo-e-interfaz-taller-design.md`.
+Migraciones `20260817000005` (formularios) y `20260817000006` (OT). Commits `5992981` (spec),
+`4bec5f7` (backend + rol), `a0b3749` ("Mi taller"), `305bf02` (PDFs), `868ec01` (jefe de taller).
+
+### A. La orden de trabajo es el certificado, no el disparador
+`orden_trabajo` se abre al recibir el avión — ahí toma su correlativo, con el formato del papel
+**`CAAA/2026-0049`** — y se **cierra al firmarla**. De ella cuelgan las requisiciones, solicitudes y
+retornos de la fase 1 (`taller_documento_inventario.id_orden_trabajo`). Tablas nuevas:
+`reporte_inspeccion` (correlativo `RI-###-2026`, lo firma un **piloto** al entregar el avión),
+`orden_trabajo` y `orden_trabajo_parte` (las columnas P/N y S/N **ON/OFF** del papel).
+
+- **Firmar exige licencia TMA** (`usuario.licencia_tma`, columna nueva junto a
+  `certificado_aprendiz`): sin ella `POST /taller/ordenes/:id/firmar` devuelve **403** — el número va
+  impreso en la orden y es lo que respalda la liberación de la aeronave. Al firmar se **agrega la
+  certificación al final de la acción correctiva**, y `ck_ot_cerrada` garantiza a nivel de esquema
+  que una OT `CERRADA` tenga mecánico y fecha de firma.
+- **Anular** es del jefe de taller y devuelve **409 si la OT tiene documentos de bodega vigentes**:
+  primero se anulan los papeles que movieron existencia.
+- `sugerenciaInspeccion` propone qué inspección toca cruzando el tacómetro con las tareas
+  programadas del Taller; `fichaAeronave` arma el folder del avión.
+
+### B. Rol `TECNICO` (mecánico) — 🚨 el enum de auditoría primero
+`VALID_ROLES` + `usuario_rol_check` + `ROLES_PERSONAL`. En rutas: `READ`/`WRITE` =
+`["TALLER","TECNICO","ADMIN"]`, `JEFE` = `["TALLER","ADMIN"]` (anular), `READ_INV` suma
+`ADMINISTRACION`.
+
+⚠️ **`audit_actor_rol` es un enum de Postgres y hay que ampliarlo ANTES de que el rol exista en
+`usuario.rol`.** Si no, cada acción auditada de ese rol hace **rollback silencioso**: la operación
+"no falla", simplemente no queda. Al revisarlo apareció que **`DUENO` tampoco estaba** (Samuel lo
+agregó a `usuario_rol_check` pero no al enum) — se agregaron los dos en la misma migración.
+
+### C. "Mi taller" — la pantalla del técnico (`/taller/mi-taller`)
+Mobile-first, 4 botones grandes en vez de un menú: **Iniciar un mantenimiento · Pedir material ·
+Sacar aceite · Firmar mi trabajo**. Arriba, el trabajo en curso como contexto: tocarlo precarga el
+avión y la OT en el modal siguiente, así que el técnico nunca teclea un número de orden. Pensada
+para gente que usa el teléfono, no el escritorio.
+
+### D. Pantallas del jefe de taller (`/taller/ordenes`)
+Pestañas **Órdenes de trabajo · Por avión**: la lista con buscador y filtro de estado, y el **folder
+del avión** con su historial. Abrir una orden muestra **todo su papeleo junto** — reporte de
+inspección, requisiciones, solicitudes, retornos y partes reemplazadas — que era exactamente lo que
+Daniel pidió ("un buscador para ver todos los documentos adjuntos a un mantenimiento").
+Componentes en `CAA-frontend/src/pages/Taller/ordenes/`.
+
+### E. PDFs
+`generarOrdenTrabajoPDF` y `generarReporteInspeccionPDF`, con su código de formulario leído de
+`taller_formulario` (mismo criterio que la fase 1).
+
+### 🚨 Trampas de esta fase (no repetir)
+1. **`PATCH /ordenes/:id` tenía un `SET` fijo** ⇒ un body parcial **nulificaba** piloto, acción
+   correctiva y los enlaces al mantenimiento. Se descubrió porque el PDF salía con el campo Piloto
+   vacío. Ahora el `SET` se arma con las claves realmente presentes en `req.body`.
+2. **node-postgres devuelve `DATE` como objeto `Date`** ⇒ el PDF imprimía "Tue Jul 07". Misma trampa
+   de §16.A; el formateador usa getters **locales** y tolera ambos tipos.
+3. **El footer del PDF creaba una página en blanco** (mismo bug ya documentado de
+   `pdfGenerator.drawFooter`): se dibuja en `page.height - 64` con `lineBreak:false`.
+4. **`ellipsis` de pdfkit necesita `height`, no solo `width`**: sin eso las celdas largas se
+   envolvían y pisaban la fila de abajo.
+
+### Defectos de UI encontrados mirando la pantalla
+La unidad del aceite salía `UN` en vez de `QT` · el folder por avión abría en **SIM-1** (un simulador,
+que no tiene mantenimiento) → arranca en el primer avión real · "1 renglones".
+
+---
+
+## 32. Sesión 2026-08-17 (4ª tanda) — Papeleo del Taller, Fase 3: préstamo de partes entre talleres
+
+Spec: `docs/superpowers/specs/2026-08-17-prestamo-de-partes-design.md`. Migración
+`20260817000007`. Commits `aa6a283` (spec), `126054f` (backend), `5951878` (frontend).
+
+### El caso
+Los talleres del aeropuerto se prestan partes entre sí, en **las dos direcciones**, y eso mueve el
+inventario **en tiempo real**: dato de Daniel, *"si es entrada, es del tipo que no está ligada a una
+factura; igual si es una salida no está ligada a una OT"*. Y *se puede cerrar una OT con un préstamo
+activo* ⇒ el estado del préstamo es **independiente** del de la orden de trabajo.
+
+### El modelo
+`taller_prestamo` (`direccion ∈ RECIBIDO|ENTREGADO`, `estado ∈ PENDIENTE|DEVUELTO|ANULADO`,
+contraparte, solicitante, fechas de entrega y de compromiso) + `taller_prestamo_linea`. El tipo
+`PRESTAMO` se sumó al CHECK de `taller_documento_inventario`, con prefijo **`PRE`** en el kardex y
+correlativo propio **`PR-###-2026`** para el préstamo.
+
+**Todo el signo del movimiento sale de una sola línea** (`prestamoController.js`):
+
+```js
+const signo = (direccion, momento) =>
+  (direccion === "RECIBIDO" ? 1 : -1) * (momento === "ENTREGA" ? 1 : -1);
+```
+
+Prestar saca del estante; que nos presten, suma; y la devolución invierte cada caso. Solo se mueven
+los renglones **con `id_repuesto`**: lo que se escribe a mano (un libro de horas, una llave de
+torque) queda registrado pero no toca existencia — y en ese caso el préstamo **no genera documento
+de bodega**.
+
+### Reglas
+- **409 si no alcanza la existencia** al prestar, con el detalle de qué falta; se puede **forzar con
+  motivo escrito** (misma puerta que la salida de la fase 1).
+- **Devolución parcial**: se anota lo que volvió y el préstamo sigue abierto por el resto.
+  **Cerrar sin devolución física** (`sin_devolucion`) para cuando se pagó o se cruzó en cuenta: no
+  mueve existencia. Devolver de más de lo que salió → 400; devolver uno ya cerrado → 409.
+- **Vencidos**: pasó la fecha comprometida, o más de un mes afuera sin fecha.
+- **Anular** (jefe de taller) anula sus documentos y **recalcula** el stock desde cero.
+
+### Frontend — pestaña "Préstamos" en `/taller/ordenes`
+La dirección se elige **primero**, porque decide todo lo demás; en el papel había que deducirla de
+quién figuraba como solicitante. Bitácora con filtros, franja roja contando los vencidos, y botón de
+devolución por renglón pendiente (cantidades precargadas con lo que falta).
+
+### Verificación
+29/29 E2E contra Supabase real con limpieza total (las dos direcciones, parcial, exceso, cierre sin
+devolución, 409 + forzado, anulación que devuelve stock). Y la pantalla revisada en el navegador a
+**375 px** contra la BD real: alta con existencia insuficiente, alta normal, devolución completa que
+cierra el préstamo y mueve el estante en el sentido correcto, y el kardex del ítem mostrando el
+`PRE-###-2026` con su saldo corrido. Datos de prueba borrados y existencia restaurada.
+
+### ⏸️ Lo que Daniel debe hacer para que esto sirva
+**Dar de alta a los mecánicos como usuarios con su licencia TMA** (`Roger Pérez TMA 915`,
+`José Estrada TMA 692`): sin `usuario.licencia_tma` **nadie puede firmar una orden de trabajo** —
+es un 403 a propósito. También falta que pase **los manuales del avión** que se adjuntan a cada
+mantenimiento.
