@@ -25,6 +25,8 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
   const [nuevo, setNuevo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [abierto, setAbierto] = useState(null);
+  // Requisición que se está entregando: se despacha desde su propia fila.
+  const [despachando, setDespachando] = useState(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -76,7 +78,17 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
                     <td>{p.aeronave_codigo || "—"}</td>
                     <td>{p.motivo || "—"}</td>
                     <td className="amount">{p.renglones}</td>
-                    <td><span className="adf-btn small">Despachar</span></td>
+                    <td>
+                      {/* Botón de verdad: antes era un `span` decorativo y había que
+                          adivinar que la fila abría un detalle donde estaba el botón
+                          real. Entregar el material es UN paso, no tres. */}
+                      <button
+                        className="adf-btn small"
+                        onClick={(e) => { e.stopPropagation(); setDespachando(p); }}
+                      >
+                        <i className="bi bi-box-arrow-up"></i>Entregar
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -196,6 +208,16 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
       )}
       {nuevo && (
         <DocumentoModal tipo={nuevo} onClose={() => setNuevo(null)} onGuardado={() => { setNuevo(null); cargar(); }} />
+      )}
+      {/* Entregar lo que el técnico pidió, sin pasar por el detalle: el modal se
+          precarga solo con los renglones de la requisición. */}
+      {despachando && (
+        <DocumentoModal
+          tipo="SALIDA"
+          desde={despachando}
+          onClose={() => setDespachando(null)}
+          onGuardado={() => { setDespachando(null); cargar(); }}
+        />
       )}
     </>
   );
