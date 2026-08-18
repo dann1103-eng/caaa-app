@@ -179,7 +179,8 @@ ejercitados aún (administración/contabilidad, aula virtual, nómina, etc.). Mi
 | `u8` | INSTRUCTOR | Alfredo (instructor id 2) |
 | `u9` | TURNO | **Usar para probar el reporte "Vuelos por avión"** (sección 15). |
 | `u_admin_fin` | ADMINISTRACION | Administración Financiera. Reseteado a `demo123` (flags de bloqueo limpios) vía `supabase/dump/reset_admin_fin.sql`. **Usar para probar administración/contabilidad.** |
-| `u_taller` | TALLER | Taller Prueba (mecánico, id_usuario 111). Seed `supabase/dump/seed_usuario_taller.sql`. **Usar para probar el módulo Taller** (sección 15). |
+| `u_taller` | TALLER | Taller Prueba (**jefe de taller**, id_usuario 111). Seed `supabase/dump/seed_usuario_taller.sql`. Licencia **TMA 002** cargada el 2026-08-18 (antes NULL ⇒ no podía firmar nada). Es quien **anula** órdenes. |
+| `u_mecanico` | TECNICO | Mecánico Prueba (id_usuario 170), licencia **TMA 001**. **Primer ingreso ya resuelto**: entra directo, sin el modal que bloquea. **Usar para probar el día a día del mecánico** (§33). |
 
 - El login acepta password en **texto plano** (`demo123`) y lo convierte a bcrypt al primer login (`authController.js`).
 - **⚠️ Robapantallas de primer login (desde sesión 2026-06-12, ver sección 15):** alumnos e instructores con `usuario.datos_confirmados = false` ven un modal bloqueante al entrar. Todas las cuentas demo de alumno/instructor (u4–u8 y los 104 reales) están **sin confirmar**, así que verás el modal. Para saltarlo en pruebas: `node query.js "UPDATE usuario SET datos_confirmados=true WHERE username='uX'"`. El viejo gate de documentos de vuelo del alumno se retiró del bloqueo (ahora es recordatorio en /perfil).
@@ -1597,10 +1598,10 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 - **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
 
 ### 🔧 Para que el Taller sirva (§32)
-- ✅ **Personal del taller cargado** (2026-08-18): `jose.estrada` (jefe, TMA 090), `roger.perez`
-  (técnico, TMA 915) y `carlos.arevalo` (aprendiz, certificado 5798). Los tres con su **primer ingreso
-  pendiente**. ⚠️ Verificar la licencia de Estrada contra su documento físico: de las fotos de los
-  formatos se había leído **TMA 692** y quedó cargado **TMA 090**.
+- ✅ **Personal del taller cargado** (2026-08-18): `jose.estrada` (jefe, **TMA 090** — confirmado por
+  Daniel; lo que se había leído de las fotos como "TMA 692" era mala lectura), `roger.perez` (técnico,
+  TMA 915) y `carlos.arevalo` (aprendiz, certificado 5798). Los tres con su **primer ingreso pendiente**:
+  la primera vez que entren tienen que fijar contraseña y correo.
 - **Manuales del avión** que se adjuntan a cada mantenimiento: Daniel los va a pasar.
 
 ### 🧾 Higiene inmediata
