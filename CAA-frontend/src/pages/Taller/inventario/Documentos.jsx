@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getDocumentos, getDocumento, anularDocumento, abrirDocumentoPDF } from "../../../services/tallerApi";
+import { getDocumentos, getDocumento, getMovimientos, anularDocumento, abrirDocumentoPDF } from "../../../services/tallerApi";
 import { fmt, money, fecha, META_TIPO } from "./formato";
 import DocumentoModal from "./DocumentoModal";
+import FirmarEntregaModal from "./FirmarEntregaModal";
 
 /**
  * Listado de documentos de bodega.
@@ -16,7 +17,7 @@ import DocumentoModal from "./DocumentoModal";
  * @param accion           { tipo, label } del botón grande de la sección
  * @param mostrarPendientes muestra arriba las requisiciones sin despachar
  */
-export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) {
+export default function Documentos({ tipos, accion, mostrarPendientes, ayuda, porItem }) {
   const [docs, setDocs] = useState([]);
   const [pendientes, setPendientes] = useState([]);
   const [f, setF] = useState({ tipo: "", desde: "", hasta: "", q: "" });
@@ -25,8 +26,10 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
   const [nuevo, setNuevo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [abierto, setAbierto] = useState(null);
-  // Requisición que se está entregando: se despacha desde su propia fila.
-  const [despachando, setDespachando] = useState(null);
+  // Solicitud que se está firmando: la entrega se hace desde su propia fila.
+  const [firmando, setFirmando] = useState(null);
+  // Vista por ÍTEM: qué se movió y cuánto, sin abrir cada documento.
+  const [movs, setMovs] = useState([]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -38,12 +41,15 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
         sin_despachar: sinDespachar ? "true" : undefined,
       }));
       if (mostrarPendientes) setPendientes(await getDocumentos({ sin_despachar: "true" }));
+      if (porItem) setMovs(await getMovimientos({
+        ...f, tipos: tipos?.join(","), incluir_anulados: verAnulados ? "true" : undefined,
+      }));
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudieron cargar los documentos");
     } finally {
       setCargando(false);
     }
-  }, [f, verAnulados, sinDespachar, tipos, mostrarPendientes]);
+  }, [f, verAnulados, sinDespachar, tipos, mostrarPendientes, porItem]);
 
   useEffect(() => {
     const t = setTimeout(cargar, 250);
@@ -65,11 +71,11 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
         <div className="adf-card inv-pendientes">
           <h3 className="adf-card__title">
             <i className="bi bi-hourglass-split me-2"></i>
-            Pendientes de despachar ({pendientes.length})
+            Para entregar ({pendientes.length})
           </h3>
           <div className="adf-table-wrap">
             <table className="adf-table">
-              <thead><tr><th>Requisición</th><th>Fecha</th><th>Avión</th><th>Trabajo</th><th className="amount">Renglones</th><th></th></tr></thead>
+              <thead><tr><th>Solicitud</th><th>Fecha</th><th>Avión</th><th>Trabajo</th><th className="amount">Ítems</th><th></th></tr></thead>
               <tbody>
                 {pendientes.map((p) => (
                   <tr key={p.id_documento} className="inv-clic" onClick={() => setAbierto(p.id_documento)}>
@@ -84,9 +90,9 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
                           real. Entregar el material es UN paso, no tres. */}
                       <button
                         className="adf-btn small"
-                        onClick={(e) => { e.stopPropagation(); setDespachando(p); }}
+                        onClick={(e) => { e.stopPropagation(); setFirmando(p); }}
                       >
-                        <i className="bi bi-box-arrow-up"></i>Entregar
+                        <i className="bi bi-pen"></i>Firmar entrega
                       </button>
                     </td>
                   </tr>
@@ -139,7 +145,45 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
           )}
         </div>
 
-        {cargando ? (
+        {/* Por ÍTEM: qué salió y cuánto, que es lo que la bodega quiere ver.
+            Antes había que abrir cada documento para saberlo. */}
+        {porItem ? (
+          cargando ? (
+            <p style={{ color: "var(--c-ink-3)" }}>Cargando…</p>
+          ) : movs.length === 0 ? (
+            <p style={{ color: "var(--c-ink-3)", fontSize: "0.9rem" }}>Todavía no salió nada con ese filtro.</p>
+          ) : (
+            <div className="adf-table-wrap">
+              <table className="adf-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th><th>Código</th><th>Descripción</th>
+                    <th className="amount">Cantidad</th><th>Avión</th><th>Trabajo</th><th>Documento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {movs.map((m) => (
+                    <tr key={m.id_mov} className={`inv-clic ${m.estado === "ANULADO" ? "inv-anulado" : ""}`}
+                        onClick={() => setAbierto(m.id_documento)}>
+                      <td>{fecha(m.fecha)}</td>
+                      <td className="inv-codigo">{m.codigo}</td>
+                      <td>
+                        {m.descripcion}
+                        {m.parte_no && <span style={{ color: "var(--c-ink-4)" }}> · {m.parte_no}</span>}
+                      </td>
+                      <td className="amount">
+                        <strong>{fmt(Math.abs(Number(m.cantidad)), 0)}</strong> {m.unidad}
+                      </td>
+                      <td>{m.aeronave_codigo || "—"}</td>
+                      <td style={{ maxWidth: 280 }}>{m.orden_correlativo || m.motivo || "—"}</td>
+                      <td className="inv-codigo" style={{ fontSize: "0.78rem" }}>{m.correlativo}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        ) : cargando ? (
           <p style={{ color: "var(--c-ink-3)" }}>Cargando…</p>
         ) : docs.length === 0 ? (
           <p style={{ color: "var(--c-ink-3)", fontSize: "0.9rem" }}>No hay documentos con ese filtro.</p>
@@ -209,14 +253,12 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
       {nuevo && (
         <DocumentoModal tipo={nuevo} onClose={() => setNuevo(null)} onGuardado={() => { setNuevo(null); cargar(); }} />
       )}
-      {/* Entregar lo que el técnico pidió, sin pasar por el detalle: el modal se
-          precarga solo con los renglones de la requisición. */}
-      {despachando && (
-        <DocumentoModal
-          tipo="SALIDA"
-          desde={despachando}
-          onClose={() => setDespachando(null)}
-          onGuardado={() => { setDespachando(null); cargar(); }}
+      {/* Firmar la entrega: acá sale el material del estante. */}
+      {firmando && (
+        <FirmarEntregaModal
+          solicitud={firmando}
+          onClose={() => setFirmando(null)}
+          onFirmada={() => { setFirmando(null); cargar(); }}
         />
       )}
     </>

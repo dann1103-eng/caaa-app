@@ -75,7 +75,8 @@ export default function Inventario() {
           tipos={["SALIDA", "REQUISICION"]}
           accion={{ tipo: "SALIDA", icono: "bi-box-arrow-up", label: "Entregar material" }}
           mostrarPendientes
-          ayuda="Un trabajo deja DOS papeles: la requisición es lo que el técnico pidió y no descuenta nada, y la solicitud es la entrega, que sí descuenta. Cada uno dice con cuál está emparejado."
+          porItem
+          ayuda="Lo que salió de bodega, por ítem. El técnico pide con una requisición y eso arma la solicitud; el material sale recién cuando se FIRMA la entrega. Arriba, lo que está esperando esa firma."
         />
       )}
 

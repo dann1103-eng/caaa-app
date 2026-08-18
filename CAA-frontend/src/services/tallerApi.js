@@ -175,6 +175,14 @@ async function abrirPdf2(ruta, params = {}) {
 // ── Préstamo de partes (Fase 3) ────────────────────────────────────────────
 //
 // Bidireccional: RECIBIDO es lo que pedimos prestado, ENTREGADO lo que
+// Los movimientos (item + cantidad), que es lo que la bodega mira de un vistazo.
+export const getMovimientos = async (params = {}) =>
+  (await axios.get(`${INV()}/movimientos`, { params })).data;
+
+// Firmar la entrega: ACA ocurre la descarga, no al armar la solicitud.
+export const firmarSolicitud = async (id, datos = {}) =>
+  (await axios.post(`${INV()}/documentos/${id}/firmar`, datos)).data;
+
 // La cola de trabajo: los aviones que Operaciones mando a mantenimiento.
 export const getColaTrabajo = async () => (await axios.get(`${TAL()}/cola`)).data;
 
