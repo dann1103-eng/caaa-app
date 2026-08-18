@@ -1585,6 +1585,7 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
 > **Última revisión: 2026-08-18.** Resueltos desde la pasada anterior: ~~Taller fases 2-3~~ (§31 y §32) ·
+> ~~dar de alta a los mecánicos~~ (hecho, ver abajo) ·
 > ~~no se podían crear mecánicos desde la app~~ (§33) · ~~tarifa del YS-155~~ ($150, §26.C) ·
 > ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
 
@@ -1596,9 +1597,10 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 - **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
 
 ### 🔧 Para que el Taller sirva (§32)
-- **Dar de alta a los mecánicos** (`Roger Pérez TMA 915`, `José Estrada TMA 692`). Ya **no es un hueco
-  de software**: se crean desde Administración → Usuarios → Personal con rol *Técnico / mecánico* y su
-  licencia TMA (§33). Falta la carga de datos nomás; sin licencia el 403 al firmar es a propósito.
+- ✅ **Personal del taller cargado** (2026-08-18): `jose.estrada` (jefe, TMA 090), `roger.perez`
+  (técnico, TMA 915) y `carlos.arevalo` (aprendiz, certificado 5798). Los tres con su **primer ingreso
+  pendiente**. ⚠️ Verificar la licencia de Estrada contra su documento físico: de las fotos de los
+  formatos se había leído **TMA 692** y quedó cargado **TMA 090**.
 - **Manuales del avión** que se adjuntan a cada mantenimiento: Daniel los va a pasar.
 
 ### 🧾 Higiene inmediata
@@ -2285,9 +2287,25 @@ usuario recién creado arrastra y que responde con el mismo código. La aserció
 **Dos reglas que salen de acá:** levantar el candado de primer ingreso antes de medir cualquier otro gate
 sobre un usuario nuevo, y **comprobar el mensaje, no solo el código** cuando dos gates comparten status.
 
+### El aprendiz también era una columna muerta
+Al cargar Daniel a los tres (jefe, mecánico y aprendiz) salió el gemelo del mismo problema:
+`orden_trabajo.id_aprendiz` existía, `firmarOrden` lo aceptaba, el detalle lo mostraba y el PDF lo
+imprimía — pero **ninguna pantalla lo mandaba**. Se agregó `GET /taller/personal` (personal del taller
+con sus credenciales) y un selector **"Aprendiz que asistió (opcional)"** en `FirmarOrdenModal`, que
+ofrece solo a quien tenga `certificado_aprendiz` y no aparece si no hay ninguno.
+
+⚠️ **Patrón a vigilar:** entre la licencia TMA y el aprendiz van **dos columnas muertas seguidas** en el
+mismo módulo — el backend y el PDF las consumían, y nadie las escribía. Al agregar una columna que un PDF
+imprime, seguirla hasta la pantalla que la llena (misma familia que la trampa de los objetos literales).
+
 ### Verificación
 19/19 contra Supabase real con backend local y limpieza total (incluida la cadena completa: sin licencia
 403 → el admin la carga → firma 200 → la OT queda `CERRADA` con la certificación agregada → edit parcial
 no la borra → vaciarla sí). 14/14 contra **producción** con un ciclo real y limpieza. Y la pantalla
 revisada en el navegador: alta de un TECNICO con licencia, insignia verde, edición que precarga, borrado
 que deja la insignia ámbar.
+
+Lo del aprendiz: 15/15 local y 12/12 en producción, contra el personal real ya cargado (el aprendiz sale
+en el selector, el jefe y el mecánico no, el aprendiz no puede firmar, y adjuntado llega al detalle y al
+PDF). Las pruebas firman con un **técnico temporal** para no tocarle a los usuarios reales el flag de
+primer ingreso — se verifica al final que los tres siguen intactos.
