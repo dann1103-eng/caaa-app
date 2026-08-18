@@ -11,6 +11,7 @@ const inventario = require("../controllers/taller/inventarioController");
 const documentos = require("../controllers/taller/documentoInventarioController");
 const ot = require("../controllers/taller/ordenTrabajoController");
 const prestamo = require("../controllers/taller/prestamoController");
+const estimado = require("../controllers/taller/estimadoController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -101,6 +102,18 @@ router.patch("/ordenes/:id", roleMiddleware(WRITE), ot.editarOrden);
 router.post("/ordenes/:id/firmar", roleMiddleware(WRITE), ot.firmarOrden);
 // Anular es del jefe: una orden anulada arrastra el papeleo que cuelga de ella.
 router.post("/ordenes/:id/anular", roleMiddleware(JEFE), ot.anularOrden);
+
+// La cola: los aviones que Operaciones mando a mantenimiento y su trabajo.
+router.get("/cola", roleMiddleware(READ), ot.colaTrabajo);
+// Asignar: lo usa el jefe desde la cola y el mecanico cuando toma un avion.
+router.patch("/ordenes/:id/asignar", roleMiddleware(WRITE), ot.asignarOrden);
+// Revision del jefe: aprobar con su firma, o devolver al mecanico con la nota.
+router.post("/ordenes/:id/aprobar", roleMiddleware(JEFE), ot.aprobarOrden);
+router.post("/ordenes/:id/devolver", roleMiddleware(JEFE), ot.devolverOrden);
+
+// Estimado de finalizacion: la fecha del Taller manda sobre la de Operaciones.
+router.get("/mantenimientos/:id/preview-estimado", roleMiddleware(READ), estimado.previewEstimado);
+router.post("/mantenimientos/:id/estimado", roleMiddleware(WRITE), estimado.guardarEstimado);
 
 // Personal del taller con sus credenciales (alimenta el selector de aprendiz).
 router.get("/personal", roleMiddleware(READ), ot.listPersonalTaller);

@@ -14,6 +14,8 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { generarOrdenTrabajoPDF, generarReporteInspeccionPDF } = require("../../utils/pdfTaller");
+const { notificarRoles } = require("../../utils/notificaciones");
+const { notificarStaff } = require("../../utils/webpush");
 
 const LOCK_CORRELATIVO = 4713;
 const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
@@ -51,6 +53,9 @@ const SELECT_OT = `
          me.licencia_tma,
          TRIM(COALESCE(ap.nombre,'') || ' ' || COALESCE(ap.apellido,'')) AS aprendiz_nombre,
          ap.certificado_aprendiz,
+         TRIM(COALESCE(asg.nombre,'') || ' ' || COALESCE(asg.apellido,'')) AS asignado_nombre,
+         TRIM(COALESCE(apr.nombre,'') || ' ' || COALESCE(apr.apellido,'')) AS aprobador_nombre,
+         apr.licencia_tma AS aprobador_licencia,
          ri.correlativo AS reporte_correlativo,
          (SELECT COUNT(*) FROM taller_documento_inventario d
            WHERE d.id_orden_trabajo = o.id_orden AND d.estado = 'VIGENTE')::int AS documentos,
@@ -58,13 +63,15 @@ const SELECT_OT = `
     FROM orden_trabajo o
     JOIN aeronave a  ON a.id_aeronave = o.id_aeronave
     LEFT JOIN usuario me ON me.id_usuario = o.id_mecanico
-    LEFT JOIN usuario ap ON ap.id_usuario = o.id_aprendiz
+    LEFT JOIN usuario ap  ON ap.id_usuario  = o.id_aprendiz
+    LEFT JOIN usuario asg ON asg.id_usuario = o.id_mecanico_asignado
+    LEFT JOIN usuario apr ON apr.id_usuario = o.id_aprobador
     LEFT JOIN reporte_inspeccion ri ON ri.id_reporte = o.id_reporte`;
 
 // ── Órdenes de trabajo ──────────────────────────────────────────────────────
 
 exports.listOrdenes = catchAsync(async (req, res) => {
-  const { estado, id_aeronave, desde, hasta, q, mias } = req.query;
+  const { estado, id_aeronave, desde, hasta, q, mias, asignadas, abiertas } = req.query;
   const cond = ["1=1"];
   const params = [];
   const p = (v) => `$${params.push(v)}`;
@@ -76,6 +83,13 @@ exports.listOrdenes = catchAsync(async (req, res) => {
   // "Mis trabajos": los que abrió este usuario y siguen abiertos. Es lo que la
   // pantalla del técnico usa como contexto.
   if (mias === "true") cond.push(`o.creado_por = ${p(req.user?.id_usuario || 0)}`);
+  // "Lo mío" del mecánico: lo que abrió él o lo que el jefe le asignó.
+  if (asignadas === "true") {
+    const uid = p(req.user?.id_usuario || 0);
+    cond.push(`(o.id_mecanico_asignado = ${uid} OR o.creado_por = ${uid})`);
+  }
+  // Trabajo vivo: sigue abierta o está esperando la revisión del jefe.
+  if (abiertas === "true") cond.push(`o.estado IN ('ABIERTA','FIRMADA')`);
   if (q) {
     const ph = p(`%${q}%`);
     cond.push(`(o.correlativo ILIKE ${ph} OR o.discrepancia ILIKE ${ph} OR o.accion_correctiva ILIKE ${ph} OR a.codigo ILIKE ${ph})`);
@@ -126,7 +140,7 @@ exports.getOrden = catchAsync(async (req, res) => {
 exports.crearOrden = catchAsync(async (req, res) => {
   const {
     id_aeronave, fecha, tacometro, piloto_operador, discrepancia,
-    id_reporte, id_cumplimiento, id_mantenimiento,
+    id_reporte, id_cumplimiento, id_mantenimiento, id_mecanico_asignado,
   } = req.body;
 
   if (!id_aeronave) return res.status(400).json({ message: "Elegí la aeronave" });
@@ -140,15 +154,21 @@ exports.crearOrden = catchAsync(async (req, res) => {
     const anio = Number(String(fecha || "").slice(0, 4)) || new Date().getFullYear();
     const { numero, correlativo } = await siguienteCorrelativoOT(client, anio);
 
+    // Quien abre el trabajo queda trabajándolo, salvo que el jefe lo asigne a
+    // otro. Así el mecánico no tiene que asignarse a sí mismo cada vez.
+    const asignado = id_mecanico_asignado || req.user?.id_usuario || null;
+
     const r = await client.query(
       `INSERT INTO orden_trabajo
          (anio, numero, correlativo, id_aeronave, fecha, tacometro, piloto_operador,
-          discrepancia, id_reporte, id_cumplimiento, id_mantenimiento, creado_por)
-       VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6::numeric, $7,$8,$9,$10,$11,$12)
+          discrepancia, id_reporte, id_cumplimiento, id_mantenimiento, creado_por,
+          id_mecanico_asignado, asignado_en)
+       VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6::numeric, $7,$8,$9,$10,$11,$12,
+               $13, CASE WHEN $13::int IS NULL THEN NULL ELSE NOW() END)
        RETURNING *`,
       [anio, numero, correlativo, id_aeronave, fecha || null, num(tacometro), txt(piloto_operador),
        txt(discrepancia), id_reporte || null, id_cumplimiento || null, id_mantenimiento || null,
-       req.user?.id_usuario || null]
+       req.user?.id_usuario || null, asignado]
     );
     await client.query("COMMIT");
     res.json(r.rows[0]);
@@ -278,7 +298,9 @@ exports.firmarOrden = catchAsync(async (req, res) => {
          r_ii              = $5,
          fecha_firma       = COALESCE($6::date, CURRENT_DATE),
          firmado_en        = NOW(),
-         estado            = 'CERRADA'
+         -- Firmar ya NO cierra: la orden queda esperando la revisión del jefe.
+         estado            = 'FIRMADA',
+         nota_revision     = NULL
        WHERE id_orden = $1 RETURNING *`,
       [id, texto, req.user.id_usuario, id_aprendiz || null, txt(r_ii), fecha_firma || null]
     );
@@ -314,6 +336,209 @@ exports.listPersonalTaller = catchAsync(async (req, res) => {
       ORDER BY nombre`
   );
   res.json(r.rows);
+});
+
+/**
+ * La cola de trabajo del Taller: los aviones que Operaciones mandó a
+ * mantenimiento, con lo que ya se les está haciendo.
+ *
+ * No hay tabla de "tareas": la cola sale de cruzar el mantenimiento con sus
+ * órdenes. Un avión con mantenimiento vivo y sin orden aprobada está esperando.
+ * Esto es lo que por fin le da uso a orden_trabajo.id_mantenimiento.
+ */
+exports.colaTrabajo = catchAsync(async (req, res) => {
+  const r = await db.query(
+    `SELECT m.id_mantenimiento, m.tipo, m.descripcion, m.estado AS estado_mantenimiento,
+            m.fecha_inicio::date AS fecha_inicio, m.fecha_fin::date AS fecha_fin,
+            m.fecha_fin_original::date AS fecha_fin_original, m.motivo_estimado,
+            TRIM(COALESCE(ue.nombre,'') || ' ' || COALESCE(ue.apellido,'')) AS estimado_por_nombre,
+            a.id_aeronave, a.codigo AS aeronave_codigo, a.modelo, a.es_externa,
+            a.horas_acumuladas,
+            (SELECT COUNT(*) FROM orden_trabajo o
+              WHERE o.id_mantenimiento = m.id_mantenimiento AND o.estado <> 'ANULADA')::int AS ordenes,
+            (SELECT COUNT(*) FROM orden_trabajo o
+              WHERE o.id_mantenimiento = m.id_mantenimiento AND o.estado IN ('ABIERTA','FIRMADA'))::int AS pendientes,
+            (SELECT COUNT(*) FROM orden_trabajo o
+              WHERE o.id_mantenimiento = m.id_mantenimiento AND o.estado = 'FIRMADA')::int AS por_revisar,
+            (SELECT COALESCE(json_agg(json_build_object(
+                      'id_orden', o.id_orden, 'correlativo', o.correlativo, 'estado', o.estado,
+                      'discrepancia', o.discrepancia,
+                      'id_mecanico_asignado', o.id_mecanico_asignado,
+                      'asignado_nombre', TRIM(COALESCE(us.nombre,'') || ' ' || COALESCE(us.apellido,''))
+                    ) ORDER BY o.id_orden), '[]'::json)
+               FROM orden_trabajo o
+               LEFT JOIN usuario us ON us.id_usuario = o.id_mecanico_asignado
+              WHERE o.id_mantenimiento = m.id_mantenimiento AND o.estado <> 'ANULADA') AS trabajos
+       FROM mantenimiento_aeronave m
+       JOIN aeronave a ON a.id_aeronave = m.id_aeronave
+       LEFT JOIN usuario ue ON ue.id_usuario = m.estimado_por
+      WHERE COALESCE(m.completado, false) = false
+        AND COALESCE(m.estado, '') <> 'CANCELADO'
+        AND (m.fecha_fin IS NULL OR m.fecha_fin::date >= CURRENT_DATE)
+      ORDER BY m.fecha_inicio NULLS LAST, a.codigo`
+  );
+  res.json(r.rows);
+});
+
+/**
+ * Asigna (o reasigna) el trabajo a un mecánico. Lo usa el jefe desde la cola y
+ * el propio mecánico cuando toma un avión.
+ *
+ * Asignar NO bloquea: en una inspección grande trabajan varios y cada uno lleva
+ * su propia orden. Es para saber quién está en qué, no un candado.
+ */
+exports.asignarOrden = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { id_mecanico_asignado } = req.body;
+
+  const o = await db.query("SELECT estado, correlativo FROM orden_trabajo WHERE id_orden = $1", [id]);
+  if (!o.rows.length) return res.status(404).json({ message: "Orden de trabajo no encontrada" });
+  if (o.rows[0].estado !== "ABIERTA") {
+    return res.status(409).json({ message: `Esta orden ya está ${o.rows[0].estado.toLowerCase()}; no se puede reasignar.` });
+  }
+
+  const r = await db.query(
+    `UPDATE orden_trabajo
+        SET id_mecanico_asignado = $2,
+            asignado_en = CASE WHEN $2::int IS NULL THEN NULL ELSE NOW() END
+      WHERE id_orden = $1 RETURNING *`,
+    [id, id_mecanico_asignado || null]
+  );
+
+  if (id_mecanico_asignado && id_mecanico_asignado !== req.user?.id_usuario) {
+    const { notificarUsuario } = require("../../utils/notificaciones");
+    await notificarUsuario(null, id_mecanico_asignado, {
+      tipo: "INFO",
+      mensaje: `Te asignaron el trabajo ${o.rows[0].correlativo}`,
+      enlace: "/taller/mi-taller",
+    }).catch(() => {});
+  }
+  res.json(r.rows[0]);
+});
+
+/**
+ * El jefe aprueba con su firma. Es lo que hace auditable el trabajo: el mecánico
+ * certifica lo que hizo y el jefe lo revisa antes de que el avión se devuelva.
+ *
+ * Se permite aprobar lo propio (en un taller chico a veces no hay de otra), pero
+ * queda marcado con `aprobacion_propia` y se ve en el listado.
+ *
+ * Cuando ya no queda ninguna orden pendiente de ese mantenimiento, se avisa a
+ * Operaciones que el avión está listo para devolver al servicio. El sistema NO
+ * lo devuelve solo: esa decisión es de ellos (spec §2).
+ */
+exports.aprobarOrden = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { fecha_aprobacion } = req.body;
+  const uid = req.user?.id_usuario || null;
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const o = await client.query("SELECT * FROM orden_trabajo WHERE id_orden = $1 FOR UPDATE", [id]);
+    if (!o.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Orden no encontrada" }); }
+    const orden = o.rows[0];
+    if (orden.estado !== "FIRMADA") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: orden.estado === "APROBADA"
+          ? "Esta orden ya fue aprobada."
+          : `Solo se revisan órdenes firmadas por el mecánico; esta está ${orden.estado.toLowerCase()}.`,
+      });
+    }
+
+    // Quien aprueba también tiene que tener licencia: su número va impreso.
+    const u = await client.query("SELECT licencia_tma FROM usuario WHERE id_usuario = $1", [uid || 0]);
+    if (!u.rows[0]?.licencia_tma) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({
+        message: "Tu usuario no tiene número de licencia TMA cargado, y va impreso en la orden que aprobás. Pedile a Administración que lo agregue a tu ficha.",
+      });
+    }
+
+    const propia = !!uid && uid === orden.id_mecanico;
+    const r = await client.query(
+      `UPDATE orden_trabajo SET
+         estado = 'APROBADA', id_aprobador = $2,
+         fecha_aprobacion = COALESCE($3::date, CURRENT_DATE),
+         aprobado_en = NOW(), aprobacion_propia = $4
+       WHERE id_orden = $1 RETURNING *`,
+      [id, uid, fecha_aprobacion || null, propia]
+    );
+
+    // ¿Quedó algo pendiente de este mantenimiento?
+    let listo = null;
+    if (orden.id_mantenimiento) {
+      const pend = await client.query(
+        `SELECT COUNT(*)::int n FROM orden_trabajo
+          WHERE id_mantenimiento = $1 AND estado IN ('ABIERTA','FIRMADA')`,
+        [orden.id_mantenimiento]
+      );
+      if (pend.rows[0].n === 0) {
+        const av = await client.query(
+          `SELECT a.codigo FROM mantenimiento_aeronave m
+             JOIN aeronave a ON a.id_aeronave = m.id_aeronave
+            WHERE m.id_mantenimiento = $1`, [orden.id_mantenimiento]
+        );
+        listo = av.rows[0]?.codigo || null;
+        await notificarRoles(client, ["TURNO", "ADMIN", "PROGRAMACION"], {
+          tipo: "INFO",
+          mensaje: `${listo}: el Taller terminó y aprobó todo el trabajo. Listo para devolver al servicio.`,
+          enlace: "/admin/mantenimiento",
+        });
+      }
+    }
+
+    await client.query("COMMIT");
+
+    // Best-effort, fuera de la transacción: nunca puede tumbar la aprobación.
+    if (listo) {
+      notificarStaff(
+        { title: "Avión listo para devolver", body: `${listo}: el Taller aprobó todo el trabajo.` },
+        { excluirUid: uid }
+      ).catch(() => {});
+    }
+    res.json({ ...r.rows[0], listo_para_devolver: listo, aprobacion_propia: propia });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * El jefe la devuelve al mecánico con una nota de qué corregir. Vuelve a
+ * ABIERTA y se puede volver a firmar; queda el registro de que hubo devolución.
+ */
+exports.devolverOrden = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { nota_revision } = req.body;
+  if (!txt(nota_revision)) {
+    return res.status(400).json({ message: "Escribí qué hay que corregir antes de devolverla" });
+  }
+
+  const o = await db.query("SELECT estado, correlativo, id_mecanico FROM orden_trabajo WHERE id_orden = $1", [id]);
+  if (!o.rows.length) return res.status(404).json({ message: "Orden no encontrada" });
+  if (o.rows[0].estado !== "FIRMADA") {
+    return res.status(409).json({ message: `Solo se devuelven órdenes firmadas; esta está ${o.rows[0].estado.toLowerCase()}.` });
+  }
+
+  const r = await db.query(
+    `UPDATE orden_trabajo SET estado = 'ABIERTA', nota_revision = $2,
+            devoluciones = devoluciones + 1
+      WHERE id_orden = $1 RETURNING *`,
+    [id, txt(nota_revision)]
+  );
+
+  const { notificarUsuario } = require("../../utils/notificaciones");
+  await notificarUsuario(null, o.rows[0].id_mecanico, {
+    tipo: "ALERTA",
+    mensaje: `El jefe de taller devolvió ${o.rows[0].correlativo}: ${txt(nota_revision)}`,
+    enlace: "/taller/mi-taller",
+  }).catch(() => {});
+
+  res.json(r.rows[0]);
 });
 
 exports.anularOrden = catchAsync(async (req, res) => {
