@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getDocumentos, getDocumento, anularDocumento } from "../../../services/tallerApi";
+import { getDocumentos, getDocumento, anularDocumento, abrirDocumentoPDF } from "../../../services/tallerApi";
 import { fmt, money, fecha, META_TIPO } from "./formato";
 import DocumentoModal from "./DocumentoModal";
 
@@ -167,6 +167,16 @@ function DetalleModal({ id, onClose, onAnulado }) {
             {d?.estado === "ANULADO" && <span className="adf-tag red" style={{ marginLeft: 8 }}>Anulado</span>}
           </span>
           <div style={{ display: "flex", gap: 10 }}>
+            {/* Imprime con el formato de su tipo: la requisición interna o el
+                CAAA-004-F, que además llena solo el apartado de retornos. */}
+            {["REQUISICION", "SALIDA"].includes(d?.tipo) && (
+              <button
+                className="adf-btn secondary"
+                onClick={() => abrirDocumentoPDF(id).catch(() => toast.error("No se pudo generar el PDF"))}
+              >
+                <i className="bi bi-printer"></i> Imprimir
+              </button>
+            )}
             {/* La requisición se despacha (o se corrige) mientras no tenga solicitud. */}
             {d?.tipo === "REQUISICION" && d.estado === "VIGENTE" && !data?.despachos?.length && (
               <>

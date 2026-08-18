@@ -16,6 +16,7 @@ const {
   normalizarClasificacion,
   documentoCuentaSQL,
 } = require("../../utils/inventarioHelpers");
+const { generarEntregaAceitesPDF } = require("../../utils/pdfTaller");
 
 // ── Catálogo ────────────────────────────────────────────────────────────────
 
@@ -285,9 +286,7 @@ async function kardexDeItem(conn, idRepuesto, { desde, hasta, verAnulados } = {}
  * A diferencia del papel, se muestran también las entradas: el cuaderno solo
  * anota salidas y por eso su saldo se despega del real en cuanto llega una compra.
  */
-exports.entregaAceites = catchAsync(async (req, res) => {
-  const { desde, hasta, ids } = req.query;
-
+async function construirEntregaAceites({ desde, hasta, ids }) {
   const seleccion = String(ids || "").split(",").map(Number).filter(Boolean);
   const items = await db.query(
     seleccion.length
@@ -295,13 +294,26 @@ exports.entregaAceites = catchAsync(async (req, res) => {
       : `SELECT * FROM taller_repuesto WHERE categoria = 'ACEITE' AND activo = true ORDER BY codigo`,
     seleccion.length ? [seleccion] : []
   );
-
   const hojas = [];
   for (const it of items.rows) {
-    const k = await kardexDeItem(db, it.id_repuesto, { desde, hasta });
-    hojas.push({ item: it, ...k });
+    hojas.push({ item: it, ...(await kardexDeItem(db, it.id_repuesto, { desde, hasta })) });
   }
-  res.json({ desde: desde || null, hasta: hasta || null, hojas });
+  return { desde: desde || null, hasta: hasta || null, hojas };
+}
+
+exports.entregaAceites = catchAsync(async (req, res) => {
+  res.json(await construirEntregaAceites(req.query));
+});
+
+/** La misma hoja, en PDF apaisado y con las columnas de firma en blanco. */
+exports.imprimirEntregaAceites = catchAsync(async (req, res) => {
+  const { desde, hasta } = req.query;
+  const datos = await construirEntregaAceites(req.query);
+  const f = await db.query("SELECT * FROM taller_formulario WHERE clave = 'ACEITES'");
+  const pdf = generarEntregaAceitesPDF({ ...datos, desde, hasta, formulario: f.rows[0] || null });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", 'inline; filename="entrega-aceites.pdf"');
+  pdf.pipe(res);
 });
 
 /**

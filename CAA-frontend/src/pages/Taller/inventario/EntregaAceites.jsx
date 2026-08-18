@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getEntregaAceites } from "../../../services/tallerApi";
+import { getEntregaAceites, abrirEntregaAceitesPDF } from "../../../services/tallerApi";
 import { fmt, fecha } from "./formato";
 
 /**
@@ -45,8 +45,11 @@ export default function EntregaAceites() {
           <label>Hasta</label>
           <input type="date" value={rango.hasta} onChange={(e) => setRango({ ...rango, hasta: e.target.value })} />
         </div>
-        <button className="adf-btn secondary small" onClick={() => window.print()}>
-          <i className="bi bi-printer"></i> Imprimir
+        <button
+          className="adf-btn secondary small"
+          onClick={() => abrirEntregaAceitesPDF(rango).catch(() => toast.error("No se pudo generar el PDF"))}
+        >
+          <i className="bi bi-printer"></i> Imprimir hoja
         </button>
       </div>
 

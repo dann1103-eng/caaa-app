@@ -97,6 +97,25 @@ export const getEntregaAceites = async (params = {}) =>
   (await axios.get(`${INV()}/entrega-aceites`, { params })).data;
 export const getDuplicadosParte = async () => (await axios.get(`${INV()}/duplicados-parte`)).data;
 
+/**
+ * Abre un PDF del Taller en una pestaña nueva.
+ *
+ * Va por blob y no por <a href>: la ruta necesita el header Authorization, que
+ * una navegación directa del navegador no manda. Mismo patrón que los PDFs de
+ * Administración (`abrirPyLPDF`).
+ */
+async function abrirPdf(ruta, params = {}) {
+  const r = await axios.get(`${INV()}${ruta}`, { params, responseType: "blob" });
+  const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+  window.open(url, "_blank");
+  // Se revoca tarde: si se revoca de inmediato, la pestaña recién abierta no
+  // llega a leer el blob y muestra una página en blanco.
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+export const abrirDocumentoPDF = (id) => abrirPdf(`/documentos/${id}/pdf`);
+export const abrirEntregaAceitesPDF = (params) => abrirPdf("/entrega-aceites.pdf", params);
+
 // Costos pendientes (cola conjunta de Taller y Contabilidad)
 export const getPendientesCosto = async () => (await axios.get(`${INV()}/pendientes-costo`)).data;
 export const completarCostos = async (id, costos, actualizar_catalogo = true) =>

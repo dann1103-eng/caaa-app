@@ -16,6 +16,7 @@ const {
   recalcularStock,
   MUEVE_STOCK,
 } = require("../../utils/inventarioHelpers");
+const { generarRequisicionPDF, generarSolicitudPDF } = require("../../utils/pdfTaller");
 
 const TIPOS = ["ENTRADA", "SALIDA", "AJUSTE", "REQUISICION", "RETORNO"];
 
@@ -752,6 +753,79 @@ exports.opcionesMantenimiento = catchAsync(async (req, res) => {
     [id_aeronave]
   );
   res.json(r.rows);
+});
+
+// ── Impresión ───────────────────────────────────────────────────────────────
+
+/** Código y revisión del formulario, editables sin desplegar. */
+async function formularioDe(clave) {
+  const r = await db.query("SELECT * FROM taller_formulario WHERE clave = $1", [clave]);
+  return r.rows[0] || null;
+}
+
+/**
+ * Imprime un documento con el formato de su tipo: la requisición interna o la
+ * Solicitud de Repuestos CAAA-004-F. La solicitud arrastra sus retornos para
+ * llenar sola el apartado "PARTES PARA RETORNAR AL ALMACEN".
+ */
+exports.imprimirDocumento = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const cab = await db.query(
+    `SELECT d.*, a.codigo AS aeronave_codigo
+       FROM taller_documento_inventario d
+       LEFT JOIN aeronave a ON a.id_aeronave = d.id_aeronave
+      WHERE d.id_documento = $1`,
+    [id]
+  );
+  if (!cab.rows.length) return res.status(404).json({ message: "Documento no encontrado" });
+  const doc = cab.rows[0];
+  if (!["REQUISICION", "SALIDA"].includes(doc.tipo)) {
+    return res.status(400).json({ message: "Solo se imprimen requisiciones y solicitudes" });
+  }
+
+  const renglonesDe = async (idDoc) => (await db.query(
+    `SELECT m.*, r.codigo, r.descripcion, r.parte_no, r.unidad
+       FROM taller_movimiento_inventario m
+       JOIN taller_repuesto r ON r.id_repuesto = m.id_repuesto
+      WHERE m.id_documento = $1 ORDER BY m.id_mov`, [idDoc])).rows;
+
+  const renglones = await renglonesDe(id);
+  let retornos = [];
+  if (doc.tipo === "SALIDA") {
+    const rs = await db.query(
+      `SELECT id_documento, correlativo, fecha FROM taller_documento_inventario
+        WHERE id_solicitud_origen = $1 AND estado = 'VIGENTE' ORDER BY id_documento`, [id]
+    );
+    retornos = await Promise.all(rs.rows.map(async (r) => ({ ...r, renglones: await renglonesDe(r.id_documento) })));
+  }
+
+  const esReq = doc.tipo === "REQUISICION";
+  const pdf = esReq
+    ? generarRequisicionPDF({ documento: doc, renglones, formulario: await formularioDe("REQUISICION") })
+    : generarSolicitudPDF({ documento: doc, renglones, retornos, formulario: await formularioDe("SOLICITUD") });
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="${doc.correlativo}.pdf"`);
+  pdf.pipe(res);
+});
+
+/** Los códigos y revisiones de los formatos impresos. */
+exports.listFormularios = catchAsync(async (_req, res) => {
+  const r = await db.query("SELECT * FROM taller_formulario ORDER BY nombre");
+  res.json(r.rows);
+});
+
+exports.editarFormulario = catchAsync(async (req, res) => {
+  const { clave } = req.params;
+  const { codigo, revision } = req.body;
+  const r = await db.query(
+    `UPDATE taller_formulario
+        SET codigo = $2, revision = $3, actualizado_en = NOW(), actualizado_por = $4
+      WHERE clave = $1 RETURNING *`,
+    [clave, codigo || null, revision || null, req.user?.id_usuario || null]
+  );
+  if (!r.rows.length) return res.status(404).json({ message: "Formulario no encontrado" });
+  res.json(r.rows[0]);
 });
 
 /** Aeronaves para el selector de salida: incluye las de terceros (§OMA). */

@@ -70,7 +70,14 @@ router.get("/inventario/documentos/:id/retornables", roleMiddleware(READ_INV), d
 
 // Reportes que salen del kardex, sin tablas nuevas
 router.get("/inventario/entrega-aceites", roleMiddleware(READ_INV), inventario.entregaAceites);
+router.get("/inventario/entrega-aceites.pdf", roleMiddleware(READ_INV), inventario.imprimirEntregaAceites);
 router.get("/inventario/duplicados-parte", roleMiddleware(READ_INV), inventario.duplicadosPorParte);
+
+// Impresión de los formatos en papel. El código y la revisión del formulario
+// son editables (la AAC puede publicar una Rev. nueva y eso no debe desplegarse).
+router.get("/inventario/documentos/:id/pdf", roleMiddleware(READ_INV), documentos.imprimirDocumento);
+router.get("/inventario/formularios", roleMiddleware(READ_INV), documentos.listFormularios);
+router.patch("/inventario/formularios/:clave", roleMiddleware(WRITE), documentos.editarFormulario);
 
 // Costos pendientes — la cola conjunta de Taller y Contabilidad
 router.get("/inventario/pendientes-costo", roleMiddleware(READ_INV), inventario.pendientesCosto);
