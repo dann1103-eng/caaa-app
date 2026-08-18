@@ -155,3 +155,19 @@ export const getMantenimientosAeronave = async (idAeronave) =>
   (await axios.get(`${INV()}/aeronaves/${idAeronave}/mantenimientos`)).data;
 export const getConsumoAeronave = async (params = {}) =>
   (await axios.get(`${INV()}/consumo-aeronave`, { params })).data;
+
+/** Los dos formatos que audita la AAC, en PDF. */
+export const abrirOrdenPDF = (id) => abrirPdf2(`/ordenes/${id}/pdf`);
+export const abrirReporteInspeccionPDF = (id) => abrirPdf2(`/reportes-inspeccion/${id}/pdf`);
+
+/**
+ * Igual que `abrirPdf` pero sobre /taller en vez de /taller/inventario.
+ * Va por blob porque la ruta necesita el header Authorization, que una
+ * navegación directa del navegador no manda.
+ */
+async function abrirPdf2(ruta, params = {}) {
+  const r = await axios.get(`${TAL()}${ruta}`, { params, responseType: "blob" });
+  const url = URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
