@@ -14,6 +14,7 @@ const {
   bloquearRepuestos,
   aplicarDeltas,
   recalcularStock,
+  documentoCuentaSQL,
   MUEVE_STOCK,
 } = require("../../utils/inventarioHelpers");
 const { generarRequisicionPDF, generarSolicitudPDF } = require("../../utils/pdfTaller");
@@ -92,11 +93,10 @@ exports.listDocumentos = catchAsync(async (req, res) => {
     const ph = p(`%${q}%`);
     cond.push(`(d.correlativo ILIKE ${ph} OR d.proveedor ILIKE ${ph} OR d.factura_no ILIKE ${ph} OR d.motivo ILIKE ${ph} OR d.orden_trabajo_no ILIKE ${ph} OR d.solicitante ILIKE ${ph} OR d.entregado_a ILIKE ${ph})`);
   }
-  // Lo que el técnico pidió y bodega todavía no entregó.
+  // La cola de bodega: solicitudes armadas que todavía nadie firmó, o sea
+  // material que el técnico pidió y aún no salió del estante.
   if (sin_despachar === "true") {
-    cond.push(`d.tipo = 'REQUISICION'`);
-    cond.push(`NOT EXISTS (SELECT 1 FROM taller_documento_inventario s
-                            WHERE s.id_requisicion = d.id_documento AND s.estado = 'VIGENTE')`);
+    cond.push(`d.tipo = 'SALIDA' AND d.firmada_en IS NULL`);
   }
 
   const r = await db.query(
@@ -112,6 +112,7 @@ exports.listDocumentos = catchAsync(async (req, res) => {
             (d.tipo = 'REQUISICION' AND EXISTS (
                SELECT 1 FROM taller_documento_inventario s
                 WHERE s.id_requisicion = d.id_documento AND s.estado = 'VIGENTE'
+                  AND s.firmada_en IS NOT NULL
              )) AS despachada,
             -- Con qué papel se despachó / de qué pedido salió. En la lista, una
             -- requisición y su solicitud parecen DOS descargas del mismo trabajo;
@@ -129,6 +130,62 @@ exports.listDocumentos = catchAsync(async (req, res) => {
       GROUP BY d.id_documento, a.codigo, a.es_externa, u.nombre, u.apellido
       ORDER BY d.fecha DESC, d.id_documento DESC
       LIMIT 500`,
+    params
+  );
+  res.json(r.rows);
+});
+
+/**
+ * Los MOVIMIENTOS, no los documentos: qué ítem y cuánto entró o salió.
+ *
+ * Es lo que la bodega quiere ver de un vistazo. La lista de documentos obligaba
+ * a abrir cada uno para saber qué material se movió, que era justo la fricción
+ * que Daniel señaló: "en la lista debe aparecer el ítem y las cantidades, no
+ * primero el documento y al darle clic los detalles".
+ *
+ * Solo aparece lo que de verdad movió existencia: la requisición no, y la
+ * solicitud sin firmar tampoco (todavía no salió del estante).
+ */
+exports.listMovimientos = catchAsync(async (req, res) => {
+  const { tipos, desde, hasta, q, incluir_anulados } = req.query;
+  const cond = [];
+  const params = [];
+  const p = (v) => `$${params.push(v)}`;
+
+  const lista = String(tipos || "").split(",").filter((t) => TIPOS.includes(t));
+  if (lista.length) cond.push(`d.tipo = ANY(${p(lista)}::varchar[])`);
+  if (desde) cond.push(`d.fecha >= ${p(desde)}::date`);
+  if (hasta) cond.push(`d.fecha <= ${p(hasta)}::date`);
+  if (incluir_anulados === "true") {
+    cond.push(`d.tipo <> 'REQUISICION' AND (d.tipo <> 'SALIDA' OR d.firmada_en IS NOT NULL)`);
+  } else {
+    cond.push(documentoCuentaSQL("d"));
+  }
+  if (q) {
+    const ph = p(`%${q}%`);
+    cond.push(`(r.codigo ILIKE ${ph} OR r.descripcion ILIKE ${ph} OR r.parte_no ILIKE ${ph}
+                OR d.correlativo ILIKE ${ph} OR a.codigo ILIKE ${ph} OR d.motivo ILIKE ${ph})`);
+  }
+
+  const r = await db.query(
+    `SELECT m.id_mov, m.cantidad, m.costo_unitario,
+            ROUND(ABS(m.cantidad) * COALESCE(m.costo_unitario, 0), 2) AS importe,
+            m.nota,
+            r.id_repuesto, r.codigo, r.descripcion, r.parte_no, r.unidad,
+            d.id_documento, d.correlativo, d.tipo, d.fecha, d.estado, d.motivo,
+            d.orden_trabajo_no, d.entregado_a,
+            a.codigo AS aeronave_codigo,
+            ot.correlativo AS orden_correlativo,
+            TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')) AS registrado_por_nombre
+       FROM taller_movimiento_inventario m
+       JOIN taller_repuesto r ON r.id_repuesto = m.id_repuesto
+       JOIN taller_documento_inventario d ON d.id_documento = m.id_documento
+       LEFT JOIN aeronave a ON a.id_aeronave = d.id_aeronave
+       LEFT JOIN orden_trabajo ot ON ot.id_orden = d.id_orden_trabajo
+       LEFT JOIN usuario u ON u.id_usuario = d.registrado_por
+      WHERE ${cond.join(" AND ")}
+      ORDER BY d.fecha DESC, d.id_documento DESC, m.id_mov
+      LIMIT 800`,
     params
   );
   res.json(r.rows);
@@ -553,8 +610,21 @@ exports.crearDocumento = catchAsync(async (req, res) => {
       );
     }
 
-    // La requisición es un borrador: queda registrada con sus renglones, pero
-    // la existencia no se toca hasta que bodega la despacha.
+    // Qué toca existencia AL CREARSE:
+    //   · ENTRADA / AJUSTE / RETORNO / PRESTAMO → sí, en el acto.
+    //   · REQUISICION → nunca: es el borrador de lo que se va a necesitar.
+    //   · SALIDA → NO. La solicitud nace armada y descuenta cuando bodega la
+    //     FIRMA, que es como lo hacen en papel.
+    // Una SALIDA suelta —bodega registrando una entrega que está ocurriendo en
+    // ese momento— se firma sola: pedirle un segundo paso sería inventar
+    // burocracia. La que nace de una requisición sí espera la firma.
+    if (mueveStock && tipo === "SALIDA") {
+      await client.query(
+        "UPDATE taller_documento_inventario SET firmada_en = NOW(), firmada_por = $2 WHERE id_documento = $1",
+        [doc.id_documento, req.user?.id_usuario || null]
+      );
+      doc.firmada_en = new Date();
+    }
     if (mueveStock) {
       await aplicarDeltas(client, deltas, { fecha: doc.fecha, esEntrada: tipo === "ENTRADA" });
     }
@@ -572,8 +642,131 @@ exports.crearDocumento = catchAsync(async (req, res) => {
       }
     }
 
+    // La requisición ARMA su solicitud: el técnico especifica por encima lo que
+    // necesita y con eso queda el papel listo para que bodega entregue. Nace sin
+    // firmar, así que todavía no toca existencia.
+    let solicitud = null;
+    if (tipo === "REQUISICION") {
+      const s = await siguienteCorrelativo(client, "SALIDA", anio);
+      const sol = await client.query(
+        `INSERT INTO taller_documento_inventario
+           (tipo, anio, numero, correlativo, fecha, id_aeronave, id_cumplimiento,
+            id_mantenimiento, motivo, registrado_por, id_requisicion,
+            orden_trabajo_no, tacometro, cliente, solicitante, id_orden_trabajo)
+         VALUES ('SALIDA',$1,$2,$3, $4::date, $5,$6,$7,$8,$9,$10,$11,$12::numeric,$13,$14,$15)
+         RETURNING *`,
+        [anio, s.numero, s.correlativo, doc.fecha, doc.id_aeronave, doc.id_cumplimiento,
+         doc.id_mantenimiento, doc.motivo, req.user?.id_usuario || null, doc.id_documento,
+         doc.orden_trabajo_no, doc.tacometro, doc.cliente, doc.solicitante, doc.id_orden_trabajo]
+      );
+      solicitud = sol.rows[0];
+      for (const l of lineas) {
+        await client.query(
+          `INSERT INTO taller_movimiento_inventario
+             (id_documento, id_repuesto, cantidad, costo_unitario, nota)
+           VALUES ($1,$2,$3::numeric,$4::numeric,$5)`,
+          [solicitud.id_documento, l.id_repuesto, -Math.abs(l.cantidad), l.costo_final ?? null, l.nota]
+        );
+      }
+    }
+
     await client.query("COMMIT");
-    res.json({ documento: { ...doc, id_egreso: egreso }, forzado, faltantes });
+    res.json({ documento: { ...doc, id_egreso: egreso }, solicitud, forzado, faltantes });
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * Firmar la solicitud: **acá ocurre la descarga**.
+ *
+ * Es el momento en que el material sale de verdad de la bodega, así que es acá
+ * —y no al armar el papel— donde se comprueba que haya existencia. Bodega puede
+ * haber ajustado las cantidades antes de firmar: se entrega lo que hay, no lo
+ * que se pidió.
+ */
+exports.firmarSolicitud = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const { entregado_por, entregado_a, forzar, motivo_forzado } = req.body;
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const d = await client.query(
+      "SELECT * FROM taller_documento_inventario WHERE id_documento = $1 FOR UPDATE", [id]
+    );
+    if (!d.rows.length) { await client.query("ROLLBACK"); return res.status(404).json({ message: "Documento no encontrado" }); }
+    const doc = d.rows[0];
+    if (doc.tipo !== "SALIDA") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Solo se firma la entrega de una solicitud" });
+    }
+    if (doc.estado !== "VIGENTE") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Esa solicitud está anulada" });
+    }
+    if (doc.firmada_en) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Esa entrega ya está firmada; el material ya salió de bodega." });
+    }
+
+    const mov = await client.query(
+      `SELECT m.id_repuesto, ABS(m.cantidad) AS cantidad, r.codigo, r.descripcion, r.unidad
+         FROM taller_movimiento_inventario m
+         JOIN taller_repuesto r ON r.id_repuesto = m.id_repuesto
+        WHERE m.id_documento = $1 ORDER BY m.id_mov`, [id]
+    );
+    if (!mov.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "La solicitud no tiene renglones que entregar" });
+    }
+
+    // La existencia se comprueba AHORA, que es cuando el material sale.
+    const stock = await bloquearRepuestos(client, mov.rows.map((m) => m.id_repuesto), { lock: true });
+    const faltantes = [];
+    for (const m of mov.rows) {
+      const hay = Number(stock.get(m.id_repuesto)?.stock_actual ?? 0);
+      if (Number(m.cantidad) > hay) {
+        faltantes.push({
+          id_repuesto: m.id_repuesto, codigo: m.codigo, descripcion: m.descripcion,
+          unidad: m.unidad, disponible: hay, solicitado: Number(m.cantidad),
+          faltan: Number(m.cantidad) - hay,
+        });
+      }
+    }
+    if (faltantes.length && !forzar) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "No hay existencia suficiente para esta entrega", faltantes });
+    }
+    if (faltantes.length && !(await puedeForzar(client, req.user))) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "No tenés permiso para entregar sin existencia" });
+    }
+    if (faltantes.length && !String(motivo_forzado || "").trim()) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ message: "Para entregar sin existencia hay que escribir el motivo" });
+    }
+
+    await aplicarDeltas(
+      client,
+      new Map(mov.rows.map((m) => [m.id_repuesto, { cantidad: -Number(m.cantidad) }])),
+      { fecha: doc.fecha, esEntrada: false }
+    );
+
+    const r = await client.query(
+      `UPDATE taller_documento_inventario
+          SET firmada_en = NOW(), firmada_por = $2,
+              entregado_por = COALESCE($3, entregado_por),
+              entregado_a   = COALESCE($4, entregado_a)
+        WHERE id_documento = $1 RETURNING *`,
+      [id, req.user?.id_usuario || null, entregado_por || null, entregado_a || null]
+    );
+
+    await client.query("COMMIT");
+    res.json({ documento: r.rows[0], forzado: faltantes.length > 0, faltantes });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

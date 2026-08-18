@@ -65,9 +65,13 @@ router.get("/inventario/items/:id/kardex", roleMiddleware(READ_INV), inventario.
 router.get("/inventario/catalogos", roleMiddleware(READ_INV), inventario.catalogos);
 
 // Documentos — requisición (borrador) → solicitud (descarga) → retorno (sobrantes)
+// Los movimientos (item + cantidad), que es lo que la bodega mira de un vistazo.
+router.get("/inventario/movimientos", roleMiddleware(READ_INV), documentos.listMovimientos);
 router.get("/inventario/documentos", roleMiddleware(READ_INV), documentos.listDocumentos);
 router.post("/inventario/documentos", roleMiddleware(WRITE), documentos.crearDocumento);
 router.get("/inventario/documentos/:id", roleMiddleware(READ_INV), documentos.getDocumento);
+// Firmar la entrega: ACA ocurre la descarga, no al armar la solicitud.
+router.post("/inventario/documentos/:id/firmar", roleMiddleware(WRITE), documentos.firmarSolicitud);
 router.post("/inventario/documentos/:id/anular", roleMiddleware(WRITE), documentos.anularDocumento);
 // La requisición es el único documento editable: es un borrador que no mueve
 // existencia. Al despacharse se congela.

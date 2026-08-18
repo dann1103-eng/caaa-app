@@ -28,16 +28,24 @@ const MUEVE_STOCK = new Set(["ENTRADA", "SALIDA", "AJUSTE", "RETORNO", "PRESTAMO
 /**
  * Condición que decide si un documento cuenta para la existencia.
  *
- * Los renglones de una REQUISICION viven en la misma tabla que los demás, pero
- * son un borrador: si no se filtraran, pedir material movería el stock sin que
- * nadie lo haya despachado. Va como fragmento compartido y no copiado en cada
- * consulta — la lección de las horas facturables (§27), donde el mismo criterio
- * repartido en seis lugares se desincronizó.
+ * Dos cosas NO cuentan, y las dos por el mismo motivo: todavía no salió nada de
+ * bodega.
+ *
+ *  1. La REQUISICION es el borrador de lo que se va a necesitar. Sus renglones
+ *     viven en la misma tabla que los demás; si no se filtraran, pedir material
+ *     movería el stock sin que nadie lo haya entregado.
+ *  2. La SALIDA SIN FIRMAR es la solicitud ya armada, esperando que bodega la
+ *     entregue. **La descarga ocurre al firmar**, que es como lo hacen en papel.
+ *
+ * Va como fragmento compartido y no copiado en cada consulta — la lección de las
+ * horas facturables (§27), donde el mismo criterio repartido en seis lugares se
+ * desincronizó.
  *
  * @param {string} alias  alias de taller_documento_inventario en la consulta
  */
 const documentoCuentaSQL = (alias = "d") =>
-  `${alias}.estado = 'VIGENTE' AND ${alias}.tipo <> 'REQUISICION'`;
+  `${alias}.estado = 'VIGENTE' AND ${alias}.tipo <> 'REQUISICION'
+   AND (${alias}.tipo <> 'SALIDA' OR ${alias}.firmada_en IS NOT NULL)`;
 
 const UNIDADES = ["UN", "QT", "GAL", "FT", "KIT", "JGO", "LB"];
 
