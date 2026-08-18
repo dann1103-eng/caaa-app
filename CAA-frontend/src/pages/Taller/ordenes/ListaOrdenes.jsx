@@ -6,6 +6,8 @@ import { fecha } from "../inventario/formato";
 
 const ESTADOS = {
   ABIERTA: { label: "Abierta", tag: "blue" },
+  FIRMADA: { label: "Esperando revisión", tag: "amber" },
+  APROBADA: { label: "Aprobada", tag: "green" },
   CERRADA: { label: "Cerrada", tag: "green" },
   ANULADA: { label: "Anulada", tag: "red" },
 };
@@ -52,7 +54,8 @@ export default function ListaOrdenes() {
             <select value={f.estado} onChange={(e) => setF({ ...f, estado: e.target.value })}>
               <option value="">Todas</option>
               <option value="ABIERTA">Abiertas</option>
-              <option value="CERRADA">Cerradas</option>
+              <option value="FIRMADA">Esperando revisión</option>
+              <option value="APROBADA">Aprobadas</option>
               <option value="ANULADA">Anuladas</option>
             </select>
           </div>

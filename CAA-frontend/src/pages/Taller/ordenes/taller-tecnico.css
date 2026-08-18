@@ -109,3 +109,52 @@
   .tec-botones { grid-template-columns: repeat(2, 1fr); }
   .tec-btn--principal { grid-column: 1 / -1; }
 }
+
+/* ── La cola: los aviones que Operaciones mandó al taller ──────────────
+   Va arriba de los botones porque es de donde arranca el trabajo: el técnico
+   no elige "un avión" del catálogo, elige uno de los que le entregaron. */
+.tec-cola {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-3);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.tec-cola__titulo {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--c-brand-700);
+  text-transform: uppercase;
+  margin-bottom: var(--sp-2);
+}
+.tec-cola__item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--c-line);
+}
+.tec-cola__item:first-of-type { border-top: 0; }
+.tec-cola__info { display: flex; flex-direction: column; min-width: 0; }
+.tec-cola__info strong { font-size: 1.05rem; }
+.tec-cola__info span { font-size: 0.88rem; color: var(--c-ink-2); }
+.tec-cola__info small { font-size: 0.78rem; color: var(--c-ink-4); }
+.tec-cola__acciones { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Avisos dentro del trabajo en curso: esperando al jefe, o devuelto. */
+.tec-activo__aviso {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: var(--radius-2);
+  background: rgba(255, 255, 255, 0.14);
+}
+.tec-activo__aviso--alerta { background: rgba(220, 38, 38, 0.22); font-weight: 600; }
+
+@media (max-width: 480px) {
+  .tec-cola__item { flex-direction: column; align-items: stretch; }
+  .tec-cola__acciones { justify-content: flex-end; }
+}

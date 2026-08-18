@@ -175,6 +175,25 @@ async function abrirPdf2(ruta, params = {}) {
 // ── Préstamo de partes (Fase 3) ────────────────────────────────────────────
 //
 // Bidireccional: RECIBIDO es lo que pedimos prestado, ENTREGADO lo que
+// La cola de trabajo: los aviones que Operaciones mando a mantenimiento.
+export const getColaTrabajo = async () => (await axios.get(`${TAL()}/cola`)).data;
+
+// Asignar el trabajo a un mecanico (el jefe desde la cola, o el propio mecanico).
+export const asignarOrden = async (id, id_mecanico_asignado) =>
+  (await axios.patch(`${TAL()}/ordenes/${id}/asignar`, { id_mecanico_asignado })).data;
+
+// Revision del jefe: aprobar con su firma, o devolver al mecanico con la nota.
+export const aprobarOrden = async (id, datos = {}) =>
+  (await axios.post(`${TAL()}/ordenes/${id}/aprobar`, datos)).data;
+export const devolverOrden = async (id, nota_revision) =>
+  (await axios.post(`${TAL()}/ordenes/${id}/devolver`, { nota_revision })).data;
+
+// Estimado de finalizacion: la fecha del Taller manda sobre la de Operaciones.
+export const previewEstimado = async (id, fecha_fin) =>
+  (await axios.get(`${TAL()}/mantenimientos/${id}/preview-estimado`, { params: { fecha_fin } })).data;
+export const guardarEstimado = async (id, datos) =>
+  (await axios.post(`${TAL()}/mantenimientos/${id}/estimado`, datos)).data;
+
 // Personal del taller con sus credenciales (para el selector de aprendiz).
 export const getPersonalTaller = async () => (await axios.get(`${TAL()}/personal`)).data;
 

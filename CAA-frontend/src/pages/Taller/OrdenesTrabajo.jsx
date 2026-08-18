@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router-dom";
+import PorRevisar from "./ordenes/PorRevisar";
 import ListaOrdenes from "./ordenes/ListaOrdenes";
 import FolderAvion from "./ordenes/FolderAvion";
 import Prestamos from "./ordenes/Prestamos";
@@ -13,6 +14,8 @@ import "./ordenes/taller-tecnico.css";
  * (el folder de la matrícula). Es el equivalente digital del archivo físico.
  */
 const TABS = [
+  // Primero lo que el jefe mira al llegar: qué espera su firma y qué hay en el hangar.
+  { key: "revisar", label: "Por revisar", icon: "bi-pen" },
   { key: "ordenes", label: "Órdenes de trabajo", icon: "bi-clipboard2-check" },
   { key: "avion", label: "Por avión", icon: "bi-airplane" },
   { key: "prestamos", label: "Préstamos", icon: "bi-arrow-left-right" },
@@ -20,7 +23,7 @@ const TABS = [
 
 export default function OrdenesTrabajo() {
   const [params, setParams] = useSearchParams();
-  const tab = TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "ordenes";
+  const tab = TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "revisar";
 
   return (
     <>
@@ -34,13 +37,14 @@ export default function OrdenesTrabajo() {
           <button
             key={t.key}
             className={`inv-tab ${tab === t.key ? "inv-tab--activa" : ""}`}
-            onClick={() => setParams(t.key === "ordenes" ? {} : { tab: t.key })}
+            onClick={() => setParams(t.key === "revisar" ? {} : { tab: t.key })}
           >
             <i className={`bi ${t.icon}`}></i> {t.label}
           </button>
         ))}
       </nav>
 
+      {tab === "revisar" && <PorRevisar />}
       {tab === "ordenes" && <ListaOrdenes />}
       {tab === "avion" && <FolderAvion />}
       {tab === "prestamos" && <Prestamos />}

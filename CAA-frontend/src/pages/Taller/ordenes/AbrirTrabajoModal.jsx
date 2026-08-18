@@ -12,14 +12,21 @@ import { hoy } from "../inventario/formato";
  * propone el tacómetro actual y qué inspección le toca, así el técnico casi solo
  * confirma. Opcionalmente registra de una vez el Reporte de Inspección, que es
  * la entrega del avión de Operaciones al Taller.
+ *
+ * `desdeCola` es el avión que el técnico tocó en la lista de espera: viene con
+ * el avión ya elegido y el trabajo queda enlazado a ESE mantenimiento, que es lo
+ * que después cierra el circuito con Operaciones.
  */
-export default function AbrirTrabajoModal({ onClose, onCreada }) {
+export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null }) {
   const [aeronaves, setAeronaves] = useState([]);
   const [sug, setSug] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [f, setF] = useState({
-    id_aeronave: "", fecha: hoy(), tacometro: "", discrepancia: "",
-    piloto_operador: "", con_reporte: false, tipo_inspeccion: "",
+    id_aeronave: desdeCola?.id_aeronave ? String(desdeCola.id_aeronave) : "",
+    fecha: hoy(), tacometro: "",
+    discrepancia: desdeCola?.descripcion || "",
+    piloto_operador: "", con_reporte: false,
+    tipo_inspeccion: desdeCola?.tipo || "",
   });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -65,6 +72,9 @@ export default function AbrirTrabajoModal({ onClose, onCreada }) {
         tacometro: f.tacometro === "" ? null : Number(f.tacometro),
         piloto_operador: f.piloto_operador || null,
         discrepancia: f.discrepancia, id_reporte,
+        // Enlaza al mantenimiento que Operaciones abrió: es lo que hace que el
+        // avión salga de la cola y que al aprobar se les avise a ellos.
+        id_mantenimiento: desdeCola?.id_mantenimiento || null,
       });
       toast.success(`Trabajo abierto · ${o.correlativo}`);
       onCreada(o);

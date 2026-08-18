@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  getOrdenes, crearOrden, getAeronavesBodega, getSugerenciaInspeccion,
-} from "../../services/tallerApi";
+import { getOrdenes, getColaTrabajo } from "../../services/tallerApi";
 import DocumentoModal from "./inventario/DocumentoModal";
 import EntregarAceiteModal from "./inventario/EntregarAceiteModal";
 import FirmarOrdenModal from "./ordenes/FirmarOrdenModal";
 import AbrirTrabajoModal from "./ordenes/AbrirTrabajoModal";
+import EstimadoModal from "./ordenes/EstimadoModal";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
 
@@ -21,8 +20,17 @@ import "./ordenes/taller-tecnico.css";
  * los vuelve a preguntar. Eso es lo que hoy obliga a escribir el tacómetro tres
  * veces en tres papeles distintos.
  */
+// Quién soy: es lo que distingue "asignado a vos" de un avión que tomó otro.
+const miUid = () => {
+  try { return JSON.parse(localStorage.getItem("user") || "{}")?.id_usuario || null; } catch { return null; }
+};
+
 export default function MiTaller() {
+  const uid = miUid();
   const [ordenes, setOrdenes] = useState([]);
+  const [cola, setCola] = useState([]);
+  const [estimando, setEstimando] = useState(null);
+  const [desdeCola, setDesdeCola] = useState(null);   // avión elegido de la cola
   const [cargando, setCargando] = useState(true);
   const [activa, setActiva] = useState(null);   // el trabajo en curso elegido
   const [accion, setAccion] = useState(null);   // 'abrir' | 'material' | 'aceite' | 'firmar'
@@ -31,8 +39,11 @@ export default function MiTaller() {
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const r = await getOrdenes({ estado: "ABIERTA" });
+      // "Abiertas" incluye las que ya firmó y están esperando al jefe: siguen
+      // siendo su trabajo hasta que se aprueben.
+      const [r, c] = await Promise.all([getOrdenes({ abiertas: "true" }), getColaTrabajo()]);
       setOrdenes(r);
+      setCola(c);
       // Si hay un solo trabajo abierto, se elige solo: es el caso normal.
       setActiva((prev) => (prev ? r.find((x) => x.id_orden === prev.id_orden) || null : r.length === 1 ? r[0] : null));
     } catch (e) {
@@ -70,6 +81,14 @@ export default function MiTaller() {
             {activa.tacometro ? ` · TAC ${Number(activa.tacometro).toFixed(2)}` : ""}
           </div>
           <div className="tec-activo__disc">{activa.discrepancia}</div>
+          {activa.estado === "FIRMADA" && (
+            <div className="tec-activo__aviso">Esperando la revisión del jefe de taller.</div>
+          )}
+          {activa.nota_revision && activa.estado === "ABIERTA" && (
+            <div className="tec-activo__aviso tec-activo__aviso--alerta">
+              El jefe la devolvió: {activa.nota_revision}
+            </div>
+          )}
           {ordenes.length > 1 && (
             <button className="tec-cambiar" onClick={() => setActiva(null)}>Cambiar de trabajo</button>
           )}
@@ -88,8 +107,57 @@ export default function MiTaller() {
         </div>
       )}
 
+      {/* Los aviones que Operaciones mandó al taller. Es la lista de espera:
+          tocar uno abre el trabajo ya enlazado a ese mantenimiento. */}
+      {cola.length > 0 && (
+        <div className="tec-cola">
+          <div className="tec-cola__titulo">
+            <i className="bi bi-airplane-engines"></i> Aviones esperando trabajo
+          </div>
+          {cola.map((m) => {
+            // Cuenta también lo ya firmado: mientras el jefe no lo apruebe sigue
+            // siendo mi trabajo, y ofrecer "tomar" otra vez invita a abrir una
+            // orden duplicada sobre el mismo avión.
+            const mio = m.trabajos.find(
+              (t) => ["ABIERTA", "FIRMADA"].includes(t.estado) && t.id_mecanico_asignado === uid
+            );
+            return (
+              <div key={m.id_mantenimiento} className="tec-cola__item">
+                <div className="tec-cola__info">
+                  <strong>{m.aeronave_codigo}</strong>
+                  <span>{m.tipo}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
+                  <small>
+                    Listo estimado: {String(m.fecha_fin || "").slice(0, 10) || "sin fecha"}
+                    {m.pendientes > 0 ? ` · ${m.pendientes} trabajo(s) en curso` : " · nadie lo tomó"}
+                  </small>
+                </div>
+                <div className="tec-cola__acciones">
+                  {mio && (
+                    <span className={`adf-tag ${mio.estado === "FIRMADA" ? "amber" : "green"}`}>
+                      {mio.estado === "FIRMADA" ? "Esperando al jefe" : "Asignado a vos"}
+                    </span>
+                  )}
+                  {mio ? (
+                    <button className="adf-btn small secondary" onClick={() => setActiva(ordenes.find((o) => o.id_orden === mio.id_orden) || null)}>
+                      Ir a mi trabajo
+                    </button>
+                  ) : (
+                    <button className="adf-btn small" onClick={() => { setDesdeCola(m); setAccion("abrir"); }}>
+                      Tomar este avión
+                    </button>
+                  )}
+                  <button className="adf-icon-btn" title="¿Cuándo está listo?" onClick={() => setEstimando(m)}>
+                    <i className="bi bi-calendar-event"></i>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="tec-botones">
-        <button className="tec-btn tec-btn--principal" onClick={() => setAccion("abrir")}>
+        <button className="tec-btn tec-btn--principal" onClick={() => { setDesdeCola(null); setAccion("abrir"); }}>
           <i className="bi bi-play-circle"></i>
           <span>Iniciar un mantenimiento</span>
         </button>
@@ -106,10 +174,15 @@ export default function MiTaller() {
           <small>sin orden de trabajo</small>
         </button>
 
-        <button className="tec-btn tec-btn--cerrar" disabled={!activa} onClick={conTrabajo(() => setAccion("firmar"))}>
+        <button className="tec-btn tec-btn--cerrar" disabled={!activa || activa.estado === "FIRMADA"}
+          onClick={conTrabajo(() => setAccion("firmar"))}>
           <i className="bi bi-pen"></i>
-          <span>Firmar mi trabajo</span>
-          <small>{activa ? `cierra ${activa.correlativo}` : "elegí un trabajo primero"}</small>
+          <span>Terminé — mandar a revisión</span>
+          <small>
+            {!activa ? "elegí un trabajo primero"
+              : activa.estado === "FIRMADA" ? "ya la mandaste; espera al jefe"
+              : `firmás ${activa.correlativo} y la revisa el jefe`}
+          </small>
         </button>
       </div>
 
@@ -121,8 +194,17 @@ export default function MiTaller() {
 
       {accion === "abrir" && (
         <AbrirTrabajoModal
-          onClose={() => setAccion(null)}
-          onCreada={(o) => { setAccion(null); setActiva(o); cargar(); }}
+          desdeCola={desdeCola}
+          onClose={() => { setAccion(null); setDesdeCola(null); }}
+          onCreada={(o) => { setAccion(null); setDesdeCola(null); setActiva(o); cargar(); }}
+        />
+      )}
+
+      {estimando && (
+        <EstimadoModal
+          item={estimando}
+          onClose={() => setEstimando(null)}
+          onGuardado={() => { setEstimando(null); cargar(); }}
         />
       )}
 
