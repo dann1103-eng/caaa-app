@@ -1584,9 +1584,9 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-17 (4ª tanda).** Resueltos desde la pasada anterior: ~~Taller fases 2-3~~
-> (§31 y §32) · ~~tarifa del YS-155~~ ($150, §26.C) · ~~loadsheet del YS-259 y del YS-155~~ (§26.C) ·
-> ~~deslogueo aleatorio de u1~~ (§26.B).
+> **Última revisión: 2026-08-18.** Resueltos desde la pasada anterior: ~~Taller fases 2-3~~ (§31 y §32) ·
+> ~~no se podían crear mecánicos desde la app~~ (§33) · ~~tarifa del YS-155~~ ($150, §26.C) ·
+> ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
 
 ### 🔬 Con el mecánico (2026-08-17, §29.F)
 - **Cuadre de bodega**: 9 existencias en negativo y 24 diferencias contra el Excel esperando conteo
@@ -1595,9 +1595,10 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
   pestaña "Costos pendientes". Al costear una entrada se genera su egreso en Contabilidad.
 - **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
 
-### 🔧 Para que el Taller sirva (bloquea el uso real, §32)
-- **Dar de alta a los mecánicos con su licencia TMA** (`Roger Pérez TMA 915`, `José Estrada TMA 692`):
-  sin `usuario.licencia_tma` **nadie puede firmar una orden de trabajo** (403 a propósito, §31.A).
+### 🔧 Para que el Taller sirva (§32)
+- **Dar de alta a los mecánicos** (`Roger Pérez TMA 915`, `José Estrada TMA 692`). Ya **no es un hueco
+  de software**: se crean desde Administración → Usuarios → Personal con rol *Técnico / mecánico* y su
+  licencia TMA (§33). Falta la carga de datos nomás; sin licencia el 403 al firmar es a propósito.
 - **Manuales del avión** que se adjuntan a cada mantenimiento: Daniel los va a pasar.
 
 ### 🧾 Higiene inmediata
@@ -2249,3 +2250,44 @@ cierra el préstamo y mueve el estante en el sentido correcto, y el kardex del �
 `José Estrada TMA 692`): sin `usuario.licencia_tma` **nadie puede firmar una orden de trabajo** —
 es un 403 a propósito. También falta que pase **los manuales del avión** que se adjuntan a cada
 mantenimiento.
+
+---
+
+## 33. Sesión 2026-08-18 — Alta de mecánicos con su licencia TMA desde Usuarios
+
+**Desplegado y verificado en producción** (`origin/master` = `e0284c6`). Sin migración: las columnas
+ya existían. Cierra el bloqueante que dejó la fase 3 del Taller.
+
+### Eran dos huecos, no uno
+1. **El selector de Usuarios no ofrecía los roles del Taller.** `usuariosController.ROLES_PERSONAL` ya
+   aceptaba `TALLER` y `TECNICO` desde §31.B, pero el `ROLES_PERSONAL` **del frontend** (otra lista, en
+   `pages/Administracion/Usuarios.jsx`) nunca los listó ⇒ no había forma de crear un mecánico sin SQL.
+2. **`usuario.licencia_tma` y `certificado_aprendiz` eran columnas muertas.** Existían desde la
+   migración `20260817000006` y el gate de firma las leía, pero **ningún camino de la app las escribía**.
+
+### Cómo quedó
+Bloque **"Credenciales de aeronavegabilidad"** en el alta y en la edición de personal, gateado por el rol
+elegido (`ROLES_TALLER = ["TALLER","TECNICO"]`, mismo patrón que las capacidades del instructor). En la
+edición **también se muestra si el usuario ya tiene un número cargado**, para que un cambio de rol no
+deje la credencial huérfana e invisible. En la lista: insignia verde con el número, o ámbar
+"Sin licencia TMA" si es rol de taller y no la tiene — se ve de un vistazo quién puede firmar.
+
+⚠️ **La licencia NO va con `COALESCE`** como el resto de los campos de `editarPersonal`: una licencia
+vencida hay que poder **borrarla**, y COALESCE lee el null como "no la toques". Va con bandera explícita
+(`CASE WHEN $8 THEN $9 ELSE licencia_tma END`, con `$8 = licencia_tma !== undefined`): clave ausente en
+el body = no se toca · clave vacía = se borra. El helper `credencial()` recorta espacios y deja **NULL**,
+no cadena vacía — NULL es lo que mira el gate.
+
+### 🚨 La prueba que estaba mintiendo (la trampa más cara de esta tanda)
+La primera versión del E2E daba "OK" en *"sin licencia no puede firmar (403)"*… y ese 403 **no era el de
+la licencia**: era el **candado de primer ingreso** (`must_change_password`/`must_set_email`), que todo
+usuario recién creado arrastra y que responde con el mismo código. La aserción pasaba sin probar nada.
+**Dos reglas que salen de acá:** levantar el candado de primer ingreso antes de medir cualquier otro gate
+sobre un usuario nuevo, y **comprobar el mensaje, no solo el código** cuando dos gates comparten status.
+
+### Verificación
+19/19 contra Supabase real con backend local y limpieza total (incluida la cadena completa: sin licencia
+403 → el admin la carga → firma 200 → la OT queda `CERRADA` con la certificación agregada → edit parcial
+no la borra → vaciarla sí). 14/14 contra **producción** con un ciclo real y limpieza. Y la pantalla
+revisada en el navegador: alta de un TECNICO con licencia, insignia verde, edición que precarga, borrado
+que deja la insignia ámbar.
