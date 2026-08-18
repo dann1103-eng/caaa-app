@@ -4,12 +4,25 @@ import { getDocumentos, getDocumento, anularDocumento, abrirDocumentoPDF } from 
 import { fmt, money, fecha, META_TIPO } from "./formato";
 import DocumentoModal from "./DocumentoModal";
 
-/** Las hojas ENTRADAS y SALIDAS del Excel, ahora navegables. */
-export default function Documentos() {
+/**
+ * Listado de documentos de bodega.
+ *
+ * Se usa en dos secciones que hablan el idioma del almacén y no el del papel:
+ * ENTRADAS (lo que suma: compras y devoluciones) y SALIDAS (lo que resta y lo
+ * que está por salir). Antes era un solo listón con un filtro de tipo, y por
+ * eso no se entendía qué era cada cosa.
+ *
+ * @param tipos            qué tipos incluye la sección; sin esto muestra todo
+ * @param accion           { tipo, label } del botón grande de la sección
+ * @param mostrarPendientes muestra arriba las requisiciones sin despachar
+ */
+export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) {
   const [docs, setDocs] = useState([]);
+  const [pendientes, setPendientes] = useState([]);
   const [f, setF] = useState({ tipo: "", desde: "", hasta: "", q: "" });
   const [verAnulados, setVerAnulados] = useState(false);
   const [sinDespachar, setSinDespachar] = useState(false);
+  const [nuevo, setNuevo] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [abierto, setAbierto] = useState(null);
 
@@ -18,15 +31,17 @@ export default function Documentos() {
     try {
       setDocs(await getDocumentos({
         ...f,
+        tipos: tipos?.join(","),
         incluir_anulados: verAnulados ? "true" : undefined,
         sin_despachar: sinDespachar ? "true" : undefined,
       }));
+      if (mostrarPendientes) setPendientes(await getDocumentos({ sin_despachar: "true" }));
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudieron cargar los documentos");
     } finally {
       setCargando(false);
     }
-  }, [f, verAnulados, sinDespachar]);
+  }, [f, verAnulados, sinDespachar, tipos, mostrarPendientes]);
 
   useEffect(() => {
     const t = setTimeout(cargar, 250);
@@ -35,23 +50,60 @@ export default function Documentos() {
 
   return (
     <>
+      {accion && (
+        <button className="inv-accion" onClick={() => setNuevo(accion.tipo)}>
+          <i className={`bi ${accion.icono}`}></i>
+          <span>{accion.label}</span>
+        </button>
+      )}
+      {ayuda && <p className="inv-ayuda">{ayuda}</p>}
+
+      {/* La cola de trabajo de bodega: lo que el técnico pidió y no se entregó. */}
+      {mostrarPendientes && pendientes.length > 0 && (
+        <div className="adf-card inv-pendientes">
+          <h3 className="adf-card__title">
+            <i className="bi bi-hourglass-split me-2"></i>
+            Pendientes de despachar ({pendientes.length})
+          </h3>
+          <div className="adf-table-wrap">
+            <table className="adf-table">
+              <thead><tr><th>Requisición</th><th>Fecha</th><th>Avión</th><th>Trabajo</th><th className="amount">Renglones</th><th></th></tr></thead>
+              <tbody>
+                {pendientes.map((p) => (
+                  <tr key={p.id_documento} className="inv-clic" onClick={() => setAbierto(p.id_documento)}>
+                    <td className="inv-codigo">{p.correlativo}</td>
+                    <td>{fecha(p.fecha)}</td>
+                    <td>{p.aeronave_codigo || "—"}</td>
+                    <td>{p.motivo || "—"}</td>
+                    <td className="amount">{p.renglones}</td>
+                    <td><span className="adf-btn small">Despachar</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="adf-card">
         <div className="inv-filtros">
           <div className="inv-buscador">
             <label>Buscar</label>
-            <input value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} placeholder="Correlativo, proveedor, factura o motivo" />
+            <input value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} placeholder="Correlativo, avión, proveedor o trabajo" />
           </div>
-          <div>
-            <label>Tipo</label>
-            <select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
-              <option value="">Todos</option>
-              <option value="REQUISICION">Requisiciones</option>
-              <option value="SALIDA">Solicitudes</option>
-              <option value="RETORNO">Retornos</option>
-              <option value="ENTRADA">Entradas</option>
-              <option value="AJUSTE">Ajustes</option>
-            </select>
-          </div>
+          {!tipos && (
+            <div>
+              <label>Tipo</label>
+              <select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}>
+                <option value="">Todos</option>
+                <option value="REQUISICION">Requisiciones</option>
+                <option value="SALIDA">Solicitudes</option>
+                <option value="RETORNO">Retornos</option>
+                <option value="ENTRADA">Entradas</option>
+                <option value="AJUSTE">Ajustes</option>
+              </select>
+            </div>
+          )}
           <div>
             <label>Desde</label>
             <input type="date" value={f.desde} onChange={(e) => setF({ ...f, desde: e.target.value })} />
@@ -64,13 +116,15 @@ export default function Documentos() {
             <input type="checkbox" checked={verAnulados} onChange={(e) => setVerAnulados(e.target.checked)} />
             Ver anulados
           </label>
-          <button
-            className={`inv-chip ${sinDespachar ? "inv-chip--on" : ""}`}
-            onClick={() => setSinDespachar((v) => !v)}
-            title="Lo que el técnico pidió y bodega todavía no entregó"
-          >
-            Requisiciones sin despachar
-          </button>
+          {!mostrarPendientes && (
+            <button
+              className={`inv-chip ${sinDespachar ? "inv-chip--on" : ""}`}
+              onClick={() => setSinDespachar((v) => !v)}
+              title="Lo que el técnico pidió y bodega todavía no entregó"
+            >
+              Sin despachar
+            </button>
+          )}
         </div>
 
         {cargando ? (
@@ -123,6 +177,9 @@ export default function Documentos() {
 
       {abierto && (
         <DetalleModal id={abierto} onClose={() => setAbierto(null)} onAnulado={() => { setAbierto(null); cargar(); }} />
+      )}
+      {nuevo && (
+        <DocumentoModal tipo={nuevo} onClose={() => setNuevo(null)} onGuardado={() => { setNuevo(null); cargar(); }} />
       )}
     </>
   );

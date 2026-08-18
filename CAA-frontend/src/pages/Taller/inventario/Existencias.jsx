@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { getItems, getCatalogosInventario } from "../../../services/tallerApi";
 import KardexModal from "./KardexModal";
 import ItemModal from "./ItemModal";
+import DocumentoModal from "./DocumentoModal";
 import { fmt, money } from "./formato";
 
 /**
@@ -26,6 +27,7 @@ export default function Existencias() {
   const [atajos, setAtajos] = useState({});
   const [kardex, setKardex] = useState(null);
   const [editar, setEditar] = useState(null);
+  const [ajustando, setAjustando] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -93,6 +95,10 @@ export default function Existencias() {
           </div>
           <button className="adf-btn secondary small" onClick={() => setEditar({})}>
             <i className="bi bi-plus-lg"></i> Nuevo ítem
+          </button>
+          {/* El ajuste vive acá, que es donde se cuenta el estante. */}
+          <button className="adf-btn secondary small" onClick={() => setAjustando(true)}>
+            <i className="bi bi-sliders"></i> Ajustar por conteo
           </button>
         </div>
 
@@ -163,6 +169,13 @@ export default function Existencias() {
       </div>
 
       {kardex && <KardexModal item={kardex} onClose={() => setKardex(null)} />}
+      {ajustando && (
+        <DocumentoModal
+          tipo="AJUSTE"
+          onClose={() => setAjustando(false)}
+          onGuardado={() => { setAjustando(false); cargar(); }}
+        />
+      )}
       {editar && (
         <ItemModal
           item={editar}

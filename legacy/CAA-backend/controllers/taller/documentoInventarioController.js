@@ -75,12 +75,16 @@ const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v)
 // ── Listado y detalle ───────────────────────────────────────────────────────
 
 exports.listDocumentos = catchAsync(async (req, res) => {
-  const { tipo, desde, hasta, q, incluir_anulados, sin_despachar } = req.query;
+  const { tipo, tipos, desde, hasta, q, incluir_anulados, sin_despachar } = req.query;
   const cond = ["1=1"];
   const params = [];
   const p = (v) => `$${params.push(v)}`;
 
   if (tipo && TIPOS.includes(tipo)) cond.push(`d.tipo = ${p(tipo)}`);
+  // `tipos` (varios, separados por coma) lo usan las secciones de Entradas y
+  // Salidas, que agrupan más de un tipo de documento: lo que suma y lo que resta.
+  const lista = String(tipos || "").split(",").filter((t) => TIPOS.includes(t));
+  if (lista.length) cond.push(`d.tipo = ANY(${p(lista)}::varchar[])`);
   if (desde) cond.push(`d.fecha >= ${p(desde)}::date`);
   if (hasta) cond.push(`d.fecha <= ${p(hasta)}::date`);
   if (incluir_anulados !== "true") cond.push("d.estado = 'VIGENTE'");

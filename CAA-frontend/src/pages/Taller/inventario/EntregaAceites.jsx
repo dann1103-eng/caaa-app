@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getEntregaAceites, abrirEntregaAceitesPDF } from "../../../services/tallerApi";
 import { fmt, fecha } from "./formato";
+import EntregarAceiteModal from "./EntregarAceiteModal";
 
 /**
  * "CONTROL DE ENTREGA DE ACEITES POR DÍA".
@@ -20,6 +21,7 @@ export default function EntregaAceites() {
   const [rango, setRango] = useState({ desde: hace30, hasta: hoyISO });
   const [hojas, setHojas] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [entregando, setEntregando] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -35,7 +37,19 @@ export default function EntregaAceites() {
   useEffect(() => { cargar(); }, [cargar]);
 
   return (
-    <div className="adf-card">
+    <>
+      {/* Es la fricción diaria más grande: el instructor llega al mostrador,
+          pide un cuarto de aceite y se va. Sin orden de trabajo ni requisición. */}
+      <button className="inv-accion" onClick={() => setEntregando(true)}>
+        <i className="bi bi-droplet-half"></i>
+        <span>Entregar aceite</span>
+      </button>
+      <p className="inv-ayuda">
+        La entrega de mostrador: se elige el aceite, cuántos cuartos y quién lo recibe.
+        Baja del inventario al instante y queda en esta hoja.
+      </p>
+
+      <div className="adf-card">
       <div className="inv-filtros">
         <div>
           <label>Desde</label>
@@ -122,6 +136,15 @@ export default function EntregaAceites() {
         en verde son entradas de bodega: el cuaderno de papel solo anotaba salidas, y por eso su
         saldo se despegaba del real cuando llegaba una compra.
       </p>
-    </div>
+      </div>
+
+      {entregando && (
+        <EntregarAceiteModal
+          aceites={hojas.map((h) => h.item)}
+          onClose={() => setEntregando(false)}
+          onGuardado={() => { setEntregando(false); cargar(); }}
+        />
+      )}
+    </>
   );
 }
