@@ -150,9 +150,19 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
                       <td>{fecha(d.fecha)}</td>
                       <td>
                         <span className={`adf-tag ${meta.tag || ""}`}>{meta.label}</span>
+                        {/* El eslabón, escrito: una requisición y su solicitud
+                            parecen dos descargas del mismo trabajo. Decir cuál
+                            pidió y cuál entregó es lo que lo aclara. */}
                         {d.tipo === "REQUISICION" && (
-                          <span className="adf-tag" style={{ marginLeft: 6 }}>
-                            {d.despachada ? "Despachada" : "Pendiente"}
+                          <span className={`adf-tag ${d.despachada ? "green" : "amber"}`} style={{ marginLeft: 6 }}>
+                            {d.despachada
+                              ? `Entregada con ${d.despacho_correlativo || "una solicitud"}`
+                              : "Pendiente de entregar"}
+                          </span>
+                        )}
+                        {d.tipo === "SALIDA" && d.pedido_correlativo && (
+                          <span className="adf-tag blue" style={{ marginLeft: 6 }}>
+                            Entrega de {d.pedido_correlativo}
                           </span>
                         )}
                       </td>
@@ -163,7 +173,13 @@ export default function Documentos({ tipos, accion, mostrarPendientes, ayuda }) 
                         {d.aeronave_externa && <span className="adf-tag" style={{ marginLeft: 6 }}>Tercero</span>}
                       </td>
                       <td className="amount">{d.renglones}</td>
-                      <td className="amount">{fmt(d.unidades, 0)}</td>
+                      {/* La requisición NO descuenta: es el pedido. Mostrar ahí un
+                          número de unidades la hace parecer un movimiento. */}
+                      <td className="amount">
+                        {d.tipo === "REQUISICION"
+                          ? <span style={{ color: "var(--c-ink-4)" }}>pidió {fmt(d.unidades, 0)}</span>
+                          : fmt(d.unidades, 0)}
+                      </td>
                       <td className="amount">{Number(d.total) > 0 ? money(d.total) : "—"}</td>
                       <td style={{ color: "var(--c-ink-3)", fontSize: "0.82rem" }}>{d.registrado_por_nombre || "—"}</td>
                     </tr>

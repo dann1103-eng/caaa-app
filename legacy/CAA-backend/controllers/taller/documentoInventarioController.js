@@ -112,7 +112,15 @@ exports.listDocumentos = catchAsync(async (req, res) => {
             (d.tipo = 'REQUISICION' AND EXISTS (
                SELECT 1 FROM taller_documento_inventario s
                 WHERE s.id_requisicion = d.id_documento AND s.estado = 'VIGENTE'
-             )) AS despachada
+             )) AS despachada,
+            -- Con qué papel se despachó / de qué pedido salió. En la lista, una
+            -- requisición y su solicitud parecen DOS descargas del mismo trabajo;
+            -- mostrar el eslabón es lo que aclara que son pedido y entrega.
+            (SELECT s.correlativo FROM taller_documento_inventario s
+              WHERE s.id_requisicion = d.id_documento AND s.estado = 'VIGENTE'
+              ORDER BY s.id_documento LIMIT 1) AS despacho_correlativo,
+            (SELECT rq.correlativo FROM taller_documento_inventario rq
+              WHERE rq.id_documento = d.id_requisicion) AS pedido_correlativo
        FROM taller_documento_inventario d
        LEFT JOIN taller_movimiento_inventario m ON m.id_documento = d.id_documento
        LEFT JOIN aeronave a ON a.id_aeronave = d.id_aeronave
@@ -348,10 +356,20 @@ exports.crearDocumento = catchAsync(async (req, res) => {
 
     const mueveStock = MUEVE_STOCK.has(tipo);
 
-    // La solicitud puede nacer de una requisición; si viene, se valida.
+    // La solicitud puede nacer de una requisición; si viene, se valida y se
+    // HEREDA su contexto.
+    //
+    // Heredar no es cosmético: sin `id_orden_trabajo` la entrega queda huérfana
+    // y NO aparece en el papeleo de la orden, que es justo lo que el jefe abre
+    // para revisar qué material se consumió. La requisición ya trae ese dato
+    // porque el técnico la creó parado en su trabajo; bodega solo despacha y no
+    // tiene por qué volver a teclearlo.
+    let ctx = {};
     if (id_requisicion) {
       const rq = await client.query(
-        "SELECT tipo, estado FROM taller_documento_inventario WHERE id_documento = $1",
+        `SELECT tipo, estado, id_orden_trabajo, id_aeronave, id_mantenimiento,
+                id_cumplimiento, tacometro, orden_trabajo_no, cliente, motivo
+           FROM taller_documento_inventario WHERE id_documento = $1`,
         [id_requisicion]
       );
       if (!rq.rows.length || rq.rows[0].tipo !== "REQUISICION") {
@@ -362,7 +380,10 @@ exports.crearDocumento = catchAsync(async (req, res) => {
         await client.query("ROLLBACK");
         return res.status(409).json({ message: "Esa requisición está anulada" });
       }
+      ctx = rq.rows[0];
     }
+    // Lo que bodega mandó explícitamente gana; lo que no, sale de la requisición.
+    const heredar = (valor, clave) => (valor != null && valor !== "" ? valor : (ctx[clave] ?? null));
 
     // El retorno se valida contra lo que de verdad salió en su solicitud.
     if (tipo === "RETORNO") {
@@ -499,20 +520,20 @@ exports.crearDocumento = catchAsync(async (req, res) => {
         tipo, anio, numero, correlativo, fecha || null,
         tipo === "ENTRADA" ? proveedor || null : null,
         tipo === "ENTRADA" ? factura_no || null : null,
-        llevaAeronave ? id_aeronave || null : null,
-        tipo === "SALIDA" ? id_cumplimiento || null : null,
-        tipo === "SALIDA" ? id_mantenimiento || null : null,
+        llevaAeronave ? heredar(id_aeronave, "id_aeronave") : null,
+        tipo === "SALIDA" ? heredar(id_cumplimiento, "id_cumplimiento") : null,
+        tipo === "SALIDA" ? heredar(id_mantenimiento, "id_mantenimiento") : null,
         motivo || null, nota || null,
         req.user?.id_usuario || null,
         tipo === "SALIDA" ? id_requisicion || null : null,
         tipo === "RETORNO" ? id_solicitud_origen || null : null,
-        orden_trabajo_no || null, numero_solicitud || null,
-        tacometro ?? null, cliente || null,
+        heredar(orden_trabajo_no, "orden_trabajo_no"), numero_solicitud || null,
+        heredar(tacometro, "tacometro"), heredar(cliente, "cliente"),
         solicitante || null, entregado_por || null, entregado_a || null,
         observaciones || null,
         // El enlace real con la Orden de Trabajo. `orden_trabajo_no` queda como
         // texto para los documentos históricos, que no tienen OT.
-        id_orden_trabajo || null,
+        heredar(id_orden_trabajo, "id_orden_trabajo"),
       ]
     );
     const doc = cab.rows[0];

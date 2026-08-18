@@ -13,6 +13,7 @@ export default function ItemPicker({ valor, onElegir, autoFocus }) {
   const [ops, setOps] = useState([]);
   const [abierto, setAbierto] = useState(false);
   const [hl, setHl] = useState(0);
+  const [haciaArriba, setHaciaArriba] = useState(false);
   const caja = useRef(null);
 
   useEffect(() => {
@@ -31,6 +32,18 @@ export default function ItemPicker({ valor, onElegir, autoFocus }) {
     }, 200);
     return () => { vivo = false; clearTimeout(t); };
   }, [texto]);
+
+  // El desplegable es absoluto dentro de un modal con overflow: si no hay lugar
+  // abajo queda RECORTADO por el borde del modal y el técnico solo ve una franja
+  // de las opciones. Cuando no cabe, se abre hacia arriba.
+  useEffect(() => {
+    if (!abierto || !ops.length || !caja.current) return;
+    const r = caja.current.getBoundingClientRect();
+    // Se mide contra el contenedor que recorta (el modal), si existe.
+    const modal = caja.current.closest(".adf-modal-card");
+    const piso = modal ? modal.getBoundingClientRect().bottom : window.innerHeight;
+    setHaciaArriba(piso - r.bottom < 200 && r.top > 200);
+  }, [abierto, ops.length]);
 
   const elegir = (it) => {
     onElegir(it);
@@ -69,7 +82,7 @@ export default function ItemPicker({ valor, onElegir, autoFocus }) {
         placeholder="Código, descripción o n° de parte…"
       />
       {abierto && ops.length > 0 && (
-        <div className="inv-picker__lista">
+        <div className={`inv-picker__lista ${haciaArriba ? "inv-picker__lista--arriba" : ""}`}>
           {ops.map((o, i) => (
             <div
               key={o.id_repuesto}

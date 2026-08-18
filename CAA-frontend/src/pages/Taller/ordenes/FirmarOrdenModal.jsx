@@ -6,7 +6,7 @@ import { hoy } from "../inventario/formato";
 const CERTIFICACION = "Certifico que esta aeronave está en condición segura de vuelo.";
 
 /**
- * Firmar y cerrar la orden de trabajo.
+ * Firmar la orden y mandarla a la revisión del jefe de taller.
  *
  * Firmar es una acción del sistema: el mecánico es el usuario que está adentro y
  * su licencia TMA sale de su ficha. Si no la tiene cargada el servidor responde
@@ -38,7 +38,7 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
     setGuardando(true);
     try {
       const r = await firmarOrden(orden.id_orden, f);
-      toast.success(`${r.correlativo} firmada y cerrada`);
+      toast.success(`${r.correlativo} firmada. Ahora la revisa el jefe de taller.`);
       onFirmada();
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudo firmar");
@@ -58,7 +58,7 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
             Firmar {orden.correlativo}
           </span>
           <div style={{ display: "flex", gap: 10 }}>
-            <button className="adf-btn" disabled={guardando} onClick={guardar}><i className="bi bi-check"></i>Firmar y cerrar</button>
+            <button className="adf-btn" disabled={guardando} onClick={guardar}><i className="bi bi-check"></i>Firmar y mandar a revisión</button>
             <button type="button" className="adf-btn secondary" onClick={onClose}>Cerrar</button>
           </div>
         </div>
@@ -112,7 +112,9 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
             {yaCertifica
               ? "Tu texto ya incluye la certificación."
               : <>Al firmar se agrega al final: <em>“{CERTIFICACION}”</em></>}
-            {" "}Después de firmar, la orden <strong>ya no se edita</strong>.
+            {" "}Después de firmar la orden <strong>ya no se edita</strong> y pasa a la
+            bandeja del jefe de taller, que la aprueba con su firma o te la devuelve
+            con lo que haya que corregir.
           </p>
         </div>
       </div>

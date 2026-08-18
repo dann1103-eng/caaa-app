@@ -234,3 +234,11 @@
   .inv-kpis { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
   .inv-kpi__valor { font-size: 1.15rem; }
 }
+
+/* Cuando no hay lugar abajo (el modal recorta), el desplegable se abre hacia
+   arriba. Sin esto el técnico solo alcanza a ver una franja de las opciones. */
+.inv-picker__lista--arriba {
+  top: auto;
+  bottom: 100%;
+  margin-bottom: 2px;
+}
