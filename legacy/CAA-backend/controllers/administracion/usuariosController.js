@@ -6,18 +6,32 @@ const { soloHorasFacturables } = require("../../utils/horasFacturables");
 const ROLES_PERSONAL = ['ADMIN', 'PROGRAMACION', 'TURNO', 'INSTRUCTOR', 'ADMINISTRACION', 'TALLER', 'DUENO', 'TECNICO'];
 
 /**
+ * Texto que se guarda tal cual o se limpia: vacío pasa a NULL. Se usa para las
+ * credenciales del taller, donde "sin número" tiene que ser NULL de verdad
+ * porque es lo que mira el gate de firma de la orden de trabajo.
+ */
+const credencial = (v) => (v == null ? null : String(v).trim() || null);
+
+/**
  * Crea la fila `usuario` (login) y devuelve su id. Hashea la contraseña con
  * bcrypt; el usuario debe cambiarla en el primer login.
+ *
+ * `licencia_tma` / `certificado_aprendiz` son las credenciales del personal de
+ * taller: van impresas en la orden de trabajo y sin la licencia el mecánico no
+ * puede firmarla (403 en `ordenTrabajoController.firmarOrden`).
  */
-async function crearUsuarioTx(client, { username, password, nombre, apellido, correo, rol }) {
+async function crearUsuarioTx(client, {
+  username, password, nombre, apellido, correo, rol, licencia_tma, certificado_aprendiz,
+}) {
   const hash = await bcrypt.hash(String(password), 10);
   const r = await client.query(`
     INSERT INTO usuario
       (username, password_hash, rol, nombre, apellido, correo,
-       activo, must_change_password, must_set_email)
-    VALUES ($1, $2, $3, $4, $5, $6, TRUE, TRUE, $7)
+       activo, must_change_password, must_set_email, licencia_tma, certificado_aprendiz)
+    VALUES ($1, $2, $3, $4, $5, $6, TRUE, TRUE, $7, $8, $9)
     RETURNING id_usuario
-  `, [username, hash, rol, nombre, apellido, correo || null, correo ? false : true]);
+  `, [username, hash, rol, nombre, apellido, correo || null, correo ? false : true,
+      credencial(licencia_tma), credencial(certificado_aprendiz)]);
   return r.rows[0].id_usuario;
 }
 
@@ -110,6 +124,7 @@ exports.listPersonal = async (req, res) => {
   try {
     const r = await db.query(`
       SELECT u.id_usuario, u.username, u.rol, u.nombre, u.apellido, u.correo, u.activo,
+             u.licencia_tma, u.certificado_aprendiz,
              e.id AS id_empleado, e.cargo, e.sueldo_base, e.es_servicios_profesionales,
              e.dui, e.nit, e.isss_num, e.afp_num,
              ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar, ins.puede_operaciones,
@@ -137,7 +152,8 @@ exports.crearPersonal = async (req, res) => {
       username, password, nombre, apellido, correo, rol,
       cargo, dui, nit, isss_num, afp_num,
       sueldo_base, es_servicios_profesionales,
-      es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones
+      es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones,
+      licencia_tma, certificado_aprendiz
     } = req.body;
 
     if (!username || !password || !nombre || !apellido) {
@@ -153,7 +169,8 @@ exports.crearPersonal = async (req, res) => {
 
     await client.query("BEGIN");
     const id_usuario = await crearUsuarioTx(client, {
-      username, password, nombre, apellido, correo, rol: rolFinal
+      username, password, nombre, apellido, correo, rol: rolFinal,
+      licencia_tma, certificado_aprendiz
     });
 
     const nombreCompleto = `${nombre} ${apellido}`.trim();
@@ -212,7 +229,8 @@ exports.editarPersonal = async (req, res) => {
     const {
       username, nombre, apellido, correo, cargo, dui, nit, isss_num, afp_num,
       sueldo_base, es_servicios_profesionales, rol, activo,
-      es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones
+      es_instructor_vuelo, es_instructor_teoria, puede_programar, puede_operaciones,
+      licencia_tma, certificado_aprendiz
     } = req.body;
 
     // Nombre de usuario (login): normalizado a minúsculas + trim para que
@@ -239,6 +257,13 @@ exports.editarPersonal = async (req, res) => {
       return res.status(400).json({ ok: false, message: "Rol inválido para personal" });
     }
 
+    // Las credenciales del taller NO pueden ir con COALESCE: una licencia
+    // vencida hay que poder BORRARLA, y COALESCE lee el null como "no la toques".
+    // Van con bandera: si la clave no viene en el body no se toca; si viene
+    // vacía se borra (y ahí el mecánico deja de poder firmar, que es el punto).
+    const tocaTma = licencia_tma !== undefined;
+    const tocaApr = certificado_aprendiz !== undefined;
+
     await client.query(`
       UPDATE usuario SET
         username = COALESCE($7, username),
@@ -246,9 +271,12 @@ exports.editarPersonal = async (req, res) => {
         activo   = COALESCE($3, activo),
         correo   = COALESCE($4, correo),
         nombre   = COALESCE($5, nombre),
-        apellido = COALESCE($6, apellido)
+        apellido = COALESCE($6, apellido),
+        licencia_tma         = CASE WHEN $8  THEN $9  ELSE licencia_tma         END,
+        certificado_aprendiz = CASE WHEN $10 THEN $11 ELSE certificado_aprendiz END
       WHERE id_usuario = $1
-    `, [id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null, usernameNorm]);
+    `, [id_usuario, rolFinal, activo, correo || null, nombre || null, apellido || null, usernameNorm,
+        tocaTma, credencial(licencia_tma), tocaApr, credencial(certificado_aprendiz)]);
 
     // Datos de nómina: UPSERT — si ya tiene ficha la actualiza, si no la crea.
     const hayNomina = cargo != null || dui != null || nit != null || isss_num != null ||
