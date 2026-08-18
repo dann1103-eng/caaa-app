@@ -1597,6 +1597,11 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
   pestaña "Costos pendientes". Al costear una entrada se genera su egreso en Contabilidad.
 - **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
 
+### 🔬 Con el Taller (2026-08-18, §34)
+- **`YS-270-PE` y `YS-333-PE` están en mantenimiento SIN fecha de finalización.** Aparecen en la cola
+  del Taller con "listo estimado —" y, sin fecha, quedan bloqueados indefinidamente para agendar. Se
+  arregla desde *Trabajos del taller → Por revisar → ¿Cuándo está listo?*.
+
 ### 🔧 Para que el Taller sirva (§32)
 - ✅ **Personal del taller cargado** (2026-08-18): `jose.estrada` (jefe, **TMA 090** — confirmado por
   Daniel; lo que se había leído de las fotos como "TMA 692" era mala lectura), `roger.perez` (técnico,
@@ -2310,3 +2315,77 @@ Lo del aprendiz: 15/15 local y 12/12 en producción, contra el personal real ya 
 en el selector, el jefe y el mecánico no, el aprendiz no puede firmar, y adjuntado llega al detalle y al
 PDF). Las pruebas firman con un **técnico temporal** para no tocarle a los usuarios reales el flag de
 primer ingreso — se verifica al final que los tres siguen intactos.
+
+---
+
+## 34. Sesión 2026-08-18 (2ª tanda) — Cola de trabajo, revisión del jefe y estimado de finalización
+
+**Desplegado y verificado en producción** (`origin/master` = `df0479f`). Migración `20260818000001`.
+Spec: `docs/superpowers/specs/2026-08-18-cola-de-trabajo-y-revision-del-jefe-design.md`.
+Cierra el flujo del Taller de punta a punta.
+
+### El circuito
+```
+TURNO/ADMIN manda el avión a MANTO          (sin cambios: Operaciones sigue siendo dueño de la flota)
+   → COLA DEL TALLER: aviones esperando trabajo
+   → el mecánico la toma, o el jefe se la asigna
+   → ORDEN DE TRABAJO enlazada al mantenimiento (de ella cuelga el papeleo de bodega)
+   → el mecánico firma → FIRMADA (esperando revisión)
+   → el jefe aprueba → APROBADA  ·  o la devuelve con nota → vuelve a ABIERTA
+   → cuando NO queda orden pendiente: aviso a Operaciones "listo para devolver"
+   → TURNO/ADMIN cierra el mantenimiento
+```
+
+### Decisiones de Daniel
+| | |
+|---|---|
+| ¿Quién manda a MANTO? | **Operaciones.** El Taller no gana permisos sobre la flota, solo ve la cola. |
+| ¿Aprobar devuelve el avión? | **No: avisa** y Operaciones confirma. El Taller certifica, Operaciones dispone. |
+| ¿El jefe aprueba lo suyo? | **Sí, pero queda marcado** (`aprobacion_propia`). En un taller chico a veces no hay de otra. |
+| ¿Y la duración? | **Manda el Taller.** Su fecha pisa la de Operaciones y los vuelos que queden adentro se cancelan. |
+
+### Modelo
+- **La cola NO es tabla nueva**: sale de cruzar `mantenimiento_aeronave` con sus órdenes. Esto por fin
+  le da uso a `orden_trabajo.id_mantenimiento` — **la tercera columna muerta del módulo** (§33).
+  Se evitó una cuarta entidad: ya hay tres conceptos de "mantenimiento" y sumar otro confunde más de
+  lo que ordena. Un avión puede llevar **varias órdenes** y no se libera hasta que todas se aprueben.
+- `orden_trabajo` += `id_mecanico_asignado` (**distinto de `id_mecanico`**, que es quien firma al
+  terminar), `id_aprobador`, `fecha_aprobacion`, `aprobacion_propia`, `nota_revision`, `devoluciones`.
+  Estados: `ABIERTA → FIRMADA → APROBADA` (antes `ABIERTA|CERRADA`). **Asignar no bloquea**: en una
+  inspección grande trabajan varios.
+- **Estimado**: el Taller escribe directo sobre `mantenimiento_aeronave.fecha_fin` (una sola fuente de
+  verdad; todo lo que ya la lee sigue funcionando) y se guarda `fecha_fin_original` + `estimado_por` +
+  `motivo_estimado` para explicar después por qué se cancelaron esos vuelos. **La hora sale de los
+  bloques**: listo el viernes a las 14:00 ⇒ se cierran los bloques de la mañana y la tarde queda libre.
+  Cancelar y restaurar salen **simétricos gratis** de `cancelarVuelosAfectadosPorMantenimiento`, que
+  recalcula sobre toda la ventana y devuelve cada vuelo a su estado previo.
+- ⚠️ **Dry-run obligatorio antes de confirmar** (`preview-estimado`): mover una fecha puede cancelarle
+  el vuelo a diez alumnos. El modal lo muestra mientras se escribe la fecha.
+
+### Pantallas
+**Mi taller**: "Aviones esperando trabajo" arriba de los botones; tomar uno abre la orden ya enlazada y
+asignada. El botón de firmar dejó de decir "cierra la orden" (mentía) y dice **"Terminé — mandar a
+revisión"**. El trabajo en curso avisa si espera al jefe o si se lo devolvieron con la nota.
+**Trabajos del taller**: pestaña **"Por revisar"**, ahora la primera — arriba lo que espera su firma,
+abajo los aviones del hangar con selector de asignación y el botón de mover la fecha.
+
+### Verificación
+35/35 local + 18/18 contra **producción**, con limpieza total y el mantenimiento de prueba en 2027 para
+no rozar ningún vuelo real. Circuito completo recorrido en el navegador a 375 px.
+
+### 🚨 Trampas de esta tanda (todas en las PRUEBAS, no en el código)
+1. **`String(fecha).slice(0,10)` da `"Wed Mar 10"`** — node-postgres devuelve DATE como objeto `Date`.
+   Tercera vez que muerde (§16.A, §31). Usar un formateador con getters locales.
+2. **`LIKE` en Postgres distingue mayúsculas** — `'%listo%'` no encuentra `"Listo para devolver"`.
+3. **Comparar `creada_en > NOW() - INTERVAL` desde otra conexión da 6 h de diferencia**: es
+   `timestamp` sin zona y el backend fija `America/El_Salvador` en la suya, la prueba no. Mismo
+   desfase de §21.D. **Comparar por `id`, no por fecha.**
+4. Un 403 puede venir de dos gates distintos (§33): comprobar el **mensaje**, no solo el código.
+
+### Defecto encontrado mirando la pantalla
+Tras firmar, el avión volvía a ofrecer **"Tomar este avión"** aunque el trabajo seguía siendo del
+mecánico esperando al jefe — invitaba a abrir una orden duplicada. Ahora dice "Esperando al jefe".
+
+### Fuera de alcance
+Que el Taller mande aviones a MANTO · que aprobar devuelva el avión al servicio solo · reprogramar los
+vuelos cancelados (se cancelan, no se mueven).
