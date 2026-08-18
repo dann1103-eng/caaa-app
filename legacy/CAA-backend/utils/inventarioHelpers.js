@@ -16,12 +16,14 @@ const LOCK_CORRELATIVO = 4712;
 // tipo SALIDA con prefijo REQ, porque en el Excel la requisición y la salida
 // eran el mismo papel. Por eso REQUISICION continúa esa numeración (desde 245
 // en 2026) y las solicitudes estrenan la suya.
-const PREFIJO = { ENTRADA: "FA", SALIDA: "SOL", AJUSTE: "AJ", REQUISICION: "REQ", RETORNO: "RET" };
-const DIGITOS = { ENTRADA: 5, SALIDA: 3, AJUSTE: 3, REQUISICION: 3, RETORNO: 3 };
+// PRE es el documento de bodega que genera un préstamo; el préstamo en sí
+// lleva su propia serie PR-###-AAAA en taller_prestamo.
+const PREFIJO = { ENTRADA: "FA", SALIDA: "SOL", AJUSTE: "AJ", REQUISICION: "REQ", RETORNO: "RET", PRESTAMO: "PRE" };
+const DIGITOS = { ENTRADA: 5, SALIDA: 3, AJUSTE: 3, REQUISICION: 3, RETORNO: 3, PRESTAMO: 3 };
 
 // Los tipos que tocan la existencia. La requisición es un borrador y no mueve
 // nada: por eso además es el único documento editable.
-const MUEVE_STOCK = new Set(["ENTRADA", "SALIDA", "AJUSTE", "RETORNO"]);
+const MUEVE_STOCK = new Set(["ENTRADA", "SALIDA", "AJUSTE", "RETORNO", "PRESTAMO"]);
 
 /**
  * Condición que decide si un documento cuenta para la existencia.

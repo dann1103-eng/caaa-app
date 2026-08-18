@@ -18,7 +18,7 @@ const {
 } = require("../../utils/inventarioHelpers");
 const { generarRequisicionPDF, generarSolicitudPDF } = require("../../utils/pdfTaller");
 
-const TIPOS = ["ENTRADA", "SALIDA", "AJUSTE", "REQUISICION", "RETORNO"];
+const TIPOS = ["ENTRADA", "SALIDA", "AJUSTE", "REQUISICION", "RETORNO", "PRESTAMO"];
 
 /**
  * Cuánto queda por devolver de cada ítem de una solicitud.

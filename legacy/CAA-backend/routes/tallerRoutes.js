@@ -10,6 +10,7 @@ const seguimiento = require("../controllers/taller/seguimientoController");
 const inventario = require("../controllers/taller/inventarioController");
 const documentos = require("../controllers/taller/documentoInventarioController");
 const ot = require("../controllers/taller/ordenTrabajoController");
+const prestamo = require("../controllers/taller/prestamoController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -112,5 +113,16 @@ router.get("/aeronaves/:id_aeronave/ficha", roleMiddleware(READ), ot.fichaAerona
 // Impresión de los formatos de la Fase 2
 router.get("/ordenes/:id/pdf", roleMiddleware(READ), ot.imprimirOrden);
 router.get("/reportes-inspeccion/:id/pdf", roleMiddleware(READ), ot.imprimirReporte);
+
+// ── Préstamo de partes entre talleres (Fase 3) ─────────────────────────────
+//
+// Bidireccional y con estado propio: se puede cerrar una orden de trabajo con un
+// préstamo activo, así que su ciclo es independiente del de la OT.
+router.get("/prestamos", roleMiddleware(READ), prestamo.listPrestamos);
+router.post("/prestamos", roleMiddleware(WRITE), prestamo.crearPrestamo);
+router.get("/prestamos/:id", roleMiddleware(READ), prestamo.getPrestamo);
+router.post("/prestamos/:id/devolver", roleMiddleware(WRITE), prestamo.devolverPrestamo);
+// Anular revierte movimientos de material: es del jefe de taller.
+router.post("/prestamos/:id/anular", roleMiddleware(JEFE), prestamo.anularPrestamo);
 
 module.exports = router;
