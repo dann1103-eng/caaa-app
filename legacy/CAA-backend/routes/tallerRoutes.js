@@ -102,6 +102,9 @@ router.post("/ordenes/:id/firmar", roleMiddleware(WRITE), ot.firmarOrden);
 // Anular es del jefe: una orden anulada arrastra el papeleo que cuelga de ella.
 router.post("/ordenes/:id/anular", roleMiddleware(JEFE), ot.anularOrden);
 
+// Personal del taller con sus credenciales (alimenta el selector de aprendiz).
+router.get("/personal", roleMiddleware(READ), ot.listPersonalTaller);
+
 // ── Reporte de Inspección — el disparador ──────────────────────────────────
 router.get("/reportes-inspeccion", roleMiddleware(READ), ot.listReportes);
 router.post("/reportes-inspeccion", roleMiddleware(WRITE), ot.crearReporte);

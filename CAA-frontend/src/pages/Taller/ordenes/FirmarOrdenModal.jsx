@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { firmarOrden, getOrden } from "../../../services/tallerApi";
+import { firmarOrden, getOrden, getPersonalTaller } from "../../../services/tallerApi";
 import { hoy } from "../inventario/formato";
 
 const CERTIFICACION = "Certifico que esta aeronave está en condición segura de vuelo.";
@@ -14,8 +14,9 @@ const CERTIFICACION = "Certifico que esta aeronave está en condición segura de
  * aeronave — no es un dato cosmético.
  */
 export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
-  const [f, setF] = useState({ accion_correctiva: "", r_ii: "R II", fecha_firma: hoy() });
+  const [f, setF] = useState({ accion_correctiva: "", r_ii: "R II", fecha_firma: hoy(), id_aprendiz: "" });
   const [partes, setPartes] = useState([]);
+  const [aprendices, setAprendices] = useState([]);
   const [guardando, setGuardando] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -25,6 +26,10 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
         if (d.orden.accion_correctiva) set("accion_correctiva", d.orden.accion_correctiva);
         setPartes(d.partes || []);
       })
+      .catch(() => {});
+    // Solo quien tenga certificado puede ir en esa línea del papel.
+    getPersonalTaller()
+      .then((r) => setAprendices(r.filter((x) => x.certificado_aprendiz)))
       .catch(() => {});
   }, [orden.id_orden]);
 
@@ -82,6 +87,20 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
               <input value={f.r_ii} onChange={(e) => set("r_ii", e.target.value)} />
             </div>
           </div>
+
+          {aprendices.length > 0 && (
+            <div className="adf-form-field" style={{ marginTop: 12 }}>
+              <label>Aprendiz que asistió (opcional)</label>
+              <select value={f.id_aprendiz} onChange={(e) => set("id_aprendiz", e.target.value)}>
+                <option value="">Ninguno</option>
+                {aprendices.map((a) => (
+                  <option key={a.id_usuario} value={a.id_usuario}>
+                    {a.nombre} · {a.certificado_aprendiz}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {partes.length > 0 && (
             <p className="adf-note" style={{ marginTop: 12 }}>

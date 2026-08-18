@@ -175,6 +175,9 @@ async function abrirPdf2(ruta, params = {}) {
 // ── Préstamo de partes (Fase 3) ────────────────────────────────────────────
 //
 // Bidireccional: RECIBIDO es lo que pedimos prestado, ENTREGADO lo que
+// Personal del taller con sus credenciales (para el selector de aprendiz).
+export const getPersonalTaller = async () => (await axios.get(`${TAL()}/personal`)).data;
+
 // prestamos. Su estado es independiente del de la orden de trabajo.
 export const getPrestamos = async (params = {}) => (await axios.get(`${TAL()}/prestamos`, { params })).data;
 export const getPrestamo = async (id) => (await axios.get(`${TAL()}/prestamos/${id}`)).data;

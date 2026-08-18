@@ -293,6 +293,29 @@ exports.firmarOrden = catchAsync(async (req, res) => {
   }
 });
 
+/**
+ * Personal del taller con sus credenciales.
+ *
+ * Alimenta el selector de aprendiz al firmar: en el papel, junto a la firma del
+ * mecánico va el certificado del aprendiz que asistió. Devuelve a todos los del
+ * taller (más quien tenga credencial cargada aunque hoy sea de otro rol), y el
+ * frontend decide a quién ofrecer según el campo que corresponda.
+ */
+exports.listPersonalTaller = catchAsync(async (req, res) => {
+  const r = await db.query(
+    `SELECT id_usuario,
+            TRIM(COALESCE(nombre,'') || ' ' || COALESCE(apellido,'')) AS nombre,
+            rol, licencia_tma, certificado_aprendiz
+       FROM usuario
+      WHERE activo = true
+        AND (rol IN ('TALLER','TECNICO')
+             OR licencia_tma IS NOT NULL
+             OR certificado_aprendiz IS NOT NULL)
+      ORDER BY nombre`
+  );
+  res.json(r.rows);
+});
+
 exports.anularOrden = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { motivo_anulacion } = req.body;
