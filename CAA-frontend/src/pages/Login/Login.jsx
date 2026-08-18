@@ -14,6 +14,8 @@ function dashboardPathFor(user) {
   if (user.rol === "INSTRUCTOR") return user.es_instructor_vuelo === false ? "/instructor/aula-virtual" : "/instructor";
   if (user.rol === "ADMINISTRACION") return "/administracion/dashboard";
   if (user.rol === "TALLER") return "/taller/dashboard";
+  // El técnico entra directo a su pantalla de trabajo, no al tablero.
+  if (user.rol === "TECNICO") return "/taller/mi-taller";
   if (user.rol === "DUENO") return "/dueno";
   return null;
 }

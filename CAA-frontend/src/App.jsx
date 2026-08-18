@@ -62,6 +62,7 @@ import ProtectedDueno from "./components/routes/ProtectedDueno";
 import DuenoDashboard from "./pages/Dueno/Dashboard";
 import TallerAeronavegabilidad from "./pages/Taller/Aeronavegabilidad";
 import TallerInventario from "./pages/Taller/Inventario";
+import MiTaller from "./pages/Taller/MiTaller";
 
 const IDLE_MS = 30 * 60 * 1000;
 
@@ -408,6 +409,8 @@ function App() {
           <Route path="/taller/dashboard"         element={<ProtectedTaller><TallerLayoutAuto><TallerDashboard /></TallerLayoutAuto></ProtectedTaller>} />
           <Route path="/taller/aeronavegabilidad" element={<ProtectedTaller><TallerLayoutAuto><TallerAeronavegabilidad /></TallerLayoutAuto></ProtectedTaller>} />
           <Route path="/taller/inventario"        element={<ProtectedTaller><TallerLayoutAuto><TallerInventario /></TallerLayoutAuto></ProtectedTaller>} />
+          {/* La pantalla del técnico: botones grandes, el trabajo en curso como contexto. */}
+          <Route path="/taller/mi-taller"         element={<ProtectedTaller><TallerLayoutAuto><MiTaller /></TallerLayoutAuto></ProtectedTaller>} />
 
           <Route path="/dueno" element={<ProtectedDueno><DuenoDashboard /></ProtectedDueno>} />
 

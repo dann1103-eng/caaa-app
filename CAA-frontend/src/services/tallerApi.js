@@ -116,6 +116,34 @@ async function abrirPdf(ruta, params = {}) {
 export const abrirDocumentoPDF = (id) => abrirPdf(`/documentos/${id}/pdf`);
 export const abrirEntregaAceitesPDF = (params) => abrirPdf("/entrega-aceites.pdf", params);
 
+// ── Órdenes de trabajo (Fase 2) ────────────────────────────────────────────
+//
+// La orden de trabajo es el trabajo del taller: se abre al recibir el avión y
+// se cierra al firmarla. De ella cuelga todo el papeleo.
+
+const TAL = () => `${API_URL}/taller`;
+
+export const getOrdenes = async (params = {}) => (await axios.get(`${TAL()}/ordenes`, { params })).data;
+export const getOrden = async (id) => (await axios.get(`${TAL()}/ordenes/${id}`)).data;
+export const crearOrden = async (datos) => (await axios.post(`${TAL()}/ordenes`, datos)).data;
+export const editarOrden = async (id, datos) => (await axios.patch(`${TAL()}/ordenes/${id}`, datos)).data;
+export const firmarOrden = async (id, datos) => (await axios.post(`${TAL()}/ordenes/${id}/firmar`, datos)).data;
+export const anularOrden = async (id, motivo_anulacion) =>
+  (await axios.post(`${TAL()}/ordenes/${id}/anular`, { motivo_anulacion })).data;
+
+export const getReportesInspeccion = async (params = {}) =>
+  (await axios.get(`${TAL()}/reportes-inspeccion`, { params })).data;
+export const crearReporteInspeccion = async (datos) =>
+  (await axios.post(`${TAL()}/reportes-inspeccion`, datos)).data;
+
+/** Lo que el sistema ya sabe del avión, para pre-llenar el reporte. */
+export const getSugerenciaInspeccion = async (idAeronave) =>
+  (await axios.get(`${TAL()}/aeronaves/${idAeronave}/sugerencia-inspeccion`)).data;
+
+/** El folder del avión: todas sus órdenes, reportes, documentos y consumo. */
+export const getFichaAeronaveTaller = async (idAeronave) =>
+  (await axios.get(`${TAL()}/aeronaves/${idAeronave}/ficha`)).data;
+
 // Costos pendientes (cola conjunta de Taller y Contabilidad)
 export const getPendientesCosto = async () => (await axios.get(`${INV()}/pendientes-costo`)).data;
 export const completarCostos = async (id, costos, actualizar_catalogo = true) =>

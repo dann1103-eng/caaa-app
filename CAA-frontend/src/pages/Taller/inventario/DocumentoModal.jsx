@@ -21,7 +21,7 @@ const VACIO = { item: null, cantidad: "", costo_unitario: "", nota: "" };
  * `desde` precarga desde otro documento: una requisición al despacharla, o una
  * solicitud al registrar su retorno.
  */
-export default function DocumentoModal({ tipo, desde, editar, onClose, onGuardado }) {
+export default function DocumentoModal({ tipo, desde, editar, contexto, onClose, onGuardado }) {
   const meta = META_TIPO[tipo];
   const esReq = tipo === "REQUISICION";
   const esSol = tipo === "SALIDA";
@@ -47,6 +47,20 @@ export default function DocumentoModal({ tipo, desde, editar, onClose, onGuardad
   useEffect(() => {
     if (esSol || esReq || esRet) getAeronavesBodega().then(setAeronaves).catch(() => {});
   }, [esSol, esReq, esRet]);
+
+  // Contexto del trabajo en curso (pantalla del técnico): el avión, el
+  // tacómetro y la orden ya vienen puestos y no se vuelven a preguntar. Es lo
+  // que en papel obliga a escribir el tacómetro tres veces.
+  useEffect(() => {
+    if (!contexto) return;
+    setCab((p) => ({
+      ...p,
+      id_aeronave: contexto.id_aeronave ?? p.id_aeronave,
+      tacometro: contexto.tacometro ?? p.tacometro,
+      orden_trabajo_no: contexto.orden_trabajo_no ?? p.orden_trabajo_no,
+      motivo: contexto.motivo ?? p.motivo,
+    }));
+  }, [contexto]);
 
   useEffect(() => {
     if (!esSol || !cab.id_aeronave) { setMants([]); return; }
@@ -129,6 +143,7 @@ export default function DocumentoModal({ tipo, desde, editar, onClose, onGuardad
       entregado_a: cab.entregado_a || null,
       id_requisicion: esSol && desde ? desde.id_documento : null,
       id_solicitud_origen: esRet && desde ? desde.id_documento : null,
+      id_orden_trabajo: contexto?.id_orden_trabajo || null,
       id_cumplimiento: origen === "CUMPLIMIENTO" ? Number(idOrigen) : null,
       id_mantenimiento: origen === "MANTENIMIENTO" ? Number(idOrigen) : null,
       renglones: llenas.map((l) => ({

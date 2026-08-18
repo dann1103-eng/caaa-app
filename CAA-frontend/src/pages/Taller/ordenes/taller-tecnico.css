@@ -1,0 +1,111 @@
+/* "Mi taller" — la pantalla del técnico.
+   Mobile-first de verdad: se usa de pie, con guantes, con una mano. Nada de
+   tablas ni filtros; botones grandes y una sola cosa importante a la vez. */
+
+/* El trabajo en curso: el contexto de todo lo demás. */
+.tec-activo {
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-2);
+  background: var(--c-surface);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.tec-activo--vacio { border-style: dashed; border-color: var(--c-line-2); }
+.tec-activo__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c-ink-3);
+}
+.tec-activo__ot {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--c-primary);
+  line-height: 1.2;
+}
+.tec-activo__avion {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--c-ink-2);
+}
+.tec-activo__disc {
+  font-size: 0.92rem;
+  color: var(--c-ink-2);
+  margin-top: var(--sp-2);
+}
+.tec-cambiar {
+  margin-top: var(--sp-3);
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--c-primary);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Elegir entre varios trabajos abiertos. */
+.tec-elegir {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 56px;
+  margin-top: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-2);
+  background: var(--c-surface);
+  text-align: left;
+  cursor: pointer;
+}
+.tec-elegir:hover { border-color: var(--c-primary); }
+.tec-elegir strong { font-family: var(--font-mono); color: var(--c-primary); }
+.tec-elegir span { font-size: 0.85rem; color: var(--c-ink-3); }
+
+/* Los botones de acción. Una columna en el teléfono, dos en pantalla grande. */
+.tec-botones {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+.tec-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 92px;
+  padding: var(--sp-4);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-2);
+  background: var(--c-surface);
+  color: var(--c-ink-1);
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+  text-align: center;
+}
+.tec-btn i { font-size: 1.9rem; color: var(--c-primary); }
+.tec-btn span { font-size: 1.06rem; font-weight: 600; }
+.tec-btn small { font-size: 0.78rem; color: var(--c-ink-3); }
+.tec-btn:hover:not(:disabled) { border-color: var(--c-primary); }
+.tec-btn:active:not(:disabled) { transform: translateY(1px); }
+.tec-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.tec-btn--principal {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+.tec-btn--principal i { color: #fff; }
+
+/* Cerrar el trabajo es la acción irreversible: se marca con el acento. */
+.tec-btn--cerrar { border-color: var(--c-accent); }
+.tec-btn--cerrar i { color: var(--c-accent); }
+
+@media (min-width: 700px) {
+  .tec-botones { grid-template-columns: repeat(2, 1fr); }
+  .tec-btn--principal { grid-column: 1 / -1; }
+}
