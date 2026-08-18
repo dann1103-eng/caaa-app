@@ -305,7 +305,7 @@ exports.crearDocumento = catchAsync(async (req, res) => {
     id_aeronave, motivo, id_cumplimiento, id_mantenimiento,
     renglones, forzar, motivo_forzado,
     // Campos del papel (requisición y solicitud CAAA-004-F)
-    id_requisicion, id_solicitud_origen,
+    id_requisicion, id_solicitud_origen, id_orden_trabajo,
     orden_trabajo_no, numero_solicitud, tacometro, cliente,
     solicitante, entregado_por, entregado_a, observaciones,
   } = req.body;
@@ -490,9 +490,10 @@ exports.crearDocumento = catchAsync(async (req, res) => {
          (tipo, anio, numero, correlativo, fecha, proveedor, factura_no,
           id_aeronave, id_cumplimiento, id_mantenimiento, motivo, nota, registrado_por,
           id_requisicion, id_solicitud_origen, orden_trabajo_no, numero_solicitud,
-          tacometro, cliente, solicitante, entregado_por, entregado_a, observaciones)
+          tacometro, cliente, solicitante, entregado_por, entregado_a, observaciones,
+          id_orden_trabajo)
        VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6,$7,$8,$9,$10,$11,$12,$13,
-               $14,$15,$16,$17,$18::numeric,$19,$20,$21,$22,$23)
+               $14,$15,$16,$17,$18::numeric,$19,$20,$21,$22,$23,$24)
        RETURNING *`,
       [
         tipo, anio, numero, correlativo, fecha || null,
@@ -509,6 +510,9 @@ exports.crearDocumento = catchAsync(async (req, res) => {
         tacometro ?? null, cliente || null,
         solicitante || null, entregado_por || null, entregado_a || null,
         observaciones || null,
+        // El enlace real con la Orden de Trabajo. `orden_trabajo_no` queda como
+        // texto para los documentos históricos, que no tienen OT.
+        id_orden_trabajo || null,
       ]
     );
     const doc = cab.rows[0];

@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const { soloHorasFacturables } = require("../../utils/horasFacturables");
 
 // Roles válidos para personal interno (NO incluye ALUMNO; ese se crea como alumno).
-const ROLES_PERSONAL = ['ADMIN', 'PROGRAMACION', 'TURNO', 'INSTRUCTOR', 'ADMINISTRACION', 'TALLER', 'DUENO'];
+const ROLES_PERSONAL = ['ADMIN', 'PROGRAMACION', 'TURNO', 'INSTRUCTOR', 'ADMINISTRACION', 'TALLER', 'DUENO', 'TECNICO'];
 
 /**
  * Crea la fila `usuario` (login) y devuelve su id. Hashea la contraseña con

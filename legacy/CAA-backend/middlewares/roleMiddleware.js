@@ -12,7 +12,9 @@
  * financiera o de taller se pasan ambos: roleMiddleware(["ADMIN","ADMINISTRACION"])
  * / roleMiddleware(["ADMIN","TALLER"]).
  */
-const VALID_ROLES = ['ADMIN','PROGRAMACION','TURNO','ALUMNO','INSTRUCTOR','ADMINISTRACION','TALLER','DUENO'];
+// TECNICO es el mecánico de piso; TALLER es el jefe de taller. Ver el spec de
+// la Fase 2 del papeleo del Taller.
+const VALID_ROLES = ['ADMIN','PROGRAMACION','TURNO','ALUMNO','INSTRUCTOR','ADMINISTRACION','TALLER','DUENO','TECNICO'];
 
 module.exports = (roles) => {
   return (req, res, next) => {

@@ -9,18 +9,22 @@ const componente = require("../controllers/taller/componenteController");
 const seguimiento = require("../controllers/taller/seguimientoController");
 const inventario = require("../controllers/taller/inventarioController");
 const documentos = require("../controllers/taller/documentoInventarioController");
+const ot = require("../controllers/taller/ordenTrabajoController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
 router.use(authMiddleware);
 
-// Roles: TALLER (mecánico) y ADMIN (super-usuario) tienen acceso completo.
-const READ = ["TALLER", "ADMIN"];
-const WRITE = ["TALLER", "ADMIN"];
+// Roles: TALLER (jefe de taller) y ADMIN (super-usuario) tienen acceso completo.
+// TECNICO es el mecánico de piso: hace su trabajo pero no anula ni fuerza.
+const READ = ["TALLER", "TECNICO", "ADMIN"];
+const WRITE = ["TALLER", "TECNICO", "ADMIN"];
+// Lo que solo ve y hace el jefe de taller: cuadres, anulaciones, configuración.
+const JEFE = ["TALLER", "ADMIN"];
 
 // El inventario lo LEE también Administración: la ingesta de costos es trabajo
 // conjunto de Taller y Contabilidad, y el valor del inventario es dato contable.
-const READ_INV = ["TALLER", "ADMIN", "ADMINISTRACION"];
+const READ_INV = ["TALLER", "TECNICO", "ADMIN", "ADMINISTRACION"];
 // Costear una entrada NO mueve stock ni cantidades: solo pone el precio que el
 // Excel nunca tuvo. Por eso Administración sí escribe acá, y solo acá.
 const COSTEAR = ["TALLER", "ADMIN", "ADMINISTRACION"];
@@ -87,5 +91,22 @@ router.patch("/inventario/documentos/:id/costos", roleMiddleware(COSTEAR), docum
 router.get("/inventario/aeronaves", roleMiddleware(READ_INV), documentos.aeronavesBodega);
 router.get("/inventario/aeronaves/:id_aeronave/mantenimientos", roleMiddleware(READ_INV), documentos.opcionesMantenimiento);
 router.get("/inventario/consumo-aeronave", roleMiddleware(READ_INV), documentos.consumoAeronave);
+
+// ── Órdenes de trabajo — la columna vertebral del papeleo ──────────────────
+router.get("/ordenes", roleMiddleware(READ), ot.listOrdenes);
+router.post("/ordenes", roleMiddleware(WRITE), ot.crearOrden);
+router.get("/ordenes/:id", roleMiddleware(READ), ot.getOrden);
+router.patch("/ordenes/:id", roleMiddleware(WRITE), ot.editarOrden);
+router.post("/ordenes/:id/firmar", roleMiddleware(WRITE), ot.firmarOrden);
+// Anular es del jefe: una orden anulada arrastra el papeleo que cuelga de ella.
+router.post("/ordenes/:id/anular", roleMiddleware(JEFE), ot.anularOrden);
+
+// ── Reporte de Inspección — el disparador ──────────────────────────────────
+router.get("/reportes-inspeccion", roleMiddleware(READ), ot.listReportes);
+router.post("/reportes-inspeccion", roleMiddleware(WRITE), ot.crearReporte);
+router.get("/aeronaves/:id_aeronave/sugerencia-inspeccion", roleMiddleware(READ), ot.sugerenciaInspeccion);
+
+// ── El folder del avión: todo lo del Taller de esa matrícula ───────────────
+router.get("/aeronaves/:id_aeronave/ficha", roleMiddleware(READ), ot.fichaAeronave);
 
 module.exports = router;
