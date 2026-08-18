@@ -109,4 +109,8 @@ router.get("/aeronaves/:id_aeronave/sugerencia-inspeccion", roleMiddleware(READ)
 // ── El folder del avión: todo lo del Taller de esa matrícula ───────────────
 router.get("/aeronaves/:id_aeronave/ficha", roleMiddleware(READ), ot.fichaAeronave);
 
+// Impresión de los formatos de la Fase 2
+router.get("/ordenes/:id/pdf", roleMiddleware(READ), ot.imprimirOrden);
+router.get("/reportes-inspeccion/:id/pdf", roleMiddleware(READ), ot.imprimirReporte);
+
 module.exports = router;

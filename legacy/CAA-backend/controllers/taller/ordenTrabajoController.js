@@ -13,6 +13,7 @@
  */
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
+const { generarOrdenTrabajoPDF, generarReporteInspeccionPDF } = require("../../utils/pdfTaller");
 
 const LOCK_CORRELATIVO = 4713;
 const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
@@ -177,19 +178,28 @@ exports.editarOrden = catchAsync(async (req, res) => {
       return res.status(409).json({ message: `Esta orden está ${o.rows[0].estado.toLowerCase()} y ya no se edita.` });
     }
 
-    await client.query(
-      `UPDATE orden_trabajo SET
-         fecha             = COALESCE($2::date, fecha),
-         tacometro         = COALESCE($3::numeric, tacometro),
-         piloto_operador   = $4,
-         discrepancia      = COALESCE($5, discrepancia),
-         accion_correctiva = $6,
-         id_cumplimiento   = $7,
-         id_mantenimiento  = $8
-       WHERE id_orden = $1`,
-      [id, fecha || null, num(tacometro), txt(piloto_operador), txt(discrepancia),
-       txt(accion_correctiva), id_cumplimiento || null, id_mantenimiento || null]
-    );
+    // Se actualiza SOLO lo que vino en el cuerpo. Con un SET fijo, un PATCH
+    // parcial —mandar solo las partes, por ejemplo— borraba el piloto y la
+    // acción correctiva poniéndolos en null. Lo detectó el PDF de la orden, que
+    // salió con el campo del piloto vacío.
+    const tiene = (k) => Object.prototype.hasOwnProperty.call(req.body, k);
+    const sets = [];
+    const vals = [id];
+    const put = (col, valor, cast = "") => { vals.push(valor); sets.push(`${col} = $${vals.length}${cast}`); };
+
+    if (tiene("fecha") && fecha) put("fecha", fecha, "::date");
+    if (tiene("tacometro")) put("tacometro", num(tacometro), "::numeric");
+    if (tiene("piloto_operador")) put("piloto_operador", txt(piloto_operador));
+    if (tiene("discrepancia") && txt(discrepancia)) put("discrepancia", txt(discrepancia));
+    if (tiene("accion_correctiva")) put("accion_correctiva", txt(accion_correctiva));
+    if (tiene("id_cumplimiento")) put("id_cumplimiento", id_cumplimiento || null);
+    if (tiene("id_mantenimiento")) put("id_mantenimiento", id_mantenimiento || null);
+
+    if (sets.length) {
+      await client.query(
+        `UPDATE orden_trabajo SET ${sets.join(", ")} WHERE id_orden = $1`, vals
+      );
+    }
 
     // Las partes reemplazadas se reemplazan enteras: la orden está abierta y no
     // hay historia que preservar.
@@ -450,4 +460,48 @@ exports.fichaAeronave = catchAsync(async (req, res) => {
     documentos: documentos.rows,
     consumo: consumo.rows[0],
   });
+});
+
+// ── Impresión ───────────────────────────────────────────────────────────────
+
+async function formularioDe(clave) {
+  const r = await db.query("SELECT * FROM taller_formulario WHERE clave = $1", [clave]);
+  return r.rows[0] || null;
+}
+
+/** La Orden de Trabajo en el formato CAAA-006-F, con sus partes reemplazadas. */
+exports.imprimirOrden = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const o = await db.query(`${SELECT_OT} WHERE o.id_orden = $1`, [id]);
+  if (!o.rows.length) return res.status(404).json({ message: "Orden de trabajo no encontrada" });
+  const partes = await db.query(
+    "SELECT * FROM orden_trabajo_parte WHERE id_orden = $1 ORDER BY orden, id_parte", [id]
+  );
+  const pdf = generarOrdenTrabajoPDF({
+    orden: o.rows[0], partes: partes.rows, formulario: await formularioDe("ORDEN_TRABAJO"),
+  });
+  res.setHeader("Content-Type", "application/pdf");
+  // El correlativo lleva barra (CAAA/2026-0049) y no sirve como nombre de archivo.
+  res.setHeader("Content-Disposition", `inline; filename="${String(o.rows[0].correlativo).replace(/\//g, "-")}.pdf"`);
+  pdf.pipe(res);
+});
+
+/** El Reporte de Inspección, la entrega del avión al taller. */
+exports.imprimirReporte = catchAsync(async (req, res) => {
+  const { id } = req.params;
+  const r = await db.query(
+    `SELECT ri.*, a.codigo AS aeronave_codigo,
+            COALESCE(TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')), ri.piloto_nombre) AS piloto
+       FROM reporte_inspeccion ri
+       JOIN aeronave a ON a.id_aeronave = ri.id_aeronave
+       LEFT JOIN usuario u ON u.id_usuario = ri.id_piloto
+      WHERE ri.id_reporte = $1`, [id]
+  );
+  if (!r.rows.length) return res.status(404).json({ message: "Reporte no encontrado" });
+  const pdf = generarReporteInspeccionPDF({
+    reporte: r.rows[0], formulario: await formularioDe("REPORTE_INSPECCION"),
+  });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename="${r.rows[0].correlativo}.pdf"`);
+  pdf.pipe(res);
 });

@@ -251,4 +251,137 @@ function generarEntregaAceitesPDF({ hojas, desde, hasta, formulario }) {
   return doc;
 }
 
-module.exports = { generarRequisicionPDF, generarSolicitudPDF, generarEntregaAceitesPDF };
+
+// ── 4 · ORDEN DE TRABAJO (CAAA-006-F) ──────────────────────────────────────
+//
+// Es el documento que certifica el trabajo y que sí audita la AAC. Su cabecera
+// no se parece a la de los formatos de bodega: lleva el código del
+// procedimiento a la izquierda y el número de orden en un recuadro aparte.
+function generarOrdenTrabajoPDF({ orden: o, partes = [], formulario }) {
+  const doc = new PDFDocument({ size: "LETTER", margin: 45 });
+  const W = doc.page.width - 90;
+
+  if (fs.existsSync(LOGO)) {
+    try { doc.image(LOGO, 45, 40, { height: 38 }); } catch { /* sigue sin logo */ }
+  }
+  // Bloque central: CAAA / OMA + el código del procedimiento.
+  doc.font("Helvetica-Bold").fontSize(14).fillColor("#000")
+    .text("CAAA / OMA", 140, 46, { width: W - 260, align: "center" })
+    .fontSize(12)
+    .text(txt(formulario?.procedimiento) || "CO-OMA-CAAA-014", 140, 68, { width: W - 260, align: "center" });
+
+  // Recuadro del número de orden, a la derecha, como en el papel.
+  const xN = 45 + W - 190;
+  doc.strokeColor("#333").lineWidth(0.7).rect(xN, 38, 190, 56).stroke();
+  doc.font("Helvetica-Bold").fontSize(10).fillColor("#B03030")
+    .text("ORDEN DE", xN, 44, { width: 190, align: "center" })
+    .text("TRABAJO N°", xN, 57, { width: 190, align: "center" });
+  doc.font("Helvetica-Bold").fontSize(11).fillColor("#000")
+    .text(txt(o.correlativo), xN, 74, { width: 190, align: "center" });
+
+  let y = 100;
+
+  // Cabecera de 5 campos, en una fila como el original.
+  const anchos = [W * 0.16, W * 0.18, W * 0.18, W * 0.22, W * 0.26];
+  const datos = [
+    ["Matrícula:", o.aeronave_codigo],
+    ["Fecha:", fecha(o.fecha)],
+    ["Tacómetro", num(o.tacometro, 2)],
+    ["Tipo de aeronave", o.designacion || o.modelo],
+    ["Piloto/Operador/Mantto.", o.piloto_operador],
+  ];
+  let x = 45;
+  datos.forEach(([et, v], i) => { campo(doc, x, y, anchos[i], et, v, 34); x += anchos[i]; });
+  y += 46;
+
+  // Discrepancia
+  doc.font("Helvetica").fontSize(7.5).fillColor("#555")
+    .text("Discrepancia/ Falla / Trabajo a efectuar", 48, y);
+  doc.strokeColor("#333").lineWidth(0.7).rect(45, y - 4, W, 46).stroke();
+  doc.font("Helvetica-Bold").fontSize(10).fillColor("#000")
+    .text(txt(o.discrepancia), 50, y + 12, { width: W - 10, height: 26, ellipsis: true });
+  y += 52;
+
+  // Acción correctiva: el bloque grande, con la certificación al final.
+  const altoAccion = partes.length ? 250 : 300;
+  doc.font("Helvetica").fontSize(7.5).fillColor("#555").text("Acción Correctiva:", 48, y);
+  doc.strokeColor("#333").lineWidth(0.7).rect(45, y - 4, W, altoAccion).stroke();
+  doc.font("Helvetica").fontSize(9).fillColor("#000")
+    .text(txt(o.accion_correctiva), 50, y + 12, { width: W - 10, height: altoAccion - 20, align: "justify" });
+  y += altoAccion + 6;
+
+  // Bloque de firma: 4 celdas como el papel.
+  const fw = [W * 0.34, W * 0.22, W * 0.12, W * 0.32];
+  const firmas = [
+    ["Firma Mec. / Lic.", [o.mecanico_nombre, o.licencia_tma].filter(Boolean).join("  ")],
+    ["Fecha:", fecha(o.fecha_firma)],
+    ["R II", o.r_ii],
+    ["Certificado Aprendiz", [o.aprendiz_nombre, o.certificado_aprendiz].filter(Boolean).join("  ")],
+  ];
+  x = 45;
+  firmas.forEach(([et, v], i) => { campo(doc, x, y, fw[i], et, v, 34); x += fw[i]; });
+  y += 42;
+
+  // Parte Reemplazada
+  doc.font("Helvetica").fontSize(8).fillColor("#555").text("Parte Reemplazada", 48, y);
+  y += 12;
+  tabla(doc, 45, y, [
+    { titulo: "Cantidad", ancho: W * 0.11, align: "right", valor: (p) => num(p.cantidad) },
+    { titulo: "P/N ON", ancho: W * 0.18, valor: (p) => p.pn_on },
+    { titulo: "S/N ON", ancho: W * 0.16, valor: (p) => p.sn_on },
+    { titulo: "Nombre", ancho: W * 0.21, valor: (p) => p.nombre },
+    { titulo: "P/N OFF", ancho: W * 0.18, valor: (p) => p.pn_off },
+    { titulo: "S/N OFF", ancho: W * 0.16, valor: (p) => p.sn_off },
+  ], partes, { minFilas: Math.max(partes.length + 1, 5), altoFila: 16 });
+
+  pieFormulario(doc, formulario);
+  doc.end();
+  return doc;
+}
+
+// ── 5 · REPORTE DE INSPECCION ──────────────────────────────────────────────
+//
+// La entrega del avión de Operaciones al Taller: lo firma un piloto y es el
+// disparador de todo el circuito.
+function generarReporteInspeccionPDF({ reporte: r, formulario }) {
+  const doc = new PDFDocument({ size: "LETTER", margin: 45 });
+  const W = doc.page.width - 90;
+  let y = encabezado(doc, "REPORTE DE INSPECCIÓN");
+
+  doc.font("Helvetica-Bold").fontSize(11).fillColor("#000")
+    .text(`N° ${txt(r.correlativo)}`, 45, y, { width: W, align: "center" });
+  y += 22;
+
+  campo(doc, 45, y, W * 0.40, "Avión matrícula", r.aeronave_codigo);
+  campo(doc, 45 + W * 0.40, y, W * 0.30, "Tacómetro", num(r.tacometro, 2));
+  campo(doc, 45 + W * 0.70, y, W * 0.30, "Fecha", fecha(r.fecha));
+  y += 30;
+  campo(doc, 45, y, W * 0.62, "Reporte por (piloto)", r.piloto || r.piloto_nombre);
+  campo(doc, 45 + W * 0.62, y, W * 0.38, "Tipo de inspección", r.tipo_inspeccion);
+  y += 42;
+
+  for (const [titulo, valor, alto] of [
+    ["OBSERVACIONES", r.observaciones, 150],
+    ["TRABAJO REALIZADO", r.trabajo_realizado, 210],
+  ]) {
+    doc.font("Helvetica-Bold").fontSize(9).fillColor(AZUL)
+      .text(titulo, 45, y, { width: W, align: "center" });
+    y += 14;
+    doc.strokeColor("#333").lineWidth(0.7).rect(45, y, W, alto).stroke();
+    doc.font("Helvetica").fontSize(9).fillColor("#000")
+      .text(txt(valor), 50, y + 6, { width: W - 10, height: alto - 12, align: "justify" });
+    y += alto + 18;
+  }
+
+  const yf = doc.page.height - 110;
+  firma(doc, 60, yf, 190, "OPERACIONES CAAA");
+  firma(doc, doc.page.width - 250, yf, 190, "MECÁNICO");
+  pieFormulario(doc, formulario);
+  doc.end();
+  return doc;
+}
+
+module.exports = {
+  generarRequisicionPDF, generarSolicitudPDF, generarEntregaAceitesPDF,
+  generarOrdenTrabajoPDF, generarReporteInspeccionPDF,
+};
