@@ -20,12 +20,15 @@ import "./ordenes/taller-tecnico.css";
  * los vuelve a preguntar. Eso es lo que hoy obliga a escribir el tacómetro tres
  * veces en tres papeles distintos.
  */
-/** "3 h 20 min" — desde que se tomó el trabajo hasta que se firmó. */
-const duracion = (min) => {
-  if (min == null) return "—";
-  const h = Math.floor(min / 60), m = min % 60;
-  if (min < 60) return `${m} min`;
-  return h >= 24 ? `${Math.floor(h / 24)} d ${h % 24} h` : `${h} h ${m} min`;
+/** "2:14:07" — el contador corre a la vista, como un cronómetro. */
+const reloj = (seg) => {
+  if (seg == null) return "—";
+  const s = Math.max(0, Math.floor(seg));
+  const d = Math.floor(s / 86400);
+  const hh = String(Math.floor((s % 86400) / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return d > 0 ? `${d} d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
 };
 
 // Quién soy: es lo que distingue "asignado a vos" de un avión que tomó otro.
@@ -43,6 +46,13 @@ export default function MiTaller() {
   const [activa, setActiva] = useState(null);   // el trabajo en curso elegido
   const [accion, setAccion] = useState(null);   // 'abrir' | 'material' | 'aceite' | 'firmar'
   const [aceites, setAceites] = useState([]);
+  // Tic de un segundo: el contador tiene que verse correr, no ser un número
+  // congelado que cambia cuando uno recarga.
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -82,6 +92,13 @@ export default function MiTaller() {
     });
   };
 
+  // El mantenimiento del avión en el que se está trabajando: es lo que permite
+  // prolongar la fecha desde la misma tarjeta.
+  const mantDeActiva = activa
+    ? cola.find((m) => m.trabajos.some((t) => t.id_orden === activa.id_orden)) ||
+      cola.find((m) => m.aeronave_codigo === activa.aeronave_codigo)
+    : null;
+
   const conTrabajo = (fn) => () => {
     if (!activa) return toast.error("Elegí primero en qué trabajo estás, o abrí uno nuevo");
     fn();
@@ -101,12 +118,18 @@ export default function MiTaller() {
             {activa.tacometro ? ` · TAC ${Number(activa.tacometro).toFixed(2)}` : ""}
           </div>
           <div className="tec-activo__disc">{activa.discrepancia}</div>
-          {activa.minutos_trabajo != null && (
-            <div className="tec-activo__tiempo">
-              <i className="bi bi-clock"></i> {duracion(activa.minutos_trabajo)}
-              {activa.estado === "FIRMADA" ? " trabajadas" : " desde que lo tomaste"}
-            </div>
-          )}
+          {/* El cronómetro, corriendo. */}
+          <div className="tec-reloj">
+            <span className="tec-reloj__num">
+              {reloj(activa.estado === "FIRMADA"
+                ? (activa.minutos_trabajo ?? 0) * 60
+                : (ahora - new Date(activa.creado_en).getTime()) / 1000)}
+            </span>
+            <span className="tec-reloj__et">
+              {activa.estado === "FIRMADA" ? "trabajadas" : "desde que lo tomaste"}
+            </span>
+          </div>
+
           {activa.estado === "FIRMADA" && (
             <div className="tec-activo__aviso">Esperando la revisión del jefe de taller.</div>
           )}
@@ -115,6 +138,44 @@ export default function MiTaller() {
               El jefe la devolvió: {activa.nota_revision}
             </div>
           )}
+
+          {/* Todo lo que se hace SOBRE este trabajo vive acá adentro: si está
+              atado a la orden, no puede estar suelto en la pantalla. */}
+          <div className="tec-acciones">
+            <button className="tec-btn tec-btn--claro" onClick={() => setAccion("material")}>
+              <i className="bi bi-clipboard-plus"></i>
+              <span>Pedir material</span>
+              <small>para {activa.aeronave_codigo}</small>
+            </button>
+
+            {mantDeActiva && (
+              <button className="tec-btn tec-btn--claro" onClick={() => setEstimando(mantDeActiva)}>
+                <i className="bi bi-calendar-event"></i>
+                <span>¿Cuándo está listo?</span>
+                <small>
+                  {mantDeActiva.fecha_fin
+                    ? `hoy dice ${String(mantDeActiva.fecha_fin).slice(0, 10)}`
+                    : "sin fecha todavía"}
+                </small>
+              </button>
+            )}
+
+            <button className="tec-btn tec-btn--cerrar" disabled={activa.estado === "FIRMADA"}
+              onClick={() => setAccion("firmar")}>
+              <i className="bi bi-pen"></i>
+              <span>Terminé — mandar a revisión</span>
+              <small>
+                {activa.estado === "FIRMADA" ? "ya la mandaste; espera al jefe" : "firmás y la revisa el jefe"}
+              </small>
+            </button>
+          </div>
+
+          {activa.documentos > 0 && (
+            <div className="tec-activo__aviso">
+              Este trabajo ya tiene {activa.documentos} documento(s) de bodega.
+            </div>
+          )}
+
           {ordenes.length > 1 && (
             <button className="tec-cambiar" onClick={() => setActiva(null)}>Cambiar de trabajo</button>
           )}
@@ -182,16 +243,11 @@ export default function MiTaller() {
         </div>
       )}
 
+      {/* Acá abajo SOLO lo que no depende de un trabajo abierto. */}
       <div className="tec-botones">
         <button className="tec-btn tec-btn--principal" onClick={() => { setDesdeCola(null); setAccion("abrir"); }}>
           <i className="bi bi-play-circle"></i>
           <span>Iniciar un mantenimiento</span>
-        </button>
-
-        <button className="tec-btn" disabled={!activa} onClick={conTrabajo(() => setAccion("material"))}>
-          <i className="bi bi-clipboard-plus"></i>
-          <span>Pedir material</span>
-          <small>{activa ? `para ${activa.aeronave_codigo}` : "elegí un trabajo primero"}</small>
         </button>
 
         <button className="tec-btn" onClick={() => setAccion("aceite")}>
@@ -199,24 +255,9 @@ export default function MiTaller() {
           <span>Sacar aceite</span>
           <small>sin orden de trabajo</small>
         </button>
-
-        <button className="tec-btn tec-btn--cerrar" disabled={!activa || activa.estado === "FIRMADA"}
-          onClick={conTrabajo(() => setAccion("firmar"))}>
-          <i className="bi bi-pen"></i>
-          <span>Terminé — mandar a revisión</span>
-          <small>
-            {!activa ? "elegí un trabajo primero"
-              : activa.estado === "FIRMADA" ? "ya la mandaste; espera al jefe"
-              : `firmás ${activa.correlativo} y la revisa el jefe`}
-          </small>
-        </button>
       </div>
 
-      {activa && activa.documentos > 0 && (
-        <p className="inv-ayuda" style={{ marginTop: "var(--sp-3)" }}>
-          Este trabajo ya tiene <strong>{activa.documentos}</strong> documento(s) de bodega.
-        </p>
-      )}
+
 
       {accion === "abrir" && (
         <AbrirTrabajoModal

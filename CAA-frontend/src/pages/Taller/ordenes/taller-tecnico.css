@@ -169,3 +169,44 @@
   align-items: center;
   gap: 6px;
 }
+
+/* El cronómetro: se ve correr, no es un número congelado. */
+.tec-reloj {
+  margin-top: 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.tec-reloj__num {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+.tec-reloj__et { font-size: 0.8rem; opacity: 0.85; }
+
+/* Las acciones del trabajo, DENTRO de su tarjeta: si dependen de la orden, no
+   pueden estar sueltas en la pantalla. */
+.tec-acciones {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: var(--sp-4);
+}
+.tec-btn--claro {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+}
+.tec-btn--claro i, .tec-btn--claro small { color: #fff; opacity: 0.9; }
+.tec-acciones .tec-btn--cerrar {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--c-accent-500);
+}
+.tec-acciones .tec-btn--cerrar span { color: var(--c-ink-1); }
+.tec-acciones .tec-btn--cerrar small { color: var(--c-ink-3); }
+
+@media (min-width: 700px) {
+  .tec-acciones { grid-template-columns: repeat(3, 1fr); }
+}

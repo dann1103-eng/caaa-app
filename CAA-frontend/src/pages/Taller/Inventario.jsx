@@ -16,6 +16,12 @@ import "./inventario/inventario.css";
 // Las secciones hablan el idioma del almacén (entra / sale), no el del papel.
 // "Entradas" y "Salidas" son además los nombres de las dos hojas del Excel que
 // esta pantalla reemplaza, así que ya es vocabulario de ellos.
+// El mecánico ve SOLO las existencias: cuánto hay. El movimiento de entradas y
+// salidas, los precios y los costos pendientes son de bodega y de Contabilidad.
+const esMecanico = () => {
+  try { return JSON.parse(localStorage.getItem("user") || "{}")?.rol === "TECNICO"; } catch { return false; }
+};
+
 const TABS = [
   { key: "existencias", label: "Existencias", icon: "bi-boxes" },
   { key: "entradas", label: "Entradas", icon: "bi-box-arrow-in-down" },
@@ -27,7 +33,10 @@ const TABS = [
 
 export default function Inventario() {
   const [params, setParams] = useSearchParams();
-  const tab = TABS.some((t) => t.key === params.get("tab")) ? params.get("tab") : "existencias";
+  const soloExistencias = esMecanico();
+  const tabs = soloExistencias ? TABS.filter((t) => t.key === "existencias") : TABS;
+  const pedida = params.get("tab");
+  const tab = tabs.some((t) => t.key === pedida) ? pedida : "existencias";
   const [refresco] = useState(0);
 
   const irA = (key) => setParams(key === "existencias" ? {} : { tab: key });
@@ -38,7 +47,9 @@ export default function Inventario() {
         <div>
           <h2 className="adf-section-title"><i className="bi bi-box-seam me-2"></i>Inventario · Bodega OMA</h2>
           <p className="adf-section-subtitle">
-            Qué hay, qué entró, qué salió y el kardex de cada ítem.
+            {soloExistencias
+              ? "Qué hay en bodega y dónde está cada cosa."
+              : "Qué hay, qué entró, qué salió y el kardex de cada ítem."}
           </p>
         </div>
         {/* Los botones de acción viven DENTRO de su sección, en verbo. Cuando
@@ -47,7 +58,7 @@ export default function Inventario() {
       </div>
 
       <nav className="inv-tabs">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             className={`inv-tab ${tab === t.key ? "inv-tab--activa" : ""}`}

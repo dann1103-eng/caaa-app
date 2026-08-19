@@ -22,6 +22,21 @@ const { generarEntregaAceitesPDF } = require("../../utils/pdfTaller");
 
 // Filtros: q · categoria · ubicacion · y los cuatro atajos que en el Excel no
 // existían (bajo mínimo, en negativo, sin movimiento, sin costo).
+/**
+ * El mecánico ve CANTIDADES, no plata.
+ *
+ * Regla de Daniel: del inventario le interesa saber si hay o no hay, no cuánto
+ * cuesta. Los precios son dato de bodega y de Contabilidad. Se recorta en el
+ * servidor y no escondiendo columnas en la pantalla, porque esconder en el
+ * front deja el dato viajando igual en la respuesta.
+ */
+const sinPrecios = (user) => user?.rol === "TECNICO";
+
+const recortarPrecios = (fila) => ({
+  ...fila,
+  costo_unitario: null, importe: null, costo_final: null, valor: null,
+});
+
 exports.listItems = catchAsync(async (req, res) => {
   const {
     q, categoria, ubicacion,
@@ -79,6 +94,17 @@ exports.listItems = catchAsync(async (req, res) => {
   totales.valor = Math.round(totales.valor * 100) / 100;
   totales.valor_negativo = Math.round(totales.valor_negativo * 100) / 100;
 
+  if (sinPrecios(req.user)) {
+    return res.json({
+      items: r.rows.map(recortarPrecios),
+      // Los contadores de cantidad sí le sirven (qué falta, qué está en rojo);
+      // los de plata no se mandan.
+      totales: {
+        items: totales.items, negativos: totales.negativos,
+        bajo_minimo: totales.bajo_minimo, valor: null, valor_negativo: null, sin_costo: null,
+      },
+    });
+  }
   res.json({ items: r.rows, totales });
 });
 
@@ -216,6 +242,13 @@ exports.kardex = catchAsync(async (req, res) => {
   if (!item.rows.length) return res.status(404).json({ message: "Ítem no encontrado" });
 
   const k = await kardexDeItem(db, id, { desde, hasta, verAnulados: incluir_anulados === "true" });
+  if (sinPrecios(req.user)) {
+    return res.json({
+      item: recortarPrecios(item.rows[0]),
+      ...k,
+      movimientos: (k.movimientos || []).map(recortarPrecios),
+    });
+  }
   res.json({ item: item.rows[0], ...k });
 });
 

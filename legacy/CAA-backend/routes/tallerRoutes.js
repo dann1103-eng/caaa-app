@@ -31,6 +31,16 @@ const READ_INV = ["TALLER", "TECNICO", "ADMIN", "ADMINISTRACION"];
 // Excel nunca tuvo. Por eso Administración sí escribe acá, y solo acá.
 const COSTEAR = ["TALLER", "ADMIN", "ADMINISTRACION"];
 
+// ── Lo que el MECÁNICO no debe tocar ni ver ───────────────────────────────
+//
+// Regla de Daniel (2026-08-19): el mecánico pide material y firma su trabajo,
+// pero **no se despacha a sí mismo** — entregar es de bodega, es el control que
+// hace que el papel tenga dos firmas. Y del inventario ve las EXISTENCIAS, no
+// el movimiento de entradas y salidas ni los precios.
+//
+// Sí puede registrar préstamos y sacar aceite: ahí también deja su firma.
+const BODEGA = ["TALLER", "ADMIN", "ADMINISTRACION"];
+
 // ── Dashboard ─────────────────────────────────────────────────────────────
 router.get("/dashboard", roleMiddleware(READ), dashboard.dashboard);
 
@@ -66,26 +76,27 @@ router.get("/inventario/catalogos", roleMiddleware(READ_INV), inventario.catalog
 
 // Documentos — requisición (borrador) → solicitud (descarga) → retorno (sobrantes)
 // Los movimientos (item + cantidad), que es lo que la bodega mira de un vistazo.
-router.get("/inventario/movimientos", roleMiddleware(READ_INV), documentos.listMovimientos);
-router.get("/inventario/documentos", roleMiddleware(READ_INV), documentos.listDocumentos);
+router.get("/inventario/movimientos", roleMiddleware(BODEGA), documentos.listMovimientos);
+router.get("/inventario/documentos", roleMiddleware(BODEGA), documentos.listDocumentos);
 router.post("/inventario/documentos", roleMiddleware(WRITE), documentos.crearDocumento);
-router.get("/inventario/documentos/:id", roleMiddleware(READ_INV), documentos.getDocumento);
+router.get("/inventario/documentos/:id", roleMiddleware(BODEGA), documentos.getDocumento);
 // Firmar la entrega: ACA ocurre la descarga, no al armar la solicitud.
-router.post("/inventario/documentos/:id/firmar", roleMiddleware(WRITE), documentos.firmarSolicitud);
+// Firmar la entrega es de BODEGA: el mecánico no se despacha a sí mismo.
+router.post("/inventario/documentos/:id/firmar", roleMiddleware(BODEGA), documentos.firmarSolicitud);
 router.post("/inventario/documentos/:id/anular", roleMiddleware(WRITE), documentos.anularDocumento);
 // La requisición es el único documento editable: es un borrador que no mueve
 // existencia. Al despacharse se congela.
 router.patch("/inventario/requisiciones/:id", roleMiddleware(WRITE), documentos.editarRequisicion);
-router.get("/inventario/documentos/:id/retornables", roleMiddleware(READ_INV), documentos.retornablesSolicitud);
+router.get("/inventario/documentos/:id/retornables", roleMiddleware(BODEGA), documentos.retornablesSolicitud);
 
 // Reportes que salen del kardex, sin tablas nuevas
 router.get("/inventario/entrega-aceites", roleMiddleware(READ_INV), inventario.entregaAceites);
 router.get("/inventario/entrega-aceites.pdf", roleMiddleware(READ_INV), inventario.imprimirEntregaAceites);
-router.get("/inventario/duplicados-parte", roleMiddleware(READ_INV), inventario.duplicadosPorParte);
+router.get("/inventario/duplicados-parte", roleMiddleware(BODEGA), inventario.duplicadosPorParte);
 
 // Impresión de los formatos en papel. El código y la revisión del formulario
 // son editables (la AAC puede publicar una Rev. nueva y eso no debe desplegarse).
-router.get("/inventario/documentos/:id/pdf", roleMiddleware(READ_INV), documentos.imprimirDocumento);
+router.get("/inventario/documentos/:id/pdf", roleMiddleware(BODEGA), documentos.imprimirDocumento);
 router.get("/inventario/formularios", roleMiddleware(READ_INV), documentos.listFormularios);
 router.patch("/inventario/formularios/:clave", roleMiddleware(WRITE), documentos.editarFormulario);
 

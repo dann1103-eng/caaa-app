@@ -21,6 +21,9 @@ const ATAJOS = [
 export default function Existencias() {
   const [items, setItems] = useState([]);
   const [totales, setTotales] = useState(null);
+  // El backend recorta los precios para el mecanico: si no vinieron, la tabla
+  // tampoco los pretende mostrar.
+  const conPrecios = totales?.valor != null;
   const [cat, setCat] = useState({ categorias: [], ubicaciones: [], unidades: [] });
   const [cargando, setCargando] = useState(true);
   const [f, setF] = useState({ q: "", categoria: "", ubicacion: "" });
@@ -57,15 +60,19 @@ export default function Existencias() {
       {totales && (
         <div className="inv-kpis">
           <Kpi label="Ítems" valor={fmt(totales.items, 0)} />
-          <Kpi
-            label="Valor del inventario"
-            valor={money(totales.valor)}
-            // El Excel metía los negativos dentro del total y el número mentía.
-            nota={totales.valor_negativo < 0 ? `${money(totales.valor_negativo)} en existencias negativas` : null}
-          />
+          {totales.valor != null && (
+            <Kpi
+              label="Valor del inventario"
+              valor={money(totales.valor)}
+              // El Excel metía los negativos dentro del total y el número mentía.
+              nota={totales.valor_negativo < 0 ? `${money(totales.valor_negativo)} en existencias negativas` : null}
+            />
+          )}
           <Kpi label="Bajo mínimo" valor={fmt(totales.bajo_minimo, 0)} alerta={totales.bajo_minimo > 0} />
           <Kpi label="En negativo" valor={fmt(totales.negativos, 0)} alerta={totales.negativos > 0} />
-          <Kpi label="Sin costo" valor={fmt(totales.sin_costo, 0)} alerta={totales.sin_costo > 0} />
+          {totales.sin_costo != null && (
+            <Kpi label="Sin costo" valor={fmt(totales.sin_costo, 0)} alerta={totales.sin_costo > 0} />
+          )}
         </div>
       )}
 
@@ -128,7 +135,8 @@ export default function Existencias() {
                   <th>Código</th><th>Descripción</th><th>N° parte</th><th>Ubic.</th>
                   <th>Clasificación</th>
                   <th className="amount">Existencia</th><th className="amount">Mín.</th>
-                  <th className="amount">Costo u.</th><th className="amount">Importe</th>
+                  {conPrecios && <th className="amount">Costo u.</th>}
+                  {conPrecios && <th className="amount">Importe</th>}
                   <th>Últ. mov.</th><th></th>
                 </tr>
               </thead>
@@ -152,8 +160,10 @@ export default function Existencias() {
                       {r.stock_bajo && !r.en_negativo && <span className="adf-tag red" style={{ marginLeft: 6 }}>Bajo</span>}
                     </td>
                     <td className="amount">{fmt(r.stock_minimo, 0)}</td>
-                    <td className="amount">{r.sin_costo ? <span style={{ color: "var(--c-ink-4)" }}>—</span> : money(r.costo_unitario)}</td>
-                    <td className="amount">{r.sin_costo ? "—" : money(r.importe)}</td>
+                    {conPrecios && (
+                      <td className="amount">{r.sin_costo ? <span style={{ color: "var(--c-ink-4)" }}>—</span> : money(r.costo_unitario)}</td>
+                    )}
+                    {conPrecios && <td className="amount">{r.sin_costo ? "—" : money(r.importe)}</td>}
                     <td>{r.ultimo_movimiento_en ? String(r.ultimo_movimiento_en).slice(0, 10) : <span style={{ color: "var(--c-ink-4)" }}>sin movimiento</span>}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <button className="adf-icon-btn" title="Editar ficha" onClick={() => setEditar(r)}>
