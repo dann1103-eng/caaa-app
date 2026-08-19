@@ -85,6 +85,21 @@ function firma(doc, x, y, ancho, etiqueta) {
  * Dibuja `minFilas` aunque haya menos datos, para que el papel se pueda
  * completar a mano como el original.
  */
+/**
+ * Pega la firma dibujada (data URL PNG del canvas) dentro de una celda.
+ *
+ * Best-effort a propósito: si el data URL viniera corrupto, el papel sale igual
+ * con el nombre y la licencia. Un PDF que no se genera es peor que uno sin el
+ * trazo.
+ */
+function dibujarFirma(doc, dataUrl, x, y, ancho, alto) {
+  if (!dataUrl || typeof dataUrl !== "string" || !dataUrl.startsWith("data:image")) return;
+  try {
+    const base64 = dataUrl.split(",")[1];
+    doc.image(Buffer.from(base64, "base64"), x, y, { fit: [ancho, alto], align: "center" });
+  } catch { /* el papel sale sin el trazo */ }
+}
+
 function tabla(doc, x, y, cols, filas, { minFilas = 0, altoFila = 18 } = {}) {
   const ancho = cols.reduce((s, c) => s + c.ancho, 0);
   doc.rect(x, y, ancho, altoFila).fillAndStroke("#EEF1F5", "#333");
@@ -319,8 +334,23 @@ function generarOrdenTrabajoPDF({ orden: o, partes = [], formulario }) {
     ["Certificado Aprendiz", [o.aprendiz_nombre, o.certificado_aprendiz].filter(Boolean).join("  ")],
   ];
   x = 45;
+  const xFirmaMec = x;
   firmas.forEach(([et, v], i) => { campo(doc, x, y, fw[i], et, v, 34); x += fw[i]; });
+
+  // La firma dibujada va DENTRO de su celda: es lo que hace que el papel salga
+  // impreso ya firmado y no haya que firmarlo a mano después.
+  dibujarFirma(doc, o.firma_mecanico, xFirmaMec + 4, y + 4, fw[0] - 8, 22);
   y += 42;
+
+  // La del jefe, cuando la orden ya fue revisada y aprobada.
+  if (o.firma_jefe || o.aprobador_nombre) {
+    const anchoJefe = W * 0.5;
+    campo(doc, 45, y, anchoJefe, "Revisado y aprobado — Jefe de taller",
+          [o.aprobador_nombre, o.aprobador_licencia].filter(Boolean).join("  "), 34);
+    campo(doc, 45 + anchoJefe, y, W - anchoJefe, "Fecha de aprobación", fecha(o.fecha_aprobacion), 34);
+    dibujarFirma(doc, o.firma_jefe, 49, y + 4, anchoJefe - 8, 22);
+    y += 42;
+  }
 
   // Parte Reemplazada
   doc.font("Helvetica").fontSize(8).fillColor("#555").text("Parte Reemplazada", 48, y);

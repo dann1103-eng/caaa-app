@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getItems } from "../../../services/tallerApi";
 
 /**
@@ -13,7 +14,11 @@ export default function ItemPicker({ valor, onElegir, autoFocus }) {
   const [ops, setOps] = useState([]);
   const [abierto, setAbierto] = useState(false);
   const [hl, setHl] = useState(0);
-  const [haciaArriba, setHaciaArriba] = useState(false);
+  // Posición de la lista en coordenadas de ventana. Va en un portal con
+  // `position: fixed` porque el desplegable vive dentro de modales y tablas con
+  // overflow, y ahí un `position: absolute` SIEMPRE termina recortado: abrirlo
+  // hacia arriba solo movía el problema de borde.
+  const [pos, setPos] = useState(null);
   const caja = useRef(null);
 
   useEffect(() => {
@@ -33,16 +38,27 @@ export default function ItemPicker({ valor, onElegir, autoFocus }) {
     return () => { vivo = false; clearTimeout(t); };
   }, [texto]);
 
-  // El desplegable es absoluto dentro de un modal con overflow: si no hay lugar
-  // abajo queda RECORTADO por el borde del modal y el técnico solo ve una franja
-  // de las opciones. Cuando no cabe, se abre hacia arriba.
+  // Sigue al input: al abrir, al hacer scroll y al cambiar el tamaño.
   useEffect(() => {
-    if (!abierto || !ops.length || !caja.current) return;
-    const r = caja.current.getBoundingClientRect();
-    // Se mide contra el contenedor que recorta (el modal), si existe.
-    const modal = caja.current.closest(".adf-modal-card");
-    const piso = modal ? modal.getBoundingClientRect().bottom : window.innerHeight;
-    setHaciaArriba(piso - r.bottom < 200 && r.top > 200);
+    if (!abierto || !ops.length) { setPos(null); return; }
+    const ubicar = () => {
+      const el = caja.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const abajo = window.innerHeight - r.bottom;
+      const alto = Math.min(280, Math.max(abajo, r.top) - 16);
+      // Si no cabe abajo, se despliega hacia arriba; el portal ya no lo recorta.
+      setPos(abajo >= alto + 8
+        ? { left: r.left, top: r.bottom + 2, width: r.width, maxHeight: alto }
+        : { left: r.left, top: Math.max(8, r.top - alto - 2), width: r.width, maxHeight: alto });
+    };
+    ubicar();
+    window.addEventListener("scroll", ubicar, true);
+    window.addEventListener("resize", ubicar);
+    return () => {
+      window.removeEventListener("scroll", ubicar, true);
+      window.removeEventListener("resize", ubicar);
+    };
   }, [abierto, ops.length]);
 
   const elegir = (it) => {
@@ -81,8 +97,13 @@ export default function ItemPicker({ valor, onElegir, autoFocus }) {
         onKeyDown={teclas}
         placeholder="Código, descripción o n° de parte…"
       />
-      {abierto && ops.length > 0 && (
-        <div className={`inv-picker__lista ${haciaArriba ? "inv-picker__lista--arriba" : ""}`}>
+      {abierto && ops.length > 0 && pos && createPortal(
+        <div
+          className="inv-picker__lista inv-picker__lista--flotante"
+          style={{ left: pos.left, top: pos.top, width: pos.width, maxHeight: pos.maxHeight }}
+          // El clic-afuera del contenedor no ve el portal: se frena acá.
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {ops.map((o, i) => (
             <div
               key={o.id_repuesto}
@@ -97,7 +118,8 @@ export default function ItemPicker({ valor, onElegir, autoFocus }) {
               <small>{Number(o.stock_actual).toFixed(0)} {o.unidad}</small>
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

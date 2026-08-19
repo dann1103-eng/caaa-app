@@ -158,3 +158,14 @@
   .tec-cola__item { flex-direction: column; align-items: stretch; }
   .tec-cola__acciones { justify-content: flex-end; }
 }
+
+/* Cuánto lleva el trabajo. Va en la tarjeta del trabajo en curso porque es el
+   dato que el técnico mira de reojo, no algo que tenga que ir a buscar. */
+.tec-activo__tiempo {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

@@ -59,7 +59,10 @@ const SELECT_OT = `
          ri.correlativo AS reporte_correlativo,
          (SELECT COUNT(*) FROM taller_documento_inventario d
            WHERE d.id_orden_trabajo = o.id_orden AND d.estado = 'VIGENTE')::int AS documentos,
-         (SELECT COUNT(*) FROM orden_trabajo_parte p WHERE p.id_orden = o.id_orden)::int AS partes
+         (SELECT COUNT(*) FROM orden_trabajo_parte p WHERE p.id_orden = o.id_orden)::int AS partes,
+         -- Cuánto llevó el trabajo: desde que el mecánico lo tomó hasta que lo
+         -- firmó. Se calcula al leer para que no haya un dato que mantener.
+         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, NOW()) - o.creado_en)) / 60)::int AS minutos_trabajo
     FROM orden_trabajo o
     JOIN aeronave a  ON a.id_aeronave = o.id_aeronave
     LEFT JOIN usuario me ON me.id_usuario = o.id_mecanico
@@ -255,7 +258,7 @@ exports.editarOrden = catchAsync(async (req, res) => {
  */
 exports.firmarOrden = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { accion_correctiva, id_aprendiz, r_ii, fecha_firma } = req.body;
+  const { accion_correctiva, id_aprendiz, r_ii, fecha_firma, firma_mecanico } = req.body;
 
   if (!txt(accion_correctiva)) {
     return res.status(400).json({ message: "Escribí la acción correctiva antes de firmar" });
@@ -296,13 +299,15 @@ exports.firmarOrden = catchAsync(async (req, res) => {
          id_mecanico       = $3,
          id_aprendiz       = $4,
          r_ii              = $5,
+         firma_mecanico    = COALESCE($7, firma_mecanico),
          fecha_firma       = COALESCE($6::date, CURRENT_DATE),
          firmado_en        = NOW(),
          -- Firmar ya NO cierra: la orden queda esperando la revisión del jefe.
          estado            = 'FIRMADA',
          nota_revision     = NULL
        WHERE id_orden = $1 RETURNING *`,
-      [id, texto, req.user.id_usuario, id_aprendiz || null, txt(r_ii), fecha_firma || null]
+      [id, texto, req.user.id_usuario, id_aprendiz || null, txt(r_ii), fecha_firma || null,
+       firma_mecanico || null]
     );
 
     await client.query("COMMIT");
@@ -429,7 +434,7 @@ exports.asignarOrden = catchAsync(async (req, res) => {
  */
 exports.aprobarOrden = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { fecha_aprobacion } = req.body;
+  const { fecha_aprobacion, firma_jefe, accion_correctiva } = req.body;
   const uid = req.user?.id_usuario || null;
 
   const client = await db.connect();
@@ -461,9 +466,13 @@ exports.aprobarOrden = catchAsync(async (req, res) => {
       `UPDATE orden_trabajo SET
          estado = 'APROBADA', id_aprobador = $2,
          fecha_aprobacion = COALESCE($3::date, CURRENT_DATE),
-         aprobado_en = NOW(), aprobacion_propia = $4
+         aprobado_en = NOW(), aprobacion_propia = $4,
+         firma_jefe = COALESCE($5, firma_jefe),
+         -- El jefe puede corregir la redacción antes de firmar: es el papel que
+         -- se imprime y queda archivado.
+         accion_correctiva = COALESCE($6, accion_correctiva)
        WHERE id_orden = $1 RETURNING *`,
-      [id, uid, fecha_aprobacion || null, propia]
+      [id, uid, fecha_aprobacion || null, propia, firma_jefe || null, txt(accion_correctiva)]
     );
 
     // ¿Quedó algo pendiente de este mantenimiento?

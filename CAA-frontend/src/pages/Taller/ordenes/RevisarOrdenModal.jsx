@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getOrden, aprobarOrden, devolverOrden } from "../../../services/tallerApi";
+import SignaturePad from "../../../components/SignaturePad/SignaturePad";
 import { fecha, hoy, META_TIPO } from "../inventario/formato";
 
 /**
@@ -17,15 +18,26 @@ export default function RevisarOrdenModal({ orden, onClose, onResuelta }) {
   const [nota, setNota] = useState("");
   const [devolviendo, setDevolviendo] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  // El jefe puede corregir la redacción antes de firmar: es el papel que se
+  // imprime y queda archivado.
+  const [texto, setTexto] = useState("");
+  const firmaRef = useRef(null);
 
   useEffect(() => {
-    getOrden(orden.id_orden).then(setD).catch(() => toast.error("No se pudo leer la orden"));
+    getOrden(orden.id_orden)
+      .then((r) => { setD(r); setTexto(r.orden.accion_correctiva || ""); })
+      .catch(() => toast.error("No se pudo leer la orden"));
   }, [orden.id_orden]);
 
   const aprobar = async () => {
+    if (firmaRef.current?.isEmpty()) return toast.error("Dibujá tu firma para aprobar");
     setGuardando(true);
     try {
-      const r = await aprobarOrden(orden.id_orden, { fecha_aprobacion: fechaAp });
+      const r = await aprobarOrden(orden.id_orden, {
+        fecha_aprobacion: fechaAp,
+        firma_jefe: firmaRef.current?.toDataURL(),
+        accion_correctiva: texto,
+      });
       toast.success(
         r.listo_para_devolver
           ? `${orden.correlativo} aprobada. ${r.listo_para_devolver} queda listo para devolver al servicio y ya se avisó a Operaciones.`
@@ -81,12 +93,18 @@ export default function RevisarOrdenModal({ orden, onClose, onResuelta }) {
                 <Dato label="Tacómetro" valor={o.tacometro != null ? Number(o.tacometro).toFixed(2) : "—"} />
                 <Dato label="Firmó" valor={`${o.mecanico_nombre || "—"}${o.licencia_tma ? ` · ${o.licencia_tma}` : ""}`} />
                 <Dato label="Fecha de firma" valor={fecha(o.fecha_firma)} />
+                <Dato label="Tiempo del trabajo" valor={duracion(o.minutos_trabajo)} />
                 {o.aprendiz_nombre && <Dato label="Aprendiz" valor={`${o.aprendiz_nombre} · ${o.certificado_aprendiz || ""}`} />}
                 {o.devoluciones > 0 && <Dato label="Devoluciones" valor={`${o.devoluciones} — ya se corrigió`} />}
               </div>
 
               <Bloque titulo="Trabajo a efectuar / falla">{o.discrepancia}</Bloque>
-              <Bloque titulo="Acción correctiva">{o.accion_correctiva}</Bloque>
+
+              {/* Editable: el jefe corrige la redacción antes de firmar. */}
+              <div className="adf-form-field" style={{ marginTop: 14 }}>
+                <label>Acción correctiva — podés corregirla antes de firmar</label>
+                <textarea rows={5} value={texto} onChange={(e) => setTexto(e.target.value)} />
+              </div>
 
               {d.reporte && (
                 <p className="adf-note" style={{ marginTop: 12 }}>
@@ -140,6 +158,22 @@ export default function RevisarOrdenModal({ orden, onClose, onResuelta }) {
                 </>
               )}
 
+              {!devolviendo && (
+                <div className="adf-form-grid" style={{ marginTop: 14 }}>
+                  <div className="adf-form-field">
+                    <label>Firma del mecánico</label>
+                    {o.firma_mecanico
+                      ? <img src={o.firma_mecanico} alt="Firma del mecánico"
+                             style={{ maxWidth: 240, border: "1px solid var(--c-line-1)", borderRadius: 6, background: "#fff" }} />
+                      : <span style={{ color: "var(--c-ink-4)", fontSize: "0.85rem" }}>Firmó sin dibujar.</span>}
+                  </div>
+                  <div className="adf-form-field">
+                    <label>Tu firma</label>
+                    <SignaturePad ref={firmaRef} width={300} height={110} />
+                  </div>
+                </div>
+              )}
+
               {!devolviendo ? (
                 <div className="adf-form-grid" style={{ marginTop: 16 }}>
                   <div className="adf-form-field">
@@ -178,6 +212,14 @@ export default function RevisarOrdenModal({ orden, onClose, onResuelta }) {
     </div>
   );
 }
+
+/** "3 h 20 min" — desde que el mecánico tomó el trabajo hasta que lo firmó. */
+const duracion = (min) => {
+  if (min == null) return "—";
+  const h = Math.floor(min / 60), m = min % 60;
+  if (min < 60) return `${m} min`;
+  return h >= 24 ? `${Math.floor(h / 24)} d ${h % 24} h` : `${h} h ${m} min`;
+};
 
 const Dato = ({ label, valor }) => (
   <div className="adf-form-field">

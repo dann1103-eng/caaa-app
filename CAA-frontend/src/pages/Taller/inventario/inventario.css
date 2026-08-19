@@ -235,10 +235,12 @@
   .inv-kpi__valor { font-size: 1.15rem; }
 }
 
-/* Cuando no hay lugar abajo (el modal recorta), el desplegable se abre hacia
-   arriba. Sin esto el técnico solo alcanza a ver una franja de las opciones. */
-.inv-picker__lista--arriba {
-  top: auto;
-  bottom: 100%;
-  margin-bottom: 2px;
+/* La lista se dibuja en un portal sobre el body: ningún contenedor con overflow
+   puede recortarla, que era lo que dejaba ver solo una franja de las opciones. */
+.inv-picker__lista--flotante {
+  position: fixed;
+  z-index: 3000;
+  right: auto;
+  bottom: auto;
+  box-shadow: var(--shadow-lg);
 }

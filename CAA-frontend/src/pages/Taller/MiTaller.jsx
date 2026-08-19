@@ -20,6 +20,14 @@ import "./ordenes/taller-tecnico.css";
  * los vuelve a preguntar. Eso es lo que hoy obliga a escribir el tacómetro tres
  * veces en tres papeles distintos.
  */
+/** "3 h 20 min" — desde que se tomó el trabajo hasta que se firmó. */
+const duracion = (min) => {
+  if (min == null) return "—";
+  const h = Math.floor(min / 60), m = min % 60;
+  if (min < 60) return `${m} min`;
+  return h >= 24 ? `${Math.floor(h / 24)} d ${h % 24} h` : `${h} h ${m} min`;
+};
+
 // Quién soy: es lo que distingue "asignado a vos" de un avión que tomó otro.
 const miUid = () => {
   try { return JSON.parse(localStorage.getItem("user") || "{}")?.id_usuario || null; } catch { return null; }
@@ -62,6 +70,18 @@ export default function MiTaller() {
     );
   }, []);
 
+  // Antes esto solo hacía `setActiva(...)`. Si ese trabajo YA era el activo
+  // —el caso normal cuando hay uno solo— el valor no cambiaba y la pantalla se
+  // quedaba igual: el botón parecía roto. Ahora además sube la vista a la
+  // tarjeta del trabajo, que es lo que uno espera que pase.
+  const irAMiTrabajo = (mio) => {
+    const o = ordenes.find((x) => x.id_orden === mio.id_orden);
+    if (o) setActiva(o);
+    requestAnimationFrame(() => {
+      document.querySelector(".tec-activo")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const conTrabajo = (fn) => () => {
     if (!activa) return toast.error("Elegí primero en qué trabajo estás, o abrí uno nuevo");
     fn();
@@ -81,6 +101,12 @@ export default function MiTaller() {
             {activa.tacometro ? ` · TAC ${Number(activa.tacometro).toFixed(2)}` : ""}
           </div>
           <div className="tec-activo__disc">{activa.discrepancia}</div>
+          {activa.minutos_trabajo != null && (
+            <div className="tec-activo__tiempo">
+              <i className="bi bi-clock"></i> {duracion(activa.minutos_trabajo)}
+              {activa.estado === "FIRMADA" ? " trabajadas" : " desde que lo tomaste"}
+            </div>
+          )}
           {activa.estado === "FIRMADA" && (
             <div className="tec-activo__aviso">Esperando la revisión del jefe de taller.</div>
           )}
@@ -138,7 +164,7 @@ export default function MiTaller() {
                     </span>
                   )}
                   {mio ? (
-                    <button className="adf-btn small secondary" onClick={() => setActiva(ordenes.find((o) => o.id_orden === mio.id_orden) || null)}>
+                    <button className="adf-btn small secondary" onClick={() => irAMiTrabajo(mio)}>
                       Ir a mi trabajo
                     </button>
                   ) : (

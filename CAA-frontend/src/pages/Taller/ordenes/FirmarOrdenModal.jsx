@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { firmarOrden, getOrden, getPersonalTaller } from "../../../services/tallerApi";
+import SignaturePad from "../../../components/SignaturePad/SignaturePad";
 import { hoy } from "../inventario/formato";
 
 const CERTIFICACION = "Certifico que esta aeronave está en condición segura de vuelo.";
@@ -18,6 +19,7 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
   const [partes, setPartes] = useState([]);
   const [aprendices, setAprendices] = useState([]);
   const [guardando, setGuardando] = useState(false);
+  const firmaRef = useRef(null);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -35,9 +37,10 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
 
   const guardar = async () => {
     if (!f.accion_correctiva.trim()) return toast.error("Escribí qué se hizo antes de firmar");
+    if (firmaRef.current?.isEmpty()) return toast.error("Dibujá tu firma antes de mandarla a revisión");
     setGuardando(true);
     try {
-      const r = await firmarOrden(orden.id_orden, f);
+      const r = await firmarOrden(orden.id_orden, { ...f, firma_mecanico: firmaRef.current?.toDataURL() });
       toast.success(`${r.correlativo} firmada. Ahora la revisa el jefe de taller.`);
       onFirmada();
     } catch (e) {
@@ -101,6 +104,13 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
               </select>
             </div>
           )}
+
+          {/* La firma dibujada, igual que la vouchera del alumno: es la que se
+              imprime en la orden junto al número de licencia. */}
+          <div className="adf-form-field" style={{ marginTop: 12 }}>
+            <label>Tu firma</label>
+            <SignaturePad ref={firmaRef} width={340} height={120} />
+          </div>
 
           {partes.length > 0 && (
             <p className="adf-note" style={{ marginTop: 12 }}>
