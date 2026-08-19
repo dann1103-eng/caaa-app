@@ -46,7 +46,9 @@ export default function NotificationBell() {
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }} title="Notificaciones"
-        style={{ background: "none", border: "none", cursor: "pointer", position: "relative", fontSize: "1.2rem", padding: "4px 8px" }}>
+        // Un <button> NO hereda el color del padre: sin esto la campana salia oscura
+        // sobre la barra navy y no se veia.
+        style={{ background: "none", border: "none", cursor: "pointer", position: "relative", fontSize: "1.2rem", padding: "4px 8px", color: "inherit" }}>
         <i className="bi bi-bell"></i>
         {noLeidas > 0 && (
           <span style={{ position: "absolute", top: -2, right: 0, background: "var(--c-primary-500)", color: "var(--c-surface-0)", borderRadius: "var(--radius-pill)", fontSize: "var(--text-xs)", fontWeight: 700, padding: "1px 5px", lineHeight: 1.4, fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" }}>
