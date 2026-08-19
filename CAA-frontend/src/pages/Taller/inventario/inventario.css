@@ -12,29 +12,61 @@
 
 /* Sub-navegación, mismo patrón que Contabilidad. La pestaña activa se marca con
    el indicador rojo del acento de marca (≤10% de la pantalla, ver DESIGN.md). */
+/* Navegación de secciones.
+   Antes eran seis pestañas subrayadas, todas del mismo peso y del mismo color:
+   había que leer las seis para encontrar una. Ahora van en grupos con nombre
+   ("Movimientos", "Reportes") dentro de una pista redondeada, y la activa se
+   levanta como una tecla. Se ve dónde estás y por qué existe cada sección. */
+.inv-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-2) var(--sp-4);
+  margin: var(--sp-4) 0;
+}
+.inv-grupo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.inv-grupo__label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--c-ink-4);
+  padding-left: 4px;
+}
+/* La pista alinea el grupo sin nombre con los que sí lo tienen. */
+.inv-grupo:has(.inv-grupo__label) ~ .inv-grupo .inv-tabs { margin-top: 0; }
 .inv-tabs {
   display: flex;
-  gap: var(--sp-1);
-  border-bottom: 1px solid var(--c-line-1);
-  margin: var(--sp-4) 0 var(--sp-4);
+  gap: 2px;
+  padding: 3px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-pill);
   overflow-x: auto;
+  max-width: 100%;
 }
 .inv-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-pill);
   padding: var(--sp-2) var(--sp-3);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--c-ink-3);
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
 }
-.inv-tab:hover { color: var(--c-ink-1); }
-.inv-tab--activa {
-  color: var(--c-ink-1);
+.inv-tab:hover { color: var(--c-ink-1); background: var(--c-surface-1); }
+.inv-tab--activa,
+.inv-tab--activa:hover {
+  color: var(--c-surface-0);
   font-weight: 600;
-  border-bottom-color: var(--c-accent-500);
+  background: var(--c-brand-700);
+  box-shadow: var(--shadow-sm);
 }
+.inv-tab--activa i { color: var(--c-surface-0); }
 
 /* Botón grande de acción de cada sección.
    Va en verbo y ocupa el ancho en el teléfono: el taller trabaja de pie, con
@@ -88,9 +120,45 @@
   color: var(--c-ink-3);
   margin-bottom: 3px;
 }
+/* Los filtros venían sin estilo: eran el input y el select crudos del navegador,
+   cuadrados y de otra familia que el resto de la app. */
 .inv-filtros input,
-.inv-filtros select { min-width: 150px; }
+.inv-filtros select,
+.inv-campo {
+  min-width: 150px;
+  height: 38px;
+  padding: 0 var(--sp-3);
+  font-size: 0.9rem;
+  color: var(--c-ink-1);
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.inv-filtros input:hover,
+.inv-filtros select:hover,
+.inv-campo:hover { border-color: var(--c-line-3); }
+.inv-filtros input:focus,
+.inv-filtros select:focus,
+.inv-campo:focus {
+  outline: none;
+  border-color: var(--c-primary-500);
+  box-shadow: var(--shadow-focus);
+}
+.inv-filtros select,
+select.inv-campo { cursor: pointer; padding-right: var(--sp-2); }
+/* Los campos de una tabla son angostos y no llevan el mínimo de un filtro. */
+.inv-campo--tabla { min-width: 0; width: 110px; height: 34px; text-align: right; }
 .inv-filtros .inv-buscador { min-width: 260px; }
+/* La lupa adentro del campo: el buscador se distingue de los desplegables. */
+.inv-filtros .inv-buscador input {
+  width: 100%;
+  padding-left: 34px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%238a94a6'%3E%3Cpath d='M11.74 10.34a6 6 0 1 0-1.4 1.4l3.25 3.26a1 1 0 0 0 1.42-1.42zM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 11px center;
+  background-size: 15px;
+}
 
 /* Atajos: bajo mínimo / en negativo / sin movimiento / sin costo */
 .inv-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
@@ -227,8 +295,12 @@
   .inv-filtros select { min-width: 0; width: 100%; }
   .inv-filtros > div { flex: 1 1 46%; }
   /* Pestañas más grandes y deslizables con el dedo. */
-  .inv-tab { padding: var(--sp-3) var(--sp-3); font-size: 0.95rem; }
+  /* En el teléfono cada grupo ocupa su propia fila y su pista scrollea sola:
+     así no hay que arrastrar siete pestañas en una sola tira. */
+  .inv-tab { padding: var(--sp-3); font-size: 0.95rem; }
   .inv-tabs { -webkit-overflow-scrolling: touch; }
+  .inv-nav { gap: var(--sp-3); }
+  .inv-grupo { width: 100%; }
   .inv-accion { min-height: 60px; font-size: 1.08rem; }
   /* Los KPI de dos en dos en vez de apilados de a uno. */
   .inv-kpis { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }

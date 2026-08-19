@@ -6,6 +6,7 @@ import {
   getTareas, crearTarea, actualizarTarea, registrarCumplimiento, getHistorialAeronave,
   fijarHorasAeronave,
 } from "../../services/tallerApi";
+import "./inventario/inventario.css";
 
 const TIPO_COMP = [
   { v: "CELULA", t: "Célula" }, { v: "MOTOR", t: "Motor" },
@@ -92,7 +93,7 @@ export default function Aeronavegabilidad() {
 
       <div className="adf-card" style={{ marginBottom: "var(--sp-5)", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <label style={{ fontWeight: 600 }}>Aeronave:</label>
-        <select value={idAeronave} onChange={(e) => setIdAeronave(e.target.value)} style={{ minWidth: 240, padding: "8px 12px", borderRadius: 8, border: "1px solid var(--c-line-2)" }}>
+        <select className="inv-campo" value={idAeronave} onChange={(e) => setIdAeronave(e.target.value)} style={{ minWidth: 240 }}>
           {aeronaves.map((a) => (
             <option key={a.id_aeronave} value={a.id_aeronave}>{a.codigo} — {a.modelo}</option>
           ))}

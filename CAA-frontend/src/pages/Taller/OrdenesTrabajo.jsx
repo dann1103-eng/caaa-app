@@ -2,7 +2,6 @@ import { useSearchParams } from "react-router-dom";
 import PorRevisar from "./ordenes/PorRevisar";
 import ListaOrdenes from "./ordenes/ListaOrdenes";
 import FolderAvion from "./ordenes/FolderAvion";
-import Prestamos from "./ordenes/Prestamos";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
 
@@ -18,7 +17,8 @@ const TABS = [
   { key: "revisar", label: "Por revisar", icon: "bi-pen" },
   { key: "ordenes", label: "Órdenes de trabajo", icon: "bi-clipboard2-check" },
   { key: "avion", label: "Por avión", icon: "bi-airplane" },
-  { key: "prestamos", label: "Préstamos", icon: "bi-arrow-left-right" },
+  // Los préstamos se mudaron a Inventario: mueven la existencia, no el papeleo
+  // de una orden, y siguen abiertos aunque la orden ya se haya cerrado.
 ];
 
 export default function OrdenesTrabajo() {
@@ -47,7 +47,6 @@ export default function OrdenesTrabajo() {
       {tab === "revisar" && <PorRevisar />}
       {tab === "ordenes" && <ListaOrdenes />}
       {tab === "avion" && <FolderAvion />}
-      {tab === "prestamos" && <Prestamos />}
     </>
   );
 }

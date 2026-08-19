@@ -5,6 +5,7 @@ import Documentos from "./inventario/Documentos";
 import ConsumoAeronave from "./inventario/ConsumoAeronave";
 import CostosPendientes from "./inventario/CostosPendientes";
 import EntregaAceites from "./inventario/EntregaAceites";
+import Prestamos from "./ordenes/Prestamos";
 import "./inventario/inventario.css";
 
 /**
@@ -16,25 +17,38 @@ import "./inventario/inventario.css";
 // Las secciones hablan el idioma del almacén (entra / sale), no el del papel.
 // "Entradas" y "Salidas" son además los nombres de las dos hojas del Excel que
 // esta pantalla reemplaza, así que ya es vocabulario de ellos.
-// El mecánico ve SOLO las existencias: cuánto hay. El movimiento de entradas y
-// salidas, los precios y los costos pendientes son de bodega y de Contabilidad.
+// El mecánico ve cuánto hay y registra préstamos (ahí deja su firma, igual que
+// con el aceite). El movimiento de entradas y salidas, los precios y los costos
+// pendientes son de bodega y de Contabilidad.
 const esMecanico = () => {
   try { return JSON.parse(localStorage.getItem("user") || "{}")?.rol === "TECNICO"; } catch { return false; }
 };
+const DEL_MECANICO = ["existencias", "prestamos"];
 
+// Agrupadas por lo que uno viene a hacer, no por el nombre del papel: qué hay
+// en el estante, qué lo mueve, y qué se saca de ahí para mirar.
+// Los PRÉSTAMOS viven acá y no con las órdenes de trabajo: mueven la existencia
+// igual que una entrada o una salida, y así están junto a lo que uno compara.
 const TABS = [
-  { key: "existencias", label: "Existencias", icon: "bi-boxes" },
-  { key: "entradas", label: "Entradas", icon: "bi-box-arrow-in-down" },
-  { key: "salidas", label: "Salidas", icon: "bi-box-arrow-up" },
-  { key: "aceites", label: "Aceites", icon: "bi-droplet-half" },
-  { key: "consumo", label: "Consumo por avión", icon: "bi-airplane" },
-  { key: "costos", label: "Costos pendientes", icon: "bi-cash-coin" },
+  { key: "existencias", label: "Existencias", icon: "bi-boxes", grupo: "" },
+  { key: "entradas", label: "Entradas", icon: "bi-box-arrow-in-down", grupo: "Movimientos" },
+  { key: "salidas", label: "Salidas", icon: "bi-box-arrow-up", grupo: "Movimientos" },
+  { key: "aceites", label: "Aceites", icon: "bi-droplet-half", grupo: "Movimientos" },
+  { key: "prestamos", label: "Préstamos", icon: "bi-arrow-left-right", grupo: "Movimientos" },
+  { key: "consumo", label: "Consumo por avión", icon: "bi-airplane", grupo: "Reportes" },
+  { key: "costos", label: "Costos pendientes", icon: "bi-cash-coin", grupo: "Reportes" },
 ];
 
 export default function Inventario() {
   const [params, setParams] = useSearchParams();
   const soloExistencias = esMecanico();
-  const tabs = soloExistencias ? TABS.filter((t) => t.key === "existencias") : TABS;
+  const tabs = soloExistencias ? TABS.filter((t) => DEL_MECANICO.includes(t.key)) : TABS;
+  // Cada grupo conserva el orden de TABS; el que se queda sin pestañas no se dibuja.
+  const grupos = tabs.reduce((acc, t) => {
+    const g = acc.find((x) => x.nombre === t.grupo);
+    if (g) g.tabs.push(t); else acc.push({ nombre: t.grupo, tabs: [t] });
+    return acc;
+  }, []);
   const pedida = params.get("tab");
   const tab = tabs.some((t) => t.key === pedida) ? pedida : "existencias";
   const [refresco] = useState(0);
@@ -48,7 +62,7 @@ export default function Inventario() {
           <h2 className="adf-section-title"><i className="bi bi-box-seam me-2"></i>Inventario · Bodega OMA</h2>
           <p className="adf-section-subtitle">
             {soloExistencias
-              ? "Qué hay en bodega y dónde está cada cosa."
+              ? "Qué hay en bodega, dónde está cada cosa y los préstamos con otros talleres."
               : "Qué hay, qué entró, qué salió y el kardex de cada ítem."}
           </p>
         </div>
@@ -57,15 +71,22 @@ export default function Inventario() {
             (Entrada, Solicitud, Requisición, Ajuste), nadie los ubicaba. */}
       </div>
 
-      <nav className="inv-tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={`inv-tab ${tab === t.key ? "inv-tab--activa" : ""}`}
-            onClick={() => irA(t.key)}
-          >
-            <i className={`bi ${t.icon}`}></i> {t.label}
-          </button>
+      <nav className="inv-nav">
+        {grupos.map((g) => (
+          <div className="inv-grupo" key={g.nombre || "principal"}>
+            {g.nombre && <span className="inv-grupo__label">{g.nombre}</span>}
+            <div className="inv-tabs">
+              {g.tabs.map((t) => (
+                <button
+                  key={t.key}
+                  className={`inv-tab ${tab === t.key ? "inv-tab--activa" : ""}`}
+                  onClick={() => irA(t.key)}
+                >
+                  <i className={`bi ${t.icon}`}></i> {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
@@ -92,6 +113,7 @@ export default function Inventario() {
       )}
 
       {tab === "aceites" && <EntregaAceites key={`a${refresco}`} />}
+      {tab === "prestamos" && <Prestamos key={`pr${refresco}`} />}
       {tab === "consumo" && <ConsumoAeronave key={`c${refresco}`} />}
       {tab === "costos" && <CostosPendientes key={`p${refresco}`} />}
     </>

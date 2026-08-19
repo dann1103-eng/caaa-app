@@ -5,7 +5,7 @@
 /* El trabajo en curso: el contexto de todo lo demás. */
 .tec-activo {
   border: 2px solid var(--c-brand-500);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--c-surface-1);
   padding: var(--sp-4);
   margin-bottom: var(--sp-4);
@@ -80,7 +80,7 @@
   min-height: 92px;
   padding: var(--sp-4);
   border: 1px solid var(--c-line-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--c-surface-1);
   color: var(--c-ink-1);
   cursor: pointer;
@@ -101,9 +101,13 @@
 }
 .tec-btn--principal i { color: #fff; }
 
-/* Cerrar el trabajo es la acción irreversible: se marca con el acento. */
-.tec-btn--cerrar { border-color: var(--c-accent-500); }
-.tec-btn--cerrar i { color: var(--c-accent-500); }
+/* Jerarquía: UN solo botón relleno por pantalla, y es lo que toca hacer ahora.
+   Con un trabajo abierto ese botón es "Terminé"; sin trabajo abierto, "Iniciar
+   un mantenimiento". Antes el relleno era siempre "Iniciar", así que el técnico
+   con un trabajo a medias veía destacado justo lo que NO iba a hacer.
+   Las acciones de apoyo de la tarjeta van un escalón por debajo: sin sombra, para
+   que no compitan con el botón grande. */
+.tec-acciones .tec-btn:not(.tec-btn--principal) { box-shadow: none; }
 
 @media (min-width: 700px) {
   .tec-botones { grid-template-columns: repeat(2, 1fr); }
@@ -201,13 +205,16 @@
 }
 /* La tarjeta del trabajo es CLARA (--c-surface-1): los botones de adentro usan
    el mismo estilo que los de afuera. Estilarlos para un fondo oscuro imaginado
-   fue lo que los dejó en blanco sobre blanco. */
-.tec-acciones .tec-btn {
+   fue lo que los dejó en blanco sobre blanco.
+   El :not() NO es decorativo: esta regla pesa más que .tec-btn--principal, y sin
+   él le pisaba el fondo navy dejando el botón relleno otra vez blanco sobre
+   blanco. Cualquier variante rellena que se agregue acá hay que excluirla igual. */
+.tec-acciones .tec-btn:not(.tec-btn--principal) {
   background: var(--c-surface-0);
   border-color: var(--c-line-2);
   min-height: 84px;
 }
-.tec-acciones .tec-btn:hover:not(:disabled) { border-color: var(--c-brand-500); }
+.tec-acciones .tec-btn:hover:not(:disabled):not(.tec-btn--principal) { border-color: var(--c-brand-500); }
 
 @media (min-width: 700px) {
   .tec-acciones { grid-template-columns: repeat(3, 1fr); }

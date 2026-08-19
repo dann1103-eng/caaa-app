@@ -166,8 +166,11 @@ export default function MiTaller() {
               </button>
             )}
 
-            <button className="tec-btn tec-btn--cerrar" disabled={activa.estado === "FIRMADA"}
-              onClick={() => setAccion("firmar")}>
+            <button
+              className={`tec-btn ${activa.estado === "FIRMADA" ? "" : "tec-btn--principal"}`}
+              disabled={activa.estado === "FIRMADA"}
+              onClick={() => setAccion("firmar")}
+            >
               <i className="bi bi-pen"></i>
               <span>Terminé — mandar a revisión</span>
               <small>
@@ -251,7 +254,10 @@ export default function MiTaller() {
 
       {/* Acá abajo SOLO lo que no depende de un trabajo abierto. */}
       <div className="tec-botones">
-        <button className="tec-btn tec-btn--principal" onClick={() => { setDesdeCola(null); setAccion("abrir"); }}>
+        <button
+          className={`tec-btn ${activa ? "" : "tec-btn--principal"}`}
+          onClick={() => { setDesdeCola(null); setAccion("abrir"); }}
+        >
           <i className="bi bi-play-circle"></i>
           <span>Iniciar un mantenimiento</span>
         </button>

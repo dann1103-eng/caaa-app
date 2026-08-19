@@ -133,6 +133,7 @@ function FilaItem({ item, onGuardado }) {
       <td>
         <div style={{ display: "flex", gap: 6 }}>
           <input
+            className="inv-campo inv-campo--tabla"
             type="number" step="0.0001" min="0" value={v}
             onChange={(e) => setV(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") guardar(); }}
