@@ -150,9 +150,14 @@
   font-size: 0.85rem;
   padding: 6px 10px;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--c-brand-50);
+  color: var(--c-brand-700);
 }
-.tec-activo__aviso--alerta { background: rgba(220, 38, 38, 0.22); font-weight: 600; }
+.tec-activo__aviso--alerta {
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
+  font-weight: 600;
+}
 
 @media (max-width: 480px) {
   .tec-cola__item { flex-direction: column; align-items: stretch; }
@@ -194,18 +199,15 @@
   gap: 10px;
   margin-top: var(--sp-4);
 }
-.tec-btn--claro {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #fff;
+/* La tarjeta del trabajo es CLARA (--c-surface-1): los botones de adentro usan
+   el mismo estilo que los de afuera. Estilarlos para un fondo oscuro imaginado
+   fue lo que los dejó en blanco sobre blanco. */
+.tec-acciones .tec-btn {
+  background: var(--c-surface-0);
+  border-color: var(--c-line-2);
+  min-height: 84px;
 }
-.tec-btn--claro i, .tec-btn--claro small { color: #fff; opacity: 0.9; }
-.tec-acciones .tec-btn--cerrar {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: var(--c-accent-500);
-}
-.tec-acciones .tec-btn--cerrar span { color: var(--c-ink-1); }
-.tec-acciones .tec-btn--cerrar small { color: var(--c-ink-3); }
+.tec-acciones .tec-btn:hover:not(:disabled) { border-color: var(--c-brand-500); }
 
 @media (min-width: 700px) {
   .tec-acciones { grid-template-columns: repeat(3, 1fr); }

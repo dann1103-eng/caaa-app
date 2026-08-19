@@ -142,14 +142,14 @@ export default function MiTaller() {
           {/* Todo lo que se hace SOBRE este trabajo vive acá adentro: si está
               atado a la orden, no puede estar suelto en la pantalla. */}
           <div className="tec-acciones">
-            <button className="tec-btn tec-btn--claro" onClick={() => setAccion("material")}>
+            <button className="tec-btn" onClick={() => setAccion("material")}>
               <i className="bi bi-clipboard-plus"></i>
               <span>Pedir material</span>
               <small>para {activa.aeronave_codigo}</small>
             </button>
 
             {mantDeActiva && (
-              <button className="tec-btn tec-btn--claro" onClick={() => setEstimando(mantDeActiva)}>
+              <button className="tec-btn" onClick={() => setEstimando(mantDeActiva)}>
                 <i className="bi bi-calendar-event"></i>
                 <span>¿Cuándo está listo?</span>
                 <small>
