@@ -2389,3 +2389,65 @@ mecánico esperando al jefe — invitaba a abrir una orden duplicada. Ahora dice
 ### Fuera de alcance
 Que el Taller mande aviones a MANTO · que aprobar devuelva el avión al servicio solo · reprogramar los
 vuelos cancelados (se cancelan, no se mueven).
+
+---
+
+## 35. Sesión 2026-08-19 — Cronómetro del trabajo, firma de entrega de material, y navegación del inventario
+
+**Desplegado y verificado en producción** (`origin/master` = `4cd9eec`). Migración `20260819000001`.
+Sesión de pulido sobre el Taller mientras Daniel probaba el circuito en vivo.
+
+### A. El cronómetro arrancaba en 6 horas
+`orden_trabajo.creado_en` es `timestamp` **sin zona** y la conexión de la app fija
+`America/El_Salvador`; el navegador leía ese valor como UTC. Ahora la resta la hace la base
+(`segundos_trabajo` en `SELECT_OT`, compartido por lista/detalle/folder) y el navegador solo cuenta
+a partir de ese número, así que no importa la zona de nadie. **Cuarta aparición del mismo desfase**
+(§21.D, §31, §34) — la regla que sale de acá: *cualquier duración se resta en SQL, nunca en el cliente*.
+- ⚠️ El arreglo venía escrito de antes **y el backend no compilaba**: un comentario con backticks
+  dentro del template string cortaba la cadena. Se detectó porque la prueba medía comportamiento
+  viejo — había **otro backend escuchando en el 5099** desde antes. Al probar en local, confirmar
+  que el server que responde es el que acabás de levantar (`netstat` + leer su log de arranque).
+
+### B. La solicitud CAAA-004-F se firma a mano
+`taller_documento_inventario` += `firma_entrega`, `firma_recibe` (mig `20260819000001`).
+`firmarSolicitud` las guarda, `FirmarEntregaModal` dibuja los dos `SignaturePad` (el mismo componente
+de la vouchera del alumno) y `generarSolicitudPDF` los imprime sobre su línea ⇒ **el papel sale del
+sistema ya firmado**. La de quien entrega es obligatoria; la de quien recibe, opcional.
+- Verificado 12/12: el trazo queda guardado, el PDF **con** firmas lleva más imágenes que el mismo PDF
+  **sin** ellas (comparación con y sin — buscar `/Image` a secas da falso positivo por el logo), la
+  descarga respeta la cantidad que bodega ajustó, y el cronómetro arranca en cero.
+
+### C. Navegación del inventario y jerarquía visual
+- **Los PRÉSTAMOS se mudaron de "Trabajos del taller" a Inventario**: mueven la existencia igual que
+  una entrada o una salida, y un préstamo sigue abierto aunque la orden ya se haya cerrado. El
+  mecánico conserva el acceso (`DEL_MECANICO = ["existencias","prestamos"]`) porque ahí deja su firma.
+- Las 6 pestañas planas pasan a **3 grupos** — Existencias · Movimientos · Reportes — en pista
+  redondeada con la activa levantada (contraste medido **10.84:1** contra la pista). `.inv-tabs`/
+  `.inv-tab` **las comparte `OrdenesTrabajo.jsx`**, así que un solo cambio vale para las dos pantallas.
+- Los filtros eran **los controles crudos del navegador** (el CSS solo les ponía `min-width`). Una
+  regla compartida `.inv-filtros input/select, .inv-campo` con foco visible y lupa embebida, aplicada
+  también a los campos sueltos de Aeronavegabilidad y Costos pendientes.
+- **Mi taller — un solo botón relleno por pantalla, y es lo que toca hacer**: con trabajo abierto es
+  "Terminé"; sin trabajo, "Iniciar un mantenimiento". Antes el relleno era siempre "Iniciar", así que
+  el técnico a media faena veía destacado justo lo que NO iba a hacer.
+
+### 🚨 Blanco sobre blanco, tercera vez
+`.tec-acciones .tec-btn` (0,2,0) pesa más que `.tec-btn--principal` (0,1,0) ⇒ le pisaba el fondo navy
+y dejaba el botón relleno **invisible**. Va corregido con `:not(.tec-btn--principal)` y un comentario
+que explica que el `:not()` **no es decorativo**. Las tres veces (§ `--c-primary` inexistente,
+`.tec-btn--claro`, y esta) son la misma familia: **estilar contra un fondo supuesto**.
+- **Lo que se hace ahora en su lugar**: medir contraste real resolviendo `oklch()` con un canvas y
+  caminando hacia arriba hasta el primer ancestro opaco. Barrido sobre las **12 pantallas del módulo:
+  cero controles por debajo de 3:1**.
+
+### ⚠️ Medir con el panel del navegador oculto da datos viejos
+Pareció haber un bug grave de móvil (el contenido en 107 px, el sidebar sin replegarse). **Era falso:**
+con el panel oculto el renderer no rehace el layout al cambiar de tamaño, así que el estilo calculado
+del árbol existente queda del tamaño anterior. Se descubrió creando un `div` nuevo con la misma clase:
+ese **sí** computaba `translateX(-244px)`. **Para medir responsive hay que RECARGAR al tamaño nuevo**
+(`matchMedia` y `clientWidth` ya reportan bien y engañan). Medido en limpio a 375 px: sidebar
+replegado, cada grupo en su fila, sin desborde horizontal.
+
+### Pendiente que quedó preguntado
+Los radios suavizados se aplicaron **solo al módulo Taller**. Extenderlo a Administración y
+Operaciones es cambiar un token, pero toca toda la app — falta que Daniel decida.
