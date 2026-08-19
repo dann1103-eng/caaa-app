@@ -137,7 +137,12 @@ exports.getOrden = catchAsync(async (req, res) => {
 });
 
 /**
- * Abre un trabajo. Es el "Iniciar mantenimiento" del técnico: pide lo mínimo
+ * Abre un trabajo. Queda asignado a quien lo toma y, si lo indicó, con **quién
+ * lo está ayudando** (`id_aprendiz`): en el taller casi siempre son dos, un
+ * mecánico y un aprendiz, y el papel lleva a los dos. Se elige al arrancar y no
+ * recién al firmar, que es cuando ya nadie se acuerda.
+ *
+ * Es el "Iniciar mantenimiento" del técnico: pide lo mínimo
  * —avión, qué hay que hacer y el tacómetro— y a partir de ahí todo lo demás
  * hereda esos datos en vez de volver a pedirlos.
  */
@@ -145,6 +150,7 @@ exports.crearOrden = catchAsync(async (req, res) => {
   const {
     id_aeronave, fecha, tacometro, piloto_operador, discrepancia,
     id_reporte, id_cumplimiento, id_mantenimiento, id_mecanico_asignado,
+    id_aprendiz,
   } = req.body;
 
   if (!id_aeronave) return res.status(400).json({ message: "Elegí la aeronave" });
@@ -166,13 +172,13 @@ exports.crearOrden = catchAsync(async (req, res) => {
       `INSERT INTO orden_trabajo
          (anio, numero, correlativo, id_aeronave, fecha, tacometro, piloto_operador,
           discrepancia, id_reporte, id_cumplimiento, id_mantenimiento, creado_por,
-          id_mecanico_asignado, asignado_en)
+          id_mecanico_asignado, asignado_en, id_aprendiz)
        VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6::numeric, $7,$8,$9,$10,$11,$12,
-               $13, CASE WHEN $13::int IS NULL THEN NULL ELSE NOW() END)
+               $13, CASE WHEN $13::int IS NULL THEN NULL ELSE NOW() END, $14)
        RETURNING *`,
       [anio, numero, correlativo, id_aeronave, fecha || null, num(tacometro), txt(piloto_operador),
        txt(discrepancia), id_reporte || null, id_cumplimiento || null, id_mantenimiento || null,
-       req.user?.id_usuario || null, asignado]
+       req.user?.id_usuario || null, asignado, id_aprendiz || null]
     );
     await client.query("COMMIT");
     res.json(r.rows[0]);

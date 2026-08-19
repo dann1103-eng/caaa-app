@@ -120,8 +120,10 @@ router.post("/ordenes/:id/anular", roleMiddleware(JEFE), ot.anularOrden);
 
 // La cola: los aviones que Operaciones mando a mantenimiento y su trabajo.
 router.get("/cola", roleMiddleware(READ), ot.colaTrabajo);
-// Asignar: lo usa el jefe desde la cola y el mecanico cuando toma un avion.
-router.patch("/ordenes/:id/asignar", roleMiddleware(WRITE), ot.asignarOrden);
+// Reasignar es del JEFE. El mecanico se asigna solo al TOMAR el avion (eso pasa
+// dentro de crearOrden); una vez tomado, quien lo trabaja no se edita desde el
+// piso -- si ya lo inicio el, la pantalla lo muestra y punto.
+router.patch("/ordenes/:id/asignar", roleMiddleware(JEFE), ot.asignarOrden);
 // Revision del jefe: aprobar con su firma, o devolver al mecanico con la nota.
 router.post("/ordenes/:id/aprobar", roleMiddleware(JEFE), ot.aprobarOrden);
 router.post("/ordenes/:id/devolver", roleMiddleware(JEFE), ot.devolverOrden);

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   crearOrden, getAeronavesBodega, getSugerenciaInspeccion, crearReporteInspeccion,
+  getPersonalTaller,
 } from "../../../services/tallerApi";
 import { hoy } from "../inventario/formato";
 
@@ -19,6 +20,9 @@ import { hoy } from "../inventario/formato";
  */
 export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null }) {
   const [aeronaves, setAeronaves] = useState([]);
+  // En el taller casi nunca se trabaja solo: se elige al arrancar quién ayuda,
+  // no al firmar, que es cuando ya nadie se acuerda.
+  const [companeros, setCompaneros] = useState([]);
   const [sug, setSug] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [f, setF] = useState({
@@ -27,10 +31,19 @@ export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null 
     discrepancia: desdeCola?.descripcion || "",
     piloto_operador: "", con_reporte: false,
     tipo_inspeccion: desdeCola?.tipo || "",
+    id_aprendiz: "",
   });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
   useEffect(() => { getAeronavesBodega().then(setAeronaves).catch(() => {}); }, []);
+
+  // Todo el personal del taller menos uno mismo: el que ayuda puede ser el
+  // aprendiz o el otro mecánico.
+  useEffect(() => {
+    let yo = null;
+    try { yo = JSON.parse(localStorage.getItem("user") || "{}")?.id_usuario; } catch { /* */ }
+    getPersonalTaller().then((r) => setCompaneros(r.filter((x) => x.id_usuario !== yo))).catch(() => {});
+  }, []);
 
   // Al elegir el avión, el sistema propone tacómetro e inspección próxima.
   useEffect(() => {
@@ -72,6 +85,7 @@ export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null 
         tacometro: f.tacometro === "" ? null : Number(f.tacometro),
         piloto_operador: f.piloto_operador || null,
         discrepancia: f.discrepancia, id_reporte,
+        id_aprendiz: f.id_aprendiz ? Number(f.id_aprendiz) : null,
         // Enlaza al mantenimiento que Operaciones abrió: es lo que hace que el
         // avión salga de la cola y que al aprobar se les avise a ellos.
         id_mantenimiento: desdeCola?.id_mantenimiento || null,
@@ -137,6 +151,23 @@ export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null 
             <label>¿Qué hay que hacer? / ¿Cuál es la falla?</label>
             <textarea rows={3} value={f.discrepancia} onChange={(e) => set("discrepancia", e.target.value)} />
           </div>
+
+          {/* Quién acompaña. Va acá y no al firmar: en el taller casi siempre son
+              dos —un mecánico y un aprendiz— y los dos van en el papel. */}
+          {companeros.length > 0 && (
+            <div className="adf-form-field" style={{ marginTop: 12 }}>
+              <label>¿Quién te está ayudando? (opcional)</label>
+              <select value={f.id_aprendiz} onChange={(e) => set("id_aprendiz", e.target.value)}>
+                <option value="">Nadie, trabajo solo</option>
+                {companeros.map((c) => (
+                  <option key={c.id_usuario} value={c.id_usuario}>
+                    {c.nombre}
+                    {c.certificado_aprendiz ? ` · cert. ${c.certificado_aprendiz}` : c.licencia_tma ? ` · ${c.licencia_tma}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="adf-form-field" style={{ marginTop: 12 }}>
             <label>¿Quién entregó el avión?</label>

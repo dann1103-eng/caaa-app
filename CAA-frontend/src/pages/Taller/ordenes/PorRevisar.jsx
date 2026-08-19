@@ -12,7 +12,15 @@ import { fecha } from "../inventario/formato";
  * trabajo terminó el mecánico y le toca aprobar, y qué aviones tiene adentro con
  * quién en cada uno.
  */
+// Reasignar es del jefe. El mecánico ve quién trabaja cada avión, pero no lo
+// edita: si ya lo tomó él, la pantalla lo dice y no se toca.
+const esJefe = () => {
+  try { return ["TALLER", "ADMIN"].includes(JSON.parse(localStorage.getItem("user") || "{}")?.rol); }
+  catch { return false; }
+};
+
 export default function PorRevisar() {
+  const puedeAsignar = esJefe();
   const [ordenes, setOrdenes] = useState([]);
   const [cola, setCola] = useState([]);
   const [personal, setPersonal] = useState([]);
@@ -94,8 +102,10 @@ export default function PorRevisar() {
         <i className="bi bi-airplane-engines me-2"></i>Aviones en el taller
       </h3>
       <p className="inv-ayuda">
-        Los que Operaciones mandó a mantenimiento. Podés asignarle el trabajo a un mecánico
-        y mover la fecha en que lo tenés listo.
+        Los que Operaciones mandó a mantenimiento.
+        {puedeAsignar
+          ? " Podés asignarle el trabajo a un mecánico y mover la fecha en que lo tenés listo."
+          : " Podés mover la fecha en que lo tenés listo; reasignar quién lo trabaja es del jefe de taller."}
       </p>
 
       {!cargando && cola.length === 0 && (
@@ -140,7 +150,7 @@ export default function PorRevisar() {
                       <td>{t.discrepancia}</td>
                       <td><span className="adf-tag">{t.estado}</span></td>
                       <td>
-                        {t.estado === "ABIERTA" ? (
+                        {puedeAsignar && t.estado === "ABIERTA" ? (
                           <select value={t.id_mecanico_asignado || ""} onChange={(e) => asignar(t.id_orden, e.target.value)}>
                             <option value="">Sin asignar</option>
                             {personal.map((p) => (
@@ -148,7 +158,7 @@ export default function PorRevisar() {
                             ))}
                           </select>
                         ) : (
-                          t.asignado_nombre || "—"
+                          t.asignado_nombre || <span style={{ color: "var(--c-ink-4)" }}>sin asignar</span>
                         )}
                       </td>
                     </tr>

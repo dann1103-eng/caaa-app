@@ -26,13 +26,13 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
     getOrden(orden.id_orden)
       .then((d) => {
         if (d.orden.accion_correctiva) set("accion_correctiva", d.orden.accion_correctiva);
+        // Quien ayuda ya se eligió al arrancar: acá solo se confirma.
+        if (d.orden.id_aprendiz) set("id_aprendiz", String(d.orden.id_aprendiz));
         setPartes(d.partes || []);
       })
       .catch(() => {});
     // Solo quien tenga certificado puede ir en esa línea del papel.
-    getPersonalTaller()
-      .then((r) => setAprendices(r.filter((x) => x.certificado_aprendiz)))
-      .catch(() => {});
+    getPersonalTaller().then(setAprendices).catch(() => {});
   }, [orden.id_orden]);
 
   const guardar = async () => {
@@ -93,12 +93,12 @@ export default function FirmarOrdenModal({ orden, onClose, onFirmada }) {
 
           {aprendices.length > 0 && (
             <div className="adf-form-field" style={{ marginTop: 12 }}>
-              <label>Aprendiz que asistió (opcional)</label>
+              <label>Quién te ayudó (opcional)</label>
               <select value={f.id_aprendiz} onChange={(e) => set("id_aprendiz", e.target.value)}>
                 <option value="">Ninguno</option>
                 {aprendices.map((a) => (
                   <option key={a.id_usuario} value={a.id_usuario}>
-                    {a.nombre} · {a.certificado_aprendiz}
+                    {a.nombre}{a.certificado_aprendiz ? ` · cert. ${a.certificado_aprendiz}` : a.licencia_tma ? ` · ${a.licencia_tma}` : ""}
                   </option>
                 ))}
               </select>
