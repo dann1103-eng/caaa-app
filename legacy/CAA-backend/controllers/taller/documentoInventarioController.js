@@ -212,7 +212,7 @@ exports.getDocumento = catchAsync(async (req, res) => {
   if (!cab.rows.length) return res.status(404).json({ message: "Documento no encontrado" });
 
   const det = await db.query(
-    `SELECT m.*, r.codigo, r.descripcion, r.parte_no, r.unidad,
+    `SELECT m.*, r.codigo, r.descripcion, r.parte_no, r.unidad, r.stock_actual,
             ROUND(ABS(m.cantidad) * COALESCE(m.costo_unitario, 0), 2) AS importe
        FROM taller_movimiento_inventario m
        JOIN taller_repuesto r ON r.id_repuesto = m.id_repuesto
@@ -684,13 +684,16 @@ exports.crearDocumento = catchAsync(async (req, res) => {
  * Firmar la solicitud: **acá ocurre la descarga**.
  *
  * Es el momento en que el material sale de verdad de la bodega, así que es acá
- * —y no al armar el papel— donde se comprueba que haya existencia. Bodega puede
- * haber ajustado las cantidades antes de firmar: se entrega lo que hay, no lo
- * que se pidió.
+ * —y no al armar el papel— donde se comprueba que haya existencia.
+ *
+ * **Bodega ajusta las cantidades antes de firmar**: el técnico pide 4 bujías,
+ * hay 2, se entregan 2. Pasa seguido (dato de Daniel), así que la solicitud se
+ * corrige con lo que de verdad sale y la requisición queda como registro de lo
+ * que se había pedido. Un renglón en 0 se quita: ese ítem no se entregó.
  */
 exports.firmarSolicitud = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { entregado_por, entregado_a, forzar, motivo_forzado } = req.body;
+  const { entregado_por, entregado_a, forzar, motivo_forzado, lineas } = req.body;
 
   const client = await db.connect();
   try {
@@ -713,6 +716,28 @@ exports.firmarSolicitud = catchAsync(async (req, res) => {
       return res.status(409).json({ message: "Esa entrega ya está firmada; el material ya salió de bodega." });
     }
 
+    // Ajuste de bodega: se entrega lo que de verdad sale.
+    if (Array.isArray(lineas) && lineas.length) {
+      for (const l of lineas) {
+        const cant = Number(l.cantidad);
+        if (!Number.isFinite(cant) || cant < 0) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ message: "Las cantidades a entregar tienen que ser números positivos" });
+        }
+        if (cant === 0) {
+          await client.query(
+            "DELETE FROM taller_movimiento_inventario WHERE id_mov = $1 AND id_documento = $2",
+            [l.id_mov, id]
+          );
+        } else {
+          await client.query(
+            "UPDATE taller_movimiento_inventario SET cantidad = $3::numeric WHERE id_mov = $1 AND id_documento = $2",
+            [l.id_mov, id, -Math.abs(cant)]
+          );
+        }
+      }
+    }
+
     const mov = await client.query(
       `SELECT m.id_repuesto, ABS(m.cantidad) AS cantidad, r.codigo, r.descripcion, r.unidad
          FROM taller_movimiento_inventario m
@@ -721,7 +746,9 @@ exports.firmarSolicitud = catchAsync(async (req, res) => {
     );
     if (!mov.rows.length) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "La solicitud no tiene renglones que entregar" });
+      return res.status(400).json({
+        message: "No queda nada por entregar en esta solicitud. Si no se entrega ningún ítem, anulala en vez de firmarla.",
+      });
     }
 
     // La existencia se comprueba AHORA, que es cuando el material sale.

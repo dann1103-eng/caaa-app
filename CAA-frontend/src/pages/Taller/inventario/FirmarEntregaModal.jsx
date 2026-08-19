@@ -13,13 +13,20 @@ import { fecha, fmt } from "./formato";
 export default function FirmarEntregaModal({ solicitud, onClose, onFirmada }) {
   const [d, setD] = useState(null);
   const [f, setF] = useState({ entregado_por: "", entregado_a: "" });
+  // Lo que de verdad sale: arranca en lo pedido y bodega lo ajusta.
+  const [entrega, setEntrega] = useState({});
   const [faltantes, setFaltantes] = useState(null);
   const [motivo, setMotivo] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     getDocumento(solicitud.id_documento)
-      .then(setD)
+      .then((r) => {
+        setD(r);
+        const ini = {};
+        for (const l of r.renglones) ini[l.id_mov] = String(Math.abs(Number(l.cantidad)));
+        setEntrega(ini);
+      })
       .catch(() => toast.error("No se pudo leer la solicitud"));
   }, [solicitud.id_documento]);
 
@@ -29,6 +36,7 @@ export default function FirmarEntregaModal({ solicitud, onClose, onFirmada }) {
     try {
       await firmarSolicitud(solicitud.id_documento, {
         ...f, forzar, motivo_forzado: forzar ? motivo : null,
+        lineas: d.renglones.map((l) => ({ id_mov: l.id_mov, cantidad: Number(entrega[l.id_mov] || 0) })),
       });
       toast.success(`${solicitud.correlativo} entregada. El material salió de bodega.`);
       onFirmada();
@@ -73,16 +81,37 @@ export default function FirmarEntregaModal({ solicitud, onClose, onFirmada }) {
 
               <div className="adf-table-wrap">
                 <table className="adf-table">
-                  <thead><tr><th>Código</th><th>Descripción</th><th className="amount">Sale</th><th>Unidad</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Código</th><th>Descripción</th>
+                      <th className="amount">Pidió</th><th className="amount">Hay</th>
+                      <th className="amount" style={{ width: 110 }}>Entrego</th><th>Unidad</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {d.renglones.map((r) => (
-                      <tr key={r.id_mov}>
-                        <td className="inv-codigo">{r.codigo}</td>
-                        <td>{r.descripcion}</td>
-                        <td className="amount"><strong>{fmt(Math.abs(Number(r.cantidad)), 0)}</strong></td>
-                        <td>{r.unidad}</td>
-                      </tr>
-                    ))}
+                    {d.renglones.map((r) => {
+                      const pidio = Math.abs(Number(r.cantidad));
+                      const hay = Number(r.stock_actual ?? 0);
+                      const doy = Number(entrega[r.id_mov] || 0);
+                      return (
+                        <tr key={r.id_mov} className={doy === 0 ? "inv-anulado" : ""}>
+                          <td className="inv-codigo">{r.codigo}</td>
+                          <td>{r.descripcion}</td>
+                          <td className="amount">{fmt(pidio, 0)}</td>
+                          <td className="amount" style={{ color: hay < doy ? "var(--c-danger-500)" : "var(--c-ink-3)" }}>
+                            {fmt(hay, 0)}
+                          </td>
+                          <td>
+                            <input
+                              type="number" step="0.01" min="0"
+                              value={entrega[r.id_mov] ?? ""}
+                              onChange={(e) => setEntrega({ ...entrega, [r.id_mov]: e.target.value })}
+                            />
+                          </td>
+                          <td>{r.unidad}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -99,8 +128,10 @@ export default function FirmarEntregaModal({ solicitud, onClose, onFirmada }) {
               </div>
 
               <p className="adf-note" style={{ marginTop: 12 }}>
-                Al firmar, <strong>estas cantidades salen del estante</strong> y quedan en el kardex.
-                Hasta ahora no se descontó nada.
+                Entregá <strong>lo que de verdad sale</strong>: si pidió 4 y solo hay 2, poné 2.
+                Lo que dejes en <strong>0</strong> no se entrega y sale de la solicitud; la
+                requisición queda igual, como registro de lo que se había pedido.
+                Al firmar, estas cantidades salen del estante. Hasta ahora no se descontó nada.
               </p>
 
               {faltantes && (

@@ -116,6 +116,14 @@ export default function RevisarOrdenModal({ orden, onClose, onResuelta }) {
               <h4 style={{ fontSize: "0.9rem", margin: "var(--sp-4) 0 var(--sp-2)" }}>
                 Papeleo de bodega ({d.documentos.length})
               </h4>
+              {d.documentos.some((x) => x.tipo === "SALIDA" && !x.firmada_en && x.estado !== "ANULADO") && (
+                <p className="adf-note" style={{ borderLeft: "3px solid var(--c-warning-500)" }}>
+                  <i className="bi bi-exclamation-triangle me-1"></i>
+                  Hay material <strong>pedido y todavía no entregado</strong>. Podés aprobar igual
+                  —quizá al final no hizo falta— pero esa solicitud sigue esperando en bodega.
+                </p>
+              )}
+
               {d.documentos.length === 0 ? (
                 <p style={{ fontSize: "0.85rem", color: "var(--c-ink-4)" }}>No se pidió material para este trabajo.</p>
               ) : (
@@ -128,7 +136,14 @@ export default function RevisarOrdenModal({ orden, onClose, onResuelta }) {
                         return (
                           <tr key={x.id_documento} className={x.estado === "ANULADO" ? "inv-anulado" : ""}>
                             <td className="inv-codigo">{x.correlativo}</td>
-                            <td><span className={`adf-tag ${m.tag || ""}`}>{m.label || x.tipo}</span></td>
+                            <td>
+                              <span className={`adf-tag ${m.tag || ""}`}>{m.label || x.tipo}</span>
+                              {/* Que el jefe no apruebe sin darse cuenta de que el
+                                  material todavía está en bodega. */}
+                              {x.tipo === "SALIDA" && !x.firmada_en && x.estado !== "ANULADO" && (
+                                <span className="adf-tag amber" style={{ marginLeft: 6 }}>Sin entregar</span>
+                              )}
+                            </td>
                             <td>{fecha(x.fecha)}</td>
                             <td className="amount">{x.renglones}</td>
                           </tr>

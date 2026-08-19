@@ -116,6 +116,7 @@ exports.getOrden = catchAsync(async (req, res) => {
     db.query("SELECT * FROM orden_trabajo_parte WHERE id_orden = $1 ORDER BY orden, id_parte", [id]),
     db.query(
       `SELECT d.id_documento, d.tipo, d.correlativo, d.fecha, d.estado, d.motivo,
+              d.firmada_en,
               COUNT(m.id_mov)::int AS renglones
          FROM taller_documento_inventario d
          LEFT JOIN taller_movimiento_inventario m ON m.id_documento = d.id_documento
