@@ -46,13 +46,19 @@ export default function MiTaller() {
   const [activa, setActiva] = useState(null);   // el trabajo en curso elegido
   const [accion, setAccion] = useState(null);   // 'abrir' | 'material' | 'aceite' | 'firmar'
   const [aceites, setAceites] = useState([]);
-  // Tic de un segundo: el contador tiene que verse correr, no ser un número
-  // congelado que cambia cuando uno recarga.
-  const [ahora, setAhora] = useState(() => Date.now());
+  // El cronómetro se ancla a lo que calculó el SERVIDOR y desde ahí cuenta acá.
+  //
+  // Antes restaba `Date.now() - creado_en` en el navegador, y como `creado_en` es
+  // un timestamp SIN zona guardado en hora de El Salvador, el navegador lo leía
+  // como UTC: el contador arrancaba en 6 horas. Anclando al transcurrido que
+  // manda el servidor, la zona de nadie importa.
+  const [tic, setTic] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setAhora(Date.now()), 1000);
+    const t = setInterval(() => setTic((v) => v + 1), 1000);
     return () => clearInterval(t);
   }, []);
+  // Cada recarga de datos reinicia el tic: el ancla vuelve a ser el servidor.
+  useEffect(() => { setTic(0); }, [activa?.id_orden, activa?.segundos_trabajo]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -122,8 +128,8 @@ export default function MiTaller() {
           <div className="tec-reloj">
             <span className="tec-reloj__num">
               {reloj(activa.estado === "FIRMADA"
-                ? (activa.minutos_trabajo ?? 0) * 60
-                : (ahora - new Date(activa.creado_en).getTime()) / 1000)}
+                ? (activa.segundos_trabajo ?? 0)
+                : (activa.segundos_trabajo ?? 0) + tic)}
             </span>
             <span className="tec-reloj__et">
               {activa.estado === "FIRMADA" ? "trabajadas" : "desde que lo tomaste"}

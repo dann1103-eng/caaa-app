@@ -224,8 +224,11 @@ function generarSolicitudPDF({ documento: d, renglones, retornos = [], formulari
     .text("PERSONA QUE ENTREGA REPUESTOS:", 45, yf - 14);
   doc.font("Helvetica-Bold").fontSize(9.5).fillColor("#000")
     .text(txt(d.entregado_por), 210, yf - 14, { width: 200 });
-  firma(doc, 45, yf + 20, 220, "Firma");
+  firma(doc, 45, yf + 20, 220, `Entrega${d.entregado_por ? `: ${d.entregado_por}` : ""}`);
   firma(doc, 300, yf + 20, 250, `Recibe${d.entregado_a ? `: ${d.entregado_a}` : ""}`);
+  // Los trazos van sobre la línea de cada quien: el papel sale ya firmado.
+  dibujarFirma(doc, d.firma_entrega, 60, yf - 6, 190, 24);
+  dibujarFirma(doc, d.firma_recibe, 315, yf - 6, 220, 24);
   pieFormulario(doc, formulario);
   doc.end();
   return doc;

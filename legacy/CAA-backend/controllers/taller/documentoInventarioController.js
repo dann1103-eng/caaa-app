@@ -693,7 +693,10 @@ exports.crearDocumento = catchAsync(async (req, res) => {
  */
 exports.firmarSolicitud = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const { entregado_por, entregado_a, forzar, motivo_forzado, lineas } = req.body;
+  const {
+    entregado_por, entregado_a, forzar, motivo_forzado, lineas,
+    firma_entrega, firma_recibe,
+  } = req.body;
 
   const client = await db.connect();
   try {
@@ -787,9 +790,12 @@ exports.firmarSolicitud = catchAsync(async (req, res) => {
       `UPDATE taller_documento_inventario
           SET firmada_en = NOW(), firmada_por = $2,
               entregado_por = COALESCE($3, entregado_por),
-              entregado_a   = COALESCE($4, entregado_a)
+              entregado_a   = COALESCE($4, entregado_a),
+              firma_entrega = COALESCE($5, firma_entrega),
+              firma_recibe  = COALESCE($6, firma_recibe)
         WHERE id_documento = $1 RETURNING *`,
-      [id, req.user?.id_usuario || null, entregado_por || null, entregado_a || null]
+      [id, req.user?.id_usuario || null, entregado_por || null, entregado_a || null,
+       firma_entrega || null, firma_recibe || null]
     );
 
     await client.query("COMMIT");

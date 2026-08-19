@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getDocumento, firmarSolicitud } from "../../../services/tallerApi";
 import { fecha, fmt } from "./formato";
+import SignaturePad from "../../../components/SignaturePad/SignaturePad";
 
 /**
  * Firmar la entrega — **acá es donde el material sale de bodega**.
@@ -18,6 +19,9 @@ export default function FirmarEntregaModal({ solicitud, onClose, onFirmada }) {
   const [faltantes, setFaltantes] = useState(null);
   const [motivo, setMotivo] = useState("");
   const [guardando, setGuardando] = useState(false);
+  // El papel CAAA-004-F lleva las dos partes: quien entrega y quien recibe.
+  const firmaEntrega = useRef(null);
+  const firmaRecibe = useRef(null);
 
   useEffect(() => {
     getDocumento(solicitud.id_documento)
@@ -32,11 +36,14 @@ export default function FirmarEntregaModal({ solicitud, onClose, onFirmada }) {
 
   const firmar = async (forzar = false) => {
     if (forzar && !motivo.trim()) return toast.error("Escribí por qué se entrega sin existencia");
+    if (firmaEntrega.current?.isEmpty()) return toast.error("Dibujá tu firma de quien entrega");
     setGuardando(true);
     try {
       await firmarSolicitud(solicitud.id_documento, {
         ...f, forzar, motivo_forzado: forzar ? motivo : null,
         lineas: d.renglones.map((l) => ({ id_mov: l.id_mov, cantidad: Number(entrega[l.id_mov] || 0) })),
+        firma_entrega: firmaEntrega.current?.toDataURL(),
+        firma_recibe: firmaRecibe.current?.toDataURL(),
       });
       toast.success(`${solicitud.correlativo} entregada. El material salió de bodega.`);
       onFirmada();
@@ -124,6 +131,17 @@ export default function FirmarEntregaModal({ solicitud, onClose, onFirmada }) {
                 <div className="adf-form-field">
                   <label>Recibe (técnico)</label>
                   <input value={f.entregado_a} onChange={(e) => setF({ ...f, entregado_a: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="adf-form-grid" style={{ marginTop: 12 }}>
+                <div className="adf-form-field">
+                  <label>Firma de quien entrega</label>
+                  <SignaturePad ref={firmaEntrega} width={300} height={110} />
+                </div>
+                <div className="adf-form-field">
+                  <label>Firma de quien recibe (opcional)</label>
+                  <SignaturePad ref={firmaRecibe} width={300} height={110} />
                 </div>
               </div>
 

@@ -62,7 +62,14 @@ const SELECT_OT = `
          (SELECT COUNT(*) FROM orden_trabajo_parte p WHERE p.id_orden = o.id_orden)::int AS partes,
          -- Cuánto llevó el trabajo: desde que el mecánico lo tomó hasta que lo
          -- firmó. Se calcula al leer para que no haya un dato que mantener.
-         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, NOW()) - o.creado_en)) / 60)::int AS minutos_trabajo
+         --
+         -- OJO: se manda el TRANSCURRIDO, no la hora de inicio, y el navegador
+         -- cuenta a partir de ahí. creado_en es timestamp SIN zona y la conexión de la
+         -- app usa America/El_Salvador: el navegador lo leía como UTC y el
+         -- cronómetro arrancaba en 6 horas. Restando en el mismo lado (la BD) el
+         -- número sale bien sin importar la zona de nadie. Misma trampa de §21.D.
+         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, NOW()) - o.creado_en)) / 60)::int AS minutos_trabajo,
+         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, NOW()) - o.creado_en)))::int   AS segundos_trabajo
     FROM orden_trabajo o
     JOIN aeronave a  ON a.id_aeronave = o.id_aeronave
     LEFT JOIN usuario me ON me.id_usuario = o.id_mecanico
