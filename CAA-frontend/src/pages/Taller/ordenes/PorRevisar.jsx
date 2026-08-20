@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getOrdenes, getColaTrabajo, getPersonalTaller, asignarOrden } from "../../../services/tallerApi";
 import RevisarOrdenModal from "./RevisarOrdenModal";
+import TrabajosEnCurso from "./TrabajosEnCurso";
+import OrdenDetalleModal from "./OrdenDetalleModal";
 import EstimadoModal from "./EstimadoModal";
 import { fecha } from "../inventario/formato";
 
@@ -22,6 +24,8 @@ const esJefe = () => {
 export default function PorRevisar() {
   const puedeAsignar = esJefe();
   const [ordenes, setOrdenes] = useState([]);
+  const [enCurso, setEnCurso] = useState([]);
+  const [viendo, setViendo] = useState(null);   // detalle de un trabajo en curso
   const [cola, setCola] = useState([]);
   const [personal, setPersonal] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -31,8 +35,16 @@ export default function PorRevisar() {
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [o, c] = await Promise.all([getOrdenes({ estado: "FIRMADA" }), getColaTrabajo()]);
+      // Lo que espera su firma, lo que se está haciendo ahora, y el hangar.
+      const [o, abiertas, c] = await Promise.all([
+        getOrdenes({ estado: "FIRMADA" }),
+        getOrdenes({ estado: "ABIERTA" }),
+        getColaTrabajo(),
+      ]);
       setOrdenes(o);
+      // El que lleva más tiempo adentro va primero: es el que suele necesitar
+      // que alguien pregunte cómo va.
+      setEnCurso(abiertas.slice().sort((a, b) => (b.segundos_trabajo ?? 0) - (a.segundos_trabajo ?? 0)));
       setCola(c);
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudo cargar");
@@ -97,7 +109,14 @@ export default function PorRevisar() {
         </div>
       )}
 
-      {/* Y lo segundo: qué hay adentro del hangar y quién está en qué. */}
+      {/* Lo segundo: qué se está haciendo ahora mismo, con quién y hace cuánto. */}
+      <h3 className="adf-section-title" style={{ fontSize: "1rem", marginTop: "var(--sp-5)" }}>
+        <i className="bi bi-hourglass-split me-2"></i>Trabajos en curso
+        {enCurso.length > 0 && <span className="adf-tag" style={{ marginLeft: 8 }}>{enCurso.length}</span>}
+      </h3>
+      {!cargando && <TrabajosEnCurso ordenes={enCurso} onVer={(o) => setViendo(o.id_orden)} />}
+
+      {/* Y lo tercero: qué hay adentro del hangar y quién está en qué. */}
       <h3 className="adf-section-title" style={{ fontSize: "1rem", marginTop: "var(--sp-5)" }}>
         <i className="bi bi-airplane-engines me-2"></i>Aviones en el taller
       </h3>
@@ -175,6 +194,13 @@ export default function PorRevisar() {
           orden={revisando}
           onClose={() => setRevisando(null)}
           onResuelta={() => { setRevisando(null); cargar(); }}
+        />
+      )}
+      {viendo && (
+        <OrdenDetalleModal
+          id={viendo}
+          onClose={() => setViendo(null)}
+          onCambio={() => { setViendo(null); cargar(); }}
         />
       )}
       {estimando && (

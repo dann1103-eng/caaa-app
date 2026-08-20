@@ -146,6 +146,10 @@
 .tec-cola__info strong { font-size: 1.05rem; }
 .tec-cola__info span { font-size: 0.88rem; color: var(--c-ink-2); }
 .tec-cola__info small { font-size: 0.78rem; color: var(--c-ink-4); }
+/* Quién está adentro del avión. Va con el color de texto normal y no el tenue:
+   es dato, no pie de página. */
+.tec-cola__quien { color: var(--c-ink-2) !important; margin-top: 2px; }
+.tec-cola__quien i { color: var(--c-brand-500); }
 .tec-cola__acciones { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 /* Avisos dentro del trabajo en curso: esperando al jefe, o devuelto. */
@@ -218,4 +222,57 @@
 
 @media (min-width: 700px) {
   .tec-acciones { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── Trabajos en curso (pantalla del jefe) ─────────────────────────────
+   Tarjetas, no una fila de tabla: lo que el jefe busca acá no es comparar
+   columnas sino ubicar de un vistazo quién está en qué avión y hace cuánto. */
+.curso-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--sp-3);
+}
+.curso-card {
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-1);
+  border-left: 3px solid var(--c-brand-500);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.curso-card:hover { border-color: var(--c-brand-500); box-shadow: var(--shadow-md); }
+.curso-card__head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3);
+}
+.curso-card__avion { font-family: var(--font-mono); font-size: 1.05rem; }
+.curso-card__ot {
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-ink-3); margin-left: 8px;
+}
+/* El cronómetro es el dato que se viene a buscar: mono y tabular para que no
+   baile un píxel por segundo. */
+.curso-card__reloj {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  color: var(--c-brand-700);
+  white-space: nowrap;
+}
+.curso-card__disc {
+  margin: 6px 0 10px;
+  font-size: 0.88rem;
+  color: var(--c-ink-2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.curso-card__pie {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.curso-card__quien { font-size: 0.86rem; color: var(--c-ink-1); display: inline-flex; align-items: center; gap: 6px; }
+.curso-card__quien i { color: var(--c-brand-500); }
+.curso-card__ayuda { color: var(--c-ink-3); }
+.curso-card__datos { display: inline-flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--c-ink-3); }
+
+@media (max-width: 768px) {
+  .curso-grid { grid-template-columns: 1fr; }
 }

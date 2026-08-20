@@ -6,6 +6,7 @@ import EntregarAceiteModal from "./inventario/EntregarAceiteModal";
 import FirmarOrdenModal from "./ordenes/FirmarOrdenModal";
 import AbrirTrabajoModal from "./ordenes/AbrirTrabajoModal";
 import EstimadoModal from "./ordenes/EstimadoModal";
+import { reloj } from "./inventario/formato";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
 
@@ -21,15 +22,6 @@ import "./ordenes/taller-tecnico.css";
  * veces en tres papeles distintos.
  */
 /** "2:14:07" — el contador corre a la vista, como un cronómetro. */
-const reloj = (seg) => {
-  if (seg == null) return "—";
-  const s = Math.max(0, Math.floor(seg));
-  const d = Math.floor(s / 86400);
-  const hh = String(Math.floor((s % 86400) / 3600)).padStart(2, "0");
-  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-  const ss = String(s % 60).padStart(2, "0");
-  return d > 0 ? `${d} d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
-};
 
 // Quién soy: es lo que distingue "asignado a vos" de un avión que tomó otro.
 const miUid = () => {
@@ -65,7 +57,15 @@ export default function MiTaller() {
     try {
       // "Abiertas" incluye las que ya firmó y están esperando al jefe: siguen
       // siendo su trabajo hasta que se aprueben.
-      const [r, c] = await Promise.all([getOrdenes({ abiertas: "true" }), getColaTrabajo()]);
+      //
+      // ⚠️ `asignadas` NO es opcional: sin él esto trae TODO lo abierto del taller,
+      // y "Mi taller" del jefe se autoseleccionaba el trabajo del mecánico y decía
+      // "estás trabajando en" sobre algo que no era suyo. Acá solo va lo mío: lo que
+      // abrí yo o lo que me asignaron.
+      const [r, c] = await Promise.all([
+        getOrdenes({ abiertas: "true", asignadas: "true" }),
+        getColaTrabajo(),
+      ]);
       setOrdenes(r);
       setCola(c);
       // Si hay un solo trabajo abierto, se elige solo: es el caso normal.
@@ -214,9 +214,12 @@ export default function MiTaller() {
             // Cuenta también lo ya firmado: mientras el jefe no lo apruebe sigue
             // siendo mi trabajo, y ofrecer "tomar" otra vez invita a abrir una
             // orden duplicada sobre el mismo avión.
-            const mio = m.trabajos.find(
-              (t) => ["ABIERTA", "FIRMADA"].includes(t.estado) && t.id_mecanico_asignado === uid
-            );
+            const vivos = m.trabajos.filter((t) => ["ABIERTA", "FIRMADA"].includes(t.estado));
+            const mio = vivos.find((t) => t.id_mecanico_asignado === uid);
+            // Los de otros: el avión puede llevar varias órdenes a la vez, así que
+            // abrir otra es válido — pero hay que decir quién ya está adentro en vez
+            // de ofrecer "tomar este avión" como si estuviera libre.
+            const ajenos = vivos.filter((t) => t.id_mecanico_asignado !== uid);
             return (
               <div key={m.id_mantenimiento} className="tec-cola__item">
                 <div className="tec-cola__info">
@@ -224,8 +227,15 @@ export default function MiTaller() {
                   <span>{m.tipo}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
                   <small>
                     Listo estimado: {String(m.fecha_fin || "").slice(0, 10) || "sin fecha"}
-                    {m.pendientes > 0 ? ` · ${m.pendientes} trabajo(s) en curso` : " · nadie lo tomó"}
+                    {vivos.length === 0 && " · nadie lo tomó"}
                   </small>
+                  {ajenos.map((t) => (
+                    <small key={t.id_orden} className="tec-cola__quien">
+                      <i className="bi bi-person-fill"></i>{" "}
+                      {t.asignado_nombre || "sin asignar"} · {t.correlativo}
+                      {t.estado === "FIRMADA" && " · esperando revisión"}
+                    </small>
+                  ))}
                 </div>
                 <div className="tec-cola__acciones">
                   {mio && (
@@ -238,8 +248,11 @@ export default function MiTaller() {
                       Ir a mi trabajo
                     </button>
                   ) : (
-                    <button className="adf-btn small" onClick={() => { setDesdeCola(m); setAccion("abrir"); }}>
-                      Tomar este avión
+                    <button
+                      className={`adf-btn small ${ajenos.length ? "secondary" : ""}`}
+                      onClick={() => { setDesdeCola(m); setAccion("abrir"); }}
+                    >
+                      {ajenos.length ? "Abrir otro trabajo" : "Tomar este avión"}
                     </button>
                   )}
                   <button className="adf-icon-btn" title="¿Cuándo está listo?" onClick={() => setEstimando(m)}>

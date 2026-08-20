@@ -9,6 +9,17 @@ import { fmt, hoy, META_TIPO } from "./formato";
 
 const VACIO = { item: null, cantidad: "", costo_unitario: "", nota: "" };
 
+// El taller es una OMA de la propia escuela: salvo que el avión sea de un
+// tercero, el cliente es siempre este. Se precarga y se puede cambiar.
+const CLIENTE_PROPIO = "CAAA / OMA";
+// Quien está llenando el papel es quien tiene la sesión abierta.
+const yo = () => {
+  try {
+    const u = JSON.parse(localStorage.getItem("user") || "{}");
+    return [u.nombre, u.apellido].filter(Boolean).join(" ").trim();
+  } catch { return ""; }
+};
+
 /**
  * Alta de un documento de bodega.
  *
@@ -32,7 +43,10 @@ export default function DocumentoModal({ tipo, desde, editar, contexto, onClose,
   const [cab, setCab] = useState({
     fecha: hoy(), proveedor: "", factura_no: "",
     id_aeronave: "", motivo: "", origen_mant: "", nota: "",
-    cliente: "", solicitante: "", tacometro: "", observaciones: "",
+    // El papel se llena solo donde el sistema ya sabe la respuesta: el cliente
+    // es la propia escuela salvo que el avión sea de un tercero, y el
+    // solicitante es quien tiene la sesión abierta. Los dos quedan editables.
+    cliente: CLIENTE_PROPIO, solicitante: yo(), tacometro: "", observaciones: "",
     orden_trabajo_no: "", numero_solicitud: "", entregado_por: "", entregado_a: "",
   });
   const [lineas, setLineas] = useState([{ ...VACIO }]);
@@ -62,6 +76,15 @@ export default function DocumentoModal({ tipo, desde, editar, contexto, onClose,
     }));
   }, [contexto]);
 
+  // El N° de solicitud del papel son los últimos 4 dígitos de la orden de trabajo
+  // (CAAA/2026-0001 -> 0001). Si ya se sabe la orden, no hay que teclearlo; solo
+  // se rellena cuando está vacío, para no pisar lo que alguien haya escrito.
+  useEffect(() => {
+    const m = String(cab.orden_trabajo_no || "").match(/(\d{3,})\s*$/);
+    if (!m) return;
+    setCab((p) => (p.numero_solicitud ? p : { ...p, numero_solicitud: m[1] }));
+  }, [cab.orden_trabajo_no]);
+
   useEffect(() => {
     if (!esSol || !cab.id_aeronave) { setMants([]); return; }
     getMantenimientosAeronave(cab.id_aeronave).then(setMants).catch(() => setMants([]));
@@ -76,7 +99,7 @@ export default function DocumentoModal({ tipo, desde, editar, contexto, onClose,
         ...p,
         fecha: editar ? String(d.fecha).slice(0, 10) : hoy(),
         id_aeronave: d.id_aeronave || "",
-        cliente: d.cliente || "", solicitante: d.solicitante || "",
+        cliente: d.cliente || CLIENTE_PROPIO, solicitante: d.solicitante || yo(),
         tacometro: d.tacometro ?? "", motivo: d.motivo || "",
         observaciones: d.observaciones || "", nota: d.nota || "",
         // El N° de solicitud son los últimos 4 dígitos de la orden de trabajo.
