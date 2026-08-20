@@ -63,13 +63,21 @@ const SELECT_OT = `
          -- Cuánto llevó el trabajo: desde que el mecánico lo tomó hasta que lo
          -- firmó. Se calcula al leer para que no haya un dato que mantener.
          --
+         -- La zona va FIJADA, no heredada de la sesion: estas columnas son
+         -- timestamp SIN zona (sin comillas invertidas: rompen el template),
+         -- conexion al ESCRIBIR, y NOW() de la que tenga al LEER. Si las dos no
+         -- coinciden el reloj sale +-6h, y no siempre coinciden porque el pooler
+         -- de Supabase puede reiniciar el SET timezone de config/db.js.
+         -- Por eso la orden CERRADA siempre salio bien (resta dos columnas de la
+         -- misma base) y la ABIERTA no.
+         --
          -- OJO: se manda el TRANSCURRIDO, no la hora de inicio, y el navegador
          -- cuenta a partir de ahí. creado_en es timestamp SIN zona y la conexión de la
          -- app usa America/El_Salvador: el navegador lo leía como UTC y el
          -- cronómetro arrancaba en 6 horas. Restando en el mismo lado (la BD) el
          -- número sale bien sin importar la zona de nadie. Misma trampa de §21.D.
-         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, NOW()) - o.creado_en)) / 60)::int AS minutos_trabajo,
-         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, NOW()) - o.creado_en)))::int   AS segundos_trabajo
+         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, (NOW() AT TIME ZONE 'America/El_Salvador')) - o.creado_en)) / 60)::int AS minutos_trabajo,
+         ROUND(EXTRACT(EPOCH FROM (COALESCE(o.firmado_en, (NOW() AT TIME ZONE 'America/El_Salvador')) - o.creado_en)))::int   AS segundos_trabajo
     FROM orden_trabajo o
     JOIN aeronave a  ON a.id_aeronave = o.id_aeronave
     LEFT JOIN usuario me ON me.id_usuario = o.id_mecanico
@@ -181,7 +189,7 @@ exports.crearOrden = catchAsync(async (req, res) => {
           discrepancia, id_reporte, id_cumplimiento, id_mantenimiento, creado_por,
           id_mecanico_asignado, asignado_en, id_aprendiz)
        VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6::numeric, $7,$8,$9,$10,$11,$12,
-               $13, CASE WHEN $13::int IS NULL THEN NULL ELSE NOW() END, $14)
+               $13, CASE WHEN $13::int IS NULL THEN NULL ELSE (NOW() AT TIME ZONE 'America/El_Salvador') END, $14)
        RETURNING *`,
       [anio, numero, correlativo, id_aeronave, fecha || null, num(tacometro), txt(piloto_operador),
        txt(discrepancia), id_reporte || null, id_cumplimiento || null, id_mantenimiento || null,
@@ -315,7 +323,7 @@ exports.firmarOrden = catchAsync(async (req, res) => {
          r_ii              = $5,
          firma_mecanico    = COALESCE($7, firma_mecanico),
          fecha_firma       = COALESCE($6::date, CURRENT_DATE),
-         firmado_en        = NOW(),
+         firmado_en        = (NOW() AT TIME ZONE 'America/El_Salvador'),
          -- Firmar ya NO cierra: la orden queda esperando la revisión del jefe.
          estado            = 'FIRMADA',
          nota_revision     = NULL
@@ -419,7 +427,7 @@ exports.asignarOrden = catchAsync(async (req, res) => {
   const r = await db.query(
     `UPDATE orden_trabajo
         SET id_mecanico_asignado = $2,
-            asignado_en = CASE WHEN $2::int IS NULL THEN NULL ELSE NOW() END
+            asignado_en = CASE WHEN $2::int IS NULL THEN NULL ELSE (NOW() AT TIME ZONE 'America/El_Salvador') END
       WHERE id_orden = $1 RETURNING *`,
     [id, id_mecanico_asignado || null]
   );
@@ -480,7 +488,7 @@ exports.aprobarOrden = catchAsync(async (req, res) => {
       `UPDATE orden_trabajo SET
          estado = 'APROBADA', id_aprobador = $2,
          fecha_aprobacion = COALESCE($3::date, CURRENT_DATE),
-         aprobado_en = NOW(), aprobacion_propia = $4,
+         aprobado_en = (NOW() AT TIME ZONE 'America/El_Salvador'), aprobacion_propia = $4,
          firma_jefe = COALESCE($5, firma_jefe),
          -- El jefe puede corregir la redacción antes de firmar: es el papel que
          -- se imprime y queda archivado.
@@ -592,7 +600,7 @@ exports.anularOrden = catchAsync(async (req, res) => {
 
     await client.query(
       `UPDATE orden_trabajo
-          SET estado='ANULADA', anulado_en=NOW(), anulado_por=$2, motivo_anulacion=$3
+          SET estado='ANULADA', anulado_en=(NOW() AT TIME ZONE 'America/El_Salvador'), anulado_por=$2, motivo_anulacion=$3
         WHERE id_orden = $1`,
       [id, req.user?.id_usuario || null, txt(motivo_anulacion)]
     );
