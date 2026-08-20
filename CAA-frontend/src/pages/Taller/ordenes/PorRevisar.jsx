@@ -41,9 +41,10 @@ export default function PorRevisar() {
       // Lo que espera su firma, lo que se está haciendo ahora, y el hangar.
       // Y el material pedido y sin entregar, para colgarlo del trabajo que lo
       // pidió: el jefe lo despacha desde la misma tarjeta, sin ir a Inventario.
-      const [o, abiertas, c, docs] = await Promise.all([
-        getOrdenes({ estado: "FIRMADA" }),
-        getOrdenes({ estado: "ABIERTA" }),
+      // Una sola consulta para las dos secciones: "abiertas" trae ABIERTA y
+      // FIRMADA, que son los trabajos vivos del taller.
+      const [vivas, c, docs] = await Promise.all([
+        getOrdenes({ abiertas: "true" }),
         getColaTrabajo(),
         // El mecánico no despacha, y para él esto responde 403: sin pendientes.
         getDocumentos({ sin_despachar: "true" }).catch(() => []),
@@ -54,10 +55,18 @@ export default function PorRevisar() {
           return acc;
         }, {})
       );
-      setOrdenes(o);
-      // El que lleva más tiempo adentro va primero: es el que suele necesitar
-      // que alguien pregunte cómo va.
-      setEnCurso(abiertas.slice().sort((a, b) => (b.segundos_trabajo ?? 0) - (a.segundos_trabajo ?? 0)));
+      setOrdenes(vivas.filter((x) => x.estado === "FIRMADA"));
+      // El avión sigue en el taller hasta que el jefe aprueba, así que lo firmado
+      // aparece acá también — con el reloj detenido, que es lo que lo distingue.
+      // Primero lo que se trabaja ahora, y dentro de cada grupo el que lleva más
+      // tiempo adentro: es el que suele necesitar que alguien pregunte cómo va.
+      setEnCurso(
+        vivas.slice().sort(
+          (a, b) =>
+            (a.estado === b.estado ? 0 : a.estado === "ABIERTA" ? -1 : 1) ||
+            (b.segundos_trabajo ?? 0) - (a.segundos_trabajo ?? 0)
+        )
+      );
       setCola(c);
     } catch (e) {
       toast.error(e.response?.data?.message || "No se pudo cargar");
@@ -131,7 +140,7 @@ export default function PorRevisar() {
         <TrabajosEnCurso
           ordenes={enCurso}
           pendientes={pendientes}
-          onVer={(o) => setViendo(o.id_orden)}
+          onVer={(o) => (o.estado === "FIRMADA" ? setRevisando(o) : setViendo(o.id_orden))}
           onEntregar={(d) => setEntregando(d)}
         />
       )}

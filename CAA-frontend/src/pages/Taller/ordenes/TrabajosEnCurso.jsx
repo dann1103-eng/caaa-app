@@ -12,8 +12,10 @@ import { reloj, fmt } from "../inventario/formato";
  * despacha desde la misma tarjeta: es la acción que interrumpe al mecánico, así
  * que no debería obligar a ir a buscarla a otra pantalla.
  *
- * Solo ABIERTA: lo ya firmado vive arriba en "Esperando tu firma", que es donde
- * el jefe tiene algo que hacer. Acá no se repite.
+ * Lo ya FIRMADO también aparece: el avión sigue en el taller hasta que el jefe
+ * aprueba. Se distingue porque el reloj queda DETENIDO en lo que duró el trabajo
+ * — no sigue corriendo— y porque la tarjeta lleva su marca; al tocarla se abre
+ * la revisión en vez del detalle, que es lo que toca hacer con ella.
  */
 export default function TrabajosEnCurso({ ordenes, pendientes = {}, onVer, onEntregar }) {
   // El cronómetro se ancla al transcurrido que calculó el servidor y desde ahí
@@ -35,15 +37,21 @@ export default function TrabajosEnCurso({ ordenes, pendientes = {}, onVer, onEnt
       {ordenes.map((o) => {
         const quien = o.asignado_nombre || o.mecanico_nombre;
         const pide = pendientes[o.id_orden] || [];
+        // Firmado = el trabajo terminó; el cronómetro ya no corre. El servidor lo
+        // congeló en firmado_en - creado_en, así que basta con no sumarle el tic.
+        const cerrado = o.estado === "FIRMADA";
         return (
-          <div key={o.id_orden} className="curso-card">
+          <div key={o.id_orden} className={`curso-card ${cerrado ? "curso-card--cerrado" : ""}`}>
             <div className="curso-card__cuerpo" onClick={() => onVer?.(o)}>
               <div className="curso-card__head">
                 <div>
                   <strong className="curso-card__avion">{o.aeronave_codigo}</strong>
                   <span className="curso-card__ot">{o.correlativo}</span>
                 </div>
-                <span className="curso-card__reloj">{reloj((o.segundos_trabajo ?? 0) + tic)}</span>
+                <span className={`curso-card__reloj ${cerrado ? "curso-card__reloj--fin" : ""}`}>
+                  {cerrado && <i className="bi bi-check-circle-fill" title="trabajo terminado"></i>}
+                  {reloj((o.segundos_trabajo ?? 0) + (cerrado ? 0 : tic))}
+                </span>
               </div>
 
               {/* El contador del avión al abrir el trabajo: es el número contra el
@@ -63,6 +71,7 @@ export default function TrabajosEnCurso({ ordenes, pendientes = {}, onVer, onEnt
                   {o.aprendiz_nombre && <span className="curso-card__ayuda"> con {o.aprendiz_nombre}</span>}
                 </span>
                 <span className="curso-card__datos">
+                  {cerrado && <span className="adf-tag amber">esperando tu firma</span>}
                   {o.documentos > 0 && (
                     <span title="documentos de bodega">
                       <i className="bi bi-box-seam"></i> {o.documentos}

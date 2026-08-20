@@ -301,3 +301,10 @@
 @media (max-width: 768px) {
   .curso-grid { grid-template-columns: 1fr; }
 }
+
+/* Trabajo terminado esperando la firma del jefe: sigue en el taller, pero ya no
+   se está haciendo. El borde ámbar y el reloj detenido lo separan a simple vista
+   de los que sí están corriendo. */
+.curso-card--cerrado { border-left-color: var(--c-warn-500); }
+.curso-card__reloj--fin { color: var(--c-warn-700); }
+.curso-card__reloj--fin i { margin-right: 5px; font-size: 0.9em; }
