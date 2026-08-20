@@ -2394,15 +2394,44 @@ vuelos cancelados (se cancelan, no se mueven).
 
 ## 35. Sesión 2026-08-19 — Cronómetro del trabajo, firma de entrega de material, y navegación del inventario
 
-**Desplegado y verificado en producción** (`origin/master` = `4cd9eec`). Migración `20260819000001`.
+**Desplegado y verificado en producción** (`origin/master` = `7ad0eb1`). Migraciones `20260819000001`
+y `20260820000001`.
 Sesión de pulido sobre el Taller mientras Daniel probaba el circuito en vivo.
 
-### A. El cronómetro arrancaba en 6 horas
-`orden_trabajo.creado_en` es `timestamp` **sin zona** y la conexión de la app fija
-`America/El_Salvador`; el navegador leía ese valor como UTC. Ahora la resta la hace la base
-(`segundos_trabajo` en `SELECT_OT`, compartido por lista/detalle/folder) y el navegador solo cuenta
-a partir de ese número, así que no importa la zona de nadie. **Cuarta aparición del mismo desfase**
-(§21.D, §31, §34) — la regla que sale de acá: *cualquier duración se resta en SQL, nunca en el cliente*.
+### A. El cronómetro arrancaba adelantado (dos intentos: el primero NO alcanzó)
+**Primer intento (`aa6c3af`) — incompleto, el bug volvió.** Se movió la resta del navegador a la base
+(`segundos_trabajo` en `SELECT_OT`, compartido por lista/detalle/folder). Eso quitó UNA fuente de
+desfase, pero la resta seguía siendo `NOW() - creado_en`, o sea **seguía dependiendo de la zona de la
+sesión**. Daniel lo volvió a ver: *"cuando abrí un mantenimiento el contador inició desde 5 horas,
+pero cuando lo cierro y lo reviso sí me tira el tiempo real"*.
+
+**Esa asimetría es la pista y da el diagnóstico exacto:**
+
+| | por qué |
+|---|---|
+| Orden **CERRADA** → siempre bien | `firmado_en - creado_en` resta dos columnas de la **misma base**; la zona no la toca |
+| Orden **ABIERTA** → mal | mezcla `NOW()` con una columna **sin zona** ⇒ depende de la sesión |
+
+Medido sobre la MISMA fila y la MISMA fórmula: **0.12 h** con la sesión en `America/El_Salvador` y
+**6.12 h** con la sesión en UTC. Y la prueba dio **−6 h**, no +6: el signo se invierte según qué zona
+estaba activa al **ESCRIBIR** frente a la de **LEER** ⇒ **el desfase no es constante, es no
+determinista** (por eso "6 horas" una vez y "5" otra, y por eso parecía arreglado y volvía).
+
+**Por qué la sesión no siempre es la correcta:** `config/db.js` lanza `client.query("SET timezone…")`
+en el evento `connect` **sin await**, y el pooler de Supabase puede reiniciar ese estado; además
+cualquier script que escriba sin fijarla (migraciones, seeds, `query.js`) guarda en **UTC**.
+
+**Arreglo real (`7ad0eb1`, migración `20260820000001`): fijar la zona en las DOS puntas en vez de
+heredarla.** La lectura del reloj y todas las marcas que entran en él (`firmado_en`, `aprobado_en`,
+`asignado_en`, `anulado_en`) con `AT TIME ZONE 'America/El_Salvador'`, y el **DEFAULT de `creado_en`**
+fijado por migración — en `orden_trabajo` y también en `taller_documento_inventario`, que tenía el
+mismo patrón sembrado esperando a la próxima pantalla que calculara duraciones.
+
+**Quinta aparición del mismo desfase** (§21.D, §31, §34, §35). La regla que sale de acá **corrige** la
+que había quedado escrita ("restar en SQL"), que era insuficiente:
+> Con columnas `timestamp` SIN zona, restar en SQL **no basta**: hay que **fijar la zona
+> explícitamente en la expresión y en el DEFAULT**, nunca heredarla de la sesión. Si una duración sale
+> bien con el registro cerrado y mal con el registro abierto, es exactamente esto.
 - ⚠️ El arreglo venía escrito de antes **y el backend no compilaba**: un comentario con backticks
   dentro del template string cortaba la cadena. Se detectó porque la prueba medía comportamiento
   viejo — había **otro backend escuchando en el 5099** desde antes. Al probar en local, confirmar
