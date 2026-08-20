@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getOrdenes, getColaTrabajo, getPersonalTaller, asignarOrden } from "../../../services/tallerApi";
+import { getOrdenes, getColaTrabajo, getPersonalTaller, asignarOrden, getDocumentos } from "../../../services/tallerApi";
 import RevisarOrdenModal from "./RevisarOrdenModal";
 import TrabajosEnCurso from "./TrabajosEnCurso";
 import OrdenDetalleModal from "./OrdenDetalleModal";
+import FirmarEntregaModal from "../inventario/FirmarEntregaModal";
 import EstimadoModal from "./EstimadoModal";
 import { fecha } from "../inventario/formato";
 
@@ -26,6 +27,8 @@ export default function PorRevisar() {
   const [ordenes, setOrdenes] = useState([]);
   const [enCurso, setEnCurso] = useState([]);
   const [viendo, setViendo] = useState(null);   // detalle de un trabajo en curso
+  const [entregando, setEntregando] = useState(null);  // solicitud de material a firmar
+  const [pendientes, setPendientes] = useState({});    // por id de orden
   const [cola, setCola] = useState([]);
   const [personal, setPersonal] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -36,11 +39,21 @@ export default function PorRevisar() {
     setCargando(true);
     try {
       // Lo que espera su firma, lo que se está haciendo ahora, y el hangar.
-      const [o, abiertas, c] = await Promise.all([
+      // Y el material pedido y sin entregar, para colgarlo del trabajo que lo
+      // pidió: el jefe lo despacha desde la misma tarjeta, sin ir a Inventario.
+      const [o, abiertas, c, docs] = await Promise.all([
         getOrdenes({ estado: "FIRMADA" }),
         getOrdenes({ estado: "ABIERTA" }),
         getColaTrabajo(),
+        // El mecánico no despacha, y para él esto responde 403: sin pendientes.
+        getDocumentos({ sin_despachar: "true" }).catch(() => []),
       ]);
+      setPendientes(
+        (Array.isArray(docs) ? docs : []).reduce((acc, d) => {
+          if (d.id_orden_trabajo) (acc[d.id_orden_trabajo] ||= []).push(d);
+          return acc;
+        }, {})
+      );
       setOrdenes(o);
       // El que lleva más tiempo adentro va primero: es el que suele necesitar
       // que alguien pregunte cómo va.
@@ -114,7 +127,14 @@ export default function PorRevisar() {
         <i className="bi bi-hourglass-split me-2"></i>Trabajos en curso
         {enCurso.length > 0 && <span className="adf-tag" style={{ marginLeft: 8 }}>{enCurso.length}</span>}
       </h3>
-      {!cargando && <TrabajosEnCurso ordenes={enCurso} onVer={(o) => setViendo(o.id_orden)} />}
+      {!cargando && (
+        <TrabajosEnCurso
+          ordenes={enCurso}
+          pendientes={pendientes}
+          onVer={(o) => setViendo(o.id_orden)}
+          onEntregar={(d) => setEntregando(d)}
+        />
+      )}
 
       {/* Y lo tercero: qué hay adentro del hangar y quién está en qué. */}
       <h3 className="adf-section-title" style={{ fontSize: "1rem", marginTop: "var(--sp-5)" }}>
@@ -194,6 +214,13 @@ export default function PorRevisar() {
           orden={revisando}
           onClose={() => setRevisando(null)}
           onResuelta={() => { setRevisando(null); cargar(); }}
+        />
+      )}
+      {entregando && (
+        <FirmarEntregaModal
+          solicitud={entregando}
+          onClose={() => setEntregando(null)}
+          onFirmada={() => { setEntregando(null); cargar(); }}
         />
       )}
       {viendo && (

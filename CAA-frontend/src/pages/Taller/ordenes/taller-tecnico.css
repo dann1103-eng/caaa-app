@@ -237,11 +237,36 @@
   border: 1px solid var(--c-line-1);
   border-left: 3px solid var(--c-brand-500);
   border-radius: var(--radius-lg);
-  padding: var(--sp-3) var(--sp-4);
-  cursor: pointer;
+  overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .curso-card:hover { border-color: var(--c-brand-500); box-shadow: var(--shadow-md); }
+.curso-card__cuerpo { padding: var(--sp-3) var(--sp-4); cursor: pointer; }
+/* El contador del avión, en mono para que se lea como el número que es. */
+.curso-card__tac {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--c-ink-3);
+  margin-top: 2px;
+}
+/* El pedido de material pendiente: franja ámbar al pie de la tarjeta. Es lo
+   único que acá le pide una acción al jefe, así que se distingue del resto. */
+.curso-card__pedido {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px var(--sp-4);
+  border: 0;
+  border-top: 1px solid var(--c-warn-100, var(--c-line-1));
+  background: var(--c-warn-50, var(--c-surface-2));
+  color: var(--c-warn-700, var(--c-ink-1));
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.curso-card__pedido span { flex: 1; min-width: 0; }
+.curso-card__pedido:hover { filter: brightness(0.97); }
 .curso-card__head {
   display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3);
 }
