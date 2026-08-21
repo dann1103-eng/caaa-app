@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getOrdenes, getColaTrabajo } from "../../services/tallerApi";
+import {
+  getOrdenes, getColaTrabajo, getPersonalTaller, asignarOrden, getDocumentos,
+} from "../../services/tallerApi";
 import DocumentoModal from "./inventario/DocumentoModal";
 import EntregarAceiteModal from "./inventario/EntregarAceiteModal";
 import FirmarOrdenModal from "./ordenes/FirmarOrdenModal";
 import AbrirTrabajoModal from "./ordenes/AbrirTrabajoModal";
 import EstimadoModal from "./ordenes/EstimadoModal";
 import { reloj } from "./inventario/formato";
+import TallerAhora from "./ordenes/TallerAhora";
+import RevisarOrdenModal from "./ordenes/RevisarOrdenModal";
+import OrdenDetalleModal from "./ordenes/OrdenDetalleModal";
+import FirmarEntregaModal from "./inventario/FirmarEntregaModal";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
 
@@ -24,6 +30,13 @@ import "./ordenes/taller-tecnico.css";
 /** "2:14:07" — el contador corre a la vista, como un cronómetro. */
 
 // Quién soy: es lo que distingue "asignado a vos" de un avión que tomó otro.
+// El jefe firma, reasigna y despacha material; el técnico no. Lo que uno puede
+// hacer sale de quién es, no de en qué pantalla está: por eso esta pantalla es
+// la misma para los dos y solo cambian los botones que ofrece.
+const esJefe = () => {
+  try { return ["TALLER", "ADMIN"].includes(JSON.parse(localStorage.getItem("user") || "{}")?.rol); }
+  catch { return false; }
+};
 const miUid = () => {
   try { return JSON.parse(localStorage.getItem("user") || "{}")?.id_usuario || null; } catch { return null; }
 };
@@ -38,6 +51,12 @@ export default function MiTaller() {
   const [activa, setActiva] = useState(null);   // el trabajo en curso elegido
   const [accion, setAccion] = useState(null);   // 'abrir' | 'material' | 'aceite' | 'firmar'
   const [aceites, setAceites] = useState([]);
+  const jefe = esJefe();
+  const [personal, setPersonal] = useState([]);
+  const [pendientes, setPendientes] = useState({});   // material pedido, por orden
+  const [revisando, setRevisando] = useState(null);   // firmar/devolver (jefe)
+  const [viendo, setViendo] = useState(null);         // detalle de un trabajo ajeno
+  const [entregando, setEntregando] = useState(null); // solicitud de material
   // El cronómetro se ancla a lo que calculó el SERVIDOR y desde ahí cuenta acá.
   //
   // Antes restaba `Date.now() - creado_en` en el navegador, y como `creado_en` es
@@ -62,12 +81,20 @@ export default function MiTaller() {
       // y "Mi taller" del jefe se autoseleccionaba el trabajo del mecánico y decía
       // "estás trabajando en" sobre algo que no era suyo. Acá solo va lo mío: lo que
       // abrí yo o lo que me asignaron.
-      const [r, c] = await Promise.all([
+      const [r, c, docs] = await Promise.all([
         getOrdenes({ abiertas: "true", asignadas: "true" }),
         getColaTrabajo(),
+        // El técnico no despacha, y para él esto responde 403: sin pendientes.
+        getDocumentos({ sin_despachar: "true" }).catch(() => []),
       ]);
       setOrdenes(r);
       setCola(c);
+      setPendientes(
+        (Array.isArray(docs) ? docs : []).reduce((acc, d) => {
+          if (d.id_orden_trabajo) (acc[d.id_orden_trabajo] ||= []).push(d);
+          return acc;
+        }, {})
+      );
       // Si hay un solo trabajo abierto, se elige solo: es el caso normal.
       setActiva((prev) => (prev ? r.find((x) => x.id_orden === prev.id_orden) || null : r.length === 1 ? r[0] : null));
     } catch (e) {
@@ -78,6 +105,26 @@ export default function MiTaller() {
   }, []);
 
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { if (jefe) getPersonalTaller().then(setPersonal).catch(() => {}); }, [jefe]);
+
+  const asignar = async (id_orden, id_mecanico) => {
+    try {
+      await asignarOrden(id_orden, id_mecanico ? Number(id_mecanico) : null);
+      toast.success(id_mecanico ? "Trabajo asignado" : "Asignación quitada");
+      cargar();
+    } catch (e) {
+      toast.error(e.response?.data?.message || "No se pudo asignar");
+    }
+  };
+
+  // Tocar un trabajo hace lo que corresponda según de quién sea y cómo esté:
+  // el mío me lleva a mi tarjeta, el firmado el jefe lo revisa, y el resto se mira.
+  const abrirTrabajo = (t) => {
+    const mio = ordenes.find((x) => x.id_orden === t.id_orden);
+    if (mio) return irAMiTrabajo(mio);
+    if (t.estado === "FIRMADA" && jefe) return setRevisando(t);
+    setViendo(t.id_orden);
+  };
 
   // Los aceites para el modal de mostrador; se piden una vez.
   useEffect(() => {
@@ -203,66 +250,28 @@ export default function MiTaller() {
         </div>
       )}
 
-      {/* Los aviones que Operaciones mandó al taller. Es la lista de espera:
-          tocar uno abre el trabajo ya enlazado a ese mantenimiento. */}
+      {/* El taller ahora: los aviones adentro y lo que se les esta haciendo.
+          Una sola lista. Antes esto estaba partido en dos pantallas y la firma se
+          podia dar desde dos lugares, asi que el mismo avion aparecia duplicado
+          diciendo cosas que se contradecian. */}
       {cola.length > 0 && (
-        <div className="tec-cola">
-          <div className="tec-cola__titulo">
-            <i className="bi bi-airplane-engines"></i> Aviones esperando trabajo
+        <>
+          <div className="tec-cola__titulo" style={{ marginTop: "var(--sp-4)" }}>
+            <i className="bi bi-airplane-engines"></i> El taller ahora
           </div>
-          {cola.map((m) => {
-            // Cuenta también lo ya firmado: mientras el jefe no lo apruebe sigue
-            // siendo mi trabajo, y ofrecer "tomar" otra vez invita a abrir una
-            // orden duplicada sobre el mismo avión.
-            const vivos = m.trabajos.filter((t) => ["ABIERTA", "FIRMADA"].includes(t.estado));
-            const mio = vivos.find((t) => t.id_mecanico_asignado === uid);
-            // Los de otros: el avión puede llevar varias órdenes a la vez, así que
-            // abrir otra es válido — pero hay que decir quién ya está adentro en vez
-            // de ofrecer "tomar este avión" como si estuviera libre.
-            const ajenos = vivos.filter((t) => t.id_mecanico_asignado !== uid);
-            return (
-              <div key={m.id_mantenimiento} className="tec-cola__item">
-                <div className="tec-cola__info">
-                  <strong>{m.aeronave_codigo}</strong>
-                  <span>{m.tipo}{m.descripcion ? ` — ${m.descripcion}` : ""}</span>
-                  <small>
-                    Listo estimado: {String(m.fecha_fin || "").slice(0, 10) || "sin fecha"}
-                    {vivos.length === 0 && " · nadie lo tomó"}
-                  </small>
-                  {ajenos.map((t) => (
-                    <small key={t.id_orden} className="tec-cola__quien">
-                      <i className="bi bi-person-fill"></i>{" "}
-                      {t.asignado_nombre || "sin asignar"} · {t.correlativo}
-                      {t.estado === "FIRMADA" && " · esperando revisión"}
-                    </small>
-                  ))}
-                </div>
-                <div className="tec-cola__acciones">
-                  {mio && (
-                    <span className={`adf-tag ${mio.estado === "FIRMADA" ? "amber" : "green"}`}>
-                      {mio.estado === "FIRMADA" ? "Esperando al jefe" : "Asignado a vos"}
-                    </span>
-                  )}
-                  {mio ? (
-                    <button className="adf-btn small secondary" onClick={() => irAMiTrabajo(mio)}>
-                      Ir a mi trabajo
-                    </button>
-                  ) : (
-                    <button
-                      className={`adf-btn small ${ajenos.length ? "secondary" : ""}`}
-                      onClick={() => { setDesdeCola(m); setAccion("abrir"); }}
-                    >
-                      {ajenos.length ? "Abrir otro trabajo" : "Tomar este avión"}
-                    </button>
-                  )}
-                  <button className="adf-icon-btn" title="¿Cuándo está listo?" onClick={() => setEstimando(m)}>
-                    <i className="bi bi-calendar-event"></i>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          <TallerAhora
+            cola={cola}
+            pendientes={pendientes}
+            uid={uid}
+            puedeAsignar={jefe}
+            personal={personal}
+            onTomar={(m) => { setDesdeCola(m); setAccion("abrir"); }}
+            onAbrirTrabajo={abrirTrabajo}
+            onEstimado={(m) => setEstimando(m)}
+            onAsignar={asignar}
+            onEntregar={(d) => setEntregando(d)}
+          />
+        </>
       )}
 
       {/* Acá abajo SOLO lo que no depende de un trabajo abierto. */}
@@ -292,6 +301,27 @@ export default function MiTaller() {
         />
       )}
 
+      {revisando && (
+        <RevisarOrdenModal
+          orden={revisando}
+          onClose={() => setRevisando(null)}
+          onResuelta={() => { setRevisando(null); cargar(); }}
+        />
+      )}
+      {viendo && (
+        <OrdenDetalleModal
+          id={viendo}
+          onClose={() => setViendo(null)}
+          onCambio={() => { setViendo(null); cargar(); }}
+        />
+      )}
+      {entregando && (
+        <FirmarEntregaModal
+          solicitud={entregando}
+          onClose={() => setEntregando(null)}
+          onFirmada={() => { setEntregando(null); cargar(); }}
+        />
+      )}
       {estimando && (
         <EstimadoModal
           item={estimando}

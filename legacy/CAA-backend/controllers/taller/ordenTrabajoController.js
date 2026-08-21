@@ -389,12 +389,22 @@ exports.colaTrabajo = catchAsync(async (req, res) => {
               WHERE o.id_mantenimiento = m.id_mantenimiento AND o.estado = 'FIRMADA')::int AS por_revisar,
             (SELECT COALESCE(json_agg(json_build_object(
                       'id_orden', o.id_orden, 'correlativo', o.correlativo, 'estado', o.estado,
-                      'discrepancia', o.discrepancia,
+                      'discrepancia', o.discrepancia, 'tacometro', o.tacometro,
+                      'devoluciones', COALESCE(o.devoluciones, 0),
+                      -- Zona FIJADA, no heredada de la sesion: son timestamp sin
+                      -- zona y si no coinciden escritura y lectura el reloj sale
+                      -- +-6h (misma trampa que en SELECT_OT).
+                      'segundos_trabajo', ROUND(EXTRACT(EPOCH FROM (
+                          COALESCE(o.firmado_en, (NOW() AT TIME ZONE 'America/El_Salvador')) - o.creado_en)))::int,
+                      'documentos', (SELECT COUNT(*) FROM taller_documento_inventario d
+                                      WHERE d.id_orden_trabajo = o.id_orden AND d.estado = 'VIGENTE')::int,
+                      'aprendiz_nombre', TRIM(COALESCE(ua.nombre,'') || ' ' || COALESCE(ua.apellido,'')),
                       'id_mecanico_asignado', o.id_mecanico_asignado,
                       'asignado_nombre', TRIM(COALESCE(us.nombre,'') || ' ' || COALESCE(us.apellido,''))
                     ) ORDER BY o.id_orden), '[]'::json)
                FROM orden_trabajo o
                LEFT JOIN usuario us ON us.id_usuario = o.id_mecanico_asignado
+               LEFT JOIN usuario ua ON ua.id_usuario = o.id_aprendiz
               WHERE o.id_mantenimiento = m.id_mantenimiento AND o.estado <> 'ANULADA') AS trabajos
        FROM mantenimiento_aeronave m
        JOIN aeronave a ON a.id_aeronave = m.id_aeronave

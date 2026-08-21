@@ -308,3 +308,83 @@
 .curso-card--cerrado { border-left-color: var(--c-warn-500); }
 .curso-card__reloj--fin { color: var(--c-warn-700); }
 .curso-card__reloj--fin i { margin-right: 5px; font-size: 0.9em; }
+
+/* ── El taller ahora ───────────────────────────────────────────
+   Un avión por tarjeta, y adentro sus trabajos. La jerarquía es esa: el avión
+   contiene, el trabajo se anida. */
+.ahora { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ahora-avion {
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3);
+}
+.ahora-avion__head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--sp-3); flex-wrap: wrap;
+}
+.ahora-avion__codigo { font-family: var(--font-mono); font-size: 1.15rem; }
+.ahora-avion__tipo { color: var(--c-ink-3); margin-left: 8px; font-size: 0.9rem; }
+.ahora-avion__fechas { font-size: 0.82rem; color: var(--c-ink-3); margin-top: 3px; }
+/* --c-ink-4 sobre la tarjeta daba 2.57:1, por debajo del minimo legible. */
+.ahora-vacio { margin: var(--sp-3) 0; font-size: 0.88rem; color: var(--c-ink-3); }
+.ahora-avion__pie { margin-top: var(--sp-3); }
+
+/* El trabajo, anidado en su avión. */
+.ahora-ot {
+  margin-top: var(--sp-3);
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-1);
+  border-left: 3px solid var(--c-brand-500);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.ahora-ot--firmada { border-left-color: var(--c-warn-500); }
+.ahora-ot--mia { border-left-color: var(--c-success-500); }
+.ahora-ot__cuerpo { padding: var(--sp-3); cursor: pointer; }
+.ahora-ot__cuerpo:hover { background: var(--c-surface-1); }
+.ahora-ot__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.ahora-ot__num { font-family: var(--font-mono); font-size: 0.92rem; color: var(--c-ink-2); }
+.ahora-ot__reloj {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.02rem;
+  color: var(--c-brand-700);
+  white-space: nowrap;
+}
+.ahora-ot__reloj--fin { color: var(--c-warn-700); }
+.ahora-ot__reloj--fin i { margin-right: 5px; font-size: 0.9em; }
+.ahora-ot__tac { font-family: var(--font-mono); font-size: 0.8rem; color: var(--c-ink-3); margin-top: 2px; }
+.ahora-ot__disc {
+  margin: 6px 0 8px; font-size: 0.88rem; color: var(--c-ink-2);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ahora-ot__pie { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); flex-wrap: wrap; }
+.ahora-ot__quien { font-size: 0.86rem; color: var(--c-ink-1); display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ahora-ot__quien i { color: var(--c-brand-500); }
+.ahora-ot__ayuda { color: var(--c-ink-3); }
+.ahora-ot__datos { display: inline-flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--c-ink-3); flex-wrap: wrap; }
+/* Reasignar: fuera del cuerpo clickeable, para que elegir en el desplegable no
+   abra el trabajo por accidente. */
+.ahora-ot__asignar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px var(--sp-3); border-top: 1px solid var(--c-line-1);
+}
+.ahora-ot__asignar label {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-ink-3);
+}
+.ahora-ot__pedido {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 9px var(--sp-3);
+  border: 0; border-top: 1px solid var(--c-warn-100);
+  background: var(--c-warn-50); color: var(--c-warn-700);
+  font-size: 0.85rem; text-align: left; cursor: pointer;
+}
+.ahora-ot__pedido span { flex: 1; min-width: 0; }
+.ahora-ot__pedido:hover { filter: brightness(0.97); }
+
+@media (max-width: 768px) {
+  .ahora-avion { padding: var(--sp-3); }
+  .ahora-avion__head { flex-direction: column; }
+  .ahora-ot__asignar { flex-direction: column; align-items: stretch; gap: 4px; }
+}
