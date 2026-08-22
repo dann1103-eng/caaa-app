@@ -448,6 +448,17 @@ function lugarFecha(lugar, v) {
   return lug + ", " + String(d.getDate()).padStart(2, "0") + "/" + MESES_STK[d.getMonth()] + "/" + d.getFullYear();
 }
 
+/**
+ * "TMA #090". El numero de licencia se guarda como lo escribe Administracion y
+ * suele venir ya con el prefijo ("TMA 090"), asi que anteponer "TMA #" a secas
+ * imprimia "TMA #TMA 090" en un documento que va pegado en un libro oficial.
+ */
+function licenciaTma(v) {
+  const s = txt(v).trim();
+  if (!s) return "TMA #";
+  return "TMA #" + s.replace(/^tma/i, "").replace(/^[\s#.:-]+/, "");
+}
+
 /** Alto que va a ocupar el recuadro, para poder decidir el salto de página. */
 function altoSticker(doc, s, ancho) {
   doc.font("Helvetica").fontSize(8.5);
@@ -513,13 +524,13 @@ function dibujarSticker(doc, s, x, y, ancho) {
   doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#000")
     .text(txt(s.mecanico_nombre), x + 12, fy, { width: mitad, align: "center", lineBreak: false });
   doc.font("Helvetica").fontSize(8)
-    .text("Mecánico TMA #" + txt(s.mecanico_tma), x + 12, fy + 12, { width: mitad, align: "center", lineBreak: false });
+    .text("Mecánico " + licenciaTma(s.mecanico_tma), x + 12, fy + 12, { width: mitad, align: "center", lineBreak: false });
 
   if (s.aprendiz_nombre) {
     doc.font("Helvetica-Bold").fontSize(8.5)
       .text(txt(s.aprendiz_nombre), x + 12 + mitad, fy, { width: mitad, align: "center", lineBreak: false });
     doc.font("Helvetica").fontSize(8)
-      .text("Lic. de Aprendiz #" + txt(s.aprendiz_certificado), x + 12 + mitad, fy + 12,
+      .text("Lic. de Aprendiz #" + txt(s.aprendiz_certificado).replace(/^[\s#]+/, ""), x + 12 + mitad, fy + 12,
         { width: mitad, align: "center", lineBreak: false });
   }
 

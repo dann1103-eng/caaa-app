@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { getPrecargaStickers, emitirStickers, abrirStickersPDF } from "../../../services/tallerApi";
 import { hoy } from "../inventario/formato";
 
+const ETIQUETA = { CELULA: "la célula", MOTOR: "el motor", HELICE: "la hélice" };
+
 const TIPOS = [
   { tipo: "25H", etiqueta: "Inspección de 25 h" },
   { tipo: "50H", etiqueta: "Inspección de 50 h" },
@@ -12,6 +14,10 @@ const TIPOS = [
 ];
 
 const n = (v) => (v === null || v === undefined || v === "" ? "" : String(v));
+
+// La licencia se guarda como la escribe Administración y suele venir ya con el
+// prefijo ("TMA 090"): anteponerle "TMA #" mostraba "TMA #TMA 090".
+const tma = (v) => `TMA #${String(v || "").replace(/^tma/i, "").replace(/^[\s#.:-]+/, "")}`;
 
 /**
  * Emitir los stickers que se pegan en los libros físicos del avión.
@@ -94,7 +100,7 @@ export default function EmitirStickersModal({ orden, onClose, onEmitidos }) {
       });
       toast.success(
         r.reanclados?.length
-          ? `${r.ids.length} sticker(s) emitidos. Se actualizó el anclaje de ${r.reanclados.join(", ").toLowerCase()}.`
+          ? `${r.ids.length} sticker(s) emitidos. Se actualizó el anclaje de ${r.reanclados.map((x) => ETIQUETA[x] || x).join(" y ")}.`
           : `${r.ids.length} sticker(s) emitidos.`
       );
       abrirStickersPDF(r.ids);
@@ -117,7 +123,7 @@ export default function EmitirStickersModal({ orden, onClose, onEmitidos }) {
             <span className="adf-edit-head__chip"><i className="bi bi-stickies"></i></span>
             Stickers para los libros · {datos.orden.matricula}
           </span>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="adf-btn" disabled={guardando || !elegidas.length} onClick={guardar}>
               <i className="bi bi-printer"></i>{guardando ? "Emitiendo…" : `Emitir e imprimir (${elegidas.length})`}
             </button>
@@ -150,7 +156,7 @@ export default function EmitirStickersModal({ orden, onClose, onEmitidos }) {
 
           <p className="adf-section-subtitle" style={{ marginTop: 10 }}>
             Firma <strong>{datos.mecanico?.nombre || "—"}</strong>
-            {datos.mecanico?.licencia_tma ? ` · TMA #${datos.mecanico.licencia_tma}` : ""}
+            {datos.mecanico?.licencia_tma ? ` · ${tma(datos.mecanico.licencia_tma)}` : ""}
             {datos.aprendiz ? ` · con ${datos.aprendiz.nombre} (aprendiz #${datos.aprendiz.certificado})` : ""}
             {datos.orden.correlativo ? ` · orden ${datos.orden.correlativo}` : ""}
           </p>
@@ -172,8 +178,9 @@ export default function EmitirStickersModal({ orden, onClose, onEmitidos }) {
 
                 {!p.existe && (
                   <p className="adf-section-subtitle" style={{ margin: "8px 0 0" }}>
-                    Este avión no tiene el {p.etiqueta} dado de alta. Cargalo desde <strong>Libros</strong> para
-                    poder imprimir su sticker.
+                    {/* Se nombra el LIBRO y no la parte: "el célula" y "el hélice" no concuerdan. */}
+                    El libro de {p.etiqueta} de este avión todavía no tiene su ficha cargada. Se carga
+                    desde la pestaña <strong>Libros</strong>.
                   </p>
                 )}
 

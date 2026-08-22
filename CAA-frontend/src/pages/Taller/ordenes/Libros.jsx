@@ -178,7 +178,7 @@ export default function Libros() {
               <h3 className="adf-section-title" style={{ margin: 0 }}>
                 <i className="bi bi-journal-text me-2"></i>Registro del libro
               </h3>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {jefe && (
                   <button className="adf-btn secondary" onClick={() => {
                     getPlantillasSticker(id).then((p) => setPlantillas(p)).catch(() => toast.error("No se pudieron cargar"));
@@ -303,7 +303,7 @@ function FichaParteModal({ aeronave, parte, componente, onClose, onGuardado }) {
             <span className="adf-edit-head__chip"><i className="bi bi-gear"></i></span>
             Ficha del libro · {aeronave?.codigo}
           </span>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="adf-btn" disabled={guardando} onClick={guardar}><i className="bi bi-check"></i>Guardar</button>
             <button className="adf-btn secondary" onClick={onClose}>Cerrar</button>
           </div>
@@ -448,7 +448,7 @@ function CierreLibroModal({ libro, parte, onClose, onEmitido }) {
             <span className="adf-edit-head__chip"><i className="bi bi-journal-bookmark"></i></span>
             Cerrar y abrir libro
           </span>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="adf-btn" disabled={guardando} onClick={emitir}>
               <i className="bi bi-printer"></i>{guardando ? "Emitiendo…" : "Emitir los dos"}
             </button>
