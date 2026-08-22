@@ -19,11 +19,14 @@ export default function FolderAvion() {
   const [orden, setOrden] = useState(null);
 
   useEffect(() => {
-    getAeronavesBodega().then((a) => {
+    getAeronavesBodega().then((r) => {
+      // Fuera los simuladores: no tienen mantenimiento ni libros, y su folder
+      // sale siempre vacío. Mismo criterio que Libros y que abrir un trabajo.
+      const a = (r || []).filter((x) => x.tipo !== "SIMULADOR");
       setAeronaves(a);
-      // Arranca en el primer avión de verdad: el simulador no tiene
-      // mantenimiento y abrir en él muestra un folder vacío que confunde.
-      const primero = a.find((x) => x.tipo !== "SIMULADOR" && !x.es_externa) || a[0];
+      // Arranca en un avión propio: abrir en uno de tercero confunde más que
+      // ayudar, aunque la OMA sí les dé servicio.
+      const primero = a.find((x) => !x.es_externa) || a[0];
       if (primero) setId(String(primero.id_aeronave));
     }).catch(() => {});
   }, []);

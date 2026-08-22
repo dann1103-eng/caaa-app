@@ -1609,6 +1609,11 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
   que va impreso en un documento legal.
 - **El formato del sticker de 25 h** no estaba entre los archivos entregados. El tipo ya existe con
   la plantilla vacía: cuando lo tengan, se escribe desde la app sin desplegar.
+- 🔴 **Los bimotores llevan CINCO libros, no tres** (dos motores y dos hélices, cada uno con su
+  T.T. y su TSO). El **YS-259-PE** ya está y **compraron un segundo bimotor** el 2026-08-22.
+  Ninguno tiene partes cargadas, así que no hay nada mal registrado — pero antes de cargarlos hay
+  que ampliar el modelo, y antes de eso **ver un juego de stickers real de un bimotor**. Detalle en
+  §37.
 - **La tabla grande de conteo de horas y seguimiento de mantenimientos** sigue sin entregarse.
   Cuando llegue se coteja contra los anclajes; no hay que rehacer nada.
 
@@ -2697,10 +2702,22 @@ que el anclaje quede en escala cruda, los 403 del técnico y que una edición pa
 nulifique el resto. PDF revisado renderizado a PNG (1 y 2 páginas, sin partir recuadros). Pantallas
 revisadas en el navegador a 1280 y 375 px.
 
+### 🔴 Los bimotores necesitan CINCO libros, no tres
+El modelo asume **un motor y una hélice** por avión. Un bimotor lleva dos de cada uno, y cada uno
+tiene su libro con su T.T. y su TSO. El **YS-259-PE** ya está en la flota y **la escuela acaba de
+comprar un segundo bimotor** (dato de Daniel, 2026-08-22) ⇒ deja de ser hipotético.
+
+Ninguno tiene partes cargadas, así que **no hay nada mal registrado**: es hueco de alcance, no dato
+corrupto. Toca `taller_componente.posicion` (ya existe, ahí iría LH/RH), `partesDe()` (se queda con
+una fila por tipo), los CHECK de `parte` en `taller_sticker` y `taller_sticker_plantilla`, las tres
+banderas `orden_trabajo.toca_*` y las tres pestañas de la vista Libros.
+**No modelarlo a ciegas:** primero ver un juego de stickers real de un bimotor — si distinguen los
+motores por posición o por serie, y si el libro de la célula cambia en algo.
+
 ### Lo que falta
-- **`git push origin HEAD:master`** desde la rama (bloqueado por el clasificador).
 - **El formato de 25 h** no existe entre los archivos entregados: el tipo está creado con la plantilla
   vacía y se escribe desde la app cuando lo tengan.
+- **Los dos bimotores** (ver arriba), cuando toque cargarles los libros.
 - **Dictar del libro** el T.T. del motor y la hélice del 127 y del 270, y las tres partes del 155 y
   el 259. Es trabajo del mecánico, no del software.
 - Cotejar contra la **tabla grande de conteo de horas y seguimiento de mantenimientos** que Daniel

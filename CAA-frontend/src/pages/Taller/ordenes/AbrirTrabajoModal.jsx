@@ -38,7 +38,13 @@ export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null 
   });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
-  useEffect(() => { getAeronavesBodega().then(setAeronaves).catch(() => {}); }, []);
+  // Sin simuladores: no tienen célula, motor ni hélice que certificar, así que
+  // no hay mantenimiento que abrirles ni libro donde pegar un sticker.
+  useEffect(() => {
+    getAeronavesBodega()
+      .then((r) => setAeronaves((r || []).filter((a) => a.tipo !== "SIMULADOR")))
+      .catch(() => {});
+  }, []);
 
   // Todo el personal del taller menos uno mismo: el que ayuda puede ser el
   // aprendiz o el otro mecánico.

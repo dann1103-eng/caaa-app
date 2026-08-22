@@ -286,6 +286,29 @@ además de horas · el sticker de 25 h mientras no exista el formato · reconcil
 tabla grande de conteo de horas y seguimiento de mantenimientos que Daniel todavía no
 entregó — cuando llegue, se coteja, no se rehace · adjuntar los manuales del avión.
 
+## 12.bis 🔴 Los bimotores necesitan CINCO libros, no tres
+
+**El modelo de hoy asume un motor y una hélice por avión** (`taller_componente` guarda una
+parte instalada por tipo, y los tres libros son fijos: célula, motor, hélice).
+
+Un bimotor lleva **dos motores y dos hélices**, y cada uno tiene su propio libro con su
+propio T.T. y su propio TSO — son cinco libros, no tres. El **YS-259-PE** (Cessna 310) ya
+está en la flota y **la escuela acaba de comprar un segundo bimotor** (2026-08-22), así
+que deja de ser hipotético.
+
+Ninguno de los dos tiene partes cargadas todavía, así que **no hay nada mal registrado**:
+el hueco es de alcance, no un dato corrupto. Lo que hace falta cuando se vayan a cargar:
+
+- `taller_componente.posicion` ya existe (de la migración 011) y es donde iría `LH` / `RH`.
+- `partesDe()` se queda con **una** fila por tipo — habría que devolver la lista.
+- `PARTES` y `taller_sticker.parte` / `taller_sticker_plantilla.parte` tienen el CHECK en
+  tres valores, y `orden_trabajo.toca_*` son tres banderas.
+- La pestaña Libros muestra tres pestañas fijas.
+
+**No modelarlo a ciegas:** primero hay que ver un juego de stickers real de un bimotor —
+si distinguen los motores por posición o por número de serie, y si el libro de la célula
+cambia en algo. Mismo criterio que se usó con los recurrentes y con Bimotor en su momento.
+
 ## 13. Riesgos conocidos
 
 - **Las dos escalas del TAC.** Todo el diseño descansa en que el anclaje vive en escala
