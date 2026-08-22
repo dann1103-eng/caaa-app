@@ -44,9 +44,9 @@ export default function EmitirStickersModal({ orden, onClose, onEmitidos }) {
         const ini = {};
         for (const p of d.partes) {
           ini[p.parte] = {
-            // Por defecto van marcadas las partes instaladas: una inspección
-            // toca los tres libros. Un trabajo puntual se desmarca a mano.
-            marcada: p.existe && p.instalada,
+            // Viene marcado lo que la orden declaró al abrirse. Es un default:
+            // un trabajo descubre trabajo, así que se puede agregar o quitar.
+            marcada: p.existe && p.instalada && p.declarada !== false,
             texto: p.textos?.[d.tipo_sugerido] || "",
             tac: n(p.tac), tt: n(p.tt), tso: n(p.tso),
           };

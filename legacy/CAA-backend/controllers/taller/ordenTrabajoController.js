@@ -166,6 +166,9 @@ exports.crearOrden = catchAsync(async (req, res) => {
     id_aeronave, fecha, tacometro, piloto_operador, discrepancia,
     id_reporte, id_cumplimiento, id_mantenimiento, id_mecanico_asignado,
     id_aprendiz,
+    // Sobre qué libros va a certificar. Es el default de los stickers, no un
+    // candado: al emitir se puede agregar o quitar uno.
+    toca_celula, toca_motor, toca_helice,
   } = req.body;
 
   if (!id_aeronave) return res.status(400).json({ message: "Elegí la aeronave" });
@@ -187,13 +190,20 @@ exports.crearOrden = catchAsync(async (req, res) => {
       `INSERT INTO orden_trabajo
          (anio, numero, correlativo, id_aeronave, fecha, tacometro, piloto_operador,
           discrepancia, id_reporte, id_cumplimiento, id_mantenimiento, creado_por,
-          id_mecanico_asignado, asignado_en, id_aprendiz)
+          id_mecanico_asignado, asignado_en, id_aprendiz,
+          toca_celula, toca_motor, toca_helice)
        VALUES ($1,$2,$3,$4, COALESCE($5::date, CURRENT_DATE), $6::numeric, $7,$8,$9,$10,$11,$12,
-               $13, CASE WHEN $13::int IS NULL THEN NULL ELSE (NOW() AT TIME ZONE 'America/El_Salvador') END, $14)
+               $13, CASE WHEN $13::int IS NULL THEN NULL ELSE (NOW() AT TIME ZONE 'America/El_Salvador') END, $14,
+               COALESCE($15::boolean, true), COALESCE($16::boolean, true), COALESCE($17::boolean, true))
        RETURNING *`,
       [anio, numero, correlativo, id_aeronave, fecha || null, num(tacometro), txt(piloto_operador),
        txt(discrepancia), id_reporte || null, id_cumplimiento || null, id_mantenimiento || null,
-       req.user?.id_usuario || null, asignado, id_aprendiz || null]
+       req.user?.id_usuario || null, asignado, id_aprendiz || null,
+       // COALESCE a true: un cliente viejo que no mande el campo conserva la
+       // conducta de antes (la orden reclama los tres libros).
+       toca_celula === undefined ? null : !!toca_celula,
+       toca_motor === undefined ? null : !!toca_motor,
+       toca_helice === undefined ? null : !!toca_helice]
     );
     await client.query("COMMIT");
     res.json(r.rows[0]);
@@ -211,6 +221,7 @@ exports.editarOrden = catchAsync(async (req, res) => {
   const {
     fecha, tacometro, piloto_operador, discrepancia, accion_correctiva,
     id_cumplimiento, id_mantenimiento, partes,
+    toca_celula, toca_motor, toca_helice,
   } = req.body;
 
   const client = await db.connect();
@@ -239,6 +250,11 @@ exports.editarOrden = catchAsync(async (req, res) => {
     if (tiene("accion_correctiva")) put("accion_correctiva", txt(accion_correctiva));
     if (tiene("id_cumplimiento")) put("id_cumplimiento", id_cumplimiento || null);
     if (tiene("id_mantenimiento")) put("id_mantenimiento", id_mantenimiento || null);
+    // Si el trabajo descubrió trabajo, se puede corregir sobre qué libros
+    // certifica mientras la orden siga abierta.
+    if (tiene("toca_celula")) put("toca_celula", !!toca_celula, "::boolean");
+    if (tiene("toca_motor")) put("toca_motor", !!toca_motor, "::boolean");
+    if (tiene("toca_helice")) put("toca_helice", !!toca_helice, "::boolean");
 
     if (sets.length) {
       await client.query(

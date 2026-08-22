@@ -32,6 +32,9 @@ export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null 
     piloto_operador: "", con_reporte: false,
     tipo_inspeccion: desdeCola?.tipo || "",
     id_aprendiz: "",
+    // Sobre qué libros va a certificar este trabajo. Los tres por defecto: una
+    // inspección los toca todos, y un trabajo puntual se desmarca a mano.
+    toca_celula: true, toca_motor: true, toca_helice: true,
   });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -89,6 +92,7 @@ export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null 
         // Enlaza al mantenimiento que Operaciones abrió: es lo que hace que el
         // avión salga de la cola y que al aprobar se les avise a ellos.
         id_mantenimiento: desdeCola?.id_mantenimiento || null,
+        toca_celula: f.toca_celula, toca_motor: f.toca_motor, toca_helice: f.toca_helice,
       });
       toast.success(`Trabajo abierto · ${o.correlativo}`);
       onCreada(o);
@@ -145,6 +149,25 @@ export default function AbrirTrabajoModal({ onClose, onCreada, desdeCola = null 
               <label>Tacómetro</label>
               <input type="number" step="0.01" value={f.tacometro} onChange={(e) => set("tacometro", e.target.value)} />
             </div>
+          </div>
+
+          {/* Precarga las casillas al emitir los stickers, y hace que el aviso
+              de "falta pegar" de cada libro solo reclame lo que le toca. Es un
+              default: al emitir se puede agregar o quitar un libro, porque un
+              trabajo descubre trabajo. */}
+          <div className="adf-form-field" style={{ marginTop: 12 }}>
+            <label>¿Sobre qué vas a trabajar?</label>
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap", padding: "2px 0 4px" }}>
+              {[["toca_celula", "Célula"], ["toca_motor", "Motor"], ["toca_helice", "Hélice"]].map(([k, et]) => (
+                <label key={k} style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 500 }}>
+                  <input type="checkbox" checked={f[k]} onChange={(e) => set(k, e.target.checked)} />
+                  {et}
+                </label>
+              ))}
+            </div>
+            <small style={{ opacity: 0.72 }}>
+              Son los libros donde vas a pegar sticker. Se puede cambiar al emitirlos.
+            </small>
           </div>
 
           <div className="adf-form-field" style={{ marginTop: 12 }}>

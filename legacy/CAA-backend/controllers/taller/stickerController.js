@@ -152,12 +152,20 @@ exports.precargaOrden = catchAsync(async (req, res) => {
     aprendiz: apr ? { id_usuario: apr.id_usuario, nombre: `${apr.nombre} ${apr.apellido}`.trim(), certificado: apr.certificado_aprendiz } : null,
     proxima_texto: proxima,
     ya_emitidos: yaEmitidos.rows,
+    // Lo declarado al abrir el trabajo precarga las casillas. Es un default:
+    // el mecánico puede agregar o quitar un libro antes de emitir.
+    declarado: {
+      CELULA: orden.toca_celula !== false,
+      MOTOR: orden.toca_motor !== false,
+      HELICE: orden.toca_helice !== false,
+    },
     partes: PARTES.map((parte) => {
       const c = partes[parte];
       const calc = c ? calcular(lectura, c, offset) : { tac: r2(lectura + offset), tt: null, tso: null };
       return {
         parte,
         etiqueta: ETIQUETA_PARTE[parte],
+        declarada: orden[`toca_${parte.toLowerCase()}`] !== false,
         existe: !!c,
         instalada: c ? c.activo : false,
         id_componente: c?.id_componente || null,
@@ -342,13 +350,19 @@ exports.getLibro = catchAsync(async (req, res) => {
      WHERE s.id_aeronave = $1 AND s.parte = $2
      ORDER BY s.fecha DESC, s.id_sticker DESC`, [id, parte]);
 
-  // Órdenes ya firmadas de este avión que no tienen sticker de esta parte:
-  // es lo que falta pegar en el libro.
+  // Órdenes ya firmadas de este avión que no tienen sticker de esta parte: es
+  // lo que falta pegar en el libro.
+  //
+  // Filtra por lo que la orden DECLARÓ tocar. Sin eso, un cambio de aceite del
+  // motor aparecería como "falta pegar" también en el libro de la célula y en
+  // el de la hélice, para siempre, y el aviso se volvería ruido.
+  const col = { CELULA: "toca_celula", MOTOR: "toca_motor", HELICE: "toca_helice" }[parte];
   const pend = await db.query(`
     SELECT o.id_orden, o.correlativo, o.fecha, o.estado, o.tacometro, o.discrepancia
       FROM orden_trabajo o
      WHERE o.id_aeronave = $1
        AND o.estado IN ('FIRMADA','APROBADA','CERRADA')
+       AND o.${col} = true
        AND NOT EXISTS (
          SELECT 1 FROM taller_sticker s
           WHERE s.id_orden = o.id_orden AND s.parte = $2 AND s.estado = 'EMITIDO')

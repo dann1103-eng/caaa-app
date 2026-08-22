@@ -175,6 +175,24 @@ ese papel. Es lo que evita que la deriva se acumule.
 
 ## 7. Emisión
 
+### 7.1 Qué libros toca el trabajo, se declara al abrirlo
+
+Al abrir la orden —manualmente, tomando un avión de la cola o cuando el jefe la asigna— el mecánico
+marca sobre qué va a trabajar: **célula, motor, hélice, o los tres** (`orden_trabajo.toca_celula` /
+`_motor` / `_helice`, los tres `DEFAULT TRUE`).
+
+**Es un default, no un candado.** Precarga las casillas al emitir, pero ahí se puede agregar o
+quitar un libro: un trabajo descubre trabajo — la orden `CAAA/2026-0058` del YS-333-PE se abrió por
+el motor y terminó llevándose también la hélice a overhaul. Mientras la orden siga `ABIERTA` la
+declaración se puede corregir por `PATCH /taller/ordenes/:id`.
+
+> Sin esto, el aviso **"órdenes firmadas sin sticker"** de la §8 lista **todas** las órdenes del
+> avión en **los tres** libros: un cambio de aceite del motor aparecería como "falta pegar" en el
+> libro de la célula y en el de la hélice, para siempre. El aviso existe para que no se escape nada;
+> sin el filtro se vuelve ruido y deja de leerse.
+
+### 7.2 El flujo
+
 Desde la orden de trabajo, botón **"Stickers para los libros"**:
 
 1. El mecánico elige a qué libros va — los tres por defecto en una inspección, uno solo en
@@ -205,7 +223,8 @@ Dos cosas salen gratis del modelo:
 
 - **Los stickers de cierre y apertura parten la lista en volúmenes** ("Libro 1", "Libro 2")
   sin tabla nueva ni numeración a mano: el evento ya es el borde.
-- **Una orden firmada sin sticker emitido sale igual, marcada**, así se ve qué falta pegar.
+- **Una orden firmada sin sticker emitido sale igual, marcada**, así se ve qué falta pegar — y solo
+  en los libros que esa orden **declaró tocar** (§7.1).
 
 Al abrir un renglón: el sticker tal como se imprimió (re-imprimible, **no recalculado**)
 más el detalle completo de su orden. `OrdenDetalleModal` ya muestra reporte de inspección,

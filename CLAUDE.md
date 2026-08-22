@@ -2641,7 +2641,19 @@ servidor **re-ancla esa parte** — aunque no sea jefe: ese número ya quedó im
 libro oficial, y seguir calculando desde otro solo garantiza que el próximo sticker salga mal. Queda
 el rastro (`ancla_origen`) para que el jefe lo vea; **lo que no puede es quedar en silencio.**
 
-### F. Pantallas
+### F. Qué libros toca el trabajo (mig `20260822000004`)
+Al **abrir** la orden se declara sobre qué se va a trabajar: `orden_trabajo.toca_celula/_motor/
+_helice`, los tres `DEFAULT TRUE`. **Es un default, no un candado** (decisión de Daniel): precarga
+las casillas al emitir, pero ahí se puede agregar o quitar un libro — un trabajo descubre trabajo, y
+la orden del 333 se abrió por el motor y terminó llevándose la hélice. Con la orden `ABIERTA` se
+corrige por `PATCH /taller/ordenes/:id`.
+
+⚠️ **Sin esto el aviso "órdenes firmadas sin sticker" mentía**: listaba todas las órdenes del avión
+en los tres libros, así que un cambio de aceite del motor iba a aparecer como "falta pegar" en el
+libro de la célula y en el de la hélice **para siempre**. Lo destapó Daniel preguntando por qué el
+mantenimiento manual no dejaba elegir la parte.
+
+### G. Pantallas
 - **Emisión** desde la orden de trabajo (`EmitirStickersModal`): elegir libros, tipo, números y texto.
   Sale un PDF con los stickers **más el par de mini "próxima inspección"** (TAC + 25 y + 50).
 - **Trabajos gana una tercera pestaña, "Libros del avión"** (`Libros.jsx`): tres libros por avión con
@@ -2650,7 +2662,7 @@ el rastro (`ancla_origen`) para que el jefe lo vea; **lo que no puede es quedar 
   sticker sale marcada. Al abrir un renglón se reusa entero `OrdenDetalleModal`.
 - Plantillas y anclajes: **solo el jefe**. Emitir: mecánico también.
 
-### G. Siembra (`supabase/dump/seed_stickers_libros.js`, ya corrida)
+### H. Siembra (`supabase/dump/seed_stickers_libros.js`, ya corrida)
 12 partes de los 4 aviones con stickers. Las **cuatro células con confianza**, más motor y hélice del
 Tomahawk. El resto queda **sin anclaje a propósito**: el motor del 333 y el del 270 están **fuera del
 avión** (reparación mayor y caja rajada), y el T.T. del motor del 127 y de la hélice del 270 viene
@@ -2678,7 +2690,8 @@ copiado en el papel. **YS-155-PE y YS-259-PE no tienen nada.**
 - 9 px de desborde horizontal a 375 px: faltaba `flexWrap` en las filas de botones.
 
 ### Verificación
-**45/45 E2E** contra Supabase real con limpieza total, incluida la prueba explícita de las dos
+**59/59 E2E** en dos suites contra Supabase real con limpieza total (45 de stickers + 14 de la
+declaración de partes), incluida la prueba explícita de las dos
 escalas (el TAC del libro sale con +10,000 y los tres offsets se reproducen exactos), el re-anclaje,
 que el anclaje quede en escala cruda, los 403 del técnico y que una edición parcial de la ficha no
 nulifique el resto. PDF revisado renderizado a PNG (1 y 2 páginas, sin partir recuadros). Pantallas
