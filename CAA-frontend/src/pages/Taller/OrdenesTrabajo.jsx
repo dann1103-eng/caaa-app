@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import ListaOrdenes from "./ordenes/ListaOrdenes";
 import FolderAvion from "./ordenes/FolderAvion";
+import Libros from "./ordenes/Libros";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
 
@@ -16,6 +17,9 @@ const TABS = [
   // taller", que es la pantalla principal. Acá queda el archivo: buscar una orden
   // y ver el folder de cada avión.
   { key: "ordenes", label: "Historial de órdenes", icon: "bi-clipboard2-check" },
+  // El libro por parte es el registro LEGAL que audita la AAC; "Por avión" es
+  // el resumen operativo. Contestan cosas distintas, por eso van separados.
+  { key: "libros", label: "Libros del avión", icon: "bi-journal-text" },
   { key: "avion", label: "Por avión", icon: "bi-airplane" },
   // Los préstamos se mudaron a Inventario: mueven la existencia, no el papeleo
   // de una orden, y siguen abiertos aunque la orden ya se haya cerrado.
@@ -47,6 +51,7 @@ export default function OrdenesTrabajo() {
       </nav>
 
       {tab === "ordenes" && <ListaOrdenes />}
+      {tab === "libros" && <Libros />}
       {tab === "avion" && <FolderAvion />}
     </>
   );

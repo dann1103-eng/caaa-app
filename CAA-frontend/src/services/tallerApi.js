@@ -212,3 +212,38 @@ export const crearPrestamo = async (datos) => (await axios.post(`${TAL()}/presta
 export const devolverPrestamo = async (id, datos) => (await axios.post(`${TAL()}/prestamos/${id}/devolver`, datos)).data;
 export const anularPrestamo = async (id, motivo_anulacion) =>
   (await axios.post(`${TAL()}/prestamos/${id}/anular`, { motivo_anulacion })).data;
+
+// ── Stickers de constancia para los libros del avión (célula/motor/hélice) ──
+//
+// Cada avión lleva tres libros físicos exigidos por la AAC y cada trabajo se
+// acredita pegando un sticker impreso. Emitirlo es del mecánico; las plantillas
+// de texto y los anclajes de horas son del jefe de taller.
+
+export const getPrecargaStickers = async (id_orden) =>
+  (await axios.get(`${TAL()}/ordenes/${id_orden}/stickers/precarga`)).data;
+
+export const emitirStickers = async (id_orden, datos) =>
+  (await axios.post(`${TAL()}/ordenes/${id_orden}/stickers`, datos)).data;
+
+// Cierre y apertura de libro no cuelgan de una orden: van con id "libre".
+export const emitirStickersLibres = async (datos) =>
+  (await axios.post(`${TAL()}/ordenes/libre/stickers`, datos)).data;
+
+export const getLibroAeronave = async (id_aeronave, parte) =>
+  (await axios.get(`${TAL()}/aeronaves/${id_aeronave}/libro/${parte}`)).data;
+
+export const guardarParteAeronave = async (id_aeronave, parte, datos) =>
+  (await axios.put(`${TAL()}/aeronaves/${id_aeronave}/partes/${parte}`, datos)).data;
+
+export const getPlantillasSticker = async (id_aeronave) =>
+  (await axios.get(`${TAL()}/aeronaves/${id_aeronave}/sticker-plantillas`)).data;
+
+export const guardarPlantillaSticker = async (id_aeronave, datos) =>
+  (await axios.put(`${TAL()}/aeronaves/${id_aeronave}/sticker-plantillas`, datos)).data;
+
+export const anularSticker = async (id, motivo) =>
+  (await axios.post(`${TAL()}/stickers/${id}/anular`, { motivo })).data;
+
+// Un solo PDF con el lote: los tres libros salen juntos para recortar de una.
+export const abrirStickersPDF = (ids) =>
+  abrirPdf2("/stickers/pdf", { ids: (Array.isArray(ids) ? ids : [ids]).join(",") });

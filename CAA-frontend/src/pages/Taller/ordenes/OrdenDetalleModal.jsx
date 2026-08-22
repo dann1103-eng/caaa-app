@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EmitirStickersModal from "./EmitirStickersModal";
 import { toast } from "sonner";
 import {
   getOrden, anularOrden, abrirOrdenPDF, abrirReporteInspeccionPDF, abrirDocumentoPDF,
@@ -18,6 +19,7 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
   const [firmando, setFirmando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
+  const [stickers, setStickers] = useState(false);
 
   const cargar = () => getOrden(id).then(setD).catch((e) =>
     toast.error(e.response?.data?.message || "No se pudo abrir la orden"));
@@ -54,6 +56,13 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
             )}
             {o?.estado === "ABIERTA" && (
               <button className="adf-btn" onClick={() => setFirmando(true)}><i className="bi bi-pen"></i> Firmar</button>
+            )}
+            {/* Los stickers se pegan cuando el trabajo ya se hizo: una orden
+                todavía abierta no tiene nada que certificar en un libro. */}
+            {o && o.estado !== "ANULADA" && o.estado !== "ABIERTA" && (
+              <button className="adf-btn secondary" onClick={() => setStickers(true)}>
+                <i className="bi bi-stickies"></i> Stickers para los libros
+              </button>
             )}
             {o && o.estado !== "ANULADA" && !pidiendoMotivo && (
               <button className="adf-btn danger" onClick={() => setPidiendoMotivo(true)}>Anular</button>
@@ -183,6 +192,14 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
           orden={o}
           onClose={() => setFirmando(false)}
           onFirmada={() => { setFirmando(false); cargar(); onCambio(); }}
+        />
+      )}
+
+      {stickers && o && (
+        <EmitirStickersModal
+          orden={o}
+          onClose={() => setStickers(false)}
+          onEmitidos={() => { cargar(); onCambio?.(); }}
         />
       )}
     </div>
