@@ -414,7 +414,183 @@ function generarReporteInspeccionPDF({ reporte: r, formulario }) {
   return doc;
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Stickers de constancia para los libros del avión
+//
+// Se imprimen en papel adhesivo carta y se recortan a mano, así que van uno
+// debajo del otro con línea de corte punteada. El recuadro replica el Word que
+// usa la OMA: logo, las tres líneas de la organización, la grilla de tres
+// columnas, el cuerpo y las dos firmas.
+//
+// Regla dura del paginador: NUNCA partir un recuadro entre dos páginas. Un
+// sticker cortado a la mitad no se puede pegar en el libro.
+//
+// Spec: docs/superpowers/specs/2026-08-22-stickers-libros-aeronave-design.md
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LOGO_STICKER = path.join(__dirname, "..", "assets", "logo-caaa.png");
+
+/** Horas con separador de miles y dos decimales, como en el papel. */
+const horas = (v) =>
+  v === null || v === undefined || v === "" || isNaN(Number(v))
+    ? "N/A"
+    : Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// "Ilopango, 30/jul/2026". Mismo cuidado que `fecha()`: node-postgres devuelve
+// DATE como objeto Date y los getters van locales, no UTC.
+const MESES_STK = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function lugarFecha(lugar, v) {
+  const lug = txt(lugar) || "Ilopango";
+  if (!v) return lug;
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d.getTime())) return lug + ", " + String(v).slice(0, 10);
+  return lug + ", " + String(d.getDate()).padStart(2, "0") + "/" + MESES_STK[d.getMonth()] + "/" + d.getFullYear();
+}
+
+/** Alto que va a ocupar el recuadro, para poder decidir el salto de página. */
+function altoSticker(doc, s, ancho) {
+  doc.font("Helvetica").fontSize(8.5);
+  const cuerpo = doc.heightOfString(txt(s.texto), { width: ancho - 24, align: "justify" });
+  return 48 + 42 + cuerpo + 44;   // cabecera + grilla + cuerpo + firmas
+}
+
+function dibujarSticker(doc, s, x, y, ancho) {
+  const alto = altoSticker(doc, s, ancho);
+  doc.save();
+  doc.strokeColor("#111").lineWidth(1).rect(x, y, ancho, alto).stroke();
+
+  // ── Cabecera: logo a la izquierda, la organización centrada ──────────────
+  if (fs.existsSync(LOGO_STICKER)) {
+    try { doc.image(LOGO_STICKER, x + 8, y + 7, { height: 32 }); } catch { /* sale sin logo */ }
+  }
+  doc.fillColor("#000").font("Helvetica-Bold").fontSize(9)
+    .text("ORGANIZACIÓN DE MANTENIMIENTO AUTORIZADO", x + 46, y + 8, { width: ancho - 60, align: "center" });
+  doc.fontSize(8.5)
+    .text("C.A.A.A. S.A. de C.V.", x + 46, y + 20, { width: ancho - 60, align: "center" });
+  doc.font("Helvetica").fontSize(8)
+    .text(txt(s.codigo_formulario) || "CO-OMA-CAAA-014", x + 46, y + 31, { width: ancho - 60, align: "center" });
+
+  // ── Grilla de tres columnas, tal como el papel ───────────────────────────
+  // Col 1: Matrícula / Marca / Modelo · Col 2: TAC / T.T. / TSO
+  // Col 3: M/N / S/N / T.C.           · a la derecha, lugar y fecha
+  const gy = y + 48;
+  const W_FECHA = 104;                       // reservado para "Ilopango, 30/jul/2026"
+  const util = ancho - 20 - W_FECHA - 10;
+  const w1 = Math.round(util * 0.37);        // Matrícula / Marca / Modelo
+  const w2 = Math.round(util * 0.29);        // TAC / T.T / TSO
+  const w3 = util - w1 - w2;                 // M/N / S/N / T.C — la de los P/N largos
+  const c1 = x + 10, c2 = c1 + w1, c3 = c2 + w2;
+  const fila = (i) => gy + i * 12.5;
+  const par = (etq, val, cx, i, wEtq, wVal) => {
+    doc.font("Helvetica").fontSize(8).fillColor("#333")
+      .text(etq, cx, fila(i), { width: wEtq, lineBreak: false });
+    doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#000")
+      .text(txt(val) || "-", cx + wEtq, fila(i), { width: wVal, lineBreak: false, ellipsis: true, height: 11 });
+  };
+
+  par("Matrícula:", s.matricula, c1, 0, 48, w1 - 50);
+  par("Marca:", s.marca, c1, 1, 48, w1 - 50);
+  par("Modelo:", s.modelo, c1, 2, 48, w1 - 50);
+  par("TAC:", horas(s.tac), c2, 0, 30, w2 - 32);
+  par("T.T:", horas(s.tt), c2, 1, 30, w2 - 32);
+  par("TSO:", horas(s.tso), c2, 2, 30, w2 - 32);
+  par("M/N:", s.mn, c3, 0, 30, w3 - 32);
+  par("S/N:", s.sn, c3, 1, 30, w3 - 32);
+  par("T.C:", s.tc, c3, 2, 30, w3 - 32);
+
+  doc.font("Helvetica").fontSize(7.5).fillColor("#000")
+    .text(lugarFecha(s.lugar, s.fecha), x + ancho - 10 - W_FECHA, fila(0),
+      { width: W_FECHA, align: "right", lineBreak: false });
+
+  // ── Cuerpo ───────────────────────────────────────────────────────────────
+  doc.font("Helvetica").fontSize(8.5).fillColor("#000")
+    .text(txt(s.texto), x + 12, y + 48 + 42, { width: ancho - 24, align: "justify" });
+
+  // ── Firmas ───────────────────────────────────────────────────────────────
+  const fy = y + alto - 32;
+  const mitad = Math.round((ancho - 24) / 2);
+  doc.font("Helvetica-Bold").fontSize(8.5).fillColor("#000")
+    .text(txt(s.mecanico_nombre), x + 12, fy, { width: mitad, align: "center", lineBreak: false });
+  doc.font("Helvetica").fontSize(8)
+    .text("Mecánico TMA #" + txt(s.mecanico_tma), x + 12, fy + 12, { width: mitad, align: "center", lineBreak: false });
+
+  if (s.aprendiz_nombre) {
+    doc.font("Helvetica-Bold").fontSize(8.5)
+      .text(txt(s.aprendiz_nombre), x + 12 + mitad, fy, { width: mitad, align: "center", lineBreak: false });
+    doc.font("Helvetica").fontSize(8)
+      .text("Lic. de Aprendiz #" + txt(s.aprendiz_certificado), x + 12 + mitad, fy + 12,
+        { width: mitad, align: "center", lineBreak: false });
+  }
+
+  // Un sticker anulado se re-imprime igual (queda en el historial), pero tiene
+  // que verse que no vale: si se pega, el libro miente.
+  if (s.estado === "ANULADO") {
+    doc.font("Helvetica-Bold").fontSize(28).fillColor("#C0392B").opacity(0.3)
+      .text("ANULADO", x, y + alto / 2 - 16, { width: ancho, align: "center" });
+    doc.opacity(1);
+  }
+
+  doc.restore();
+  return alto;
+}
+
+/** El mini de "Próxima Inspección", que se pega aparte. */
+function dibujarMini(doc, matricula, etiqueta, tac, x, y, ancho) {
+  doc.save();
+  doc.strokeColor("#111").lineWidth(1).rect(x, y, ancho, 46).stroke();
+  doc.font("Helvetica-Bold").fontSize(9).fillColor("#000")
+    .text(txt(matricula), x, y + 6, { width: ancho, align: "center" });
+  doc.font("Helvetica").fontSize(8.5)
+    .text("Próxima Inspección de " + etiqueta, x, y + 18, { width: ancho, align: "center" });
+  doc.font("Helvetica-Bold").fontSize(9)
+    .text("Tac: " + horas(tac), x, y + 30, { width: ancho, align: "center" });
+  doc.restore();
+  return 46;
+}
+
+function lineaCorte(doc, x, y, ancho) {
+  doc.save().strokeColor("#999").lineWidth(0.6).dash(3, { space: 3 })
+    .moveTo(x, y).lineTo(x + ancho, y).stroke().undash().restore();
+}
+
+/**
+ * @param {Array} stickers filas de `taller_sticker` — YA CONGELADAS. Se imprime
+ *   lo que dicen, nunca se recalcula: el papel viejo no puede cambiar solo.
+ */
+function generarStickersPDF({ stickers = [], formulario = null }) {
+  const doc = new PDFDocument({ size: "LETTER", margin: 36 });
+  const x = 36;
+  const ancho = doc.page.width - 72;
+  const limite = doc.page.height - 50;
+  const codigo = formulario?.codigo || "CO-OMA-CAAA-014";
+  let y = 44;
+
+  stickers.forEach((s0, i) => {
+    const s = Object.assign({}, s0, { codigo_formulario: codigo });
+    const alto = altoSticker(doc, s, ancho);
+    // Nunca partir un recuadro: si no entra completo, página nueva.
+    if (y + alto > limite) { doc.addPage(); y = 44; }
+    dibujarSticker(doc, s, x, y, ancho);
+    y += alto;
+    if (i < stickers.length - 1) { lineaCorte(doc, x, y + 9, ancho); y += 19; }
+  });
+
+  // Los mini de próxima inspección van UNA vez por juego, no uno por libro: los
+  // tres stickers de una misma orden comparten el TAC.
+  const conProxima = stickers.find((s) => s.proxima_25 || s.proxima_50);
+  if (conProxima) {
+    if (y + 76 > limite) { doc.addPage(); y = 44; }
+    else { lineaCorte(doc, x, y + 9, ancho); y += 22; }
+    const w = Math.round((ancho - 16) / 2);
+    if (conProxima.proxima_25) dibujarMini(doc, conProxima.matricula, "25 horas", conProxima.proxima_25, x, y, w);
+    if (conProxima.proxima_50) dibujarMini(doc, conProxima.matricula, "50 horas", conProxima.proxima_50, x + w + 16, y, w);
+  }
+
+  return doc;
+}
+
 module.exports = {
   generarRequisicionPDF, generarSolicitudPDF, generarEntregaAceitesPDF,
-  generarOrdenTrabajoPDF, generarReporteInspeccionPDF,
+  generarOrdenTrabajoPDF, generarReporteInspeccionPDF, generarStickersPDF,
 };

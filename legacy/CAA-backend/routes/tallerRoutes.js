@@ -12,6 +12,7 @@ const documentos = require("../controllers/taller/documentoInventarioController"
 const ot = require("../controllers/taller/ordenTrabajoController");
 const prestamo = require("../controllers/taller/prestamoController");
 const estimado = require("../controllers/taller/estimadoController");
+const sticker = require("../controllers/taller/stickerController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -157,5 +158,27 @@ router.get("/prestamos/:id", roleMiddleware(READ), prestamo.getPrestamo);
 router.post("/prestamos/:id/devolver", roleMiddleware(WRITE), prestamo.devolverPrestamo);
 // Anular revierte movimientos de material: es del jefe de taller.
 router.post("/prestamos/:id/anular", roleMiddleware(JEFE), prestamo.anularPrestamo);
+
+// -- Stickers de constancia para los libros del avion -----------------------
+//
+// Cada avion lleva tres libros fisicos (celula, motor, helice) exigidos por la
+// AAC y cada trabajo se acredita pegando un sticker impreso. Emitirlo y
+// firmarlo es del mecanico; las plantillas de texto y los anclajes de horas
+// son del jefe de taller.
+//
+// OJO con el orden: /stickers/pdf va ANTES de /stickers/:id/... para que no se
+// lo coma el parametro (el mismo cuidado que /aeronaves/registro en el modulo
+// de Aeronaves).
+router.get("/ordenes/:id/stickers/precarga", roleMiddleware(READ), sticker.precargaOrden);
+router.post("/ordenes/:id/stickers", roleMiddleware(WRITE), sticker.emitir);
+router.get("/stickers/pdf", roleMiddleware(READ), sticker.imprimir);
+router.post("/stickers/:id/anular", roleMiddleware(JEFE), sticker.anular);
+
+// El libro de una parte: el indice cronologico de lo que se le hizo.
+router.get("/aeronaves/:id/libro/:parte", roleMiddleware(READ), sticker.getLibro);
+// Ficha de la parte y su anclaje de horas: dato del jefe de taller.
+router.put("/aeronaves/:id/partes/:parte", roleMiddleware(JEFE), sticker.guardarComponente);
+router.get("/aeronaves/:id/sticker-plantillas", roleMiddleware(READ), sticker.listPlantillas);
+router.put("/aeronaves/:id/sticker-plantillas", roleMiddleware(JEFE), sticker.guardarPlantilla);
 
 module.exports = router;
