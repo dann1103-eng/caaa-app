@@ -1585,7 +1585,11 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-18.** Resueltos desde la pasada anterior: ~~Taller fases 2-3~~ (§31 y §32) ·
+> **Última revisión: 2026-08-20.** Resueltos desde la pasada anterior: ~~el cronómetro del trabajo~~
+> (§35.A, era la zona de la sesión) · ~~la dualidad de pantallas del Taller~~ (§36: "Mi taller" es
+> ahora la pantalla principal y Trabajos quedó como archivo).
+>
+> Revisión 2026-08-18: ~~Taller fases 2-3~~ (§31 y §32) ·
 > ~~dar de alta a los mecánicos~~ (hecho, ver abajo) ·
 > ~~no se podían crear mecánicos desde la app~~ (§33) · ~~tarifa del YS-155~~ ($150, §26.C) ·
 > ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
@@ -1599,8 +1603,9 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ### 🔬 Con el Taller (2026-08-18, §34)
 - **`YS-270-PE` y `YS-333-PE` están en mantenimiento SIN fecha de finalización.** Aparecen en la cola
-  del Taller con "listo estimado —" y, sin fecha, quedan bloqueados indefinidamente para agendar. Se
-  arregla desde *Trabajos del taller → Por revisar → ¿Cuándo está listo?*.
+  del Taller con "listo estimado: sin fecha" y, sin fecha, quedan bloqueados indefinidamente para
+  agendar. Ponerles fecha **cancela los vuelos que caigan adentro**, así que es decisión de Daniel.
+  Se arregla desde ***Mi taller* → el avión → "¿Cuándo está listo?"** (la ruta cambió en §36).
 
 ### 🔧 Para que el Taller sirva (§32)
 - ✅ **Personal del taller cargado** (2026-08-18): `jose.estrada` (jefe, **TMA 090** — confirmado por
@@ -1608,6 +1613,10 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
   TMA 915) y `carlos.arevalo` (aprendiz, certificado 5798). Los tres con su **primer ingreso pendiente**:
   la primera vez que entren tienen que fijar contraseña y correo.
 - **Manuales del avión** que se adjuntan a cada mantenimiento: Daniel los va a pasar.
+
+### 🎨 Esperando decisión de Daniel
+- **Radios suavizados**: se aplicaron **solo al módulo Taller** (§35.C). Extenderlos a Administración
+  y Operaciones es cambiar un token, pero toca toda la app.
 
 ### 🧾 Higiene inmediata
 - **Multa de `javier.espinoza`**: anotada en el Excel de saldos ("multa por aplicar 13/07/26") y **nunca
@@ -2480,3 +2489,75 @@ replegado, cada grupo en su fila, sin desborde horizontal.
 ### Pendiente que quedó preguntado
 Los radios suavizados se aplicaron **solo al módulo Taller**. Extenderlo a Administración y
 Operaciones es cambiar un token, pero toca toda la app — falta que Daniel decida.
+
+---
+
+## 36. Sesión 2026-08-20 — "Mi taller" pasa a ser la pantalla principal (fin de la dualidad)
+
+**Desplegado y verificado en producción** (`origin/master` = `5d691d8`). Sin migración.
+Cuatro commits, todos salidos de Daniel probando el circuito en vivo:
+`8a3defb` (el jefe veía trabajo ajeno como propio) · `ec20c54` (tacómetro + despacho desde la
+tarjeta) · `90fafc0` (los firmados con el reloj detenido) · `5d691d8` (el merge).
+
+### A. 🐛 Al jefe le aparecía el trabajo del mecánico como propio
+"Mi taller" pedía `getOrdenes({ abiertas: "true" })`, un filtro que mira el **estado**
+(`ABIERTA`/`FIRMADA`) y **no la persona**. Con una sola orden abierta en todo el taller, la
+pantalla del jefe se la adjudicaba y anunciaba "estás trabajando en"; y abajo el MISMO avión salía
+en la cola con "Tomar este avión", como si nadie lo hubiera empezado. En el perfil de quien inicia
+el trabajo se veía bien **solo porque ahí coincidía**.
+- **Ya existía el filtro correcto y nadie lo usaba**: `asignadas=true` (`o.id_mecanico_asignado = uid
+  OR o.creado_por = uid`). El arreglo es agregarlo. ⚠️ Patrón a vigilar: un filtro de lista que
+  distingue por estado no distingue por dueño; si la pantalla dice "lo mío", tiene que pedir lo mío.
+- La cola además pasa a decir **quién está adentro** del avión y el botón a **"Abrir otro trabajo"**:
+  un avión lleva varias órdenes, pero ofrecer "tomar" uno ya intervenido invita a duplicarlo.
+
+### B. 🚨 La dualidad — dos pantallas para la misma acción se contradicen
+Daniel: *"veo que hay una dualidad… lo puedo hacer desde ahí o dando click a la tarjeta… mejor
+hacer el merge y centralizarlo en un solo lugar"*. La firma se daba desde "Esperando tu firma"
+(pantalla del jefe) **o** desde la tarjeta de "Trabajos en curso"; y la cola de aviones vivía en la
+pantalla del técnico mientras los trabajos vivían en la del jefe ⇒ el mismo avión aparecía dos veces
+diciendo cosas incompatibles.
+
+**Ahora es UNA sola lista, `El taller ahora`, dentro de "Mi taller", que es la pantalla principal.**
+Cada avión trae sus trabajos con quién lo lleva y con quién, el **tacómetro**, el **cronómetro**
+(detenido si ya se firmó), el **material pedido** —que se despacha desde la misma tarjeta— y, para
+el jefe, el selector para reasignar; debajo, el botón para tomarlo o abrirle otro trabajo.
+
+> **La regla que ordena todo esto: lo que uno puede hacer sale de QUIÉN ES, no de en qué pantalla
+> está.** Por eso la pantalla es la misma para el mecánico y para el jefe, y solo cambian los
+> controles que ofrece. Tocar un trabajo hace lo que corresponda: el mío me lleva a mi tarjeta, el
+> firmado el jefe lo revisa y firma ahí, el resto se mira.
+
+- `/taller/ordenes` queda como **el archivo**: historial de órdenes y folder por avión. Se
+  **retiraron** `PorRevisar.jsx` y `TrabajosEnCurso.jsx` (sin uso). Componente nuevo:
+  `pages/Taller/ordenes/TallerAhora.jsx`.
+- Permisos, verificados con los dos perfiles: el jefe ve "esperando tu firma", el selector de
+  asignación y la franja de material; el mecánico ve "tuyo · esperando al jefe" y **nada de eso**
+  (su 403 de `getDocumentos` va atrapado ⇒ la franja simplemente no aparece).
+
+### C. El papel se llena solo donde el sistema ya sabe la respuesta
+- **Requisición**: `cliente` = `CAAA / OMA` y `solicitante` = quien tiene la sesión abierta, los dos
+  precargados y **editables** (a veces el avión es de un tercero). Constante `CLIENTE_PROPIO` y
+  helper `yo()` en `DocumentoModal.jsx`.
+- **N° de solicitud** derivado de la orden (`CAAA/2026-0001` → `0001`), que es lo que dice el papel;
+  solo se rellena si está vacío, para no pisar lo tecleado.
+- ⚠️ El **número de orden en la solicitud ya se heredaba** correctamente desde la requisición
+  (`heredar()` en el backend, verificado en `SOL-001` de producción) — lo que faltaba era verlo.
+
+### D. Backend: `colaTrabajo` enriquecido
+El JSON de cada trabajo suma `tacometro`, `segundos_trabajo`, `documentos`, `aprendiz_nombre` y
+`devoluciones`, para que **una sola consulta** alimente toda la pantalla en vez de cruzar dos en el
+navegador. El cronómetro va con la **zona FIJADA** (`NOW() AT TIME ZONE 'America/El_Salvador'`),
+igual que en `SELECT_OT` — §35.A.
+
+### ⚠️ Trampas de esta tanda
+1. **Backticks dentro de un template string, segunda vez en dos días.** Un comentario SQL con
+   `` `timestamp` `` corta la cadena y el backend no compila. En los comentarios de esas consultas,
+   nada de comillas invertidas.
+2. **Finales de línea mixtos en el mismo archivo.** `ordenTrabajoController.js` y `CLAUDE.md` tienen
+   CRLF, otros LF; detectar por la primera línea falla. Al parchear por texto, mirar los bytes reales
+   (`repr()`) antes de asumir.
+3. **Loguearse por script rompe la sesión del navegador** (sesión única rota el UUID): el token que
+   estaba probando en la pantalla queda inválido y la app manda a /login. No es un bug.
+4. El barrido de contraste encontró **un texto real a 2.57:1** ("Nadie lo tomó todavía", `--c-ink-4`
+   sobre la tarjeta) ⇒ corregido a 4.83. El token `--c-ok-500` **no existe**; es `--c-success-500`.
