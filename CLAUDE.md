@@ -1585,7 +1585,7 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-20.** Resueltos desde la pasada anterior: ~~el cronómetro del trabajo~~
+> **Última revisión: 2026-08-22.** Resueltos desde la pasada anterior: ~~el cronómetro del trabajo~~
 > (§35.A, era la zona de la sesión) · ~~la dualidad de pantallas del Taller~~ (§36: "Mi taller" es
 > ahora la pantalla principal y Trabajos quedó como archivo).
 >
@@ -1600,6 +1600,17 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 - **Ingesta de costos** (Taller + Contabilidad): 482 ítems sin costo y 37 entradas sin costear en la
   pestaña "Costos pendientes". Al costear una entrada se genera su egreso en Contabilidad.
 - **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
+
+### 📗 Libros del avión (2026-08-22, §37)
+- **Dictar del libro** el T.T. del motor y de la hélice del **YS-127-P** y del **YS-270-PE** (en el
+  papel venía copiado del de la célula) y las tres partes del **YS-155-PE** y el **YS-259-PE**, que
+  no tienen nada cargado. Se carga desde *Trabajos → Libros del avión → Editar ficha y anclaje*.
+  Hasta que se haga, esos libros no proponen T.T. — a propósito: el sistema no inventa un número
+  que va impreso en un documento legal.
+- **El formato del sticker de 25 h** no estaba entre los archivos entregados. El tipo ya existe con
+  la plantilla vacía: cuando lo tengan, se escribe desde la app sin desplegar.
+- **La tabla grande de conteo de horas y seguimiento de mantenimientos** sigue sin entregarse.
+  Cuando llegue se coteja contra los anclajes; no hay que rehacer nada.
 
 ### 🔬 Con el Taller (2026-08-18, §34)
 - **`YS-270-PE` y `YS-333-PE` están en mantenimiento SIN fecha de finalización.** Aparecen en la cola
@@ -2561,3 +2572,123 @@ igual que en `SELECT_OT` — §35.A.
    estaba probando en la pantalla queda inválido y la app manda a /login. No es un bug.
 4. El barrido de contraste encontró **un texto real a 2.57:1** ("Nadie lo tomó todavía", `--c-ink-4`
    sobre la tarjeta) ⇒ corregido a 4.83. El token `--c-ok-500` **no existe**; es `--c-success-500`.
+
+---
+
+## 37. Sesión 2026-08-22 — Stickers de constancia para los libros del avión (célula, motor, hélice)
+
+**Implementado y verificado; ⚠️ PENDIENTE EL PUSH A MASTER** (el clasificador de auto-mode lo
+bloqueó, §10). Las **3 migraciones ya están aplicadas en Supabase** y son aditivas, así que el
+backend viejo las tolera. Rama `claude/workshop-inventory-system-292b6b`, 5 commits
+`ea27f83..c63e0b0`, 5 adelante de `origin/master` y 0 atrás (Samuel no había pusheado nada).
+Spec: `docs/superpowers/specs/2026-08-22-stickers-libros-aeronave-design.md`.
+Los 11 formatos originales quedaron commiteados en `docs/formatos-aac/stickers/`.
+
+### A. El caso
+Cada avión lleva **tres libros físicos** —célula, motor y hélice— exigidos por la certificación de
+la AAC, y cada trabajo se acredita pegando en ellos un **sticker** impreso. Se escribían a mano en
+Word, en papel adhesivo carta que se recorta.
+
+### B. 🔑 Las dos escalas del TAC (lo que hay que entender antes de tocar nada)
+
+| | |
+|---|---|
+| **Tacómetro (TAC)** | No mide tiempo: mide RPM acumuladas, calibrado a RPM de crucero. En taxeo corre más lento que el reloj ⇒ siempre marca menos que el tiempo real. Por eso el mantenimiento va por TAC. |
+| **Hobbs** | Reloj real, 1:1. Para cobrar. |
+| **T.T. (Tiempo Total)** | **No es un instrumento: es un número que vive en el libro.** Y hay uno **por parte**: la célula, el motor y la hélice llevan relojes distintos (el motor se baja, se overhaulea y se vuelve a montar). |
+
+**El T.T. es el TAC más un offset fijo por parte**, y los stickers reales lo prueban: en el
+YS-334-PE el motor da **+7,088.42 idéntico en tres stickers de fechas distintas** y la hélice
+**−1,846.32** en los tres. Esa es exactamente la fórmula que `taller_componente` traía escrita
+desde la migración 011 — **el modelo estaba bien; nadie lo llenó**.
+
+**El tacómetro del YS-334-PE dio la vuelta** entre sep-2025 (sticker: TAC 9,588.18) y feb-2026
+(TAC 10,000.03): llegó a 9999.99 y volvió a 0000.03. Los mecánicos le suman 10,000 a mano; **los
+instructores digitan la lectura cruda** (127 lecturas en la BD, todas entre 331.07 y 429.10). Los
+otros tres aviones no tienen el problema. Ése es el "TAC desfasado" que se recordaba, y es **un
+solo avión con un solo offset**.
+
+⚠️ **La regla que sostiene todo el diseño:** `taller_componente.horas_aeronave_instalacion` guarda
+el TAC del anclaje en la **escala CRUDA** del sistema. Así `T.T.` y `TSO` son *diferencias* y el
+`tac_offset` se cancela solo — solo afecta al campo TAC impreso y a los mini de próxima inspección.
+Confundir las dos escalas acá son **10,000 horas en un documento legal**.
+
+### C. Lo que el papel traía mal (y el sistema elimina)
+- En el **YS-127-P** y el **YS-270-P** el `T.T.` del motor y de la hélice está **copiado del de la
+  célula** — los tres stickers dicen el mismo número.
+- La hélice del **YS-127-P** dice `9,893.89` en sep-2025 y `2,846.19` en jul-2026, **con el mismo
+  S/N**. El de 2025 es el copiado.
+- El offset del YS-334-PE cambió de `+4.07` a `+5.09` entre dos stickers: aritmética a mano.
+
+### D. Modelo (migraciones `20260822000001`, `000002`, `000003`)
+- **`taller_componente`** += `marca`, `modelo`, `tipo_certificado` (T.C.), `tso_ancla`, y
+  `ancla_actualizado_en/_por` + `ancla_origen` (texto libre). `parte_no`→M/N, `serie_no`→S/N.
+- **El anclaje pasa a ser NULLABLE** (mig `000002`): hay partes cuyo T.T. no se puede confiar. Poner
+  0 haría que la fórmula devolviera **la lectura cruda como si fuera el tiempo total**. Con NULL la
+  fórmula propaga NULL y la pantalla dice "sin anclaje: dictalo del libro".
+- **`aeronave.tac_offset`** (YS-334-PE = 10000). **Se aplica SOLO al imprimir documentos del Taller.**
+- **`taller_sticker_plantilla`** (avión × parte × tipo): el texto precargado. Es por avión porque el
+  manual cambia (761-660 el Tomahawk, D2064-1-13 el 152, 753-586 el Cherokee y el Arrow).
+  Placeholders `{orden}` y `{proxima}`.
+- **`taller_sticker`**: el sticker emitido, **congelado** (TAC, T.T., TSO, P/N, texto, firmantes).
+  Una vez pegado es un registro legal: re-imprimir lee lo guardado, **nunca recalcula**. Se llama así
+  y no `orden_trabajo_sticker` porque **puede existir sin orden** (cierre y apertura de libro).
+- Fila `STICKER` en `taller_formulario` con `CO-OMA-CAAA-014`.
+
+### E. La red de seguridad: corregir un sticker arregla el futuro
+Los tres números salen calculados pero **editables**. Si el mecánico corrige `T.T.` o `TSO`, el
+servidor **re-ancla esa parte** — aunque no sea jefe: ese número ya quedó impreso y firmado en un
+libro oficial, y seguir calculando desde otro solo garantiza que el próximo sticker salga mal. Queda
+el rastro (`ancla_origen`) para que el jefe lo vea; **lo que no puede es quedar en silencio.**
+
+### F. Pantallas
+- **Emisión** desde la orden de trabajo (`EmitirStickersModal`): elegir libros, tipo, números y texto.
+  Sale un PDF con los stickers **más el par de mini "próxima inspección"** (TAC + 25 y + 50).
+- **Trabajos gana una tercera pestaña, "Libros del avión"** (`Libros.jsx`): tres libros por avión con
+  la ficha de la parte, el T.T./TSO de hoy y la lista cronológica. **Los stickers de cierre y apertura
+  parten la lista en volúmenes** sin tabla nueva: el evento ya es el borde. Una orden firmada sin
+  sticker sale marcada. Al abrir un renglón se reusa entero `OrdenDetalleModal`.
+- Plantillas y anclajes: **solo el jefe**. Emitir: mecánico también.
+
+### G. Siembra (`supabase/dump/seed_stickers_libros.js`, ya corrida)
+12 partes de los 4 aviones con stickers. Las **cuatro células con confianza**, más motor y hélice del
+Tomahawk. El resto queda **sin anclaje a propósito**: el motor del 333 y el del 270 están **fuera del
+avión** (reparación mayor y caja rajada), y el T.T. del motor del 127 y de la hélice del 270 viene
+copiado en el papel. **YS-155-PE y YS-259-PE no tienen nada.**
+
+### 🚨 Trampas de esta tanda
+1. **Un `UPDATE` cuyo `SET` no referencia `$1` y `$2`** (eran solo la llave de búsqueda) da
+   **42P18 "could not determine data type of parameter"**. Y con NULL en todos los valores de un
+   parámetro hay que **castear** (`$9::numeric`) — la misma trampa de `$4::numeric` de §15.
+2. **Había otro backend viejo escuchando en el 5099**: el mío murió con EADDRINUSE y las pruebas
+   corrieron **contra el código viejo**, dando un 404 que parecía un bug de rutas. Es la lección de
+   §35.A y volvió a morder. **Confirmar en el log que el server que responde es el que levantaste.**
+3. **El medidor de contraste daba ratio exactamente 1.00 en todo**: el canvas necesita `width`/
+   `height` explícitos para que `getImageData` devuelva lo pintado. Un medidor roto que reporta
+   "30 defectos" es peor que no medir. Con el arreglo: **0 bajo umbral, peor caso 4.58:1**.
+4. **Heredocs largos rompen la shell** de este entorno (`unexpected EOF`). Para contenido grande:
+   escribir a archivo y anexar, o parchear con un script de Python.
+5. **`String.replace` con anclas multilínea falla por CRLF**: normalizar el `eol` antes de parchear.
+   Y `rfind` de un cierre JSX puede caer en un **sub-componente al final del archivo** — pasó, el
+   modal quedó insertado dentro de un helper.
+
+### Defectos que solo se vieron mirando la pantalla
+- **"TMA #TMA 001"**: `usuario.licencia_tma` ya se guarda con el prefijo (`"TMA 090"`).
+- **"el célula" / "el hélice"**: se renombró para hablar del **libro**, que concuerda con las tres.
+- 9 px de desborde horizontal a 375 px: faltaba `flexWrap` en las filas de botones.
+
+### Verificación
+**45/45 E2E** contra Supabase real con limpieza total, incluida la prueba explícita de las dos
+escalas (el TAC del libro sale con +10,000 y los tres offsets se reproducen exactos), el re-anclaje,
+que el anclaje quede en escala cruda, los 403 del técnico y que una edición parcial de la ficha no
+nulifique el resto. PDF revisado renderizado a PNG (1 y 2 páginas, sin partir recuadros). Pantallas
+revisadas en el navegador a 1280 y 375 px.
+
+### Lo que falta
+- **`git push origin HEAD:master`** desde la rama (bloqueado por el clasificador).
+- **El formato de 25 h** no existe entre los archivos entregados: el tipo está creado con la plantilla
+  vacía y se escribe desde la app cuando lo tengan.
+- **Dictar del libro** el T.T. del motor y la hélice del 127 y del 270, y las tres partes del 155 y
+  el 259. Es trabajo del mecánico, no del software.
+- Cotejar contra la **tabla grande de conteo de horas y seguimiento de mantenimientos** que Daniel
+  todavía no entregó. Cuando llegue, se coteja: no se rehace.
