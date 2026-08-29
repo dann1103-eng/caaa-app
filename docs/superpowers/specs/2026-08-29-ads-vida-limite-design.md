@@ -95,7 +95,7 @@ Ninguno se corrige en la carga. Se importan tal cual y se marcan.
 | 4 | El aviso llega por la **franja en la pantalla + una tarjeta en Mi taller**. Sin campana ni push todavía | Correr un par de semanas verificando el número antes de empujarlo al teléfono |
 | 5 | Un AD en las dos listas → **una sola fila, precargada con la lista de ADs, marcada para confirmar** | El sistema calcula, pero no elige en silencio cuando el papel se contradice |
 | 6 | Doble base (`2,000 Hrs` + `12 Yrs`) → **un registro, mostrado e impreso como dos renglones** | Fidelidad renglón por renglón sin dejar alerta fantasma tras cumplirlo |
-| 7 | Todos los cálculos en **escala de libro** (`horas_acumuladas + tac_offset`) | Los papeles están escritos en esa escala |
+| 7 | Se **guarda en escala del sistema, se muestra en escala de libro**, y el importador convierte al entrar | Es la convención que ya rige en `taller_componente` y en las 5 tareas existentes |
 
 ---
 
@@ -162,10 +162,38 @@ No se resuelve en silencio: en `82-27-08` el sistema estaría eligiendo entre 10
 Un helper nuevo, `legacy/CAA-backend/utils/vencimientos.js`, con la regla en **un solo lugar** —
 misma disciplina que `utils/horasFacturables.js` y `utils/inventarioHelpers.js`.
 
+### Las dos escalas: dónde vive cada una
+
+Verificado contra la base antes de escribir esto. Las 5 tareas que hoy existen guardan las horas en
+**escala del sistema** (cruda), y `calcularEstado` las compara contra `horas_acumuladas`, también
+cruda. Es internamente consistente y es correcto:
+
 ```
-tac_libro   = aeronave.horas_acumuladas + aeronave.tac_offset
-restan_h    = proxima_horas - tac_libro          (null si no hay proxima_horas)
-restan_dias = proxima_fecha - hoy                (null si no hay proxima_fecha)
+YS-334-PE   horas_acumuladas 454.27   tac_offset 10,000
+tarea 19    ultima 348.99 → proxima 398.99      ⇒ vencida hace 55 h  ✔
+```
+
+Los **papeles**, en cambio, están escritos en escala de libro (`10,043.60`). Mezclar las dos en la
+misma columna es el error que hay que evitar. La regla, que es además la que ya rige en
+`taller_componente` desde los stickers:
+
+| | |
+|---|---|
+| **Se guarda** | escala del sistema — igual que `horas_acumuladas` y que `taller_componente.horas_aeronave_instalacion` |
+| **Se muestra e imprime** | escala de libro — `valor + aeronave.tac_offset` |
+| **El importador convierte al entrar** | `valor_guardado = valor_del_papel − aeronave.tac_offset` |
+
+Consecuencia práctica: **`calcularEstado` no cambia de escala**, ya está bien. Toda la conversión vive
+en dos lugares — el importador (una vez) y la capa de presentación.
+
+Solo el `YS-334-PE` tiene `tac_offset ≠ 0`. Para los otros cuatro la conversión es identidad, lo que
+hace fácil que un error de escala pase desapercibido: por eso la prueba del 334 es obligatoria (§9).
+
+### El estado
+
+```
+restan_h    = proxima_horas - aeronave.horas_acumuladas   (ambos en crudo; null si no hay proxima)
+restan_dias = proxima_fecha - hoy                         (null si no hay proxima_fecha)
 
 estado =
   NO_APLICA      si aplica = false
@@ -178,13 +206,12 @@ estado =
 **Manda lo que venga primero** entre horas y calendario. Un ítem con doble base se evalúa contra las
 dos y toma la peor.
 
-Los umbrales (`10` horas, `7` y `30` días) son constantes exportadas del helper. El de 7 días alimenta
-un segundo nivel visual dentro de `POR_VENCER`; no es un estado aparte.
+`UMBRAL_HORAS = 10` y `UMBRAL_DIAS = 30` **ya existen** en `seguimientoController.js` con exactamente
+los valores pedidos. Se mueven al helper y se les suma `UMBRAL_DIAS_URGENTE = 7`, que alimenta un
+segundo nivel visual dentro de `POR_VENCER`; no es un estado aparte.
 
-⚠️ **Todo se compara en escala de libro.** Es la lección ya pagada con los stickers: el `YS-334-PE`
-tiene `tac_offset = 10000` porque su tacómetro dio la vuelta, y comparar la próxima del papel
-(`10,043.60`) contra `horas_acumuladas` (`454.27`) da 9,589 horas de diferencia sobre un dato del que
-depende la aeronavegabilidad del avión.
+Los estados `NO_APLICA` y `SIN_INTERVALO` son nuevos. El actual `N_A` (que hoy significa "sin próxima
+definida") se conserva para no romper las 5 filas existentes ni la pantalla de Tareas.
 
 ---
 
@@ -271,8 +298,13 @@ El reporte es el entregable operativo: es la lista concreta que Daniel le lleva 
 
 E2E contra Supabase real con limpieza total, como todo lo anterior del módulo:
 
-1. **Escala de libro** — que el `YS-334-PE` compare contra 10,454 y no contra 454. Es la prueba que no
-   puede faltar.
+1. **Las dos escalas** — es la prueba que no puede faltar, y son tres aserciones sobre el `YS-334-PE`,
+   el único con `tac_offset ≠ 0`:
+   - el importador guarda la próxima del papel `10,043.60` como **`43.60`** (papel − offset);
+   - `calcularEstado` la compara contra `horas_acumuladas` (`454.27`) ⇒ **vencida**, no "faltan 9,589";
+   - la pantalla y la impresión la vuelven a mostrar como **`10,043.60`**.
+
+   Y la contraprueba: en el `YS-333-PE` (offset 0) el valor guardado es idéntico al del papel.
 2. **Doble base** — un ítem con 2,000 h y 12 años vence por lo que llegue primero; se renderiza como
    dos renglones; cumplir uno cumple el ítem.
 3. **`aplica = false`** nunca alerta, nunca entra en los conteos, sigue visible bajo su filtro.
