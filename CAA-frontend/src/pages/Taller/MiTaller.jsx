@@ -15,6 +15,8 @@ import OrdenDetalleModal from "./ordenes/OrdenDetalleModal";
 import FirmarEntregaModal from "./inventario/FirmarEntregaModal";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
+import "./aeronavegabilidad/seguimiento.css";
+import TarjetaVencimientos from "./aeronavegabilidad/TarjetaVencimientos";
 
 /**
  * "Mi taller" — la pantalla del técnico.
@@ -160,6 +162,10 @@ export default function MiTaller() {
   return (
     <>
       <h2 className="adf-section-title"><i className="bi bi-tools me-2"></i>Mi taller</h2>
+
+      {/* Lo que esta por vencer, arriba: si el jefe tiene que acordarse de ir a
+          Aeronavegabilidad a mirarlo, no es un aviso sino un reporte. */}
+      <TarjetaVencimientos />
 
       {/* Qué trabajo está en curso: el contexto de todo lo demás. */}
       {activa ? (

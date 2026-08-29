@@ -120,3 +120,30 @@
   .seg-busca { max-width: none; }
   .seg-obs { max-width: 140px; }
 }
+
+/* ── Tarjeta de Mi taller ───────────────────────────────────────────────── */
+.tec-venc {
+  border: 1px solid var(--c-line-1); border-radius: var(--radius-md);
+  background: var(--c-surface-0); padding: 12px 14px; margin-bottom: var(--sp-4);
+}
+.tec-venc__head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.tec-venc__resumen { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.tec-venc__aviones { display: flex; flex-direction: column; gap: 6px; }
+.tec-venc__avion {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  width: 100%; text-align: left; cursor: pointer; font: inherit;
+  border: 1px solid var(--c-line-1); border-radius: var(--radius-sm);
+  background: var(--c-surface-1); color: var(--c-ink-1); padding: 8px 10px;
+}
+.tec-venc__avion:hover { border-color: var(--c-ink-4); }
+.tec-venc__mat { font-family: var(--font-mono, monospace); font-weight: 600; }
+.tec-venc__v {
+  font-size: 0.78rem; padding: 2px 9px; border-radius: var(--radius-pill);
+  background: var(--c-danger-100); color: var(--c-danger-700);
+}
+.tec-venc__p {
+  font-size: 0.78rem; padding: 2px 9px; border-radius: var(--radius-pill);
+  background: var(--c-warn-100); color: var(--c-warn-700);
+}
+.tec-venc__peor { font-size: 0.8rem; color: var(--c-ink-2); margin-left: auto; }
+@media (max-width: 640px) { .tec-venc__peor { margin-left: 0; flex-basis: 100%; } }
