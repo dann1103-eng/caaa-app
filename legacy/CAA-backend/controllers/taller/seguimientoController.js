@@ -1,54 +1,33 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { syncProximaRevisionAeronave } = require("../../utils/aeronaveUtils");
-
-// Umbrales para marcar una tarea como PROXIMA (a punto de vencer).
-const UMBRAL_HORAS = 10;   // horas restantes
-const UMBRAL_DIAS = 30;    // días restantes
-
-/**
- * Deriva horas/días restantes y el estado (VIGENTE/PROXIMO/VENCIDO/N_A) de una
- * tarea contra las horas actuales de su aeronave. El estado es el "peor" de las
- * dimensiones aplicables (la que está más vencida o más próxima).
- */
-function calcularEstado(t) {
-  const horasAeronave = parseFloat(t.aeronave_horas) || 0;
-  let horas_restantes = null;
-  let dias_restantes = null;
-
-  if (t.proxima_horas != null) {
-    horas_restantes = Math.round((parseFloat(t.proxima_horas) - horasAeronave) * 100) / 100;
-  }
-  if (t.proxima_fecha != null) {
-    const hoy = new Date();
-    const prox = new Date(t.proxima_fecha);
-    dias_restantes = Math.round((prox - hoy) / (1000 * 60 * 60 * 24));
-  }
-
-  let estado = "N_A";
-  const dims = [];
-  if (horas_restantes != null) dims.push({ rest: horas_restantes, prox: horas_restantes <= UMBRAL_HORAS });
-  if (dias_restantes != null) dims.push({ rest: dias_restantes, prox: dias_restantes <= UMBRAL_DIAS });
-
-  if (dims.length) {
-    if (dims.some((d) => d.rest <= 0)) estado = "VENCIDO";
-    else if (dims.some((d) => d.prox)) estado = "PROXIMO";
-    else estado = "VIGENTE";
-  }
-  return { horas_restantes, dias_restantes, estado };
-}
+// Fuente única del cálculo de vencimiento (antes vivía acá duplicada con
+// dashboardController). Ver utils/vencimientos.js para las dos escalas del TAC.
+const { calcularEstado, PESO_ESTADO, ES_ALERTA } = require("../../utils/vencimientos");
 
 // ── Listar tareas programadas (opcionalmente por aeronave) ────────────────
 exports.listTareas = catchAsync(async (req, res) => {
-  const { id_aeronave, solo_alertas } = req.query;
+  const { id_aeronave, solo_alertas, tipo } = req.query;
   const params = [];
   const where = ["t.activo = true"];
   if (id_aeronave) { params.push(id_aeronave); where.push(`t.id_aeronave = $${params.length}`); }
+
+  // Filtro por tipo: "AD,SB" para la pestaña de ADs, "VIDA_LIMITE" para la suya,
+  // "INSPECCION" para la de Tareas. SIN el filtro devuelve todo, como siempre —
+  // hay consumidores viejos (el dashboard, el widget de mantenimiento) que
+  // esperan la lista completa y no deben cambiar de comportamiento.
+  if (tipo) {
+    const tipos = String(tipo).split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+    if (tipos.length) { params.push(tipos); where.push(`t.tipo = ANY($${params.length})`); }
+  }
 
   const r = await db.query(`
     SELECT t.*,
            a.codigo AS aeronave_codigo,
            COALESCE(a.horas_acumuladas, 0) AS aeronave_horas,
+           -- El front convierte a escala de libro para mostrar; lo guardado es
+           -- escala del sistema. Ver utils/vencimientos.js.
+           COALESCE(a.tac_offset, 0) AS tac_offset,
            c.nombre AS componente_nombre, c.tipo AS componente_tipo
     FROM taller_tarea_programada t
     JOIN aeronave a ON a.id_aeronave = t.id_aeronave
@@ -58,12 +37,9 @@ exports.listTareas = catchAsync(async (req, res) => {
   `, params);
 
   let rows = r.rows.map((t) => ({ ...t, ...calcularEstado(t) }));
-  if (solo_alertas === "true") {
-    rows = rows.filter((t) => t.estado === "VENCIDO" || t.estado === "PROXIMO");
-  }
+  if (solo_alertas === "true") rows = rows.filter((t) => ES_ALERTA(t.estado));
   // Ordenar por urgencia: vencidos primero, luego próximos por menos restante.
-  const peso = { VENCIDO: 0, PROXIMO: 1, VIGENTE: 2, N_A: 3 };
-  rows.sort((a, b) => (peso[a.estado] - peso[b.estado])
+  rows.sort((a, b) => (PESO_ESTADO[a.estado] - PESO_ESTADO[b.estado])
     || ((a.horas_restantes ?? 1e9) - (b.horas_restantes ?? 1e9)));
   res.json(rows);
 });
