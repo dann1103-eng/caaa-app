@@ -60,6 +60,9 @@ router.get("/tareas", roleMiddleware(READ), seguimiento.listTareas);
 router.post("/tareas", roleMiddleware(WRITE), seguimiento.crearTarea);
 router.patch("/tareas/:id", roleMiddleware(WRITE), seguimiento.editarTarea);
 router.post("/tareas/:id/cumplimiento", roleMiddleware(WRITE), seguimiento.registrarCumplimiento);
+// Resolver un conflicto entre las dos listas del papel: lo dicta el jefe, igual
+// que las plantillas de stickers y los anclajes de componentes.
+router.post("/tareas/:id/confirmar", roleMiddleware(JEFE), seguimiento.confirmarTarea);
 router.get("/tareas/:id/historial", roleMiddleware(READ), seguimiento.historialTarea);
 router.get("/aeronaves/:id/historial", roleMiddleware(READ), seguimiento.historialAeronave);
 

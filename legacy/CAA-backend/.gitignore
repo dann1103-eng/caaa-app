@@ -17,3 +17,10 @@ seed_alumnos_reales.js
 
 # Otras configuraciones de sistemas operativos (opcional)
 .DS_Store
+# Scripts de verificacion E2E de una sesion. La convencion (CLAUDE.md §20.H) ya
+# decia "nombre con guion bajo = ignorar en git", pero solo estaban listados dos
+# archivos sueltos. Viven aca y no en el scratchpad porque necesitan resolver
+# dotenv y pg desde node_modules, y require() resuelve contra la carpeta DEL
+# SCRIPT, no contra el cwd.
+_*.js
+_*.sql
