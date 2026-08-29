@@ -13,6 +13,10 @@ exports.dashboard = catchAsync(async (req, res) => {
     -- El Taller SÍ ve las aeronaves de terceros: les da mantenimiento y les
     -- requisa material. Son las únicas pantallas donde aparecen.
     SELECT a.id_aeronave, a.codigo, a.modelo, a.tipo, a.estado, a.activa, a.es_externa,
+           -- Lo consume el selector de Aeronavegabilidad para pasar de escala del
+           -- sistema a escala de libro. Sin esto la pantalla mostraba la ultima
+           -- aplicacion del YS-334-PE como 0.03 en vez de 10,000.03.
+           COALESCE(a.tac_offset, 0) AS tac_offset,
            COALESCE(a.horas_acumuladas, 0) AS horas_acumuladas,
            a.horas_proxima_revision, a.tipo_proxima_revision,
            (a.horas_proxima_revision - a.horas_acumuladas) AS horas_restantes,

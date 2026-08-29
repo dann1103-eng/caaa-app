@@ -7,6 +7,23 @@ import {
   fijarHorasAeronave,
 } from "../../services/tallerApi";
 import "./inventario/inventario.css";
+import "./aeronavegabilidad/seguimiento.css";
+import { getSession } from "../../utils/auth";
+import FranjaAtencion from "./aeronavegabilidad/FranjaAtencion";
+import TablaSeguimiento from "./aeronavegabilidad/TablaSeguimiento";
+import ConfirmarModal from "./aeronavegabilidad/ConfirmarModal";
+
+// Las pestañas salen de cómo está partido el papel: los ADs vienen en tres
+// hojas (avión / motor / hélice) y la vida límite es una lista aparte. Las
+// "Tareas" son el ciclo preventivo (25/50/100 h), que es otra cosa y por eso
+// no se mezcla con los 261 renglones importados.
+const TABS = [
+  { k: "componentes", t: "Componentes", icono: "bi-cpu" },
+  { k: "tareas", t: "Tareas", icono: "bi-calendar-check" },
+  { k: "ads", t: "ADs y boletines", icono: "bi-file-earmark-text" },
+  { k: "vida", t: "Vida límite", icono: "bi-hourglass-split" },
+  { k: "historial", t: "Historial", icono: "bi-clock-history" },
+];
 
 const TIPO_COMP = [
   { v: "CELULA", t: "Célula" }, { v: "MOTOR", t: "Motor" },
@@ -46,6 +63,13 @@ export default function Aeronavegabilidad() {
   const [modalTarea, setModalTarea] = useState(false);
   const [editarTarea, setEditarTarea] = useState(null); // tarea a editar
   const [cumplir, setCumplir] = useState(null); // tarea a cumplir
+  const [confirmar, setConfirmar] = useState(null); // conflicto del papel a resolver
+
+  const tab = TABS.some((x) => x.k === params.get("tab")) ? params.get("tab") : "ads";
+  // Editar un renglón y resolver un conflicto son del jefe, igual que las
+  // plantillas de stickers y los anclajes. El backend lo gatea de verdad
+  // (roleMiddleware JEFE); acá solo se ocultan los controles.
+  const esJefe = ["TALLER", "ADMIN"].includes(getSession()?.rol);
 
   // Cargar flota una vez.
   useEffect(() => {
@@ -80,7 +104,16 @@ export default function Aeronavegabilidad() {
   }, []);
 
   useEffect(() => {
-    if (idAeronave) { cargar(idAeronave); setParams({ aeronave: idAeronave }, { replace: true }); }
+    if (idAeronave) {
+      cargar(idAeronave);
+      // Conservar la pestaña: sin esto, cambiar de avión te devuelve siempre a
+      // la primera y perdés dónde estabas mirando.
+      setParams((p) => {
+        const n = new URLSearchParams(p);
+        n.set("aeronave", idAeronave);
+        return n;
+      }, { replace: true });
+    }
   }, [idAeronave, cargar, setParams]);
 
   const aeronaveSel = aeronaves.find((a) => String(a.id_aeronave) === String(idAeronave));
@@ -99,15 +132,94 @@ export default function Aeronavegabilidad() {
           ))}
         </select>
         {aeronaveSel && (
-          <span style={{ color: "var(--c-ink-3)", fontFamily: "var(--font-mono, monospace)" }}>
-            {num(aeronaveSel.horas_acumuladas)}h célula
+          <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
+            {/* En escala de LIBRO, que es la que el mecánico reconoce y la que
+                está escrita en los papeles. El YS-334-PE lleva +10,000 porque su
+                tacómetro dio la vuelta; para los otros cuatro es el mismo número. */}
+            <strong>{num(Number(aeronaveSel.horas_acumuladas) + Number(aeronaveSel.tac_offset || 0), 2)}</strong>
+            <span style={{ color: "var(--c-ink-2)" }}> h TAC del libro</span>
+            {Number(aeronaveSel.tac_offset) > 0 && (
+              <span style={{ color: "var(--c-ink-2)", fontSize: "0.82rem" }}>
+                {" "}(tacómetro {num(aeronaveSel.horas_acumuladas, 2)} + {num(aeronaveSel.tac_offset, 0)})
+              </span>
+            )}
           </span>
         )}
       </div>
 
       {loading ? <p style={{ color: "var(--c-ink-3)" }}>Cargando…</p> : (
         <>
+          {/* Lo que hay que atender, arriba de todo y sin depender de la pestaña
+              en la que estés: son los 261 renglones del avión completo. */}
+          <FranjaAtencion
+            tareas={tareas}
+            onIrA={(t) => setParams((p) => {
+              const n = new URLSearchParams(p);
+              n.set("tab", t.tipo === "VIDA_LIMITE" ? "vida" : t.tipo === "INSPECCION" ? "tareas" : "ads");
+              return n;
+            }, { replace: true })}
+          />
+
+          <nav className="inv-tabs" style={{ marginBottom: "var(--sp-4, 16px)" }}>
+            {TABS.map((x) => (
+              <button key={x.k} type="button"
+                className={`inv-tab ${tab === x.k ? "inv-tab--activa" : ""}`}
+                onClick={() => setParams((p) => {
+                  const n = new URLSearchParams(p);
+                  n.set("tab", x.k);
+                  return n;
+                }, { replace: true })}>
+                <i className={`bi ${x.icono}`} aria-hidden="true"></i> {x.t}
+              </button>
+            ))}
+          </nav>
+
+          {tab === "ads" && (
+            <div className="adf-card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <h3 className="adf-section-title" style={{ fontSize: "1.05rem", margin: 0 }}>
+                  ADs y boletines de servicio
+                </h3>
+                <button className="adf-btn small" onClick={() => setModalTarea(true)}>
+                  <i className="bi bi-plus-lg"></i> Renglón
+                </button>
+              </div>
+              <TablaSeguimiento
+                tareas={tareas.filter((t) => t.tipo === "AD" || t.tipo === "SB")}
+                aeronave={aeronaveSel}
+                agruparPorLibro
+                esJefe={esJefe}
+                onEditar={setEditarTarea}
+                onCumplir={setCumplir}
+                onConfirmar={setConfirmar}
+              />
+            </div>
+          )}
+
+          {tab === "vida" && (
+            <div className="adf-card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <h3 className="adf-section-title" style={{ fontSize: "1.05rem", margin: 0 }}>
+                  Vida límite de componentes
+                </h3>
+                <button className="adf-btn small" onClick={() => setModalTarea(true)}>
+                  <i className="bi bi-plus-lg"></i> Renglón
+                </button>
+              </div>
+              <TablaSeguimiento
+                tareas={tareas.filter((t) => t.tipo === "VIDA_LIMITE")}
+                aeronave={aeronaveSel}
+                agruparPorLibro={false}
+                esJefe={esJefe}
+                onEditar={setEditarTarea}
+                onCumplir={setCumplir}
+                onConfirmar={setConfirmar}
+              />
+            </div>
+          )}
+
           {/* Componentes */}
+          {tab === "componentes" && (
           <div className="adf-card" style={{ marginBottom: "var(--sp-5)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <h3 className="adf-section-title" style={{ fontSize: "1.05rem", margin: 0 }}>Componentes</h3>
@@ -130,8 +242,11 @@ export default function Aeronavegabilidad() {
               </table>
             )}
           </div>
+          )}
 
-          {/* Tareas programadas */}
+          {/* Tareas programadas: SOLO el ciclo preventivo (25/50/100 h). Los
+              261 renglones de AD y vida límite viven en sus propias pestañas. */}
+          {tab === "tareas" && (
           <div className="adf-card">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <h3 className="adf-section-title" style={{ fontSize: "1.05rem", margin: 0 }}>Tareas programadas</h3>
@@ -161,8 +276,10 @@ export default function Aeronavegabilidad() {
               </table>
             )}
           </div>
+          )}
 
           {/* Historial de mantenimientos (últimos cumplimientos de la aeronave) */}
+          {tab === "historial" && (
           <div className="adf-card" style={{ marginTop: "var(--sp-5)" }}>
             <h3 className="adf-section-title" style={{ fontSize: "1.05rem", margin: "0 0 10px" }}>
               <i className="bi bi-clock-history me-2"></i>Últimos mantenimientos realizados
@@ -189,6 +306,7 @@ export default function Aeronavegabilidad() {
               </table>
             )}
           </div>
+          )}
         </>
       )}
 
@@ -226,6 +344,14 @@ export default function Aeronavegabilidad() {
           aeronaveSel={aeronaveSel}
           onClose={() => setCumplir(null)}
           onSaved={() => { setCumplir(null); cargar(idAeronave); }}
+        />
+      )}
+      {confirmar && (
+        <ConfirmarModal
+          tarea={confirmar}
+          aeronave={aeronaveSel}
+          onClose={() => setConfirmar(null)}
+          onSaved={() => { setConfirmar(null); cargar(idAeronave); }}
         />
       )}
     </>

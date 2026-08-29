@@ -45,6 +45,11 @@ export const registrarCumplimiento = async (id, datos) => {
   const res = await axios.post(`${API_URL}/taller/tareas/${id}/cumplimiento`, datos);
   return res.data;
 };
+// Resolver un conflicto entre las dos listas del papel. Solo jefe de taller.
+export const confirmarTarea = async (id, datos) => {
+  const res = await axios.post(`${API_URL}/taller/tareas/${id}/confirmar`, datos);
+  return res.data;
+};
 export const getHistorialTarea = async (id) => {
   const res = await axios.get(`${API_URL}/taller/tareas/${id}/historial`);
   return res.data;
