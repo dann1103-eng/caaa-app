@@ -5,8 +5,9 @@
   "sello": "CO-OMA-CAAA-014",
 
   "ads": {
-    "_columnas": ["ad", "sb", "descripcion", "observaciones", "fecha", "tac", "una_vez", "recurrente", "proxima"],
-    "_observacion_comun": "SE INSPECCIONO SEGUN AD (en las 66 filas)",
+    "_columnas": ["ad", "sb", "descripcion", "fecha", "tac", "una_vez", "recurrente", "proxima"],
+    "_observacion_comun": "OJO: son 8 columnas, no 9. La columna OBSERVACIONES del papel NO esta en las filas porque dice lo mismo en las 66; se omitio para no repetirla. Quien lea esto tiene que agregarla desde _observacion_comun_papel, no leer f[3] como observaciones.",
+    "_observacion_comun_papel": "SE INSPECCIONO SEGUN AD",
 
     "AVION": {
       "fabricante": "PIPER ARROW",

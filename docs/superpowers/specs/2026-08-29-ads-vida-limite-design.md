@@ -45,13 +45,20 @@ Las dos listas vienen partidas en **AVIÓN / MOTOR / HÉLICE**, los mismos tres 
 
 ### Volumen
 
+Conteos del extractor (`supabase/dump/aeronavegabilidad/extraer.py`), que son los buenos:
+
 | | |
 |---|---|
-| Renglones de AD en total | **221** |
-| Que aplican al avión (el resto es `N/A por serie` o `por modelo`) | 192 |
+| Renglones de AD en total | **209** |
+| Que aplican al avión (el resto es `N/A por serie` o `por modelo`) | 179 |
 | **Recurrentes** — los únicos que necesitan seguimiento | **38** |
-| De esos, con próxima aplicación escrita | 7 |
 | De esos, que dicen **cada cuánto** se repiten | **9** |
+| Renglones de vida límite importables (127 y 334) | **61** guardados, que se muestran como **69** |
+
+> ⚠️ Una versión anterior de este spec decía **221** ADs y **192** que aplican. Estaba mal: el
+> conteo a mano tomaba como renglón las tres líneas de firma de cada hoja (`JOSE ANTONIO ESTRADA`,
+> `REP. TECNICO OMA`, `CO-OMA-014`) — 9 de más en el 333 y 3 en el 361. Los números de recurrentes
+> y de intervalos faltantes, que son los que deciden si el aviso funciona, **no cambian**.
 
 En vida límite el panorama es mejor: la columna `TIME` casi siempre trae el intervalo
 (`2,000 Hrs`, `12 Yrs`, `100 HRS`), así que ahí el cálculo sale completo desde el día uno.
