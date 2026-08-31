@@ -135,6 +135,13 @@ async function disfrazar(c, log) {
   );
   if (sueltas.rowCount) log(`aeronaves nuevas disfrazadas: ${sueltas.rows.map((r) => r.codigo).join(", ")}`);
 
+  // El offset del tacómetro se pone en CERO. No es una preferencia: describe un
+  // instrumento físico concreto — a un avión de CAAA el tacómetro le dio la vuelta
+  // en 9999.99 y los mecánicos le suman 10,000 a mano para el libro. Heredarlo
+  // hacía que el libro del demo mostrara "TAC 11200 = lectura 1200 + 10000", un
+  // número que no significa nada acá.
+  await c.query(`UPDATE demo.aeronave SET tac_offset = 0`);
+
   // La flota del demo arranca ENTERA disponible. `aeronave.activa` es "vuela
   // HOY", no "está de alta", y la copia se trae la circunstancia de CAAA: hoy
   // tiene dos aviones en el taller, así que el demo nacía con dos aviones menos

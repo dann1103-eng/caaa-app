@@ -149,12 +149,26 @@ async function sembrarTaller(c, log, ctx) {
   await mover(sal2, "000111", -110);
 
   // El stock se recalcula desde los movimientos, nunca se teclea.
+  //
+  // Y con él las dos fechas de último movimiento. No son decorativas: la lista de
+  // Existencias muestra esa columna, y sin llenarla los 14 ítems decían "sin
+  // movimiento" al lado de un kardex lleno. Es la misma familia de descuido que
+  // ya mordió dos veces en este módulo — una columna que la pantalla muestra y
+  // ningún camino de escritura llena.
   await c.query(
-    `UPDATE taller_repuesto r
-        SET stock_actual = COALESCE((SELECT SUM(m.cantidad)
-                                       FROM taller_movimiento_inventario m
-                                       JOIN taller_documento_inventario d ON d.id_documento = m.id_documento
-                                      WHERE m.id_repuesto = r.id_repuesto AND d.estado = 'VIGENTE'), 0)`
+    `UPDATE taller_repuesto r SET
+        stock_actual         = COALESCE(x.total, 0),
+        ultimo_movimiento_en = x.ultimo,
+        ultima_entrada_en    = x.ultima_entrada
+       FROM (SELECT m.id_repuesto,
+                    SUM(m.cantidad)                                        AS total,
+                    MAX(d.fecha)                                           AS ultimo,
+                    MAX(d.fecha) FILTER (WHERE m.cantidad > 0)             AS ultima_entrada
+               FROM taller_movimiento_inventario m
+               JOIN taller_documento_inventario d ON d.id_documento = m.id_documento
+              WHERE d.estado = 'VIGENTE'
+              GROUP BY m.id_repuesto) x
+      WHERE x.id_repuesto = r.id_repuesto`
   );
 
   // ── Aeronavegabilidad ───────────────────────────────────────────────────
@@ -168,19 +182,40 @@ async function sembrarTaller(c, log, ctx) {
     const tac = r2(1200 + i * 430.5);          // tacómetro de ese avión
     await c.query(`UPDATE aeronave SET horas_acumuladas = $1 WHERE id_aeronave = $2`, [tac, av.id_aeronave]);
 
+    // Cada parte se ancla con DOS números, porque la fórmula del libro es
+    //     T.T. = (lectura − horas_aeronave_instalacion) + horas_componente_instalacion
+    // El primero dice con cuánto marcaba el avión cuando se instaló la parte; el
+    // segundo, cuántas horas traía la parte encima en ese momento. Poner solo el
+    // primero deja el segundo en cero y el libro de la célula sale con 180 horas
+    // de tiempo total — imposible para un avión escuela.
+    //
+    // La historia que cuentan estos números: célula original (T.T. = tacómetro),
+    // motor con 2,600 h de las que 620 son desde el último overhaul, y hélice con
+    // 1,250 h y 310 desde su última reparación.
+    const ANCLAJES = [
+      // La célula lleva ahí desde el principio: se ancla en 0, y su T.T. es la
+      // lectura entera. `null` = "todas las horas del avión", que no es lo mismo
+      // que 0 horas desde que se instaló.
+      { desdeTac: null, propias: 0,    tso: null },  // célula: T.T. = lectura
+      { desdeTac: 620 + i * 55, propias: 1980 - i * 130, tso: 0 },  // motor
+      { desdeTac: 310 + i * 38, propias: 940 - i * 70,   tso: 0 },  // hélice
+    ];
     for (let p = 0; p < PARTES.length; p++) {
       const parte = PARTES[p];
+      const anc = ANCLAJES[p];
       await c.query(
         `INSERT INTO taller_componente (id_aeronave, tipo, nombre, parte_no, serie_no, marca,
-                                        tipo_certificado, horas_aeronave_instalacion, tso_ancla,
+                                        tipo_certificado, horas_aeronave_instalacion,
+                                        horas_componente_instalacion, tso_ancla,
                                         fecha_instalacion, activo, ancla_origen)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,'Sembrado por el escenario de demostración')`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,'Sembrado por el escenario de demostración')`,
         [av.id_aeronave, parte.tipo, parte.nombre,
          `PN-${1000 + i * 10 + p}`, `SN-${47200 + i * 31 + p}`, parte.marca, parte.tc,
-         // El anclaje va en la escala CRUDA del sistema, como en producción.
-         r2(tac - (p === 0 ? tac * 0.15 : p === 1 ? 620 : 310)),
-         p === 0 ? null : r2(180 + i * 24 + p * 55),
-         soloFecha(sumarDias(hoy, -(400 + i * 30)))]
+         // ⚠️ El anclaje va en la escala CRUDA del sistema, igual que en producción:
+         // T.T. y TSO son DIFERENCIAS, así que el offset del tacómetro se cancela
+         // solo. Confundir las dos escalas son 10,000 horas en un documento legal.
+         anc.desdeTac === null ? 0 : r2(tac - anc.desdeTac), anc.propias, anc.tso,
+         soloFecha(sumarDias(hoy, -(400 + i * 30 + p * 60)))]
       );
     }
 
@@ -270,12 +305,17 @@ async function sembrarTaller(c, log, ctx) {
 
   const orden = async (n, campos) => {
     const r = await c.query(
+      // `creado_en` va explícito y no por DEFAULT: es lo que mide el cronómetro
+      // del trabajo, y dejarlo en NOW() ponía a una orden que dice haber empezado
+      // hace dos días marcando dos minutos. Con la zona FIJADA, no heredada de la
+      // sesión — es el desfase de ±6 h que este proyecto ya pagó cinco veces.
       `INSERT INTO orden_trabajo (anio, numero, correlativo, id_aeronave, fecha, tacometro,
                                   piloto_operador, discrepancia, accion_correctiva, estado,
                                   id_mantenimiento, id_mecanico_asignado, asignado_en, creado_por,
                                   id_mecanico, fecha_firma, firmado_en, id_aprobador, fecha_aprobacion,
-                                  aprobado_en, toca_celula, toca_motor, toca_helice)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+                                  aprobado_en, toca_celula, toca_motor, toca_helice, creado_en)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
+               (NOW() AT TIME ZONE 'America/El_Salvador') - ($24 || ' hours')::interval)
        RETURNING id_orden`,
       [anio, n, `DEMO/${anio}-${String(n).padStart(4, "0")}`, campos.aeronave,
        campos.fecha, campos.tac, campos.piloto, campos.discrepancia, campos.accion || null,
@@ -283,7 +323,8 @@ async function sembrarTaller(c, log, ctx) {
        campos.asignado ? campos.fecha : null, idJefe,
        campos.mecanico || null, campos.firma || null, campos.firma || null,
        campos.aprobador || null, campos.aprobacion || null, campos.aprobacion || null,
-       campos.celula !== false, campos.motor !== false, campos.helice !== false]
+       campos.celula !== false, campos.motor !== false, campos.helice !== false,
+       campos.horas]
     );
     return r.rows[0].id_orden;
   };
@@ -293,7 +334,7 @@ async function sembrarTaller(c, log, ctx) {
     aeronave: enTaller.id_aeronave, fecha: soloFecha(sumarDias(hoy, -2)), tac: 1200,
     piloto: "Óscar Turno", discrepancia: "Inspección programada de 100 horas.",
     estado: "ABIERTA", mant: mant.rows[0].id_mantenimiento, asignado: idTecnico,
-    helice: false,
+    helice: false, horas: 6,   // seis horas de trabajo encima: el cronómetro corriendo
   });
   // La requisición de material de ESE trabajo, para que la orden tenga papeleo colgando.
   const req = await doc("REQUISICION", 3, "REQ", {
@@ -309,7 +350,7 @@ async function sembrarTaller(c, log, ctx) {
     piloto: "Ana Directora", discrepancia: "Ruido en el tren de nariz durante el taxeo.",
     accion: "Se revisó el conjunto del tren de nariz y se reemplazaron pastillas de freno.",
     estado: "FIRMADA", asignado: idTecnico, mecanico: idTecnico,
-    firma: soloFecha(sumarDias(hoy, -1)), motor: false, helice: false,
+    firma: soloFecha(sumarDias(hoy, -1)), motor: false, helice: false, horas: 5 * 24,
   });
 
   // 3) Aprobada: historial, y lo que llena el folder por avión.
@@ -319,7 +360,7 @@ async function sembrarTaller(c, log, ctx) {
     accion: "Se realizó cambio de aceite y filtro conforme al manual de mantenimiento.",
     estado: "APROBADA", asignado: idTecnico, mecanico: idTecnico,
     firma: soloFecha(sumarDias(hoy, -17)), aprobador: idJefe,
-    aprobacion: soloFecha(sumarDias(hoy, -16)), celula: false, helice: false,
+    aprobacion: soloFecha(sumarDias(hoy, -16)), celula: false, helice: false, horas: 18 * 24,
   });
 
   return {
