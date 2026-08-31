@@ -1,4 +1,4 @@
-import { MARCA, LOGO_DATAURL } from "../../marca";
+import { MARCA, logoDataUrl } from "../../marca";
 
 export async function generarPdfPlanVuelo(datos, vuelo) {
   const pdfMakeModule = await import("pdfmake/build/pdfmake");
@@ -47,7 +47,7 @@ export async function generarPdfPlanVuelo(datos, vuelo) {
     content: [
       {
         columns: [
-          { image: LOGO_DATAURL, width: 40, margin: [0, 0, 8, 0] },
+          { image: logoDataUrl(), width: 40, margin: [0, 0, 8, 0] },
           {
             width: "*",
             stack: [

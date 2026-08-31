@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { login } from "../../services/loginApi";
-import { MARCA, IMG } from "../../marca";
+import { MARCA, IMG, aplicarMarca } from "../../marca";
 
 // Un solo lugar para "a qué dashboard va cada rol" — lo usa tanto el login
 // manual como el auto-redirect de sesión ya guardada (ver useEffect abajo).
@@ -67,6 +67,12 @@ export default function Login() {
   // hay uno guardado, mandamos directo al dashboard; si en realidad estaba
   // vencido/inválido, el interceptor de axios (401) lo devuelve a /login solo.
   useEffect(() => {
+    // Volver a la marca que corresponda. Es el punto por el que pasan TODOS los
+    // cierres de sesión (los diez botones navegan acá) y navigate() no recarga
+    // la página, así que sin esto la app se quedaría con la marca del anterior:
+    // salir de una demostración dejaría "TU ESCUELA" puesto para el siguiente.
+    aplicarMarca();
+
     const token = localStorage.getItem("token");
     const rawUser = localStorage.getItem("user");
     if (token && rawUser) {
@@ -92,6 +98,9 @@ export default function Login() {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      // La sesión ya está guardada: acá se sabe si es la de demostraciones.
+      // Antes de navegar, para que el dashboard se pinte con la marca correcta.
+      aplicarMarca();
 
       const user = data.user;
 

@@ -1,6 +1,8 @@
 {
-  "_leeme": "Identidad de la escuela. Fuente ÚNICA: la lee el backend (legacy/CAA-backend/utils/marca.js) y el frontend (generado en el prebuild por CAA-frontend/scripts/generate-marca.mjs). Para clonar el sistema a otra escuela se cambia 'activa' y se reemplazan las imágenes; no se toca ni una línea de código.",
+  "_leeme": "Identidad de la escuela. Fuente ÚNICA: la lee el backend (legacy/CAA-backend/utils/marca.js) y el frontend (generado en el prebuild por CAA-frontend/scripts/generate-marca.mjs). Para clonar el sistema a otra escuela se cambia 'activa' y se reemplazan las imágenes; no se toca ni una línea de código. 'activa' es la marca de producción; 'marca_demo' es la que ve la cuenta de demostraciones, y las dos conviven en el mismo despliegue.",
   "activa": "caaa",
+  "_marca_demo": "Qué marca ve la CUENTA DE DEMOSTRACIONES. No es un interruptor global: se resuelve por sesión (el esquema viaja firmado en el token), así que un prospecto ve 'TU ESCUELA' en la misma pantalla donde la gente de CAAA sigue viendo CAAA.",
+  "marca_demo": "molde",
   "marcas": {
     "caaa": {
       "nombre": "CAAA",

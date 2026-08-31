@@ -13,7 +13,10 @@ const PORT = parseInt(process.env.MAIL_PORT || "587", 10);
 const USER = clean(process.env.MAIL_USERNAME || process.env.MAIL_USER);
 const PASS = (process.env.MAIL_PASSWORD || "").replace(/"/g, "");
 const FROM_ADDRESS = clean(process.env.MAIL_FROM_ADDRESS || process.env.MAIL_FROM) || USER;
-const FROM_NAME = clean(process.env.MAIL_FROM_NAME) || `${marca.nombre} — ${marca.nombre_completo}`;
+// Funcion y no constante: la marca depende del esquema de la peticion, y
+// resolverla al arrancar dejaria a la cuenta de demostraciones mandando
+// correos firmados como CAAA. Misma razon que en los PDF.
+const FROM_NAME = () => clean(process.env.MAIL_FROM_NAME) || `${marca.nombre} — ${marca.nombre_completo}`;
 
 // Correo habilitado solo si MAIL_ENABLED=true Y hay host+usuario+clave.
 const MAIL_ENABLED = String(process.env.MAIL_ENABLED).toLowerCase() === "true";
@@ -33,13 +36,13 @@ const realTransporter = nodemailer.createTransport({
   family: 4, // fuerza IPv4 en la conexión SMTP (Railway sin IPv6)
 });
 
-const DEFAULT_FROM = `"${FROM_NAME}" <${FROM_ADDRESS}>`;
+const DEFAULT_FROM = () => `"${FROM_NAME()}" <${FROM_ADDRESS}>`;
 
 const transporter = {
   /** Mismo contrato que nodemailer.sendMail; aplica `from` por defecto y respeta el gate. */
   sendMail(options = {}) {
     // Usa el `from` por defecto salvo que el call site pase uno explícito no vacío.
-    const opts = { ...options, from: options.from || DEFAULT_FROM };
+    const opts = { ...options, from: options.from || DEFAULT_FROM() };
     if (!ACTIVE) {
       console.log(`[MAIL-SILENCED] To: ${opts.to} | Subject: ${opts.subject}`);
       return Promise.resolve({ messageId: "silenced", silenced: true });

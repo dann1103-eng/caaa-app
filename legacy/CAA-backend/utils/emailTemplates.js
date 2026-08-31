@@ -20,7 +20,10 @@ const BRAND = {
 };
 
 const APP_URL = (process.env.APP_PUBLIC_URL || "https://caaa-app.vercel.app").replace(/\/+$/, "");
-const LOGO_URL = `${APP_URL}/${marca.iso_blanco}`;
+// Funcion y no constante: la marca depende del esquema de la peticion, y
+// resolverla al arrancar dejaria a la cuenta de demostraciones mandando
+// correos firmados como CAAA. Misma razon que en los PDF.
+const LOGO_URL = () => `${APP_URL}/${marca.iso_blanco}`;
 const ESCUELA = "Centro de Adiestramiento Aéreo Académico";
 
 function esc(s) {
@@ -66,7 +69,7 @@ function baseLayout({ preheader = "", kicker = "", heading = "", introHtml = "",
       <tr><td style="background:${BRAND.navy};padding:22px 28px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
           <td align="left" style="vertical-align:middle;">
-            <img src="${LOGO_URL}" width="34" height="34" alt="${marca.nombre}"
+            <img src="${LOGO_URL()}" width="34" height="34" alt="${marca.nombre}"
                  style="vertical-align:middle;border:0;display:inline-block;">
             <span style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:#ffffff;letter-spacing:3px;vertical-align:middle;padding-left:10px;">C A A A</span>
           </td>

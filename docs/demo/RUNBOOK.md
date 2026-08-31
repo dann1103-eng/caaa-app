@@ -18,6 +18,11 @@ Arriba a la derecha del dashboard de Administración aparece **Reiniciar demo**,
 que devuelve todo al punto de partida en unos segundos. Sirve para rehacer una
 demostración delante del cliente si alguien se perdió.
 
+Las cuentas de demostración están **eximidas de la sesión única**: podés tenerlas
+abiertas en la laptop y en el proyector a la vez, y dar dos demostraciones en
+paralelo. Sin esa excepción el reinicio te echaba a la pantalla de login —vacía
+`demo.usuario` y la vuelve a sembrar— justo delante del prospecto.
+
 Todos los usuarios sembrados usan `demo123`:
 
 | Usuario | Rol |
@@ -96,6 +101,10 @@ El botón borra datos y corre en el mismo despliegue que producción, así que:
 4. `demo/reset.js` **nombra el esquema en cada sentencia** y aborta si su
    conexión no está parada en `demo`.
 
+La única regla que las cuentas de demostración tienen más floja que el resto es
+la **sesión única** (§1), y es a propósito: protege datos de personas, y en
+`demo` no hay ninguno.
+
 **Qué borra:** alumnos, instructores, vuelos, voucheras, solicitudes y
 movimientos — todo dentro de `demo`.
 **Qué no toca:** el catálogo de demo (flota, cursos, licencias, bloques, config)
@@ -107,25 +116,42 @@ entre las dos listas es vacía.
 
 ---
 
-## 5. Cambiar la marca en la demostración
+## 5. La marca en la demostración
+
+La cuenta de demostraciones ve **TU ESCUELA** —con su propio logo y su propio
+color— mientras la gente de CAAA, en el mismo momento y en la misma URL, sigue
+viendo CAAA. No hay que activar nada ni acordarse de volverlo atrás.
 
 La identidad vive en **`marca.json`**, en la raíz del repo, con dos juegos de
-valores y un interruptor:
+valores y dos punteros:
 
 ```json
-{ "activa": "caaa", "marcas": { "caaa": { ... }, "molde": { ... } } }
+{ "activa": "caaa", "marca_demo": "molde", "marcas": { "caaa": {…}, "molde": {…} } }
 ```
 
-Poniendo `"activa": "molde"` toda la app pasa a **TU ESCUELA**, con logos neutros
-y otro color. Sirve para mostrarle a un prospecto cómo se vería con lo suyo.
+`activa` es la marca de producción y `marca_demo` la que ve la cuenta de
+demostraciones. Para cambiar cómo se ve el molde —ponerle el nombre del
+prospecto antes de una reunión, por ejemplo— se edita `marcas.molde` y se
+reemplazan las imágenes `*-molde.png`. Nada de eso toca lo que ve CAAA.
 
-⚠️ **El cambio es global**, no por usuario: afecta también a lo que ve CAAA. Es
-para usarlo en una demostración puntual y volverlo atrás, no para dejarlo puesto.
+### Cómo se resuelve
 
-Campos y tamaños de imagen: ver los comentarios dentro de `marca.json` y
-`CAA-frontend/scripts/generate-marca.mjs`.
+No se decide al construir, porque el bundle es **uno solo** y lo comparten
+todos. Se decide por **sesión**, a partir del esquema que el backend firmó
+dentro del token:
 
----
+| | Dónde | Cómo |
+|---|---|---|
+| Backend (PDF, correos) | `utils/marca.js` | `marca` es un **Proxy**: cada lectura resuelve contra el esquema de la petición en curso. Tiene que ser así — dos peticiones concurrentes de esquemas distintos se pisarían un objeto mutable, y el prospecto vería una vouchera con el logo de CAAA. |
+| Frontend | `src/marca.js` (generado) | Lleva las dos marcas. `aplicarMarca()` deja puesta la que toca; la llaman `main.jsx` al arrancar y `Login.jsx` al entrar y al salir. |
+
+⚠️ **No guardar un valor de la marca en una constante de módulo** (`const N =
+marca.nombre`, `const LOGO = imagen("iso_navy")`): eso lo congela con la marca de
+quien haya arrancado el proceso. Se lee dentro de la función que lo usa. Por eso
+en `pdfGenerator.js` y `pdfTaller.js` los logos son funciones, no constantes.
+
+**Lo único que no cambia es la pantalla de login**, porque ahí todavía no hay
+sesión: siempre muestra CAAA. La marca del prospecto aparece apenas entrás.
 
 ## 6. Cuando una escuela compre
 
@@ -151,6 +177,7 @@ node -e "console.log('JWT_SECRET     =', require('crypto').randomBytes(48).toStr
 | Una consulta falla con "relation does not exist" | El esquema `demo` quedó viejo tras una migración: regenerarlo (§3) |
 | Un usuario REAL dejó de ver sus datos | Su nombre entró en `public.demo_cuenta`. Borrar esa fila: `DELETE FROM demo_cuenta WHERE username = '...'` |
 | El botón de reinicio no aparece | No estás con una cuenta `demo.` con rol ADMIN |
+| La demostración se ve con la marca de CAAA | Falta `marca_demo` en `marca.json`, o el login no devolvió `es_demo` (mirá el usuario guardado en localStorage) |
 | El reinicio dice que la conexión no está en `demo` | El pool de demo perdió su `search_path`: reiniciar el backend |
 
 **Diagnóstico rápido de backend**, el de siempre: `curl <url>/api/<ruta>` →

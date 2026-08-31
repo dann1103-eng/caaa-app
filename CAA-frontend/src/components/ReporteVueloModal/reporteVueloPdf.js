@@ -1,4 +1,4 @@
-import { MARCA, LOGO_DATAURL } from "../../marca";
+import { MARCA, logoDataUrl } from "../../marca";
 
 // ¿El error viene de un chunk que ya no existe (deploy nuevo con la pestaña
 // vieja abierta)? El generador se carga bajo demanda: tras un deploy, el
@@ -245,7 +245,7 @@ function buildVoucheraContent({
     // ── Encabezado en línea: logo + razón social + título ──
     {
       columns: [
-        { image: LOGO_DATAURL, width: 20 },
+        { image: logoDataUrl(), width: 20 },
         {
           text: [
             { text: MARCA.nombre_legal + "   ", fontSize: 10, bold: true, color: "#1e3a5f" },

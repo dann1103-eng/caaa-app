@@ -7,15 +7,18 @@ const CAAA_BLUE = "#1B365D";
 const CAAA_GREEN = "#157347";
 const CAAA_RED = "#C0392B";
 
-const LOGO_PATH = imagen("iso_navy");
+// ⚠️ FUNCIÓN, no constante: la marca depende del esquema de la petición
+// (CAAA o la cuenta de demostraciones), así que resolver la ruta una sola
+// vez al arrancar dejaría todos los PDF con el logo de quien entró primero.
+const LOGO_PATH = () => imagen("iso_navy");
 
 /**
  * Encabezado común CAAA para todos los PDFs.
  */
 function drawHeader(doc, titulo, fecha) {
-  const hasLogo = fs.existsSync(LOGO_PATH);
+  const hasLogo = fs.existsSync(LOGO_PATH());
   if (hasLogo) {
-    try { doc.image(LOGO_PATH, 50, 44, { height: 46 }); } catch { /* sigue sin logo */ }
+    try { doc.image(LOGO_PATH(), 50, 44, { height: 46 }); } catch { /* sigue sin logo */ }
   }
   const tx = hasLogo ? 108 : 50;
 
@@ -281,7 +284,7 @@ const money = (n) => `$${Number(n || 0).toFixed(2)}`;
 const periodoLabel = (p) => p.mes ? `${MESES[p.mes]} ${p.anio}` : `${p.periodo_inicio} a ${p.periodo_fin}`;
 
 function headerCompacto(doc, titulo, sub, ancho) {
-  if (fs.existsSync(LOGO_PATH)) { try { doc.image(LOGO_PATH, 40, 36, { height: 40 }); } catch { /* */ } }
+  if (fs.existsSync(LOGO_PATH())) { try { doc.image(LOGO_PATH(), 40, 36, { height: 40 }); } catch { /* */ } }
   doc.fillColor(CAAA_BLUE).fontSize(16).font("Helvetica-Bold").text(marca.nombre, 92, 40)
      .fontSize(8).font("Helvetica").fillColor("#444")
      .text("Centro de Adiestramiento Aéreo Académico, S.A. de C.V.", 92, 60);

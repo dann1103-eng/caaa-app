@@ -35,13 +35,26 @@ async function continuar(req, res, next, decoded) {
     // Si el token tiene session_id, validamos contra la DB: si el current_session_id
     // de la BD cambió (login en otro lado), se echa la sesión vieja.
     //
-    // EXCEPCIÓN: cuentas de uso compartido/multi-dispositivo (u1 = admin del
+    // EXCEPCIÓN 1: cuentas de uso compartido/multi-dispositivo (u1 = admin del
     // sistema) se eximen — se usan desde varias máquinas/pestañas a la vez y la
     // sesión única las deslogueaba "de la nada" cada vez que alguien más entraba
     // con la misma cuenta. El resto conserva sesión única (evita que un alumno
     // comparta su cuenta con otros).
+    //
+    // EXCEPCIÓN 2: TODA sesión de demostración. Son dos motivos distintos y cada
+    // uno alcanza por sí solo:
+    //   · Una demostración se da con la laptop y el proyector a la vez, y puede
+    //     haber dos andando para prospectos distintos.
+    //   · El reinicio vacía demo.usuario y la vuelve a sembrar con un
+    //     current_session_id nuevo. Sin esta excepción, apretar "Reiniciar demo"
+    //     delante de un prospecto te escupe a la pantalla de login.
+    // No se pierde nada: la sesión única protege datos de personas, y en `demo`
+    // no hay ninguno — son datos inventados hechos para mostrarse. El esquema
+    // viaja FIRMADO en el token, así que esto no se puede activar desde afuera.
     const SESION_MULTIPLE = new Set(["u1"]);
-    if (decoded.session_id && !SESION_MULTIPLE.has(decoded.username)) {
+    const sesionCompartida =
+      SESION_MULTIPLE.has(decoded.username) || decoded.esquema === "demo";
+    if (decoded.session_id && !sesionCompartida) {
       const result = await db.query(
         "SELECT current_session_id FROM usuario WHERE id_usuario = $1",
         [decoded.id_usuario]
