@@ -338,7 +338,12 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
         // última llegada registrada del avión. Si la lectura es real (p.ej. la
         // vouchera anterior fue la mal digitada), el instructor confirma y se
         // reintenta con confirmar_tac.
-        if (e?.response?.status === 409 && e?.response?.data?.code === "TAC_DISCONTINUO") {
+        // TAC_VS_COBRO: el delta del tacómetro no cuadra con las horas cobradas
+        // (típico de un typo en la llegada). Mismo trato: se puede confirmar.
+        if (
+          e?.response?.status === 409 &&
+          (e?.response?.data?.code === "TAC_DISCONTINUO" || e?.response?.data?.code === "TAC_VS_COBRO")
+        ) {
           const seguir = window.confirm(`${e.response.data.message}\n\n¿Firmar de todos modos?`);
           if (!seguir) return;
           await firmarReporteVuelo(id_vuelo, { ...payload, confirmar_tac: true });
