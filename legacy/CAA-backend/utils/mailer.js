@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const { marca } = require("./marca");
 // Railway no rutea IPv6 (igual que con Supabase). Sin esto nodemailer resuelve
 // smtp.gmail.com a una IPv6 y falla con ENETUNREACH. Preferir IPv4 globalmente.
 try { require("dns").setDefaultResultOrder("ipv4first"); } catch { /* node viejo */ }
@@ -12,7 +13,7 @@ const PORT = parseInt(process.env.MAIL_PORT || "587", 10);
 const USER = clean(process.env.MAIL_USERNAME || process.env.MAIL_USER);
 const PASS = (process.env.MAIL_PASSWORD || "").replace(/"/g, "");
 const FROM_ADDRESS = clean(process.env.MAIL_FROM_ADDRESS || process.env.MAIL_FROM) || USER;
-const FROM_NAME = clean(process.env.MAIL_FROM_NAME) || "CAAA — Centro de Adiestramiento Aéreo Académico";
+const FROM_NAME = clean(process.env.MAIL_FROM_NAME) || `${marca.nombre} — ${marca.nombre_completo}`;
 
 // Correo habilitado solo si MAIL_ENABLED=true Y hay host+usuario+clave.
 const MAIL_ENABLED = String(process.env.MAIL_ENABLED).toLowerCase() === "true";

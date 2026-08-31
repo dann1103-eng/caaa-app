@@ -1,0 +1,49 @@
+{
+  "_leeme": "Identidad de la escuela. Fuente ÚNICA: la lee el backend (legacy/CAA-backend/utils/marca.js) y el frontend (generado en el prebuild por CAA-frontend/scripts/generate-marca.mjs). Para clonar el sistema a otra escuela se cambia 'activa' y se reemplazan las imágenes; no se toca ni una línea de código.",
+  "activa": "caaa",
+  "marcas": {
+    "caaa": {
+      "nombre": "CAAA",
+      "nombre_legal": "CAAA, S.A. de C.V.",
+      "nombre_completo": "Centro de Adiestramiento Aéreo Académico",
+      "lema": "Profesionales en aviación",
+      "subtitulo": "Sistema de gestión académica y de operaciones",
+      "_color": "Acento de la marca en OKLCH: h es el matiz (0-360) y c la saturación. El navy de la interfaz no cambia; esto es el acento. 25 / 0.205 es el rojo del logo de CAAA (#C9242E).",
+      "acento_h": 25,
+      "acento_c": 0.205,
+      "_imagenes": "Rutas relativas: el frontend las sirve desde CAA-frontend/public/ y el backend las lee de legacy/CAA-backend/assets/.",
+      "logo": "logo-caaa.png",
+      "logo_mark": "logo-caaa-mark.png",
+      "iso_navy": "iso-caaa-navy.png",
+      "iso_blanco": "iso-caaa-white.png",
+      "favicon": "favicon-caaa.png",
+      "login_bg": "login-bg.jpg",
+      "aeropuerto_base": "MSSS",
+      "direccion": "Aeropuerto Internacional de Ilopango, Hangar 38B",
+      "codigo_oma": "CO-OMA-CAAA-014",
+      "telefonos": "Tels: (503) 2295-0029 · (503) 2295-7811",
+      "correo": "informacion@caaa-sv.com"
+    },
+    "_molde": "Modo 'tu marca': se activa poniendo 'activa': 'molde'. Sirve para mostrarle a un prospecto, en vivo, cómo se vería el sistema con lo suyo.",
+    "molde": {
+      "nombre": "TU ESCUELA",
+      "nombre_legal": "Tu Razón Social, S.A. de C.V.",
+      "nombre_completo": "Tu Escuela de Aviación",
+      "lema": "Tu lema acá",
+      "subtitulo": "Sistema de gestión académica y de operaciones",
+      "acento_h": 250,
+      "acento_c": 0.14,
+      "logo": "logo-molde.png",
+      "logo_mark": "logo-molde-mark.png",
+      "iso_navy": "iso-molde-navy.png",
+      "iso_blanco": "iso-molde-white.png",
+      "favicon": "favicon-molde.png",
+      "login_bg": "login-bg.jpg",
+      "aeropuerto_base": "MSSS",
+      "direccion": "Tu dirección, Tu ciudad",
+      "codigo_oma": "CO-OMA-XXXX-000",
+      "telefonos": "Tels: (000) 0000-0000",
+      "correo": "info@tuescuela.com"
+    }
+  }
+}

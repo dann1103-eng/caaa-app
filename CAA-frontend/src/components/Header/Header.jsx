@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import PushToggle from "../PushToggle/PushToggle";
+import { MARCA, IMG } from "../../marca";
+const PROY_KEY = window.__APP_CONFIG__?.PROYECCION_KEY || "";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -33,8 +35,8 @@ export default function Header() {
       <div className="header__container">
 
         <div className="header__logo">
-          <img src="/iso-caaa-navy.png" alt="CAAA" className="header__logo-img" />
-          CAAA
+          <img src={IMG.isoNavy} alt={MARCA.nombre} className="header__logo-img" />
+          {MARCA.nombre}
         </div>
 
         <nav className="header__nav">
@@ -70,11 +72,11 @@ export default function Header() {
 
                   {(["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) || user.puede_programar) && (
                     <>
-                      <a href="/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
+                      <a href={`/proyeccion?modo=proyeccion&key=${PROY_KEY}`} target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
                         <i className="bi bi-easel header__action-icon" />
                         <span>Proyección</span>
                       </a>
-                      <a href="/proyeccion/tracking?modo=proyeccion&key=caaa_proyeccion_secret_2024" target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
+                      <a href={`/proyeccion/tracking?modo=proyeccion&key=${PROY_KEY}`} target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu}>
                         <i className="bi bi-broadcast header__action-icon" />
                         <span>Flight Tracking</span>
                       </a>

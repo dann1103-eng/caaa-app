@@ -10,6 +10,7 @@ import WindyWidget from "../../components/ProgWidgets/WindyWidget";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
 import VueloResumenCard from "../../components/VueloResumenCard/VueloResumenCard";
 import PushToggle from "../../components/PushToggle/PushToggle";
+import { MARCA } from "../../marca";
 import "../Proyeccion/PaginaProgramacion.css";
 import "./Dashboard.css";
 
@@ -118,7 +119,7 @@ export default function DuenoDashboard() {
     <div className="pp duo">
       <div className="pp__topbar">
         <div className="pp__topbar-left">
-          <span className="pp__topbar-label">CAAA</span>
+          <span className="pp__topbar-label">{MARCA.nombre}</span>
         </div>
         <div className="pp__topbar-right">
           <span className="pp__topbar-clock">{clock} CST</span>

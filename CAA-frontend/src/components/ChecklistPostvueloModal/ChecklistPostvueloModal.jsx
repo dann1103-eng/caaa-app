@@ -6,6 +6,7 @@ import {
 } from "../../services/instructorApi";
 import { avanzarEstadoVuelo } from "../../services/instructorApi";
 import SignaturePad from "../SignaturePad/SignaturePad";
+import { MARCA } from "../../marca";
 import "./ChecklistPostvueloModal.css";
 
 const ITEMS = [
@@ -129,10 +130,10 @@ export default function ChecklistPostvueloModal({ id_vuelo, vueloInfo, tiempoVue
         {/* ── Header ── */}
         <div className="cpv-header">
           <div className="cpv-header-left">
-            <div className="cpv-logo">CAAA</div>
+            <div className="cpv-logo">{MARCA.nombre}</div>
             <h2>Formato de Chequeo Post-Vuelo</h2>
             <div className="cpv-subtitle">
-              Escuela: CAAA &nbsp;·&nbsp; Modelos: PA-38 / PA-38S / Cessna 152
+              Escuela: {MARCA.nombre} &nbsp;·&nbsp; Modelos: PA-38 / PA-38S / Cessna 152
             </div>
             {(v.aeronave_codigo || v.aeronave_modelo) && (
               <div className="cpv-meta">

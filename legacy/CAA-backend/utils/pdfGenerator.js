@@ -1,12 +1,13 @@
 const PDFDocument = require("pdfkit");
 const path = require("path");
 const fs = require("fs");
+const { marca, imagen } = require("./marca");
 
 const CAAA_BLUE = "#1B365D";
 const CAAA_GREEN = "#157347";
 const CAAA_RED = "#C0392B";
 
-const LOGO_PATH = path.join(__dirname, "..", "assets", "iso-caaa-navy.png");
+const LOGO_PATH = imagen("iso_navy");
 
 /**
  * Encabezado común CAAA para todos los PDFs.
@@ -22,13 +23,13 @@ function drawHeader(doc, titulo, fecha) {
     .fillColor(CAAA_BLUE)
     .fontSize(18)
     .font("Helvetica-Bold")
-    .text("CAAA", tx, 50)
+    .text(marca.nombre, tx, 50)
     .fontSize(9)
     .font("Helvetica")
     .fillColor("#444")
     .text("Centro de Adiestramiento Aéreo Académico, S.A. de C.V.", tx, 72)
     .text("Aeropuerto Internacional de Ilopango, San Salvador, El Salvador", tx, 84)
-    .text("Tels: (503) 2295-0029 · (503) 2295-7811 · informacion@caaa-sv.com", tx, 96);
+    .text(`${marca.telefonos} · ${marca.correo}`, tx, 96);
 
   doc
     .fontSize(16)
@@ -177,7 +178,7 @@ function generarFacturaPDF({ factura, detalle, alumno }) {
 
   // Firma / nota
   doc.fillColor("#888").fontSize(8).font("Helvetica")
-    .text("Esta factura se generó automáticamente desde el sistema CAAA. Documento interno de control financiero.",
+    .text(`Esta factura se generó automáticamente desde el sistema ${marca.nombre}. Documento interno de control financiero.`,
           50, y, { width: 495, align: "center" });
 
   drawFooter(doc);
@@ -281,7 +282,7 @@ const periodoLabel = (p) => p.mes ? `${MESES[p.mes]} ${p.anio}` : `${p.periodo_i
 
 function headerCompacto(doc, titulo, sub, ancho) {
   if (fs.existsSync(LOGO_PATH)) { try { doc.image(LOGO_PATH, 40, 36, { height: 40 }); } catch { /* */ } }
-  doc.fillColor(CAAA_BLUE).fontSize(16).font("Helvetica-Bold").text("CAAA", 92, 40)
+  doc.fillColor(CAAA_BLUE).fontSize(16).font("Helvetica-Bold").text(marca.nombre, 92, 40)
      .fontSize(8).font("Helvetica").fillColor("#444")
      .text("Centro de Adiestramiento Aéreo Académico, S.A. de C.V.", 92, 60);
   doc.fontSize(15).fillColor(CAAA_BLUE).font("Helvetica-Bold").text(titulo, 0, 42, { align: "right", width: ancho + 40 });
@@ -610,7 +611,7 @@ function generarReporteVuelosDiaPDF({ fecha, vuelos, turnoDia = null, asistencia
 
   // Pie: cuándo y quién lo generó, siempre debajo del contenido.
   doc.fontSize(7.5).fillColor("#999").font("Helvetica")
-     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, y + 16);
+     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema ${marca.nombre}`, 40, y + 16);
 
   doc.end();
   return doc;
@@ -839,7 +840,7 @@ function generarReporteOperacionesDiaPDF({ fecha, vuelos, turnoDia = null, asist
   }
 
   doc.fontSize(7.5).fillColor("#999").font("Helvetica")
-     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema CAAA`, 40, y + 16);
+     .text(`Generado el ${new Date().toLocaleString("es-SV", { timeZone: "America/El_Salvador" })} · Sistema ${marca.nombre}`, 40, y + 16);
 
   doc.end();
   return doc;

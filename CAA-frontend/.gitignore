@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 public/config.js
 .env
+# Generado por scripts/generate-marca.mjs a partir de marca.json (raiz del repo).
+# Mismo criterio que public/config.js: se genera en predev y prebuild, no se
+# commitea, y editarlo a mano no sirve porque el build lo reescribe.
+src/marca.js

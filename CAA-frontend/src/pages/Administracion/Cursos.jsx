@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getCursos, crearCurso, actualizarCurso } from "../../services/administracionApi";
+import { MARCA } from "../../marca";
 
 const MOCK = [
   { id: 1, codigo: "PP",    nombre: "Piloto Privado",               gastos_administrativos_usd: 250, costo_teorico_usd: 870, horas_teoricas: 40, total_usd_estimado: 7645,
@@ -137,9 +138,9 @@ export default function Cursos() {
 
   return (
     <div>
-      <h1 className="adf-section-title"><i className="bi bi-mortarboard"></i>Cursos CAAA</h1>
+      <h1 className="adf-section-title"><i className="bi bi-mortarboard"></i>Cursos de {MARCA.nombre}</h1>
       <p className="adf-section-subtitle">
-        Catálogo de cursos según tarifario oficial CAAA 2026. Editables por Administración.
+        Catálogo de cursos según tarifario oficial de {MARCA.nombre}. Editables por Administración.
         {usingMock && <span className="adf-tag amber" style={{ marginLeft: 10 }}>Datos demo</span>}
       </p>
 

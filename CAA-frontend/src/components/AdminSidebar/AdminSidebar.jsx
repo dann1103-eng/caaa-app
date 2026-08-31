@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getSolicitudesCancelacion } from "../../services/adminApi";
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
+const PROY_KEY = window.__APP_CONFIG__?.PROYECCION_KEY || "";
 import "./AdminSidebar.css";
 
 export default function AdminSidebar({ isOpen, onClose }) {
@@ -49,7 +50,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
         { label: "Dashboard", path: "/admin/dashboard", icon: "bi-grid-fill" },
         {
           label: "Programación",
-          path: "/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024",
+          path: `/proyeccion?modo=proyeccion&key=${PROY_KEY}`,
           icon: "bi-calendar3",
           external: true,
         },

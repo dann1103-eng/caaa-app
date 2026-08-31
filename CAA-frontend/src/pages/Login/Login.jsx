@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { login } from "../../services/loginApi";
+import { MARCA, IMG } from "../../marca";
 
 // Un solo lugar para "a qué dashboard va cada rol" — lo usa tanto el login
 // manual como el auto-redirect de sesión ya guardada (ver useEffect abajo).
@@ -116,9 +117,9 @@ export default function Login() {
       <aside className="login__brand">
         <div className="login__brand-top">
           <span className="login__logo-chip">
-            <img src="/logo-caaa-mark.png" alt="CAAA" />
+            <img src={IMG.logoMark} alt={MARCA.nombre} />
           </span>
-          <span className="login__wordmark">CAAA</span>
+          <span className="login__wordmark">{MARCA.nombre}</span>
         </div>
 
         <svg className="login__horizon" viewBox="0 0 240 240" aria-hidden="true">
@@ -150,8 +151,8 @@ export default function Login() {
       <main className="login__panel">
         <div className="login__form-wrap">
           <div className="login__panel-brand">
-            <img src="/logo-caaa-mark.png" alt="CAAA" className="login__panel-logo" />
-            <span className="login__wordmark login__wordmark--sm">CAAA</span>
+            <img src={IMG.logoMark} alt={MARCA.nombre} className="login__panel-logo" />
+            <span className="login__wordmark login__wordmark--sm">{MARCA.nombre}</span>
           </div>
 
           <h1 className="login__title">Iniciar sesión</h1>
@@ -218,7 +219,7 @@ export default function Login() {
           </form>
 
           <footer className="login__foot">
-            CAAA © {new Date().getFullYear()} · Centro de Adiestramiento Aéreo Académico
+            {MARCA.nombre} © {new Date().getFullYear()} · {MARCA.nombre_completo}
           </footer>
         </div>
       </main>

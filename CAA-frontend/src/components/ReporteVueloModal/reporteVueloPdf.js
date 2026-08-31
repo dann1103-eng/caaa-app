@@ -1,4 +1,4 @@
-import { LOGO_CAAA_DATAURL } from "../../assets/logoCaaa";
+import { MARCA, LOGO_DATAURL } from "../../marca";
 
 // ¿El error viene de un chunk que ya no existe (deploy nuevo con la pestaña
 // vieja abierta)? El generador se carga bajo demanda: tras un deploy, el
@@ -245,10 +245,10 @@ function buildVoucheraContent({
     // ── Encabezado en línea: logo + razón social + título ──
     {
       columns: [
-        { image: LOGO_CAAA_DATAURL, width: 20 },
+        { image: LOGO_DATAURL, width: 20 },
         {
           text: [
-            { text: "CAAA, S.A. de C.V.   ", fontSize: 10, bold: true, color: "#1e3a5f" },
+            { text: MARCA.nombre_legal + "   ", fontSize: 10, bold: true, color: "#1e3a5f" },
             { text: isSim ? "VOUCHERA DE SIMULADOR" : "REPORTE DE VUELOS", fontSize: 8.5, bold: true },
           ],
           margin: [6, 5, 0, 0],

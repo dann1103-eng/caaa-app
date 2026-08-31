@@ -3,6 +3,7 @@ import { useLoadSheet } from '../../context/LoadSheetContext'
 import { fmtMoment, calcWB } from '../../utils/wbCalc'
 import { calcFuel } from '../../utils/fuelCalc'
 import { renderEnvelopeToDataUrl } from '../../utils/drawEnvelope'
+import { MARCA, IMG } from "../../../marca";
 
 export default function PrintSheet() {
   const { state } = useLoadSheet()
@@ -63,9 +64,9 @@ export default function PrintSheet() {
       {/* 1. Header */}
       <div className="flex items-center justify-between border-b-2 border-[#1a3a5c] pb-0.5 mb-1">
         <div className="flex items-center gap-2">
-          <img src="/logo-caaa-mark.png" alt="CAAA" className="h-8 w-auto" />
+          <img src={IMG.logoMark} alt={MARCA.nombre} className="h-8 w-auto" />
           <div>
-            <div className="text-sm font-bold text-[#1a3a5c]">CAAA, S.A. de C.V.</div>
+            <div className="text-sm font-bold text-[#1a3a5c]">{MARCA.nombre_legal}</div>
             <div className="text-[9px] text-gray-500">Centro de Adiestramiento Aereo Academico</div>
           </div>
         </div>

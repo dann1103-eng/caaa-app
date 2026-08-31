@@ -1,5 +1,6 @@
 import React from "react";
 import AdminSidebar from "../AdminSidebar/AdminSidebar";
+import { MARCA, IMG } from "../../marca";
 import "./AdminLayout.css";
 
 export default function AdminLayout({ children }) {
@@ -17,8 +18,8 @@ export default function AdminLayout({ children }) {
           <button className="adm-topbar__menu-btn" onClick={toggleSidebar}>
             <i className={`bi ${sidebarOpen ? 'bi-x' : 'bi-list'}`}></i>
           </button>
-          <img src="/iso-caaa-white.png" alt="CAAA" className="adm-topbar__logo-img" style={{ height: 28, width: "auto", display: "block" }} />
-          <span className="adm-topbar__logo">CAAA</span>
+          <img src={IMG.isoBlanco} alt={MARCA.nombre} className="adm-topbar__logo-img" style={{ height: 28, width: "auto", display: "block" }} />
+          <span className="adm-topbar__logo">{MARCA.nombre}</span>
           <span className="adm-topbar__divider">|</span>
           <span className="adm-topbar__title">Administración</span>
         </div>

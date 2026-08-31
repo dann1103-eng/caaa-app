@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { getCatalogoDocs, getAlertasVencimiento } from "../../services/administracionApi";
+import { MARCA } from "../../marca";
 
 const MOCK_CATALOGO = [
-  { id: 1,  codigo: "CAAA_INSCRIPCION", nombre: "Hoja de inscripción CAAA",                  autoridad: "CAAA", frecuencia_renovacion_meses: null },
+  { id: 1,  codigo: "CAAA_INSCRIPCION", nombre: `Hoja de inscripción ${MARCA.nombre}`,                  autoridad: "CAAA", frecuencia_renovacion_meses: null },
   { id: 2,  codigo: "CAAA_FOTO",        nombre: "Fotografía en digital",                     autoridad: "CAAA", frecuencia_renovacion_meses: null },
   { id: 3,  codigo: "CAAA_DUI",         nombre: "DUI / Pasaporte / Carnet residente",        autoridad: "CAAA", frecuencia_renovacion_meses: null },
   { id: 4,  codigo: "CAAA_NIT",         nombre: "NIT (extranjeros)",                         autoridad: "CAAA", aplica_a_extranjeros: true, frecuencia_renovacion_meses: null },
@@ -46,9 +47,9 @@ export default function Documentacion() {
 
   return (
     <div>
-      <h1 className="adf-section-title"><i className="bi bi-folder-check"></i>Documentación CAAA / AAC</h1>
+      <h1 className="adf-section-title"><i className="bi bi-folder-check"></i>Documentación de {MARCA.nombre} / AAC</h1>
       <p className="adf-section-subtitle">
-        Catálogo oficial de documentos exigidos por la Autoridad de Aviación Civil y por CAAA.
+        Catálogo oficial de documentos exigidos por la Autoridad de Aviación Civil y por {MARCA.nombre}.
         {usingMock && <span className="adf-tag amber" style={{ marginLeft: 10 }}>Datos demo</span>}
       </p>
 
@@ -80,7 +81,7 @@ export default function Documentacion() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22 }}>
         <div className="adf-card">
-          <h3><i className="bi bi-shield-check me-2"></i>Requisitos CAAA</h3>
+          <h3><i className="bi bi-shield-check me-2"></i>Requisitos de {MARCA.nombre}</h3>
           <table className="adf-table">
             <thead><tr><th>Documento</th><th>Renovación</th></tr></thead>
             <tbody>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { MARCA, IMG } from "../../marca";
 import "./Manual.css";
 
 const NAV = [
@@ -97,9 +98,9 @@ export default function Manual({ solo = null }) {
     <div className="man__shell">
       <nav className="man__rail" aria-label="Manuales por rol">
         <div className="man__brand">
-          <div className="man__brand-mark"><img src="/iso-caaa-white.png" alt="CAAA" /></div>
+          <div className="man__brand-mark"><img src={IMG.isoBlanco} alt={MARCA.nombre} /></div>
           <div>
-            <div className="man__brand-title">CAAA</div>
+            <div className="man__brand-title">{MARCA.nombre}</div>
             <div className="man__brand-sub">{solo === "alumno" ? "Manual del alumno" : "Manual de usuario"}</div>
           </div>
         </div>
@@ -127,7 +128,7 @@ export default function Manual({ solo = null }) {
             <i className="bi bi-box-arrow-in-right" />
             Iniciar sesión
           </a>
-          <p>CAAA · Ilopango, El Salvador</p>
+          <p>{MARCA.nombre} · {MARCA.direccion}</p>
         </div>
       </nav>
 
@@ -135,7 +136,7 @@ export default function Manual({ solo = null }) {
         {/* ───────── PORTADA ───────── */}
         <section className={`man__page ${active === "portada" ? "active" : ""}`}>
           <div className="man__kicker"><i className="bi bi-journal-bookmark" />Guía general</div>
-          <h1 className="man__title">Manual de usuario del sistema CAAA</h1>
+          <h1 className="man__title">Manual de usuario del sistema {MARCA.nombre}</h1>
           <p className="man__lede">
             Esta guía explica, paso a paso, cómo usar el sistema desde el perfil de cada persona:
             alumno, instructor, turno, programación, administración y taller. Cada capítulo cubre

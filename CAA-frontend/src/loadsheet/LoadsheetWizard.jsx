@@ -5,6 +5,7 @@ import Step2WB from "./components/steps/Step2WB";
 import Step3Nav from "./components/steps/Step3Nav";
 import Step4Ops from "./components/steps/Step4Ops";
 import Step5Summary from "./components/steps/Step5Summary";
+import { MARCA, IMG } from "../marca";
 
 function StatusBadge({ status }) {
   if (status === true) return <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">LISTO</span>;
@@ -28,10 +29,10 @@ export default function LoadsheetWizard({ onExit, readOnly = false, practice = f
             >
               ← Volver
             </button>
-            <img src="/logo-caaa-mark.png" alt="CAAA" className="h-9 w-auto bg-white rounded-md p-1" />
+            <img src={IMG.logoMark} alt={MARCA.nombre} className="h-9 w-auto bg-white rounded-md p-1" />
             <div>
-              <h1 className="text-lg font-semibold tracking-wide">Load Sheet — CAAA</h1>
-              <p className="text-xs opacity-75 mt-0.5">Centro de Adiestramiento Aereo Academico</p>
+              <h1 className="text-lg font-semibold tracking-wide">Load Sheet — {MARCA.nombre}</h1>
+              <p className="text-xs opacity-75 mt-0.5">{MARCA.nombre_completo}</p>
             </div>
           </div>
           <StatusBadge status={state.wbResults?.allOk ? true : state.wbResults?.totalW > 0 ? false : null} />
