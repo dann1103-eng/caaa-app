@@ -2868,3 +2868,102 @@ reporte). **261 renglones cargados** = 209 + 61 − 9 fusionados por conflicto.
 - **Campana y web push** — la cañería existe; se suman cuando el número lleve un par de semanas
   verificado.
 - **Los dos bimotores** siguen sin caber en el modelo de tres libros (§37).
+
+---
+
+## 39. Sesión 2026-08-31 — Alumnos que no vuelan (sobrecargo) y la cuenta de demostraciones
+
+**Desplegado y verificado en producción** (`origin/master` = `2890888`). Migraciones
+`20260831000001` y `20260831000002`. Specs:
+`docs/superpowers/specs/2026-08-31-alumnos-que-no-vuelan-design.md` y
+`…-demo-white-label-design.md`. Manual de operación: **`docs/demo/RUNBOOK.md`**.
+
+### A. Alumnos que no vuelan — cursos de sobrecargo
+Otras escuelas ofrecen **sobrecargo** (tripulante de cabina), y había que poder responderles.
+Resultó que el aula virtual ya era genérica: el trabajo fue **dos columnas**, no un módulo.
+- `licencia.vuela boolean DEFAULT true` + la fila `Sobrecargo` (id 7, `vuela=false`), y
+  `alumno.id_instructor` deja de ser NOT NULL — un alumno de tierra no tiene instructor de vuelo.
+- **`utils/alumnoVuela.js` → `alumnoVuelaSQL(alias)`**, fragmento compartido (la lección de
+  `soloHorasFacturables`, §27). Se aplica **solo en los selectores** —agendar, roster del
+  instructor, lista de licencias—, nunca en los históricos: un alumno que voló y después pasó a
+  tierra tiene que seguir apareciendo en su propia bitácora.
+- Respuesta de venta redactada en **`docs/ventas-sobrecargo.md`**.
+- Encontrada de paso: `alumno.id_instructor_teoria` es la **tercera columna muerta** del proyecto
+  (0 de 103 filas). Misma familia que la licencia TMA y el aprendiz (§33).
+
+### B. La marca deja de estar escrita en 148 lugares
+`marca.json` en la raíz es la fuente única: nombre, logos, color de acento, teléfonos, código OMA.
+La lee el backend (`utils/marca.js`) y el frontend (generado en el prebuild). Se retiró
+`src/assets/logoCaaa.js` — 27 KB de base64 a mano — que ahora sale del PNG en cada build.
+
+### C. 🚨 La demostración: un ESQUEMA aparte, no una bandera por fila
+Daniel quiere mostrarle el sistema a otras escuelas **sin exponer datos de CAAA**, con la misma
+app y el mismo despliegue: *"un usuario especial al que se le muestren datos ficticios"*.
+
+**Se descartó la bandera `es_demo` por fila** después de medir el radio: 87 tablas y ~600
+consultas, y **un solo filtro olvidado le muestra a un prospecto el saldo real de un alumno**.
+En su lugar, un esquema `demo` con las mismas tablas vacías (migración `20260831000002`,
+`clonar_demo()`), y el ruteo por conexión:
+
+| | |
+|---|---|
+| `config/db.js` | dos pools; el de demo con **`search_path=demo` A SECAS**, sin `,public` — una tabla que falte tiene que fallar a gritos, no leer producción en silencio |
+| `authMiddleware` | mete la petición en `db.enEsquema("demo", …)` **antes de cualquier consulta** |
+| `public.demo_cuenta` | la única pieza compartida: dice qué usuarios se autentican contra demo. El login corre antes de saber quién es, así que no puede rutearse solo |
+| el token | el esquema viaja **FIRMADO**; nadie entra ni sale de demo tocando la petición |
+
+⚠️ **Todos los usuarios llevan el prefijo `demo.` y NO es cosmético**: el ruteo se resuelve por
+nombre de usuario. Sembrar `r.flores` —una persona real— la rutearía a demo y la dejaría sin
+acceso a sus propios datos.
+
+**La marca también se resuelve por sesión.** El backend usa un **Proxy** que resuelve cada lectura
+contra el esquema de la petición: un objeto mutable sería peor que uno fijo, porque dos peticiones
+concurrentes de esquemas distintos se pisarían la marca y el prospecto vería una vouchera con el
+logo de CAAA. En el frontend el bundle lleva las dos y `aplicarMarca()` deja puesta la que toca.
+⚠️ **No guardar un valor de la marca en una constante de módulo**: eso lo congela con la del
+proceso. Por eso los logos de los PDF son funciones.
+
+**Botón "Reiniciar demo"** (dashboard de Administración, solo cuenta demo con rol ADMIN): devuelve
+todo al punto de partida en ~5 s. Cuatro candados, cada uno alcanza por sí solo (§4 del runbook).
+Las cuentas de demostración quedan **eximidas de la sesión única** — laptop y proyector a la vez, y
+sin eso el reinicio te escupía al login delante del prospecto.
+
+### D. El demo andaba con la ropa de CAAA (encontrado mirando la pantalla)
+La copia del catálogo traía las matrículas reales, **"Salón Cap. Tito Gutiérrez"** —el nombre de
+una persona— y los códigos de formulario de su OMA. Y entre las aeronaves iban las de los
+**clientes externos de la OMA**: aviones de otras escuelas a las que CAAA les da mantenimiento.
+`demo/catalogo.js` ahora las disfraza (`YS-5xx-D`, salones Alfa/Bravo/Charlie, formularios
+neutros) y **pone `tac_offset` en cero** — ese 10,000 describe un instrumento físico de CAAA
+(§37.B), no una preferencia. Cambia NOMBRES, nunca ids: las plantillas de peso y balance se
+enganchan por FK.
+
+Además el **módulo Taller estaba completamente vacío** — cero repuestos, componentes, tareas y
+órdenes. Un tercio del sistema no se podía mostrar. `demo/escenarioTaller.js` lo siembra.
+
+### 🚨 Trampas de esta sesión
+1. **El reinicio no era idempotente**, y lo destapó correr el botón dos veces y comparar los
+   números: el escenario manda un avión al hangar (`activa=false`) y el catálogo sobrevive al
+   reinicio, así que **la flota se encogía en un avión por corrida**. El "punto de partida" no era
+   siempre el mismo punto.
+2. **La fórmula del libro necesita DOS anclajes** (`horas_aeronave_instalacion` y
+   `horas_componente_instalacion`); sembrando solo el primero, la célula salía con 180 h de tiempo
+   total. Y la célula se ancla en **0**, no en `tac − 0`.
+3. **Un índice único parcial** (`taller_tarea_programada`, `id_aeronave WHERE tipo='INSPECCION' AND
+   activo`) permite **una sola inspección activa por avión**. El escenario copia la FORMA del
+   sistema real —1 inspección, muchos ADs y vida límite— aunque los números sean inventados.
+4. **El reinicio tardaba 34 s** con el botón girando delante de un cliente: 414 consultas a ~83 ms.
+   No eran consultas caras, era **el viaje**. Agrupadas quedan 70 y **5 s en producción**. El helper
+   (`demo/lotes.js`) **no devuelve ids a propósito**: el orden del `RETURNING` de un INSERT
+   multifila no lo garantiza el estándar, y emparejar mal una vouchera con su vuelo sería invisible.
+   Los ids se releen por clave natural. Verificado con una **huella de 22 medidas** antes y después.
+5. **Los 14 ítems decían "sin movimiento"** al lado de un kardex lleno: el escenario no llenaba
+   `ultimo_movimiento_en`. Otra columna que la pantalla muestra y ningún camino de escritura llena.
+6. **Un 403 puede venir de dos gates distintos** (§33) y **el `creado_en` con zona fijada** (§35.A)
+   volvieron a aparecer. Y dos veces más: **backticks dentro de un comentario SQL** en un template
+   string, que impide compilar (§36).
+
+### Verificado en producción
+El reinicio por el botón, con censo de CAAA antes y después: **una sola fila cambió, y fue un
+vuelo que cerró un instructor mientras yo probaba**. Medido aparte: un reinicio completo **no mueve
+ninguna secuencia ni ninguna fila de `public`**. La marca de CAAA vuelve sola al salir del demo.
+
