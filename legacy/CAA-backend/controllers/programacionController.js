@@ -771,6 +771,7 @@ exports.agendarSolicitud = async (req, res) => {
     const {
       id_alumno, id_instructor, dia_semana, id_bloque, id_bloque_fin, id_aeronave, tipo_vuelo, es_extracurricular,
       categoria: categoriaBody, id_licencia_chequeo, id_usuario_practicante, tipo_instruccion, nombre_externo,
+      con_parada, tramos_ruta,
     } = req.body;
     const categoria = normalizarCategoria(categoriaBody);
 
@@ -796,6 +797,11 @@ exports.agendarSolicitud = async (req, res) => {
       id_alumno, id_semana: semana.id_semana, dia_semana, id_bloque, id_bloque_fin,
       id_aeronave, tipo_vuelo, id_instructor: id_instructor || null, es_extracurricular,
       categoria, id_licencia_chequeo, id_usuario_practicante, tipo_instruccion, nombre_externo,
+      // Sin estas dos, la casilla "Con parada" del modal se perdía en silencio
+      // al agendar en la semana NO publicada: insertarSolicitudVuelo ya las
+      // manejaba, pero acá nunca se le pasaban. El vuelo quedaba como ruta
+      // simple y ninguna de las funciones de tramo aparecía después.
+      con_parada, tramos_ruta,
     });
     await logAuditoria(client, {
       accion: "OTRO", entidad: "solicitud_vuelo", id_entidad: out.id_detalle, id_semana: semana.id_semana,
