@@ -1585,14 +1585,36 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-22.** Resueltos desde la pasada anterior: ~~el cronómetro del trabajo~~
-> (§35.A, era la zona de la sesión) · ~~la dualidad de pantallas del Taller~~ (§36: "Mi taller" es
-> ahora la pantalla principal y Trabajos quedó como archivo).
+> **Última revisión: 2026-08-29.** Resueltos: ~~los ADs y la vida límite solo vivían en archivos
+> sueltos en las computadoras del taller~~ (§38: 261 renglones cargados, con cálculo de vencimiento y
+> aviso al jefe).
+>
+> Revisión 2026-08-22: ~~el cronómetro del trabajo~~ (§35.A, era la zona de la sesión) ·
+> ~~la dualidad de pantallas del Taller~~ (§36: "Mi taller" es la pantalla principal, Trabajos quedó
+> como archivo).
 >
 > Revisión 2026-08-18: ~~Taller fases 2-3~~ (§31 y §32) ·
 > ~~dar de alta a los mecánicos~~ (hecho, ver abajo) ·
 > ~~no se podían crear mecánicos desde la app~~ (§33) · ~~tarifa del YS-155~~ ($150, §26.C) ·
 > ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
+
+### 📋 ADs y vida límite — lo que el software no puede inventar (2026-08-29, §38)
+
+Una sola sesión con José Estrada resuelve casi todo. **El sistema ya produce la lista solo**: los
+renglones sin intervalo salen en su propia banda en Aeronavegabilidad, y los conflictos salen marcados.
+
+- **Los 29 ADs recurrentes que dicen solo "SI": cada cuántas horas.** Sin eso no hay vencimiento que
+  calcular. La sospecha razonable es que casi todos van pegados a la inspección de 100 h, pero lo
+  confirma él. Repartidos: `YS-270-PE` 14 · `YS-361-PE` 8 · `YS-127-P` 3 · el resto en el 333.
+- **Los 9 conflictos del `YS-334-PE`**, donde la lista de ADs y la de vida límite se contradicen. El
+  peor es `82-27-08`: "cada 100 h" contra "cada 5,000 h". Se resuelven desde el botón *Resolver* de la
+  fila, que solo ve el jefe.
+- **Las listas de vida límite del `YS-270-PE` y del `YS-333-PE`**: hay que dictarlas del papel. Sus PDF
+  no se pueden leer sin correr la columna del intervalo (§38.E).
+- **Los 21 renglones vacíos de la vida límite del `YS-127-P`** y el TAC perdido de su AD `2018-07-03`
+  (quedó una fecha en la columna de horas).
+- **La lista de vida límite del `YS-361-PE`** no se entregó.
+- **El `YS-155-PE` y el `YS-259-PE`** no tienen documentación entregada: no están cargados.
 
 ### 🔬 Con el mecánico (2026-08-17, §29.F)
 - **Cuadre de bodega**: 9 existencias en negativo y 24 diferencias contra el Excel esperando conteo
@@ -2722,3 +2744,127 @@ motores por posición o por serie, y si el libro de la célula cambia en algo.
   el 259. Es trabajo del mecánico, no del software.
 - Cotejar contra la **tabla grande de conteo de horas y seguimiento de mantenimientos** que Daniel
   todavía no entregó. Cuando llegue, se coteja: no se rehace.
+
+---
+
+## 38. Sesión 2026-08-29 — ADs, boletines de servicio y vida límite de componentes
+
+**Desplegado y verificado en producción** (`origin/master` = `3f00fbb`). Migración `20260829000001`.
+Spec: `docs/superpowers/specs/2026-08-29-ads-vida-limite-design.md` ·
+Plan: `docs/superpowers/plans/2026-08-29-ads-vida-limite.md`.
+
+Daniel entregó la documentación de aeronavegabilidad de **cinco aviones** (`YS-127-P`, `YS-270-P`,
+`YS-333-PE`, `YS-334-PE` y el externo `YS-361-PE`), en `docs/formatos-aac/aeronavegabilidad/`.
+Cuatro documentos por avión: control de ADs, listado de vida límite, y los formatos AAC-1000-A y
+AAC-1020 de la renovación anual.
+
+**Este spec cubre los dos primeros. El 1000 y el 1020 van aparte** (§38.G).
+
+### A. Lo que son: datos vivos, no documentos
+
+Los ADs y la vida límite llevan última aplicación (fecha + TAC), si son una vez o recurrentes, el
+intervalo y la próxima. Eso no es un archivo que se abre: es una tabla que el sistema calcula. Y ya
+tenían casa — `taller_tarea_programada` acepta `AD | SB | VIDA_LIMITE` desde la migración 011, pero
+estaba vacía: **1 fila AD y 0 de vida límite** contra los 209 renglones del papel.
+
+### B. Las decisiones de Daniel
+
+| | |
+|---|---|
+| Dónde viven | **dentro de Aeronavegabilidad**, no en una sección nueva. Una sección aparte dejaría el mismo AD en dos pantallas contradiciéndose (§36) |
+| Cuando la última y la próxima no cuadran | **manda la próxima**; la fecha de cumplimiento es referencia vieja |
+| Umbrales de aviso | **10 horas de vuelo, 7 días y 30 días** |
+| Por dónde avisa | franja en la pantalla **+ tarjeta en Mi taller**. Sin campana ni push hasta que el número lleve un par de semanas verificado |
+| Un AD en las dos listas | **una fila**, precargada con la lista de ADs, **marcada** con las dos versiones. El sistema calcula, no elige en silencio |
+| Doble base (2,000 h Y 12 años) | **un registro, mostrado e impreso como dos renglones** — fidelidad renglón por renglón sin alerta fantasma al cumplirlo |
+
+### C. 🔑 Dónde vive cada escala del TAC (lo verificado, no lo supuesto)
+
+El spec decía primero "todo se calcula en escala de libro". **Estaba mal.** Las 5 tareas que ya
+existían guardan en **escala del sistema** y `calcularEstado` las compara contra `horas_acumuladas`,
+también cruda — y es correcto: el `YS-334-PE` da "vencida hace 55 h", no "hace 10,055 h".
+
+| | |
+|---|---|
+| **Se guarda** | escala del sistema, igual que `horas_acumuladas` y `taller_componente.horas_aeronave_instalacion` |
+| **Se muestra e imprime** | escala de libro (`valor + tac_offset`) |
+| **El importador convierte al entrar** | `guardado = papel − tac_offset` |
+
+Solo el `YS-334-PE` tiene `tac_offset ≠ 0`, así que un error de escala se ve en **un avión de cinco**:
+por eso su prueba es obligatoria.
+
+⚠️ **Y su escala cruda NO es monótona:** se cortó en la vuelta del tacómetro. Una lectura anterior
+(el AD `85-11-06` con TAC 1348.1 de **1985**, o el `8543.60` de marzo 2024) es válida en el libro pero
+**no se puede expresar en la escala de hoy** — al restar el offset da negativo y se leería como
+"vencido hace 10,000 horas". El importador guarda NULL y **conserva el número del papel en
+`observaciones`**. Son 22 renglones. Lo que en §37 se anotó como "una tercera escala sin explicar"
+(los TAC de 160, 208 y 783) **era esto**: lecturas viejas, no un misterio.
+
+### D. Modelo y cálculo
+
+Migración `20260829000001`, cuatro columnas aditivas sobre `taller_tarea_programada`: `aplica`,
+`observaciones`, `necesita_confirmacion` + `nota_confirmacion`, `origen`.
+*"Falta cada cuánto"* **no lleva columna**: es `recurrente AND los dos intervalos NULL`.
+
+**`utils/vencimientos.js` es la fuente única.** El cálculo estaba **duplicado** en
+`seguimientoController` y `dashboardController`, con los umbrales escritos dos veces — y la copia del
+dashboard no sabía de `aplica`, así que habría contado como alerta los 30 renglones que no aplican.
+Estados nuevos `NO_APLICA` y `SIN_INTERVALO`; `N_A` se conserva para no cambiarle nada a las 5 filas
+viejas. Manda **lo que venza primero** entre horas y calendario.
+
+### E. Los papeles, medidos
+
+209 ADs · 179 aplican · **38 recurrentes** · de esos **solo 9 dicen cada cuánto se repiten** (los otros
+28 dicen `SI` a secas y uno `O/C`). En vida límite el intervalo casi siempre está, así que ahí el
+cálculo sale completo.
+
+**No se importan las listas de vida límite del `YS-270-PE` ni del `YS-333-PE`**, que solo existen como
+PDF: la extracción de texto **corre la columna TIME un renglón hacia arriba** (el ítem 13 "VACUM
+SYSTEM FILTER" sale con "12 Years", que es el intervalo del 12). El intervalo dispara el vencimiento,
+así que se reportan como pendientes de dictado en vez de meter números equivocados en un registro que
+la AAC audita. El `YS-361-PE` no tiene lista entregada.
+
+Los **PDF escaneados del `YS-127-P`** se transcribieron leyéndolos como imágenes (no hay tesseract) a
+`Docs. YS-127-P/_transcripcion_OCR.json`: 66 ADs + 33 renglones + **13 anomalías anotadas sin corregir
+ninguna**. Entre ellas, dos notaciones de hora mezcladas en el mismo documento: el TACH en decimal
+(`8127.48`) y el T.T. en **horas:minutos** (`9,844:42` = 9844.70, **no** 9844.42).
+
+Carga: `supabase/dump/aeronavegabilidad/` (`extraer.py` → JSON → `cargar.js`, con `--dry-run` y
+reporte). **261 renglones cargados** = 209 + 61 − 9 fusionados por conflicto.
+
+### F. 🚨 Trampas de esta tanda
+
+1. **Cargué los datos en producción ANTES de desplegar el código.** Durante un rato la pantalla mostró
+   los 54 renglones del 334 amontonados en la tabla plana, sin pestañas ni escala de libro. No se
+   perdió nada, pero **el orden correcto es desplegar y después cargar.**
+2. **La resta de escalas dejaba basura de punto flotante**: `10043.60 − 10000` da
+   `43.600000000000364`, y ése es el número que el importador **escribe en la base**. `aLibro` y
+   `aSistema` redondean a 2 decimales.
+3. **`proxima_fecha` es DATE y se comparaba contra `new Date()`**, que tiene hora: el umbral de 30 días
+   se corría según la hora del día — a las 13:00 "faltan 31 días" daba 30. `diasHasta()` normaliza las
+   dos puntas a medianoche UTC. Sexta aparición de la familia de bugs de fecha y zona en este módulo.
+4. **`editarTarea` tenía el `SET` fijo** con `descripcion = $3` sin COALESCE: un body parcial las
+   **nulificaba**. El mismo bug de §31, y ahora importaba más porque la pantalla manda `{aplica}` solo.
+5. **`crearTarea` rellenaba la última aplicación con la fecha de hoy.** Para una INSPECCION está bien
+   (se siembra el ciclo); para un AD es **fabricar una constancia de cumplimiento** en un registro que
+   la AAC audita. Ahora solo se rellena para INSPECCION.
+6. **Siete tokens de CSS que no existen**, incluida **toda la rampa `--c-warning-*`** (es `--c-warn-*`)
+   y `--c-primary` (es `--c-primary-500`). El chip activo quedó blanco sobre blanco: **cuarta vez**.
+   Los tokens de este sistema llevan sufijo: `--c-line-1`, `--c-surface-0`, `--c-ink-1`.
+7. **El selector de aeronaves sale del dashboard y ese query no traía `tac_offset`** ⇒ la última del
+   334 se mostraba como `0.03` en vez de `10,000.03`. La tabla ahora toma el offset **del renglón**,
+   que `listTareas` devuelve por fila. Enésima variante de la trampa del objeto literal.
+8. **Mi conteo a mano estaba inflado en 12**: tomaba las tres líneas de firma de cada hoja
+   (`JOSE ANTONIO ESTRADA` / `REP. TECNICO OMA` / `CO-OMA-014`) como renglones de AD. Eran 209, no 221.
+9. **`require()` resuelve contra la carpeta DEL SCRIPT, no el cwd** — un script de verificación en el
+   scratchpad no encuentra `dotenv` y **la limpieza no corre**, dejando datos de prueba en la base. Por
+   eso se configuró `_*.js` en el `.gitignore` del backend: los scripts de verificación viven ahí.
+
+### G. Lo que sigue
+
+- **El formato 1000 y el 1020** — spec aparte, ya acordado con Daniel. Su sección D (T.T.S.N.,
+  T.S.L.O. y último overhaul de motor y hélice) sale de `taller_componente`, y esos anclajes están
+  incompletos justo en los aviones que hay que renovar.
+- **Campana y web push** — la cañería existe; se suman cuando el número lleve un par de semanas
+  verificado.
+- **Los dos bimotores** siguen sin caber en el modelo de tres libros (§37).
