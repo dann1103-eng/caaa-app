@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getKpisDashboard, getMorosos } from "../../services/administracionApi";
 import { MARCA } from "../../marca";
+import DemoReset from "../../components/DemoReset/DemoReset";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -59,6 +60,9 @@ export default function Dashboard() {
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           <div className="u-label">{MARCA.nombre} · Administración</div>
           {usingMock && <span className="adf-tag amber">Datos demo</span>}
+          {/* Solo aparece en el despliegue de demo: en CAAA el endpoint que
+              consulta da 404 y el componente no dibuja nada. */}
+          <span style={{ marginLeft: "auto" }}><DemoReset /></span>
         </div>
         <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 700, marginTop: 4, letterSpacing: "var(--tracking-tight)" }}>
           Resumen financiero
