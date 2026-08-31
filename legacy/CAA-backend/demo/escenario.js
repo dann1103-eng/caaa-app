@@ -13,11 +13,15 @@
  *   · solicitudes de la semana próxima PENDIENTES de aprobar
  *   · vuelos de HOY en distintas etapas, para mostrar el ciclo del día y el
  *     llenado de la vouchera
+ *   · el Taller: bodega con kardex, los tres libros de cada avión con sus
+ *     inspecciones, un avión adentro del hangar y sus órdenes de trabajo
+ *     (ver escenarioTaller.js)
  *
  * NO toca el catálogo (flota, cursos, licencias, bloques, config fiscal): eso es
  * el punto de partida y lo arma el runbook una sola vez.
  */
 const bcrypt = require("bcrypt");
+const { sembrarTaller } = require("./escenarioTaller");
 
 // ── Fechas relativas ──────────────────────────────────────────────────────
 const DIA = 86400000;
@@ -87,6 +91,16 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   const hoy = new Date();
   const lunes = lunesDe(hoy);
   const diaHoy = ((hoy.getDay() + 6) % 7) + 1; // 1=lunes … 7=domingo
+
+  // ── La flota vuelve a estar entera ─────────────────────────────────────
+  // 🚨 VA ANTES de leer la flota, y no es un detalle: el escenario manda un avión
+  // al hangar (activa=false), y el catálogo SOBREVIVE al reinicio. Sin esto, cada
+  // reinicio arrancaba con un avión menos que el anterior — la flota se iba
+  // encogiendo sola y el "punto de partida" no era siempre el mismo punto.
+  // Lo destapó correr el reinicio dos veces seguidas y comparar los números.
+  await c.query(
+    `UPDATE aeronave SET activa = true, estado = 'ACTIVO' WHERE NOT COALESCE(es_externa, false)`
+  );
 
   // ── Catálogo que el escenario necesita leer ────────────────────────────
   const aeronaves = (await c.query(
@@ -244,6 +258,11 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
     pendientes++;
   }
 
+  // ── Taller ─────────────────────────────────────────────────────────────
+  // Al final: necesita la flota y el personal ya sembrados. Va en su propio
+  // archivo porque es la otra mitad del sistema y no cabe legible acá.
+  const taller = await sembrarTaller(c, log, { aeronaves, prefijo, pass: PASS });
+
   return {
     instructores: idsInstructor.length,
     alumnos: idsAlumno.length + (licTierra ? 1 : 0),
@@ -251,6 +270,7 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
     vuelos_en_curso: enCurso,
     solicitudes_pendientes: pendientes,
     semana_del: soloFecha(lunes),
+    taller,
   };
 }
 

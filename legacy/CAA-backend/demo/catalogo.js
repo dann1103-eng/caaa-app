@@ -82,6 +82,8 @@ async function copiarCatalogo({ log = () => {} } = {}) {
         );
       }
     }
+    await disfrazar(c, log);
+
     await c.query("COMMIT");
     log(`catálogo copiado: ${Object.entries(copiadas).map(([k, v]) => `${k} ${v}`).join(", ")}`);
     return copiadas;
@@ -93,4 +95,76 @@ async function copiarCatalogo({ log = () => {} } = {}) {
   }
 }
 
-module.exports = { copiarCatalogo, CATALOGO };
+/**
+ * El catálogo se copia de CAAA para que el demo se comporte igual, pero copiarlo
+ * TAL CUAL lo deja hablando de CAAA: matrículas reales, salones con el nombre de
+ * una persona, y los códigos de formulario de su OMA. Un prospecto branded "TU
+ * ESCUELA" viendo "Salón Cap. Tito Gutiérrez" entiende de inmediato de quién es
+ * el sistema, y peor: entre las aeronaves van las de los CLIENTES EXTERNOS de la
+ * OMA — aviones de otras escuelas a las que CAAA les da mantenimiento. Eso no se
+ * le enseña a un competidor.
+ *
+ * Acá se renombra todo eso. Se cambian NOMBRES, nunca ids: el escenario ya sembró
+ * vuelos contra esas aeronaves y las plantillas de peso y balance se enganchan por
+ * `aeronave.id_wb_plantilla` (una FK, no la matrícula), así que el disfraz no
+ * puede romper ningún enlace.
+ *
+ * Lo que NO se disfraza a propósito: modelos de avión (TOMAHAWK, CESSNA-152),
+ * nombres de curso y referencias de manual. Son hechos del avión, no datos de
+ * CAAA, y cambiarlos haría que el demo mienta sobre cosas verificables.
+ */
+async function disfrazar(c, log) {
+  // Matrículas inventadas, una por id. La flota propia va en una serie y las
+  // externas en otra, para que se note que son de terceros — el demo SÍ tiene
+  // que poder mostrar que la OMA le factura trabajo a otras escuelas.
+  const MATRICULAS = {
+    1: "YS-501-D", 2: "YS-502-D", 3: "YS-503-D", 4: "YS-504-D",
+    5: "SIM-D", 6: "YS-505-D", 7: "YS-506-D",
+    18: "YS-880-X", 19: "YS-881-X", 20: "YS-882-X", 21: "YS-883-X",
+  };
+  for (const [id, codigo] of Object.entries(MATRICULAS)) {
+    await c.query(`UPDATE demo.aeronave SET codigo = $1 WHERE id_aeronave = $2`, [codigo, Number(id)]);
+  }
+  // Cualquiera que se agregue a la flota de CAAA después de escribir esto y que
+  // no esté en la lista de arriba: se le pone una matrícula genérica en vez de
+  // dejarla pasar con la real.
+  const sueltas = await c.query(
+    `UPDATE demo.aeronave SET codigo = 'YS-9' || LPAD(id_aeronave::text, 2, '0') || '-D'
+      WHERE id_aeronave <> ALL($1::int[]) RETURNING codigo`,
+    [Object.keys(MATRICULAS).map(Number)]
+  );
+  if (sueltas.rowCount) log(`aeronaves nuevas disfrazadas: ${sueltas.rows.map((r) => r.codigo).join(", ")}`);
+
+  // La flota del demo arranca ENTERA disponible. `aeronave.activa` es "vuela
+  // HOY", no "está de alta", y la copia se trae la circunstancia de CAAA: hoy
+  // tiene dos aviones en el taller, así que el demo nacía con dos aviones menos
+  // y sin explicación a la vista. El escenario decide después cuál entra al
+  // hangar. Las externas quedan como están: son de terceros y no vuelan acá.
+  await c.query(
+    `UPDATE demo.aeronave SET activa = true, estado = 'ACTIVO'
+      WHERE NOT COALESCE(es_externa, false)`
+  );
+
+  // Salones: el alfabeto fonético se lee bien y no es de nadie.
+  const SALONES = ["Salón Alfa", "Salón Bravo", "Salón Charlie"];
+  const s = await c.query(`SELECT id FROM demo.salon ORDER BY id`);
+  for (let i = 0; i < s.rows.length; i++) {
+    await c.query(`UPDATE demo.salon SET nombre = $1 WHERE id = $2`,
+      [SALONES[i] || `Salón ${i + 1}`, s.rows[i].id]);
+  }
+
+  // Códigos de formulario de la AAC: van impresos en cada PDF del taller.
+  // El de la OMA sale de marca.json (la marca del demo); los demás pierden el
+  // nombre de CAAA. REPLACE y no una lista fija: si mañana hay un formulario
+  // nuevo con el mismo patrón, queda cubierto sin tocar este archivo.
+  const { MARCAS } = require("../utils/marca");
+  await c.query(
+    `UPDATE demo.taller_formulario
+        SET codigo = REPLACE(REPLACE(codigo, 'CO-OMA-CAAA-014', $1), 'CAAA', 'DEMO')`,
+    [MARCAS.demo.codigo_oma]
+  );
+
+  log("catálogo disfrazado: matrículas, salones y códigos de formulario");
+}
+
+module.exports = { copiarCatalogo, CATALOGO, disfrazar };

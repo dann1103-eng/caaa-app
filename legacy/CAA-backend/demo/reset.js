@@ -32,7 +32,14 @@ const CONSERVAR = new Set([
   "config_fiscal", "concepto_cobro", "condiciones_cancelacion",
   "instructor_tarifa", "documento_requerido_catalogo", "medico_autorizado",
   // Taller
-  "taller_formulario", "taller_sticker_plantilla", "taller_repuesto",
+  //
+  // ⚠️ `taller_repuesto` NO está acá, y en producción sí sería catálogo: la lista
+  // de repuestos la curan los mecánicos y no se tira nunca. En el demo la siembra
+  // el escenario JUNTO CON sus movimientos, y el stock se calcula sumándolos. Si
+  // los repuestos sobrevivieran al reinicio y sus movimientos no, la bodega
+  // quedaría con existencias que ningún documento explica — que es exactamente el
+  // defecto del Excel que este módulo vino a corregir.
+  "taller_formulario", "taller_sticker_plantilla",
   // Infraestructura
   "push_notificacion_config", "webhook_endpoint",
   // Vive solo en public, pero por si el clon la arrastró

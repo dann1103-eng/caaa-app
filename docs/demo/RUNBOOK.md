@@ -11,8 +11,19 @@ otras escuelas, sin tocar los datos reales de CAAA.
 ## 1. Cómo se usa
 
 Entrás con **`demo.admin` / `demo123`** y ves un sistema completo con datos
-inventados: 20 alumnos, un mes de vuelos cerrados, solicitudes esperando
-aprobación y vuelos en curso.
+inventados:
+
+| | |
+|---|---|
+| **Operaciones** | 20 alumnos, 3 instructores, un mes de vuelos cerrados con su vouchera y su cargo, solicitudes de la semana próxima esperando aprobación, y 4 vuelos de HOY en las cuatro etapas del ciclo — publicado, salida de hangar, en progreso y de regreso — para poder mostrar cómo se abre y se cierra un vuelo. |
+| **Taller** | bodega con kardex (una compra y dos consumos, dos ítems bajo mínimo), los tres libros de cada avión, inspecciones y directivas con vencimientos a la vista, un avión adentro del hangar y tres órdenes de trabajo: una en curso, una firmada esperando al jefe y una ya aprobada. |
+| **Marca** | logos, nombre y color del molde: **TU ESCUELA** (§5). |
+
+**La flota y los salones del demo son inventados**, no los de CAAA: matrículas
+`YS-5xx-D`, salones Alfa/Bravo/Charlie y códigos de formulario neutros. Entre
+las aeronaves de CAAA van las de los **clientes externos de su OMA** —aviones de
+otras escuelas—, y eso no se le enseña a un competidor. El disfraz vive en
+`demo/catalogo.js`.
 
 Arriba a la derecha del dashboard de Administración aparece **Reiniciar demo**,
 que devuelve todo al punto de partida en unos segundos. Sirve para rehacer una
@@ -30,7 +41,9 @@ Todos los usuarios sembrados usan `demo123`:
 | `demo.admin` | ADMIN — es el único que ve el botón de reinicio |
 | `demo.turno` | TURNO |
 | `demo.conta` | ADMINISTRACION |
-| `demo.taller` | TALLER |
+| `demo.taller` | TALLER — jefe de taller, con licencia TMA (sin ella nadie firma una orden) |
+| `demo.tecnico` | TECNICO — el mecánico; entra directo a "Mi taller" |
+| `demo.aprendiz` | TECNICO — aprendiz, para el selector de "quién asistió" al firmar |
 | `demo.r.flores`, `demo.m.aguilar`, `demo.j.portillo` | instructores |
 | `demo.a.zavala`, `demo.g.mena`, … | alumnos |
 | `demo.a.reyes` | alumna de sobrecargo (programa de tierra) |
@@ -105,8 +118,11 @@ La única regla que las cuentas de demostración tienen más floja que el resto 
 la **sesión única** (§1), y es a propósito: protege datos de personas, y en
 `demo` no hay ninguno.
 
-**Qué borra:** alumnos, instructores, vuelos, voucheras, solicitudes y
-movimientos — todo dentro de `demo`.
+**Qué borra:** alumnos, instructores, vuelos, voucheras, solicitudes,
+movimientos, y todo el Taller (bodega, componentes, tareas y órdenes) — dentro
+de `demo`. También **devuelve la flota entera al servicio**: el escenario manda
+un avión al hangar, y sin ese paso cada reinicio arrancaba con un avión menos
+que el anterior.
 **Qué no toca:** el catálogo de demo (flota, cursos, licencias, bloques, config)
 y, por supuesto, **nada de `public`**.
 
