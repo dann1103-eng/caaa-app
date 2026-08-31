@@ -7,6 +7,7 @@ import Manual from "./pages/Manual/Manual";
 import DashboardAlumno from "./pages/Alumno/Dashboard";
 import ProtectedAlumno from "./components/routes/ProtectedAlumno";
 import ProtectedAdmin from "./components/routes/ProtectedAdmin";
+import ProtectedOperaciones from "./components/routes/ProtectedOperaciones";
 import ProtectedProgramacion from "./components/routes/ProtectedProgramacion";
 import ProtectedProgramacionPage from "./components/routes/ProtectedProgramacionPage";
 import AgendarVuelo from "./pages/Alumno/AgendarVuelo";
@@ -61,6 +62,8 @@ import ProtectedDueno from "./components/routes/ProtectedDueno";
 import DuenoDashboard from "./pages/Dueno/Dashboard";
 import TallerAeronavegabilidad from "./pages/Taller/Aeronavegabilidad";
 import TallerInventario from "./pages/Taller/Inventario";
+import MiTaller from "./pages/Taller/MiTaller";
+import TallerOrdenes from "./pages/Taller/OrdenesTrabajo";
 
 const IDLE_MS = 30 * 60 * 1000;
 
@@ -229,11 +232,11 @@ function App() {
           <Route
             path="/admin/dashboard"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <DashboardAdmin />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
           {/* Agendar vuelos para ADMIN: el calendario de programación dentro del
@@ -241,21 +244,21 @@ function App() {
           <Route
             path="/admin/agendar"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <DashboardProgramacion embedded />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
           <Route
             path="/admin/auditoria"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <AuditoriaAdmin />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
           <Route
@@ -298,11 +301,11 @@ function App() {
           <Route
             path="/admin/cancelaciones"
             element={
-              <ProtectedAdmin>
+              <ProtectedOperaciones>
                 <AdminLayout>
                   <CancelacionesAdmin />
                 </AdminLayout>
-              </ProtectedAdmin>
+              </ProtectedOperaciones>
             }
           />
 
@@ -398,7 +401,7 @@ function App() {
           <Route path="/administracion/medicos"       element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmMedicos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/reportes"      element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmReportes /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/voucheras"     element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmVoucheras /></AdministracionLayoutAuto></ProtectedAdministracion>} />
-          <Route path="/administracion/avisos"        element={<ProtectedAdmin><AdministracionLayoutAuto><AdmAvisos /></AdministracionLayoutAuto></ProtectedAdmin>} />
+          <Route path="/administracion/avisos"        element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAvisos /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/notificaciones-push" element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmNotificacionesPush /></AdministracionLayoutAuto></ProtectedAdministracion>} />
           <Route path="/administracion/aula-virtual"  element={<ProtectedAdministracion><AdministracionLayoutAuto><AdmAulaVirtual /></AdministracionLayoutAuto></ProtectedAdministracion>} />
 
@@ -407,6 +410,10 @@ function App() {
           <Route path="/taller/dashboard"         element={<ProtectedTaller><TallerLayoutAuto><TallerDashboard /></TallerLayoutAuto></ProtectedTaller>} />
           <Route path="/taller/aeronavegabilidad" element={<ProtectedTaller><TallerLayoutAuto><TallerAeronavegabilidad /></TallerLayoutAuto></ProtectedTaller>} />
           <Route path="/taller/inventario"        element={<ProtectedTaller><TallerLayoutAuto><TallerInventario /></TallerLayoutAuto></ProtectedTaller>} />
+          {/* La pantalla del técnico: botones grandes, el trabajo en curso como contexto. */}
+          <Route path="/taller/mi-taller"         element={<ProtectedTaller><TallerLayoutAuto><MiTaller /></TallerLayoutAuto></ProtectedTaller>} />
+          {/* Pantalla del jefe de taller: las ordenes y el folder por avion. */}
+          <Route path="/taller/ordenes"           element={<ProtectedTaller><TallerLayoutAuto><TallerOrdenes /></TallerLayoutAuto></ProtectedTaller>} />
 
           <Route path="/dueno" element={<ProtectedDueno><DuenoDashboard /></ProtectedDueno>} />
 

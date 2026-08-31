@@ -53,7 +53,7 @@ exports.getFlotaMantenimiento = catchAsync(async (req, res) => {
       WHERE m.id_aeronave = a.id_aeronave AND m.estado = 'EN_CURSO' AND m.completado = false
       ORDER BY m.id_mantenimiento DESC LIMIT 1
     ) m ON true
-    WHERE a.tipo <> 'SIMULADOR'
+    WHERE a.tipo <> 'SIMULADOR' AND a.es_externa = false
     ORDER BY a.codigo
   `);
   res.json(r.rows);

@@ -90,13 +90,22 @@ export default function AdminSidebar({ isOpen, onClose }) {
     },
   ];
 
+  // Este sidebar lo comparten ADMIN y ADMINISTRACION (admin financiero), que
+  // opera Operaciones + Administración pero NO Taller: dar de alta/baja aviones,
+  // editar peso y balance o mover inventario es trabajo del mecánico. Filtrar acá
+  // (y no duplicar el menú) mantiene una sola fuente de navegación — cuando eran
+  // dos listas, Avisos y Notificaciones push quedaron solo en una.
+  const seccionesVisibles = secciones.filter(
+    (sec) => sec.titulo !== "Taller" || user?.rol === "ADMIN"
+  );
+
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
 
   return (
     <aside className="adm-sidebar">
       <nav className="adm-sidebar__nav">
-        {secciones.map((sec) => (
+        {seccionesVisibles.map((sec) => (
           <div key={sec.titulo} className="adm-sidebar__section">
             <div className="adm-sidebar__menu-title">{sec.titulo}</div>
             {sec.items.map((item) =>

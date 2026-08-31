@@ -585,3 +585,29 @@
 /* Botón primario con sombra suave (look Core Admin) */
 .adf-btn { box-shadow: var(--shadow-sm); }
 .adf-btn.secondary { box-shadow: none; }
+
+/* Aviso de la barra: material pedido esperando que bodega lo entregue.
+   Va en ámbar porque es algo que espera acción, no una alarma. */
+.adf-topbar__pendientes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--c-warn-500);
+  color: oklch(20% 0.03 80);
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.adf-topbar__pendientes:hover { filter: brightness(1.06); }
+.adf-topbar__pendientes-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+/* En pantalla chica queda solo el ícono y el número. */
+@media (max-width: 720px) {
+  .adf-topbar__pendientes-txt { display: none; }
+}

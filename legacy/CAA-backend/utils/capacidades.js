@@ -16,7 +16,11 @@ const db = require("../config/db");
  */
 
 // Roles que programan sin depender de flags de instructor.
-const ROLES_PROGRAMACION = ["ADMIN", "PROGRAMACION"];
+// ADMINISTRACION (admin financiero/contabilidad) entra acá como super-usuario de
+// Operaciones + Administración, igual que ADMIN. NO cubre Taller: el registro de
+// aeronaves y la aeronavegabilidad siguen gateados aparte (aeronaveLectura /
+// aeronaveEscritura en adminRoutes, y /api/taller).
+const ROLES_PROGRAMACION = ["ADMIN", "PROGRAMACION", "ADMINISTRACION"];
 
 /**
  * Fila de `instructor` del usuario autenticado (o null si no tiene ficha).

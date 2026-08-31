@@ -338,6 +338,7 @@ exports.getAeronavesActivas = async (req, res) => {
          LIMIT 1
       ) mact ON true
       WHERE NOT (a.activa = false AND a.estado = 'ACTIVO')
+        AND a.es_externa = false
       ORDER BY a.codigo
     `);
 
@@ -571,7 +572,7 @@ exports.getEstadoFlota = async (req, res) => {
       -- flota" existe justamente para mostrar ESE estado (etiqueta roja
       -- "Mantenimiento") — filtrar por activa la hacía desaparecer del todo
       -- en vez de mostrarla como en mantenimiento.
-      WHERE a.tipo != 'SIMULADOR'
+      WHERE a.tipo != 'SIMULADOR' AND a.es_externa = false
       ORDER BY
         CASE
           WHEN v.id_vuelo IS NOT NULL        THEN 1
@@ -614,6 +615,7 @@ exports.getMantenimientoResumen = async (req, res) => {
       FROM aeronave a
       WHERE a.activa = true
         AND a.tipo != 'SIMULADOR'
+        AND a.es_externa = false
       ORDER BY horas_restantes ASC
     `);
 
@@ -724,6 +726,7 @@ exports.getAeronavesDisponibles = async (req, res) => {
        WHERE a.activa = true
          AND a.estado = 'ACTIVO'
          AND a.tipo != 'SIMULADOR'
+         AND a.es_externa = false
          AND NOT EXISTS (
            SELECT 1 FROM vuelo v
            WHERE v.id_aeronave = a.id_aeronave

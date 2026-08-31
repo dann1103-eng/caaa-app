@@ -1,0 +1,318 @@
+/* Inventario de bodega (OMA). Se apoya en las utilidades `adf-*` del módulo de
+   Administración (estilo "Core Admin", ver DESIGN.md); acá solo va lo propio. */
+
+.inv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.inv-head__acciones { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Sub-navegación, mismo patrón que Contabilidad. La pestaña activa se marca con
+   el indicador rojo del acento de marca (≤10% de la pantalla, ver DESIGN.md). */
+/* Navegación de secciones.
+   Antes eran seis pestañas subrayadas, todas del mismo peso y del mismo color:
+   había que leer las seis para encontrar una. Ahora van en grupos con nombre
+   ("Movimientos", "Reportes") dentro de una pista redondeada, y la activa se
+   levanta como una tecla. Se ve dónde estás y por qué existe cada sección. */
+.inv-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-2) var(--sp-4);
+  margin: var(--sp-4) 0;
+}
+.inv-grupo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.inv-grupo__label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--c-ink-4);
+  padding-left: 4px;
+}
+/* La pista alinea el grupo sin nombre con los que sí lo tienen. */
+.inv-grupo:has(.inv-grupo__label) ~ .inv-grupo .inv-tabs { margin-top: 0; }
+.inv-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-pill);
+  overflow-x: auto;
+  max-width: 100%;
+}
+.inv-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: 0.88rem;
+  color: var(--c-ink-3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.inv-tab:hover { color: var(--c-ink-1); background: var(--c-surface-1); }
+.inv-tab--activa,
+.inv-tab--activa:hover {
+  color: var(--c-surface-0);
+  font-weight: 600;
+  background: var(--c-brand-700);
+  box-shadow: var(--shadow-sm);
+}
+.inv-tab--activa i { color: var(--c-surface-0); }
+
+/* Botón grande de acción de cada sección.
+   Va en verbo y ocupa el ancho en el teléfono: el taller trabaja de pie, con
+   guantes y con el celular en una mano. 56px de alto es el mínimo cómodo para
+   un dedo (la recomendación de accesibilidad son 44px). */
+.inv-accion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  min-height: 56px;
+  margin-bottom: var(--sp-2);
+  padding: 0 var(--sp-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--c-brand-500);
+  color: #fff;
+  font-size: 1.02rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.inv-accion:hover { filter: brightness(1.08); }
+.inv-accion:active { transform: translateY(1px); }
+.inv-accion i { font-size: 1.25rem; }
+
+/* Una línea que explica de qué va la sección, en palabras del taller. */
+.inv-ayuda {
+  font-size: 0.85rem;
+  color: var(--c-ink-3);
+  margin: 0 0 var(--sp-4);
+}
+
+/* La cola de trabajo de bodega, arriba de todo en Salidas. */
+.inv-pendientes { border-left: 3px solid var(--c-accent-500); }
+
+/* Barra de filtros */
+.inv-filtros {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
+}
+.inv-filtros label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-ink-3);
+  margin-bottom: 3px;
+}
+/* Los filtros venían sin estilo: eran el input y el select crudos del navegador,
+   cuadrados y de otra familia que el resto de la app. */
+.inv-filtros input,
+.inv-filtros select,
+.inv-campo {
+  min-width: 150px;
+  height: 38px;
+  padding: 0 var(--sp-3);
+  font-size: 0.9rem;
+  color: var(--c-ink-1);
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.inv-filtros input:hover,
+.inv-filtros select:hover,
+.inv-campo:hover { border-color: var(--c-line-3); }
+.inv-filtros input:focus,
+.inv-filtros select:focus,
+.inv-campo:focus {
+  outline: none;
+  border-color: var(--c-primary-500);
+  box-shadow: var(--shadow-focus);
+}
+.inv-filtros select,
+select.inv-campo { cursor: pointer; padding-right: var(--sp-2); }
+/* Los campos de una tabla son angostos y no llevan el mínimo de un filtro. */
+.inv-campo--tabla { min-width: 0; width: 110px; height: 34px; text-align: right; }
+.inv-filtros .inv-buscador { min-width: 260px; }
+/* La lupa adentro del campo: el buscador se distingue de los desplegables. */
+.inv-filtros .inv-buscador input {
+  width: 100%;
+  padding-left: 34px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%238a94a6'%3E%3Cpath d='M11.74 10.34a6 6 0 1 0-1.4 1.4l3.25 3.26a1 1 0 0 0 1.42-1.42zM7 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 11px center;
+  background-size: 15px;
+}
+
+/* Atajos: bajo mínimo / en negativo / sin movimiento / sin costo */
+.inv-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.inv-chip {
+  border: 1px solid var(--c-line-2);
+  background: var(--c-surface-1);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  color: var(--c-ink-2);
+  cursor: pointer;
+}
+.inv-chip:hover { border-color: var(--c-ink-4); }
+.inv-chip--on {
+  background: var(--c-ink-1);
+  border-color: var(--c-ink-1);
+  color: #fff;
+}
+
+/* Tira de totales */
+.inv-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.inv-kpi {
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  background: var(--c-surface-1);
+}
+.inv-kpi__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--c-ink-3);
+}
+.inv-kpi__valor {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-1);
+}
+.inv-kpi__valor--alerta { color: var(--c-danger-700); }
+.inv-kpi__nota {
+  font-size: 0.72rem;
+  color: var(--c-danger-700);
+  margin-top: 2px;
+}
+
+/* Filas de la tabla de existencias */
+.inv-fila--negativo td { background: var(--c-danger-50); }
+.inv-codigo {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink-3);
+}
+.inv-clic { cursor: pointer; }
+.inv-clic:hover td { background: var(--c-surface-2); }
+
+/* Kardex */
+.inv-kardex__ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--c-line-1);
+  margin-bottom: var(--sp-3);
+}
+.inv-saldo {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.inv-fila-inicial td {
+  background: var(--c-surface-2);
+  font-style: italic;
+  color: var(--c-ink-3);
+}
+.inv-anulado td { opacity: 0.55; text-decoration: line-through; }
+
+/* Editor de renglones del documento */
+.inv-renglones { width: 100%; }
+.inv-renglones td { padding: 4px 6px; vertical-align: top; }
+.inv-renglones input[type="number"] { width: 100%; text-align: right; }
+
+/* Combobox de búsqueda de ítem */
+.inv-picker { position: relative; }
+.inv-picker__lista {
+  position: absolute;
+  z-index: 40;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+.inv-picker__op {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.inv-picker__op--hl { background: var(--c-surface-2); }
+.inv-picker__op small { color: var(--c-ink-3); white-space: nowrap; }
+
+/* Aviso de existencia insuficiente (el 409) */
+.inv-faltantes {
+  border: 1px solid var(--c-danger-700);
+  background: var(--c-danger-50);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.inv-faltantes h4 {
+  font-size: 0.9rem;
+  margin: 0 0 var(--sp-2);
+  color: var(--c-danger-700);
+}
+.inv-faltantes ul { margin: 0 0 var(--sp-2); padding-left: 1.1rem; font-size: 0.85rem; }
+
+@media (max-width: 768px) {
+  .inv-head { flex-direction: column; }
+  .inv-filtros { gap: var(--sp-2); }
+  .inv-filtros .inv-buscador { min-width: 100%; }
+  .inv-filtros input,
+  .inv-filtros select { min-width: 0; width: 100%; }
+  .inv-filtros > div { flex: 1 1 46%; }
+  /* Pestañas más grandes y deslizables con el dedo. */
+  /* En el teléfono cada grupo ocupa su propia fila y su pista scrollea sola:
+     así no hay que arrastrar siete pestañas en una sola tira. */
+  .inv-tab { padding: var(--sp-3); font-size: 0.95rem; }
+  .inv-tabs { -webkit-overflow-scrolling: touch; }
+  .inv-nav { gap: var(--sp-3); }
+  .inv-grupo { width: 100%; }
+  .inv-accion { min-height: 60px; font-size: 1.08rem; }
+  /* Los KPI de dos en dos en vez de apilados de a uno. */
+  .inv-kpis { grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
+  .inv-kpi__valor { font-size: 1.15rem; }
+}
+
+/* La lista se dibuja en un portal sobre el body: ningún contenedor con overflow
+   puede recortarla, que era lo que dejaba ver solo una franja de las opciones. */
+.inv-picker__lista--flotante {
+  position: fixed;
+  z-index: 3000;
+  right: auto;
+  bottom: auto;
+  box-shadow: var(--shadow-lg);
+}

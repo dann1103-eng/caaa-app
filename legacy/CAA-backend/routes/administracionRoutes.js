@@ -39,9 +39,11 @@ const READ_ROLES = ["ADMINISTRACION", "ADMIN"];
 const WRITE_ROLES = ["ADMINISTRACION", "ADMIN"];
 
 // ── Avisos (ticker + push, por perfil) ────────────────────────────────
-// Solo ADMIN (no ADMINISTRACION) — a diferencia del resto del módulo, que
-// comparten WRITE_ROLES.
-router.post("/avisos", roleMiddleware(["ADMIN"]), avisos.publicarAviso);
+// Comparte WRITE_ROLES con el resto del módulo: el rol ADMINISTRACION
+// (contabilidad) tiene los mismos permisos que ADMIN dentro de las interfaces
+// de administración. Antes era ADMIN-only y era el único write del módulo que
+// se le negaba a ADMINISTRACION.
+router.post("/avisos", roleMiddleware(WRITE_ROLES), avisos.publicarAviso);
 
 // ── Ficha de alumno (consolidada) ─────────────────────────────────────
 router.get("/licencias",                    roleMiddleware(READ_ROLES),  adminUsuario.listLicencias);

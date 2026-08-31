@@ -13,9 +13,16 @@ const ROLES_PERSONAL = [
   { v: "PROGRAMACION",   t: "Programación" },
   { v: "TURNO",          t: "Turno" },
   { v: "INSTRUCTOR",     t: "Instructor" },
+  { v: "TALLER",         t: "Jefe de taller" },
+  { v: "TECNICO",        t: "Técnico / mecánico" },
   { v: "ADMIN",          t: "Administrador del sistema" },
   { v: "DUENO",          t: "Dueño (solo lectura)" },
 ];
+
+// Roles a los que se les piden las credenciales de aeronavegabilidad. El número
+// de licencia va impreso en la orden de trabajo y sin él el mecánico NO puede
+// firmarla (403 en el backend), así que se pide desde el alta.
+const ROLES_TALLER = ["TALLER", "TECNICO"];
 
 const EMPTY_ALUMNO = {
   username: "", password: "", nombre: "", apellido: "", correo: "",
@@ -28,7 +35,10 @@ const EMPTY_PERSONAL = {
   // Capacidades del instructor, configurables desde el alta (antes solo se
   // podían tocar reabriendo la edición). Los defaults replican los de la
   // columna en BD (migración 016): nace solo-vuelo.
-  es_instructor_vuelo: true, es_instructor_teoria: false, puede_programar: false, puede_operaciones: false
+  es_instructor_vuelo: true, es_instructor_teoria: false, puede_programar: false, puede_operaciones: false,
+  // Credenciales del personal de taller (§32): la licencia TMA es lo que
+  // habilita a firmar una orden de trabajo.
+  licencia_tma: "", certificado_aprendiz: ""
 };
 
 // Saldo de cuenta corriente de la ficha de alumno espejo (practicante/ex-alumno, ver §21
@@ -194,6 +204,8 @@ export default function Usuarios() {
       dui: p.dui || "", nit: p.nit || "", isss_num: p.isss_num || "", afp_num: p.afp_num || "",
       rol: p.rol || "ADMINISTRACION",
       activo: p.activo !== false,
+      licencia_tma: p.licencia_tma || "",
+      certificado_aprendiz: p.certificado_aprendiz || "",
       // Capacidades: solo aplican a usuarios con ficha de instructor (si no,
       // quedan undefined y el payload no las manda).
       ...(p.id_instructor ? {
@@ -579,6 +591,32 @@ export default function Usuarios() {
                   </label>
                 </div>
 
+                {/* Credenciales de taller. Se gatean por el rol elegido, igual que las
+                    capacidades del instructor de abajo. */}
+                {ROLES_TALLER.includes(personalForm.rol) && (
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed var(--c-line-2)" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
+                      CREDENCIALES DE AERONAVEGABILIDAD
+                    </div>
+                    <div className="adf-form-grid">
+                      <div className="adf-form-field">
+                        <label>Licencia TMA</label>
+                        <input maxLength={40} value={personalForm.licencia_tma} placeholder="TMA 915"
+                          onChange={(e) => setPersonalForm({...personalForm, licencia_tma: e.target.value})} />
+                      </div>
+                      <div className="adf-form-field">
+                        <label>Certificado de aprendiz</label>
+                        <input maxLength={40} value={personalForm.certificado_aprendiz}
+                          onChange={(e) => setPersonalForm({...personalForm, certificado_aprendiz: e.target.value})} />
+                      </div>
+                    </div>
+                    <p className="adf-note" style={{ marginTop: 10 }}>
+                      La licencia va impresa en la orden de trabajo: <strong>sin ella no puede firmarla</strong>.
+                      Se puede cargar después desde su edición.
+                    </p>
+                  </div>
+                )}
+
                 {/* Capacidades del instructor, ya en el alta. Se gatea por el ROL elegido
                     (no por id_instructor como el modal de edición: al crear todavía no
                     existe la ficha). Es la misma condición que usa crearPersonal. */}
@@ -692,6 +730,27 @@ export default function Usuarios() {
                       ? "El pago de este instructor se configura en Contabilidad → Tarifas → Instructores."
                       : "Este usuario no tiene ficha de nómina (empleado)."}
                   </p>
+                )}
+
+                {(ROLES_TALLER.includes(editPForm.rol) || editPForm.licencia_tma || editPForm.certificado_aprendiz) && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--c-line-2)" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--c-brand-700)", letterSpacing: 0.4, marginBottom: 10 }}>
+                      CREDENCIALES DE AERONAVEGABILIDAD
+                    </div>
+                    <div className="adf-form-grid">
+                      <div className="adf-form-field"><label>Licencia TMA</label>
+                        <input maxLength={40} value={editPForm.licencia_tma} placeholder="TMA 915"
+                          onChange={(e) => setEditPForm({...editPForm, licencia_tma: e.target.value})} /></div>
+                      <div className="adf-form-field"><label>Certificado de aprendiz</label>
+                        <input maxLength={40} value={editPForm.certificado_aprendiz}
+                          onChange={(e) => setEditPForm({...editPForm, certificado_aprendiz: e.target.value})} /></div>
+                    </div>
+                    <p className="adf-note" style={{ marginTop: 10 }}>
+                      {editPForm.licencia_tma
+                        ? "Va impresa en las órdenes que firme. Si se vence, borrá el campo y deja de poder firmar."
+                        : "Sin licencia TMA este usuario no puede firmar una orden de trabajo."}
+                    </p>
+                  </div>
                 )}
 
                 <div style={{ marginTop: 12 }}>
@@ -918,12 +977,24 @@ export default function Usuarios() {
               {personal.filter(p => {
                 const q = busqPersonal.trim().toLowerCase();
                 if (!q) return true;
-                return `${p.nombre} ${p.apellido} ${p.username || ""} ${p.rol || ""} ${p.cargo || ""}`.toLowerCase().includes(q);
+                return `${p.nombre} ${p.apellido} ${p.username || ""} ${p.rol || ""} ${p.cargo || ""} ${p.licencia_tma || ""}`.toLowerCase().includes(q);
               }).map(p => (
                 <tr key={p.id_usuario}>
                   <td><i className="bi bi-person-circle me-2"></i><strong>{p.nombre} {p.apellido}</strong></td>
                   <td>{p.username || <span style={{ color: "var(--c-ink-4)" }}>sin login</span>}</td>
-                  <td>{p.rol ? <span className="adf-tag blue">{p.rol}</span> : "—"}</td>
+                  <td>
+                    {p.rol ? <span className="adf-tag blue">{p.rol}</span> : "—"}
+                    {p.licencia_tma && (
+                      <span className="adf-tag green" style={{ marginLeft: 6 }} title="Puede firmar órdenes de trabajo">
+                        <i className="bi bi-patch-check"></i> {p.licencia_tma}
+                      </span>
+                    )}
+                    {ROLES_TALLER.includes(p.rol) && !p.licencia_tma && (
+                      <span className="adf-tag amber" style={{ marginLeft: 6 }} title="Sin licencia TMA no puede firmar órdenes de trabajo">
+                        Sin licencia TMA
+                      </span>
+                    )}
+                  </td>
                   <td>{p.id_instructor
                     ? <span className="adf-tag green">{Number(p.num_alumnos || 0)} alumno(s)</span>
                     : <span style={{ color: "var(--c-ink-4)" }}>—</span>}</td>
@@ -949,7 +1020,7 @@ export default function Usuarios() {
               ))}
               {personal.filter(p => {
                 const q = busqPersonal.trim().toLowerCase();
-                return !q || `${p.nombre} ${p.apellido} ${p.username || ""} ${p.rol || ""} ${p.cargo || ""}`.toLowerCase().includes(q);
+                return !q || `${p.nombre} ${p.apellido} ${p.username || ""} ${p.rol || ""} ${p.cargo || ""} ${p.licencia_tma || ""}`.toLowerCase().includes(q);
               }).length === 0 && (
                 <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--c-ink-4)", padding: 30 }}>
                   {busqPersonal ? "Ningún miembro del personal coincide con la búsqueda." : "No hay personal registrado. Crea el primero con el botón verde."}

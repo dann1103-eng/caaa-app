@@ -179,7 +179,8 @@ ejercitados aún (administración/contabilidad, aula virtual, nómina, etc.). Mi
 | `u8` | INSTRUCTOR | Alfredo (instructor id 2) |
 | `u9` | TURNO | **Usar para probar el reporte "Vuelos por avión"** (sección 15). |
 | `u_admin_fin` | ADMINISTRACION | Administración Financiera. Reseteado a `demo123` (flags de bloqueo limpios) vía `supabase/dump/reset_admin_fin.sql`. **Usar para probar administración/contabilidad.** |
-| `u_taller` | TALLER | Taller Prueba (mecánico, id_usuario 111). Seed `supabase/dump/seed_usuario_taller.sql`. **Usar para probar el módulo Taller** (sección 15). |
+| `u_taller` | TALLER | Taller Prueba (**jefe de taller**, id_usuario 111). Seed `supabase/dump/seed_usuario_taller.sql`. Licencia **TMA 002** cargada el 2026-08-18 (antes NULL ⇒ no podía firmar nada). Es quien **anula** órdenes. |
+| `u_mecanico` | TECNICO | Mecánico Prueba (id_usuario 170), licencia **TMA 001**. **Primer ingreso ya resuelto**: entra directo, sin el modal que bloquea. **Usar para probar el día a día del mecánico** (§33). |
 
 - El login acepta password en **texto plano** (`demo123`) y lo convierte a bcrypt al primer login (`authController.js`).
 - **⚠️ Robapantallas de primer login (desde sesión 2026-06-12, ver sección 15):** alumnos e instructores con `usuario.datos_confirmados = false` ven un modal bloqueante al entrar. Todas las cuentas demo de alumno/instructor (u4–u8 y los 104 reales) están **sin confirmar**, así que verás el modal. Para saltarlo en pruebas: `node query.js "UPDATE usuario SET datos_confirmados=true WHERE username='uX'"`. El viejo gate de documentos de vuelo del alumno se retiró del bloqueo (ahora es recordatorio en /perfil).
@@ -1584,8 +1585,54 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-07-28.** Resueltos desde la pasada anterior: ~~tarifa del YS-155~~ ($150, §26.C) ·
+> **Última revisión: 2026-08-22.** Resueltos desde la pasada anterior: ~~el cronómetro del trabajo~~
+> (§35.A, era la zona de la sesión) · ~~la dualidad de pantallas del Taller~~ (§36: "Mi taller" es
+> ahora la pantalla principal y Trabajos quedó como archivo).
+>
+> Revisión 2026-08-18: ~~Taller fases 2-3~~ (§31 y §32) ·
+> ~~dar de alta a los mecánicos~~ (hecho, ver abajo) ·
+> ~~no se podían crear mecánicos desde la app~~ (§33) · ~~tarifa del YS-155~~ ($150, §26.C) ·
 > ~~loadsheet del YS-259 y del YS-155~~ (§26.C) · ~~deslogueo aleatorio de u1~~ (§26.B).
+
+### 🔬 Con el mecánico (2026-08-17, §29.F)
+- **Cuadre de bodega**: 9 existencias en negativo y 24 diferencias contra el Excel esperando conteo
+  físico y su `AJ-001-2026 · Cuadre de migración`. El software no las corrige a propósito.
+- **Ingesta de costos** (Taller + Contabilidad): 482 ítems sin costo y 37 entradas sin costear en la
+  pestaña "Costos pendientes". Al costear una entrada se genera su egreso en Contabilidad.
+- **208 ítems sin ningún movimiento en 2026**: decidir si se depuran del catálogo.
+
+### 📗 Libros del avión (2026-08-22, §37)
+- **Dictar del libro** el T.T. del motor y de la hélice del **YS-127-P** y del **YS-270-PE** (en el
+  papel venía copiado del de la célula) y las tres partes del **YS-155-PE** y el **YS-259-PE**, que
+  no tienen nada cargado. Se carga desde *Trabajos → Libros del avión → Editar ficha y anclaje*.
+  Hasta que se haga, esos libros no proponen T.T. — a propósito: el sistema no inventa un número
+  que va impreso en un documento legal.
+- **El formato del sticker de 25 h** no estaba entre los archivos entregados. El tipo ya existe con
+  la plantilla vacía: cuando lo tengan, se escribe desde la app sin desplegar.
+- 🔴 **Los bimotores llevan CINCO libros, no tres** (dos motores y dos hélices, cada uno con su
+  T.T. y su TSO). El **YS-259-PE** ya está y **compraron un segundo bimotor** el 2026-08-22.
+  Ninguno tiene partes cargadas, así que no hay nada mal registrado — pero antes de cargarlos hay
+  que ampliar el modelo, y antes de eso **ver un juego de stickers real de un bimotor**. Detalle en
+  §37.
+- **La tabla grande de conteo de horas y seguimiento de mantenimientos** sigue sin entregarse.
+  Cuando llegue se coteja contra los anclajes; no hay que rehacer nada.
+
+### 🔬 Con el Taller (2026-08-18, §34)
+- **`YS-270-PE` y `YS-333-PE` están en mantenimiento SIN fecha de finalización.** Aparecen en la cola
+  del Taller con "listo estimado: sin fecha" y, sin fecha, quedan bloqueados indefinidamente para
+  agendar. Ponerles fecha **cancela los vuelos que caigan adentro**, así que es decisión de Daniel.
+  Se arregla desde ***Mi taller* → el avión → "¿Cuándo está listo?"** (la ruta cambió en §36).
+
+### 🔧 Para que el Taller sirva (§32)
+- ✅ **Personal del taller cargado** (2026-08-18): `jose.estrada` (jefe, **TMA 090** — confirmado por
+  Daniel; lo que se había leído de las fotos como "TMA 692" era mala lectura), `roger.perez` (técnico,
+  TMA 915) y `carlos.arevalo` (aprendiz, certificado 5798). Los tres con su **primer ingreso pendiente**:
+  la primera vez que entren tienen que fijar contraseña y correo.
+- **Manuales del avión** que se adjuntan a cada mantenimiento: Daniel los va a pasar.
+
+### 🎨 Esperando decisión de Daniel
+- **Radios suavizados**: se aplicaron **solo al módulo Taller** (§35.C). Extenderlos a Administración
+  y Operaciones es cambiar un token, pero toca toda la app.
 
 ### 🧾 Higiene inmediata
 - **Multa de `javier.espinoza`**: anotada en el Excel de saldos ("multa por aplicar 13/07/26") y **nunca
@@ -1607,8 +1654,10 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 - **3 botones de export** en Administración → Reportes siguen siendo placeholders (Excel Ingresos, Excel Egresos,
   PDF Estado de cuentas).
 - **PDF de onboarding** (§20.H): 11 páginas ya revisadas, falta corrida final + decidir dónde entregarlo.
-- **Taller fases 2-3** (órdenes de trabajo + squawks + MEL; libros del avión firmados). La pantalla
-  `/mantenimiento` operativa sigue en `/api/admin` ⇒ un TALLER puro no la opera.
+- **Taller — lo que quedó fuera de las 3 fases**: squawks y MEL, libros del avión firmados,
+  devolución de sobrantes a bodega, costeo promedio ponderado o FIFO (hoy es **último costo
+  conocido**), facturar el trabajo a terceros. La pantalla `/mantenimiento` operativa sigue en
+  `/api/admin` ⇒ un TALLER puro no la opera.
 - **Factura manual**: decidir si `emitirManual` deja de debitar el saldo (hoy sí, con `CARGO_OTRO`).
 - **Instructores externos** (p.ej. E.Roeder) siguen fuera del sistema.
 - (Opcional) Descontar **reservas de aeronave** también en el selector de agenda del alumno (§19.D.1).
@@ -1931,3 +1980,745 @@ tarjetas de Instructor y Turno. La vouchera muestra "Ruta con parada — Tramo X
 ### Fuera de alcance (decidido con Samuel)
 Cambio de **instructor** entre tramos (es siempre el mismo), catálogo real de aeropuertos (solo se
 valida formato ICAO), loadsheet compartido entre tramos, y reprogramar horas de tramos sueltos.
+
+---
+
+## 29. Sesión 2026-08-17 — Inventario de la bodega OMA (documentos + kardex por ítem)
+
+Réplica del Excel `INVENTARIO OMA CAAA-CONTADOR` en el sistema. Spec:
+`docs/superpowers/specs/2026-08-17-inventario-taller-design.md`. Commits `e1ed6b3` (spec) y
+`b70f786` (implementación), en la rama `claude/workshop-inventory-system-292b6b`.
+
+> ✅ **DESPLEGADO Y VERIFICADO EN PRODUCCIÓN** (2026-08-17). Migración `20260817000001` aplicada en
+> Supabase, Excel cargado, backend en Railway y frontend en Vercel con el código nuevo. Verificado
+> contra prod con token real: 642 ítems / $7,791.88 · 243 REQ + 37 FA · kardex del `000039` con 186
+> movimientos y saldo −17 que cuadra con el catálogo · la ruta vieja `/taller/repuestos` da 404.
+>
+> ⚠️ Al verificar, recordar que **`/api/taller` tiene `authMiddleware` a nivel de router**: cualquier
+> path bajo ese prefijo da **401 aunque la ruta no exista**, así que el truco "404 vs 401" NO sirve
+> ahí (mismo caso que `/administracion`, §26.B). Hay que probar con token.
+
+### A. El defecto que se venía a corregir
+La hoja de inventario calculaba el stock con
+`SUMIFS(..., ENTRADAS[DESCRIPCION], ..., ENTRADAS[numero de parte], ...)` — o sea **cruzando texto
+libre**, no el código. Escribir `100AW` en vez de `100 AW` hacía **desaparecer el movimiento del
+stock sin ningún aviso**. Medido: 26 líneas de entrada y 9 de salida invisibles, 22 ítems
+descuadrados, 11 claves duplicadas. Ahora la llave es `taller_repuesto.codigo`.
+
+### B. Modelo (migración `20260817000001_inventario_taller.sql`)
+`taller_documento_inventario` **nueva** = la cabecera (FA/REQ/AJ, `UNIQUE(tipo,anio,numero)`,
+correlativo generado con `pg_advisory_xact_lock` que reinicia cada año) ·
+`taller_movimiento_inventario` pasa a ser su renglón (`id_documento` NOT NULL).
+
+- **`cantidad` es SIGNADA** (+entra / −sale / ±ajusta) para que el saldo del kardex sea una **suma
+  acumulada calculada AL LEER**, nunca congelada — la lección de la cuenta corriente (§26.A).
+- Al renglón se le **quitaron** `tipo`, `fecha`, `id_aeronave`, `id_egreso`, `registrado_por`: ahora
+  viven en la cabecera. Dos fuentes de verdad del mismo dato es la deriva que ya mordió varias veces.
+- `taller_repuesto` += `codigo` (único parcial), `ultimo_movimiento_en`, `ultima_entrada_en`,
+  `es_serializado`; `unidad` pasa a lista cerrada (`UN/QT/GAL/FT/KIT/JGO/LB`).
+- `usuario.puede_forzar_inventario` y `aeronave.es_externa`.
+
+### C. Reglas
+| | |
+|---|---|
+| **Entrada** | Proveedor + n° real de factura → **genera el egreso** en Contabilidad. Se **quitó** el egreso que disparaba la SALIDA, que duplicaba el gasto. **Costo opcional**: sin costo no hay egreso y el documento cae en "Costos pendientes". |
+| **Salida** | Aeronave obligatoria + opcionalmente colgada de un `taller_cumplimiento` o un `mantenimiento_aeronave` existente. **409 si no alcanza la existencia**, salvo `puede_forzar_inventario` + motivo escrito. Bloquea los ítems `FOR UPDATE` **en orden ascendente de id** (anti-deadlock). |
+| **Ajuste** | Se teclea la **existencia contada**; el servidor guarda el delta. Motivo obligatorio. |
+| **Anular** | Los documentos **no se editan**. Anular devuelve el stock (recalculado desde cero, no por delta), borra el egreso si lo había, y **el correlativo no se reutiliza**. |
+
+### D. 🚨 `aeronave.es_externa` — la parte de más radio de daño
+La OMA le da mantenimiento a aviones que **no son de la escuela** (`YS-361-PE` tiene una inspección
+anual completa en el Excel; también `YS-243-P` y `YS-22-C`). Se dieron de alta con `es_externa=true`.
+- **Filtradas en 16 consultas** que alimentan selectores de vuelo (agendar del alumno y del staff,
+  Programación, Turno, Proyección, Standby, Mantenimiento, Tarifas, Voucheras, Loadsheet).
+- **NO filtradas, a propósito**, en `adminAeronaveController.listarAeronaves` (módulo Aeronaves, donde
+  se administran) y en `taller/dashboardController` (el Taller sí las ve).
+- ⚠️ **No alcanza con darlas de alta como baja lógica** (`activa=false`): `sincronizarEstadoFlota`
+  recalcula `activa` según el mantenimiento del día, así que al cerrarles un mantenimiento el job las
+  devolvería a los selectores de vuelo. **Por eso es columna propia.** Al agregar una consulta nueva
+  que liste aeronaves, acordarse del filtro.
+
+### E. Carga del Excel — `supabase/dump/inventario_oma/` (**YA CORRIDA en prod**)
+Dos pasos porque **no hay módulo de Excel para Node** (§16): `extraer_excel.py` (Excel → JSON) y
+`cargar.js` (JSON → Supabase, con `--dry-run` y `--limpiar-demo`). Re-ejecutable: lo cargado va
+marcado `origen='EXCEL_2026'` y se borra al empezar.
+
+**Cargado: 642 ítems · 280 documentos · 929 renglones, sin perder una sola línea.** Arregla en el
+camino: `FA-0000025-2026` y `FA-00025-2026` eran el mismo documento; `FA-00019-2027` tenía el año mal
+tecleado (el año sale de la FECHA, no del texto); 6 materiales que se movían sin estar catalogados se
+**dan de alta** en vez de descartarse; 4 cantidades tipo `1FT` se interpretan guardando el texto
+original en la nota.
+
+⚠️ **Ojo con el conteo de ítems**: la hoja tiene 662 filas con algo, pero **26 son plantilla sin
+descripción** (fórmulas evaluando a 0). Los ítems reales son **636**.
+
+### F. 🔬 LO QUE FALTA HACER CON EL MECÁNICO (esto no lo arregla el software)
+El stock **no se importó**: sale de sumar los movimientos. El cargador dejó un reporte con:
+- **9 existencias en negativo** (`ACEITE 100 AW` −17, `FILTRO DE ACEITE` −7, `BUJIA REM40E` −6, …) —
+  son entradas que nunca se digitaron.
+- **24 diferencias contra el Excel** (`ARANDELAS` 75→35, `BUJIA` 8→16, `BOLT` 8→0, …) — el Excel
+  cruzaba por texto.
+- **208 ítems sin ningún movimiento en 2026** — candidatos a depurar.
+- **482 ítems sin costo** y **37 entradas sin costear** → pestaña "Costos pendientes".
+
+**Se cierran contando físicamente en bodega y registrando `AJ-001-2026 · Cuadre de migración`.**
+El detalle completo de los 73 avisos está en `supabase/dump/inventario_oma/inventario_oma.json`
+→ `"problemas"`.
+
+### G. Frontend — `/taller/inventario`
+Sub-navegación (patrón de Contabilidad): **Existencias · Documentos · Consumo por aeronave · Costos
+pendientes**, más el **kardex** al hacer clic en cualquier ítem (saldo corrido, y **saldo inicial**
+cuando se filtra por fechas — sin eso el kardex filtrado arranca en cero y no cuadra).
+Componentes en `CAA-frontend/src/pages/Taller/inventario/`. Lectura del módulo también para
+`ADMINISTRACION` (la ingesta de costos es trabajo conjunto con Contabilidad).
+
+Dos defectos de UI encontrados **mirando la pantalla**, no el código: "bajo mínimo" marcaba 253 ítems
+(todo ítem en cero, porque el mínimo por defecto es 0 → ahora exige `stock_minimo > 0`), y el "valor
+del inventario" reproducía el defecto del Excel de meter los negativos dentro del total (ahora suma
+solo existencias positivas: **$7,791.88**, e informa aparte los **−$5,479.54** que distorsionan).
+
+### H. Verificación
+49/49 E2E contra Supabase real con limpieza total (correlativos, egreso solo en la compra, 409 +
+forzado con motivo, ajuste por existencia contada, saldo corrido `10→15→12→−8→12`, **fecha
+retroactiva que recalcula todo lo de abajo**, anulación que devuelve stock y saca el documento del
+kardex, y que las externas no se cuelan en los selectores de vuelo). Las 4 pantallas revisadas en el
+navegador con los datos reales ya cargados.
+
+### Fuera de alcance (decidido con Daniel)
+Hojas de trabajo y el formato de materiales **sobrantes** (el gancho ya está: la salida se cuelga del
+mantenimiento) · devolución de sobrantes a bodega · costeo promedio ponderado o FIFO (se eligió
+**último costo conocido**) · facturar el trabajo a terceros · depurar los 208 ítems sin movimiento.
+
+---
+
+## 30. Sesión 2026-08-17 (2ª tanda) — Papeleo del Taller, Fase 1: requisición → solicitud → retorno
+
+Daniel fotografió **los seis formatos en papel** de la OMA y se reconstruyó el circuito real,
+cotejado contra los datos ya cargados. Spec:
+`docs/superpowers/specs/2026-08-17-solicitud-almacen-sobrantes-design.md`.
+
+### El circuito (verificado con la inspección de 100 h del YS-127-P, julio 2026)
+
+```
+06-jul  REPORTE DE INSPECCIÓN   Operaciones entrega el avión · lo firma un PILOTO · qué inspección toca
+07-jul  REQUISICIONES           el técnico anota lo que necesitará                    (interna)
+09-jul  SOLICITUD AL ALMACÉN    descarga el inventario · lleva el N° de OT · sobrantes (AAC, CAAA-004-F)
+09-jul  ORDEN DE TRABAJO        certifica · Acción Correctiva · Parte Reemplazada      (AAC, CAAA-006-F)
+en paralelo:  ENTREGA DE ACEITES POR DÍA  ·  PRÉSTAMO DE PARTES                       (internas)
+```
+
+⚠️ **La OT se llena AL FINAL, no al principio** (dato de Daniel). Es el certificado, no el
+disparador. Por eso la requisición no puede exigir un N° de OT para existir.
+
+**Cotejos que confirmaron el modelo** (ninguno es suposición): la OT `CAAA/2026-0049` ↔
+`REQ-211-2026` y la `CAAA/2026-0042` ↔ `REQ-192-2026` coinciden en avión, tacómetro y trabajo ·
+`aeronave.horas_ultima_revision` del YS-127-P **es 8271.00**, el tacómetro de esa OT · en la
+requisición la columna rotulada *"Costo Unitario"* **lleva el código de bodega**, no costos (6/6
+verificados) · la hoja de aceites y el kardex registran **los mismos eventos** (8 de 10 cruzan).
+
+### Lo entregado (§ desplegado tras el push)
+
+- **Tres tipos de documento** donde había uno: `REQUISICION` (borrador, **no mueve stock**, único
+  editable) → `SALIDA` (la solicitud `CAAA-004-F`, descarga) → `RETORNO` (sobrantes, suma con su
+  **fecha real**). Migraciones `20260817000002`, `000003`, `000004`.
+- **Campos del papel**: `tacometro`, `cliente`, `solicitante`, `entregado_por`, `entregado_a`,
+  `observaciones`, `orden_trabajo_no`, `numero_solicitud`.
+- **Pestaña "Entrega de aceites"**: el cuaderno del jefe de taller como **reporte del kardex**, sin
+  tabla nueva. `000038`/`000039` pasaron de `UN` a `QT`.
+- **Reporte de duplicados por n° de parte**: `CH48110-1` existe como `000350` (+10) y `000685` (−7).
+
+### 🚨 Tres trampas que encontró la prueba E2E (no repetir)
+
+1. **La serie `REQ` tenía que continuar desde 245.** Los 243 históricos son tipo `SALIDA` con
+   correlativo `REQ-001..244`; una serie nueva desde 1 habría creado dos papeles rotulados igual.
+   El generador busca el `MAX` **por prefijo**, no por tipo.
+2. **`UNIQUE (tipo, anio, numero)` reventaba con `SOL-001-2026`** (mismo tipo/año/número que el
+   histórico `REQ-001-2026`). La unicidad pasó al **correlativo**, que es lo que la gente lee.
+3. **`tipo` era `VARCHAR(10)` y `REQUISICION` tiene 11.** Error 22001 al crear la primera.
+
+⚠️ **Y la trampa de diseño:** los renglones de la requisición viven en la MISMA tabla que suma el
+kardex. Sin filtrarlos, pedir material movería el stock sin que nadie lo despachara. Va por
+`documentoCuentaSQL()` en `utils/inventarioHelpers.js` — **fragmento compartido, no copiado**, la
+lección de las horas facturables (§27).
+
+### Los tres PDFs (cerrados en la misma tanda)
+
+`utils/pdfTaller.js`: `generarRequisicionPDF`, `generarSolicitudPDF` (la `CAAA-004-F` con su apartado
+de retornos) y `generarEntregaAceitesPDF`. **El código y la revisión del formulario NO van
+incrustados**: viven en la tabla `taller_formulario` (migración `20260817000005`, claves
+`REQUISICION`/`SOLICITUD`/`ACEITES`) y se editan desde la app ⇒ una Rev.01 de la AAC no obliga a un
+deploy.
+
+### El inventario habla el idioma de la bodega, no el del papel (corrección de Daniel)
+
+Primera entrega: los botones se llamaban como el **documento** ("Documentos", "Requisición") y todo
+vivía en una sola lista filtrada. Daniel: *"no veo ninguna opción de hacer cargas y descargas
+manuales… la sección de documentos no la entiendo del todo"*. Se renombró a la **acción de bodega**
+y se partió en pestañas propias: **Existencias · Entradas · Salidas · Aceites · Consumo por avión ·
+Costos pendientes**. `Documentos.jsx` quedó reusable (recibe `tipos`/`accion`/`mostrarPendientes`).
+**Lección**: nombrar la pantalla como el papel obliga al usuario a saber qué papel corresponde a lo
+que quiere hacer — justo lo que el sistema debería resolverle.
+
+---
+
+## 31. Sesión 2026-08-17 (3ª tanda) — Papeleo del Taller, Fase 2: orden de trabajo, reporte de inspección, rol TECNICO e interfaz nueva
+
+Spec: `docs/superpowers/specs/2026-08-17-orden-trabajo-e-interfaz-taller-design.md`.
+Migraciones `20260817000005` (formularios) y `20260817000006` (OT). Commits `5992981` (spec),
+`4bec5f7` (backend + rol), `a0b3749` ("Mi taller"), `305bf02` (PDFs), `868ec01` (jefe de taller).
+
+### A. La orden de trabajo es el certificado, no el disparador
+`orden_trabajo` se abre al recibir el avión — ahí toma su correlativo, con el formato del papel
+**`CAAA/2026-0049`** — y se **cierra al firmarla**. De ella cuelgan las requisiciones, solicitudes y
+retornos de la fase 1 (`taller_documento_inventario.id_orden_trabajo`). Tablas nuevas:
+`reporte_inspeccion` (correlativo `RI-###-2026`, lo firma un **piloto** al entregar el avión),
+`orden_trabajo` y `orden_trabajo_parte` (las columnas P/N y S/N **ON/OFF** del papel).
+
+- **Firmar exige licencia TMA** (`usuario.licencia_tma`, columna nueva junto a
+  `certificado_aprendiz`): sin ella `POST /taller/ordenes/:id/firmar` devuelve **403** — el número va
+  impreso en la orden y es lo que respalda la liberación de la aeronave. Al firmar se **agrega la
+  certificación al final de la acción correctiva**, y `ck_ot_cerrada` garantiza a nivel de esquema
+  que una OT `CERRADA` tenga mecánico y fecha de firma.
+- **Anular** es del jefe de taller y devuelve **409 si la OT tiene documentos de bodega vigentes**:
+  primero se anulan los papeles que movieron existencia.
+- `sugerenciaInspeccion` propone qué inspección toca cruzando el tacómetro con las tareas
+  programadas del Taller; `fichaAeronave` arma el folder del avión.
+
+### B. Rol `TECNICO` (mecánico) — 🚨 el enum de auditoría primero
+`VALID_ROLES` + `usuario_rol_check` + `ROLES_PERSONAL`. En rutas: `READ`/`WRITE` =
+`["TALLER","TECNICO","ADMIN"]`, `JEFE` = `["TALLER","ADMIN"]` (anular), `READ_INV` suma
+`ADMINISTRACION`.
+
+⚠️ **`audit_actor_rol` es un enum de Postgres y hay que ampliarlo ANTES de que el rol exista en
+`usuario.rol`.** Si no, cada acción auditada de ese rol hace **rollback silencioso**: la operación
+"no falla", simplemente no queda. Al revisarlo apareció que **`DUENO` tampoco estaba** (Samuel lo
+agregó a `usuario_rol_check` pero no al enum) — se agregaron los dos en la misma migración.
+
+### C. "Mi taller" — la pantalla del técnico (`/taller/mi-taller`)
+Mobile-first, 4 botones grandes en vez de un menú: **Iniciar un mantenimiento · Pedir material ·
+Sacar aceite · Firmar mi trabajo**. Arriba, el trabajo en curso como contexto: tocarlo precarga el
+avión y la OT en el modal siguiente, así que el técnico nunca teclea un número de orden. Pensada
+para gente que usa el teléfono, no el escritorio.
+
+### D. Pantallas del jefe de taller (`/taller/ordenes`)
+Pestañas **Órdenes de trabajo · Por avión**: la lista con buscador y filtro de estado, y el **folder
+del avión** con su historial. Abrir una orden muestra **todo su papeleo junto** — reporte de
+inspección, requisiciones, solicitudes, retornos y partes reemplazadas — que era exactamente lo que
+Daniel pidió ("un buscador para ver todos los documentos adjuntos a un mantenimiento").
+Componentes en `CAA-frontend/src/pages/Taller/ordenes/`.
+
+### E. PDFs
+`generarOrdenTrabajoPDF` y `generarReporteInspeccionPDF`, con su código de formulario leído de
+`taller_formulario` (mismo criterio que la fase 1).
+
+### 🚨 Trampas de esta fase (no repetir)
+1. **`PATCH /ordenes/:id` tenía un `SET` fijo** ⇒ un body parcial **nulificaba** piloto, acción
+   correctiva y los enlaces al mantenimiento. Se descubrió porque el PDF salía con el campo Piloto
+   vacío. Ahora el `SET` se arma con las claves realmente presentes en `req.body`.
+2. **node-postgres devuelve `DATE` como objeto `Date`** ⇒ el PDF imprimía "Tue Jul 07". Misma trampa
+   de §16.A; el formateador usa getters **locales** y tolera ambos tipos.
+3. **El footer del PDF creaba una página en blanco** (mismo bug ya documentado de
+   `pdfGenerator.drawFooter`): se dibuja en `page.height - 64` con `lineBreak:false`.
+4. **`ellipsis` de pdfkit necesita `height`, no solo `width`**: sin eso las celdas largas se
+   envolvían y pisaban la fila de abajo.
+
+### Defectos de UI encontrados mirando la pantalla
+La unidad del aceite salía `UN` en vez de `QT` · el folder por avión abría en **SIM-1** (un simulador,
+que no tiene mantenimiento) → arranca en el primer avión real · "1 renglones".
+
+---
+
+## 32. Sesión 2026-08-17 (4ª tanda) — Papeleo del Taller, Fase 3: préstamo de partes entre talleres
+
+Spec: `docs/superpowers/specs/2026-08-17-prestamo-de-partes-design.md`. Migración
+`20260817000007`. Commits `aa6a283` (spec), `126054f` (backend), `5951878` (frontend).
+
+### El caso
+Los talleres del aeropuerto se prestan partes entre sí, en **las dos direcciones**, y eso mueve el
+inventario **en tiempo real**: dato de Daniel, *"si es entrada, es del tipo que no está ligada a una
+factura; igual si es una salida no está ligada a una OT"*. Y *se puede cerrar una OT con un préstamo
+activo* ⇒ el estado del préstamo es **independiente** del de la orden de trabajo.
+
+### El modelo
+`taller_prestamo` (`direccion ∈ RECIBIDO|ENTREGADO`, `estado ∈ PENDIENTE|DEVUELTO|ANULADO`,
+contraparte, solicitante, fechas de entrega y de compromiso) + `taller_prestamo_linea`. El tipo
+`PRESTAMO` se sumó al CHECK de `taller_documento_inventario`, con prefijo **`PRE`** en el kardex y
+correlativo propio **`PR-###-2026`** para el préstamo.
+
+**Todo el signo del movimiento sale de una sola línea** (`prestamoController.js`):
+
+```js
+const signo = (direccion, momento) =>
+  (direccion === "RECIBIDO" ? 1 : -1) * (momento === "ENTREGA" ? 1 : -1);
+```
+
+Prestar saca del estante; que nos presten, suma; y la devolución invierte cada caso. Solo se mueven
+los renglones **con `id_repuesto`**: lo que se escribe a mano (un libro de horas, una llave de
+torque) queda registrado pero no toca existencia — y en ese caso el préstamo **no genera documento
+de bodega**.
+
+### Reglas
+- **409 si no alcanza la existencia** al prestar, con el detalle de qué falta; se puede **forzar con
+  motivo escrito** (misma puerta que la salida de la fase 1).
+- **Devolución parcial**: se anota lo que volvió y el préstamo sigue abierto por el resto.
+  **Cerrar sin devolución física** (`sin_devolucion`) para cuando se pagó o se cruzó en cuenta: no
+  mueve existencia. Devolver de más de lo que salió → 400; devolver uno ya cerrado → 409.
+- **Vencidos**: pasó la fecha comprometida, o más de un mes afuera sin fecha.
+- **Anular** (jefe de taller) anula sus documentos y **recalcula** el stock desde cero.
+
+### Frontend — pestaña "Préstamos" en `/taller/ordenes`
+La dirección se elige **primero**, porque decide todo lo demás; en el papel había que deducirla de
+quién figuraba como solicitante. Bitácora con filtros, franja roja contando los vencidos, y botón de
+devolución por renglón pendiente (cantidades precargadas con lo que falta).
+
+### Verificación
+29/29 E2E contra Supabase real con limpieza total (las dos direcciones, parcial, exceso, cierre sin
+devolución, 409 + forzado, anulación que devuelve stock). Y la pantalla revisada en el navegador a
+**375 px** contra la BD real: alta con existencia insuficiente, alta normal, devolución completa que
+cierra el préstamo y mueve el estante en el sentido correcto, y el kardex del ítem mostrando el
+`PRE-###-2026` con su saldo corrido. Datos de prueba borrados y existencia restaurada.
+
+### ⏸️ Lo que Daniel debe hacer para que esto sirva
+**Dar de alta a los mecánicos como usuarios con su licencia TMA** (`Roger Pérez TMA 915`,
+`José Estrada TMA 692`): sin `usuario.licencia_tma` **nadie puede firmar una orden de trabajo** —
+es un 403 a propósito. También falta que pase **los manuales del avión** que se adjuntan a cada
+mantenimiento.
+
+---
+
+## 33. Sesión 2026-08-18 — Alta de mecánicos con su licencia TMA desde Usuarios
+
+**Desplegado y verificado en producción** (`origin/master` = `e0284c6`). Sin migración: las columnas
+ya existían. Cierra el bloqueante que dejó la fase 3 del Taller.
+
+### Eran dos huecos, no uno
+1. **El selector de Usuarios no ofrecía los roles del Taller.** `usuariosController.ROLES_PERSONAL` ya
+   aceptaba `TALLER` y `TECNICO` desde §31.B, pero el `ROLES_PERSONAL` **del frontend** (otra lista, en
+   `pages/Administracion/Usuarios.jsx`) nunca los listó ⇒ no había forma de crear un mecánico sin SQL.
+2. **`usuario.licencia_tma` y `certificado_aprendiz` eran columnas muertas.** Existían desde la
+   migración `20260817000006` y el gate de firma las leía, pero **ningún camino de la app las escribía**.
+
+### Cómo quedó
+Bloque **"Credenciales de aeronavegabilidad"** en el alta y en la edición de personal, gateado por el rol
+elegido (`ROLES_TALLER = ["TALLER","TECNICO"]`, mismo patrón que las capacidades del instructor). En la
+edición **también se muestra si el usuario ya tiene un número cargado**, para que un cambio de rol no
+deje la credencial huérfana e invisible. En la lista: insignia verde con el número, o ámbar
+"Sin licencia TMA" si es rol de taller y no la tiene — se ve de un vistazo quién puede firmar.
+
+⚠️ **La licencia NO va con `COALESCE`** como el resto de los campos de `editarPersonal`: una licencia
+vencida hay que poder **borrarla**, y COALESCE lee el null como "no la toques". Va con bandera explícita
+(`CASE WHEN $8 THEN $9 ELSE licencia_tma END`, con `$8 = licencia_tma !== undefined`): clave ausente en
+el body = no se toca · clave vacía = se borra. El helper `credencial()` recorta espacios y deja **NULL**,
+no cadena vacía — NULL es lo que mira el gate.
+
+### 🚨 La prueba que estaba mintiendo (la trampa más cara de esta tanda)
+La primera versión del E2E daba "OK" en *"sin licencia no puede firmar (403)"*… y ese 403 **no era el de
+la licencia**: era el **candado de primer ingreso** (`must_change_password`/`must_set_email`), que todo
+usuario recién creado arrastra y que responde con el mismo código. La aserción pasaba sin probar nada.
+**Dos reglas que salen de acá:** levantar el candado de primer ingreso antes de medir cualquier otro gate
+sobre un usuario nuevo, y **comprobar el mensaje, no solo el código** cuando dos gates comparten status.
+
+### El aprendiz también era una columna muerta
+Al cargar Daniel a los tres (jefe, mecánico y aprendiz) salió el gemelo del mismo problema:
+`orden_trabajo.id_aprendiz` existía, `firmarOrden` lo aceptaba, el detalle lo mostraba y el PDF lo
+imprimía — pero **ninguna pantalla lo mandaba**. Se agregó `GET /taller/personal` (personal del taller
+con sus credenciales) y un selector **"Aprendiz que asistió (opcional)"** en `FirmarOrdenModal`, que
+ofrece solo a quien tenga `certificado_aprendiz` y no aparece si no hay ninguno.
+
+⚠️ **Patrón a vigilar:** entre la licencia TMA y el aprendiz van **dos columnas muertas seguidas** en el
+mismo módulo — el backend y el PDF las consumían, y nadie las escribía. Al agregar una columna que un PDF
+imprime, seguirla hasta la pantalla que la llena (misma familia que la trampa de los objetos literales).
+
+### Verificación
+19/19 contra Supabase real con backend local y limpieza total (incluida la cadena completa: sin licencia
+403 → el admin la carga → firma 200 → la OT queda `CERRADA` con la certificación agregada → edit parcial
+no la borra → vaciarla sí). 14/14 contra **producción** con un ciclo real y limpieza. Y la pantalla
+revisada en el navegador: alta de un TECNICO con licencia, insignia verde, edición que precarga, borrado
+que deja la insignia ámbar.
+
+Lo del aprendiz: 15/15 local y 12/12 en producción, contra el personal real ya cargado (el aprendiz sale
+en el selector, el jefe y el mecánico no, el aprendiz no puede firmar, y adjuntado llega al detalle y al
+PDF). Las pruebas firman con un **técnico temporal** para no tocarle a los usuarios reales el flag de
+primer ingreso — se verifica al final que los tres siguen intactos.
+
+---
+
+## 34. Sesión 2026-08-18 (2ª tanda) — Cola de trabajo, revisión del jefe y estimado de finalización
+
+**Desplegado y verificado en producción** (`origin/master` = `df0479f`). Migración `20260818000001`.
+Spec: `docs/superpowers/specs/2026-08-18-cola-de-trabajo-y-revision-del-jefe-design.md`.
+Cierra el flujo del Taller de punta a punta.
+
+### El circuito
+```
+TURNO/ADMIN manda el avión a MANTO          (sin cambios: Operaciones sigue siendo dueño de la flota)
+   → COLA DEL TALLER: aviones esperando trabajo
+   → el mecánico la toma, o el jefe se la asigna
+   → ORDEN DE TRABAJO enlazada al mantenimiento (de ella cuelga el papeleo de bodega)
+   → el mecánico firma → FIRMADA (esperando revisión)
+   → el jefe aprueba → APROBADA  ·  o la devuelve con nota → vuelve a ABIERTA
+   → cuando NO queda orden pendiente: aviso a Operaciones "listo para devolver"
+   → TURNO/ADMIN cierra el mantenimiento
+```
+
+### Decisiones de Daniel
+| | |
+|---|---|
+| ¿Quién manda a MANTO? | **Operaciones.** El Taller no gana permisos sobre la flota, solo ve la cola. |
+| ¿Aprobar devuelve el avión? | **No: avisa** y Operaciones confirma. El Taller certifica, Operaciones dispone. |
+| ¿El jefe aprueba lo suyo? | **Sí, pero queda marcado** (`aprobacion_propia`). En un taller chico a veces no hay de otra. |
+| ¿Y la duración? | **Manda el Taller.** Su fecha pisa la de Operaciones y los vuelos que queden adentro se cancelan. |
+
+### Modelo
+- **La cola NO es tabla nueva**: sale de cruzar `mantenimiento_aeronave` con sus órdenes. Esto por fin
+  le da uso a `orden_trabajo.id_mantenimiento` — **la tercera columna muerta del módulo** (§33).
+  Se evitó una cuarta entidad: ya hay tres conceptos de "mantenimiento" y sumar otro confunde más de
+  lo que ordena. Un avión puede llevar **varias órdenes** y no se libera hasta que todas se aprueben.
+- `orden_trabajo` += `id_mecanico_asignado` (**distinto de `id_mecanico`**, que es quien firma al
+  terminar), `id_aprobador`, `fecha_aprobacion`, `aprobacion_propia`, `nota_revision`, `devoluciones`.
+  Estados: `ABIERTA → FIRMADA → APROBADA` (antes `ABIERTA|CERRADA`). **Asignar no bloquea**: en una
+  inspección grande trabajan varios.
+- **Estimado**: el Taller escribe directo sobre `mantenimiento_aeronave.fecha_fin` (una sola fuente de
+  verdad; todo lo que ya la lee sigue funcionando) y se guarda `fecha_fin_original` + `estimado_por` +
+  `motivo_estimado` para explicar después por qué se cancelaron esos vuelos. **La hora sale de los
+  bloques**: listo el viernes a las 14:00 ⇒ se cierran los bloques de la mañana y la tarde queda libre.
+  Cancelar y restaurar salen **simétricos gratis** de `cancelarVuelosAfectadosPorMantenimiento`, que
+  recalcula sobre toda la ventana y devuelve cada vuelo a su estado previo.
+- ⚠️ **Dry-run obligatorio antes de confirmar** (`preview-estimado`): mover una fecha puede cancelarle
+  el vuelo a diez alumnos. El modal lo muestra mientras se escribe la fecha.
+
+### Pantallas
+**Mi taller**: "Aviones esperando trabajo" arriba de los botones; tomar uno abre la orden ya enlazada y
+asignada. El botón de firmar dejó de decir "cierra la orden" (mentía) y dice **"Terminé — mandar a
+revisión"**. El trabajo en curso avisa si espera al jefe o si se lo devolvieron con la nota.
+**Trabajos del taller**: pestaña **"Por revisar"**, ahora la primera — arriba lo que espera su firma,
+abajo los aviones del hangar con selector de asignación y el botón de mover la fecha.
+
+### Verificación
+35/35 local + 18/18 contra **producción**, con limpieza total y el mantenimiento de prueba en 2027 para
+no rozar ningún vuelo real. Circuito completo recorrido en el navegador a 375 px.
+
+### 🚨 Trampas de esta tanda (todas en las PRUEBAS, no en el código)
+1. **`String(fecha).slice(0,10)` da `"Wed Mar 10"`** — node-postgres devuelve DATE como objeto `Date`.
+   Tercera vez que muerde (§16.A, §31). Usar un formateador con getters locales.
+2. **`LIKE` en Postgres distingue mayúsculas** — `'%listo%'` no encuentra `"Listo para devolver"`.
+3. **Comparar `creada_en > NOW() - INTERVAL` desde otra conexión da 6 h de diferencia**: es
+   `timestamp` sin zona y el backend fija `America/El_Salvador` en la suya, la prueba no. Mismo
+   desfase de §21.D. **Comparar por `id`, no por fecha.**
+4. Un 403 puede venir de dos gates distintos (§33): comprobar el **mensaje**, no solo el código.
+
+### Defecto encontrado mirando la pantalla
+Tras firmar, el avión volvía a ofrecer **"Tomar este avión"** aunque el trabajo seguía siendo del
+mecánico esperando al jefe — invitaba a abrir una orden duplicada. Ahora dice "Esperando al jefe".
+
+### Fuera de alcance
+Que el Taller mande aviones a MANTO · que aprobar devuelva el avión al servicio solo · reprogramar los
+vuelos cancelados (se cancelan, no se mueven).
+
+---
+
+## 35. Sesión 2026-08-19 — Cronómetro del trabajo, firma de entrega de material, y navegación del inventario
+
+**Desplegado y verificado en producción** (`origin/master` = `7ad0eb1`). Migraciones `20260819000001`
+y `20260820000001`.
+Sesión de pulido sobre el Taller mientras Daniel probaba el circuito en vivo.
+
+### A. El cronómetro arrancaba adelantado (dos intentos: el primero NO alcanzó)
+**Primer intento (`aa6c3af`) — incompleto, el bug volvió.** Se movió la resta del navegador a la base
+(`segundos_trabajo` en `SELECT_OT`, compartido por lista/detalle/folder). Eso quitó UNA fuente de
+desfase, pero la resta seguía siendo `NOW() - creado_en`, o sea **seguía dependiendo de la zona de la
+sesión**. Daniel lo volvió a ver: *"cuando abrí un mantenimiento el contador inició desde 5 horas,
+pero cuando lo cierro y lo reviso sí me tira el tiempo real"*.
+
+**Esa asimetría es la pista y da el diagnóstico exacto:**
+
+| | por qué |
+|---|---|
+| Orden **CERRADA** → siempre bien | `firmado_en - creado_en` resta dos columnas de la **misma base**; la zona no la toca |
+| Orden **ABIERTA** → mal | mezcla `NOW()` con una columna **sin zona** ⇒ depende de la sesión |
+
+Medido sobre la MISMA fila y la MISMA fórmula: **0.12 h** con la sesión en `America/El_Salvador` y
+**6.12 h** con la sesión en UTC. Y la prueba dio **−6 h**, no +6: el signo se invierte según qué zona
+estaba activa al **ESCRIBIR** frente a la de **LEER** ⇒ **el desfase no es constante, es no
+determinista** (por eso "6 horas" una vez y "5" otra, y por eso parecía arreglado y volvía).
+
+**Por qué la sesión no siempre es la correcta:** `config/db.js` lanza `client.query("SET timezone…")`
+en el evento `connect` **sin await**, y el pooler de Supabase puede reiniciar ese estado; además
+cualquier script que escriba sin fijarla (migraciones, seeds, `query.js`) guarda en **UTC**.
+
+**Arreglo real (`7ad0eb1`, migración `20260820000001`): fijar la zona en las DOS puntas en vez de
+heredarla.** La lectura del reloj y todas las marcas que entran en él (`firmado_en`, `aprobado_en`,
+`asignado_en`, `anulado_en`) con `AT TIME ZONE 'America/El_Salvador'`, y el **DEFAULT de `creado_en`**
+fijado por migración — en `orden_trabajo` y también en `taller_documento_inventario`, que tenía el
+mismo patrón sembrado esperando a la próxima pantalla que calculara duraciones.
+
+**Quinta aparición del mismo desfase** (§21.D, §31, §34, §35). La regla que sale de acá **corrige** la
+que había quedado escrita ("restar en SQL"), que era insuficiente:
+> Con columnas `timestamp` SIN zona, restar en SQL **no basta**: hay que **fijar la zona
+> explícitamente en la expresión y en el DEFAULT**, nunca heredarla de la sesión. Si una duración sale
+> bien con el registro cerrado y mal con el registro abierto, es exactamente esto.
+- ⚠️ El arreglo venía escrito de antes **y el backend no compilaba**: un comentario con backticks
+  dentro del template string cortaba la cadena. Se detectó porque la prueba medía comportamiento
+  viejo — había **otro backend escuchando en el 5099** desde antes. Al probar en local, confirmar
+  que el server que responde es el que acabás de levantar (`netstat` + leer su log de arranque).
+
+### B. La solicitud CAAA-004-F se firma a mano
+`taller_documento_inventario` += `firma_entrega`, `firma_recibe` (mig `20260819000001`).
+`firmarSolicitud` las guarda, `FirmarEntregaModal` dibuja los dos `SignaturePad` (el mismo componente
+de la vouchera del alumno) y `generarSolicitudPDF` los imprime sobre su línea ⇒ **el papel sale del
+sistema ya firmado**. La de quien entrega es obligatoria; la de quien recibe, opcional.
+- Verificado 12/12: el trazo queda guardado, el PDF **con** firmas lleva más imágenes que el mismo PDF
+  **sin** ellas (comparación con y sin — buscar `/Image` a secas da falso positivo por el logo), la
+  descarga respeta la cantidad que bodega ajustó, y el cronómetro arranca en cero.
+
+### C. Navegación del inventario y jerarquía visual
+- **Los PRÉSTAMOS se mudaron de "Trabajos del taller" a Inventario**: mueven la existencia igual que
+  una entrada o una salida, y un préstamo sigue abierto aunque la orden ya se haya cerrado. El
+  mecánico conserva el acceso (`DEL_MECANICO = ["existencias","prestamos"]`) porque ahí deja su firma.
+- Las 6 pestañas planas pasan a **3 grupos** — Existencias · Movimientos · Reportes — en pista
+  redondeada con la activa levantada (contraste medido **10.84:1** contra la pista). `.inv-tabs`/
+  `.inv-tab` **las comparte `OrdenesTrabajo.jsx`**, así que un solo cambio vale para las dos pantallas.
+- Los filtros eran **los controles crudos del navegador** (el CSS solo les ponía `min-width`). Una
+  regla compartida `.inv-filtros input/select, .inv-campo` con foco visible y lupa embebida, aplicada
+  también a los campos sueltos de Aeronavegabilidad y Costos pendientes.
+- **Mi taller — un solo botón relleno por pantalla, y es lo que toca hacer**: con trabajo abierto es
+  "Terminé"; sin trabajo, "Iniciar un mantenimiento". Antes el relleno era siempre "Iniciar", así que
+  el técnico a media faena veía destacado justo lo que NO iba a hacer.
+
+### 🚨 Blanco sobre blanco, tercera vez
+`.tec-acciones .tec-btn` (0,2,0) pesa más que `.tec-btn--principal` (0,1,0) ⇒ le pisaba el fondo navy
+y dejaba el botón relleno **invisible**. Va corregido con `:not(.tec-btn--principal)` y un comentario
+que explica que el `:not()` **no es decorativo**. Las tres veces (§ `--c-primary` inexistente,
+`.tec-btn--claro`, y esta) son la misma familia: **estilar contra un fondo supuesto**.
+- **Lo que se hace ahora en su lugar**: medir contraste real resolviendo `oklch()` con un canvas y
+  caminando hacia arriba hasta el primer ancestro opaco. Barrido sobre las **12 pantallas del módulo:
+  cero controles por debajo de 3:1**.
+
+### ⚠️ Medir con el panel del navegador oculto da datos viejos
+Pareció haber un bug grave de móvil (el contenido en 107 px, el sidebar sin replegarse). **Era falso:**
+con el panel oculto el renderer no rehace el layout al cambiar de tamaño, así que el estilo calculado
+del árbol existente queda del tamaño anterior. Se descubrió creando un `div` nuevo con la misma clase:
+ese **sí** computaba `translateX(-244px)`. **Para medir responsive hay que RECARGAR al tamaño nuevo**
+(`matchMedia` y `clientWidth` ya reportan bien y engañan). Medido en limpio a 375 px: sidebar
+replegado, cada grupo en su fila, sin desborde horizontal.
+
+### Pendiente que quedó preguntado
+Los radios suavizados se aplicaron **solo al módulo Taller**. Extenderlo a Administración y
+Operaciones es cambiar un token, pero toca toda la app — falta que Daniel decida.
+
+---
+
+## 36. Sesión 2026-08-20 — "Mi taller" pasa a ser la pantalla principal (fin de la dualidad)
+
+**Desplegado y verificado en producción** (`origin/master` = `5d691d8`). Sin migración.
+Cuatro commits, todos salidos de Daniel probando el circuito en vivo:
+`8a3defb` (el jefe veía trabajo ajeno como propio) · `ec20c54` (tacómetro + despacho desde la
+tarjeta) · `90fafc0` (los firmados con el reloj detenido) · `5d691d8` (el merge).
+
+### A. 🐛 Al jefe le aparecía el trabajo del mecánico como propio
+"Mi taller" pedía `getOrdenes({ abiertas: "true" })`, un filtro que mira el **estado**
+(`ABIERTA`/`FIRMADA`) y **no la persona**. Con una sola orden abierta en todo el taller, la
+pantalla del jefe se la adjudicaba y anunciaba "estás trabajando en"; y abajo el MISMO avión salía
+en la cola con "Tomar este avión", como si nadie lo hubiera empezado. En el perfil de quien inicia
+el trabajo se veía bien **solo porque ahí coincidía**.
+- **Ya existía el filtro correcto y nadie lo usaba**: `asignadas=true` (`o.id_mecanico_asignado = uid
+  OR o.creado_por = uid`). El arreglo es agregarlo. ⚠️ Patrón a vigilar: un filtro de lista que
+  distingue por estado no distingue por dueño; si la pantalla dice "lo mío", tiene que pedir lo mío.
+- La cola además pasa a decir **quién está adentro** del avión y el botón a **"Abrir otro trabajo"**:
+  un avión lleva varias órdenes, pero ofrecer "tomar" uno ya intervenido invita a duplicarlo.
+
+### B. 🚨 La dualidad — dos pantallas para la misma acción se contradicen
+Daniel: *"veo que hay una dualidad… lo puedo hacer desde ahí o dando click a la tarjeta… mejor
+hacer el merge y centralizarlo en un solo lugar"*. La firma se daba desde "Esperando tu firma"
+(pantalla del jefe) **o** desde la tarjeta de "Trabajos en curso"; y la cola de aviones vivía en la
+pantalla del técnico mientras los trabajos vivían en la del jefe ⇒ el mismo avión aparecía dos veces
+diciendo cosas incompatibles.
+
+**Ahora es UNA sola lista, `El taller ahora`, dentro de "Mi taller", que es la pantalla principal.**
+Cada avión trae sus trabajos con quién lo lleva y con quién, el **tacómetro**, el **cronómetro**
+(detenido si ya se firmó), el **material pedido** —que se despacha desde la misma tarjeta— y, para
+el jefe, el selector para reasignar; debajo, el botón para tomarlo o abrirle otro trabajo.
+
+> **La regla que ordena todo esto: lo que uno puede hacer sale de QUIÉN ES, no de en qué pantalla
+> está.** Por eso la pantalla es la misma para el mecánico y para el jefe, y solo cambian los
+> controles que ofrece. Tocar un trabajo hace lo que corresponda: el mío me lleva a mi tarjeta, el
+> firmado el jefe lo revisa y firma ahí, el resto se mira.
+
+- `/taller/ordenes` queda como **el archivo**: historial de órdenes y folder por avión. Se
+  **retiraron** `PorRevisar.jsx` y `TrabajosEnCurso.jsx` (sin uso). Componente nuevo:
+  `pages/Taller/ordenes/TallerAhora.jsx`.
+- Permisos, verificados con los dos perfiles: el jefe ve "esperando tu firma", el selector de
+  asignación y la franja de material; el mecánico ve "tuyo · esperando al jefe" y **nada de eso**
+  (su 403 de `getDocumentos` va atrapado ⇒ la franja simplemente no aparece).
+
+### C. El papel se llena solo donde el sistema ya sabe la respuesta
+- **Requisición**: `cliente` = `CAAA / OMA` y `solicitante` = quien tiene la sesión abierta, los dos
+  precargados y **editables** (a veces el avión es de un tercero). Constante `CLIENTE_PROPIO` y
+  helper `yo()` en `DocumentoModal.jsx`.
+- **N° de solicitud** derivado de la orden (`CAAA/2026-0001` → `0001`), que es lo que dice el papel;
+  solo se rellena si está vacío, para no pisar lo tecleado.
+- ⚠️ El **número de orden en la solicitud ya se heredaba** correctamente desde la requisición
+  (`heredar()` en el backend, verificado en `SOL-001` de producción) — lo que faltaba era verlo.
+
+### D. Backend: `colaTrabajo` enriquecido
+El JSON de cada trabajo suma `tacometro`, `segundos_trabajo`, `documentos`, `aprendiz_nombre` y
+`devoluciones`, para que **una sola consulta** alimente toda la pantalla en vez de cruzar dos en el
+navegador. El cronómetro va con la **zona FIJADA** (`NOW() AT TIME ZONE 'America/El_Salvador'`),
+igual que en `SELECT_OT` — §35.A.
+
+### ⚠️ Trampas de esta tanda
+1. **Backticks dentro de un template string, segunda vez en dos días.** Un comentario SQL con
+   `` `timestamp` `` corta la cadena y el backend no compila. En los comentarios de esas consultas,
+   nada de comillas invertidas.
+2. **Finales de línea mixtos en el mismo archivo.** `ordenTrabajoController.js` y `CLAUDE.md` tienen
+   CRLF, otros LF; detectar por la primera línea falla. Al parchear por texto, mirar los bytes reales
+   (`repr()`) antes de asumir.
+3. **Loguearse por script rompe la sesión del navegador** (sesión única rota el UUID): el token que
+   estaba probando en la pantalla queda inválido y la app manda a /login. No es un bug.
+4. El barrido de contraste encontró **un texto real a 2.57:1** ("Nadie lo tomó todavía", `--c-ink-4`
+   sobre la tarjeta) ⇒ corregido a 4.83. El token `--c-ok-500` **no existe**; es `--c-success-500`.
+
+---
+
+## 37. Sesión 2026-08-22 — Stickers de constancia para los libros del avión (célula, motor, hélice)
+
+**Implementado y verificado; ⚠️ PENDIENTE EL PUSH A MASTER** (el clasificador de auto-mode lo
+bloqueó, §10). Las **3 migraciones ya están aplicadas en Supabase** y son aditivas, así que el
+backend viejo las tolera. Rama `claude/workshop-inventory-system-292b6b`, 5 commits
+`ea27f83..c63e0b0`, 5 adelante de `origin/master` y 0 atrás (Samuel no había pusheado nada).
+Spec: `docs/superpowers/specs/2026-08-22-stickers-libros-aeronave-design.md`.
+Los 11 formatos originales quedaron commiteados en `docs/formatos-aac/stickers/`.
+
+### A. El caso
+Cada avión lleva **tres libros físicos** —célula, motor y hélice— exigidos por la certificación de
+la AAC, y cada trabajo se acredita pegando en ellos un **sticker** impreso. Se escribían a mano en
+Word, en papel adhesivo carta que se recorta.
+
+### B. 🔑 Las dos escalas del TAC (lo que hay que entender antes de tocar nada)
+
+| | |
+|---|---|
+| **Tacómetro (TAC)** | No mide tiempo: mide RPM acumuladas, calibrado a RPM de crucero. En taxeo corre más lento que el reloj ⇒ siempre marca menos que el tiempo real. Por eso el mantenimiento va por TAC. |
+| **Hobbs** | Reloj real, 1:1. Para cobrar. |
+| **T.T. (Tiempo Total)** | **No es un instrumento: es un número que vive en el libro.** Y hay uno **por parte**: la célula, el motor y la hélice llevan relojes distintos (el motor se baja, se overhaulea y se vuelve a montar). |
+
+**El T.T. es el TAC más un offset fijo por parte**, y los stickers reales lo prueban: en el
+YS-334-PE el motor da **+7,088.42 idéntico en tres stickers de fechas distintas** y la hélice
+**−1,846.32** en los tres. Esa es exactamente la fórmula que `taller_componente` traía escrita
+desde la migración 011 — **el modelo estaba bien; nadie lo llenó**.
+
+**El tacómetro del YS-334-PE dio la vuelta** entre sep-2025 (sticker: TAC 9,588.18) y feb-2026
+(TAC 10,000.03): llegó a 9999.99 y volvió a 0000.03. Los mecánicos le suman 10,000 a mano; **los
+instructores digitan la lectura cruda** (127 lecturas en la BD, todas entre 331.07 y 429.10). Los
+otros tres aviones no tienen el problema. Ése es el "TAC desfasado" que se recordaba, y es **un
+solo avión con un solo offset**.
+
+⚠️ **La regla que sostiene todo el diseño:** `taller_componente.horas_aeronave_instalacion` guarda
+el TAC del anclaje en la **escala CRUDA** del sistema. Así `T.T.` y `TSO` son *diferencias* y el
+`tac_offset` se cancela solo — solo afecta al campo TAC impreso y a los mini de próxima inspección.
+Confundir las dos escalas acá son **10,000 horas en un documento legal**.
+
+### C. Lo que el papel traía mal (y el sistema elimina)
+- En el **YS-127-P** y el **YS-270-P** el `T.T.` del motor y de la hélice está **copiado del de la
+  célula** — los tres stickers dicen el mismo número.
+- La hélice del **YS-127-P** dice `9,893.89` en sep-2025 y `2,846.19` en jul-2026, **con el mismo
+  S/N**. El de 2025 es el copiado.
+- El offset del YS-334-PE cambió de `+4.07` a `+5.09` entre dos stickers: aritmética a mano.
+
+### D. Modelo (migraciones `20260822000001`, `000002`, `000003`)
+- **`taller_componente`** += `marca`, `modelo`, `tipo_certificado` (T.C.), `tso_ancla`, y
+  `ancla_actualizado_en/_por` + `ancla_origen` (texto libre). `parte_no`→M/N, `serie_no`→S/N.
+- **El anclaje pasa a ser NULLABLE** (mig `000002`): hay partes cuyo T.T. no se puede confiar. Poner
+  0 haría que la fórmula devolviera **la lectura cruda como si fuera el tiempo total**. Con NULL la
+  fórmula propaga NULL y la pantalla dice "sin anclaje: dictalo del libro".
+- **`aeronave.tac_offset`** (YS-334-PE = 10000). **Se aplica SOLO al imprimir documentos del Taller.**
+- **`taller_sticker_plantilla`** (avión × parte × tipo): el texto precargado. Es por avión porque el
+  manual cambia (761-660 el Tomahawk, D2064-1-13 el 152, 753-586 el Cherokee y el Arrow).
+  Placeholders `{orden}` y `{proxima}`.
+- **`taller_sticker`**: el sticker emitido, **congelado** (TAC, T.T., TSO, P/N, texto, firmantes).
+  Una vez pegado es un registro legal: re-imprimir lee lo guardado, **nunca recalcula**. Se llama así
+  y no `orden_trabajo_sticker` porque **puede existir sin orden** (cierre y apertura de libro).
+- Fila `STICKER` en `taller_formulario` con `CO-OMA-CAAA-014`.
+
+### E. La red de seguridad: corregir un sticker arregla el futuro
+Los tres números salen calculados pero **editables**. Si el mecánico corrige `T.T.` o `TSO`, el
+servidor **re-ancla esa parte** — aunque no sea jefe: ese número ya quedó impreso y firmado en un
+libro oficial, y seguir calculando desde otro solo garantiza que el próximo sticker salga mal. Queda
+el rastro (`ancla_origen`) para que el jefe lo vea; **lo que no puede es quedar en silencio.**
+
+### F. Qué libros toca el trabajo (mig `20260822000004`)
+Al **abrir** la orden se declara sobre qué se va a trabajar: `orden_trabajo.toca_celula/_motor/
+_helice`, los tres `DEFAULT TRUE`. **Es un default, no un candado** (decisión de Daniel): precarga
+las casillas al emitir, pero ahí se puede agregar o quitar un libro — un trabajo descubre trabajo, y
+la orden del 333 se abrió por el motor y terminó llevándose la hélice. Con la orden `ABIERTA` se
+corrige por `PATCH /taller/ordenes/:id`.
+
+⚠️ **Sin esto el aviso "órdenes firmadas sin sticker" mentía**: listaba todas las órdenes del avión
+en los tres libros, así que un cambio de aceite del motor iba a aparecer como "falta pegar" en el
+libro de la célula y en el de la hélice **para siempre**. Lo destapó Daniel preguntando por qué el
+mantenimiento manual no dejaba elegir la parte.
+
+### G. Pantallas
+- **Emisión** desde la orden de trabajo (`EmitirStickersModal`): elegir libros, tipo, números y texto.
+  Sale un PDF con los stickers **más el par de mini "próxima inspección"** (TAC + 25 y + 50).
+- **Trabajos gana una tercera pestaña, "Libros del avión"** (`Libros.jsx`): tres libros por avión con
+  la ficha de la parte, el T.T./TSO de hoy y la lista cronológica. **Los stickers de cierre y apertura
+  parten la lista en volúmenes** sin tabla nueva: el evento ya es el borde. Una orden firmada sin
+  sticker sale marcada. Al abrir un renglón se reusa entero `OrdenDetalleModal`.
+- Plantillas y anclajes: **solo el jefe**. Emitir: mecánico también.
+
+### H. Siembra (`supabase/dump/seed_stickers_libros.js`, ya corrida)
+12 partes de los 4 aviones con stickers. Las **cuatro células con confianza**, más motor y hélice del
+Tomahawk. El resto queda **sin anclaje a propósito**: el motor del 333 y el del 270 están **fuera del
+avión** (reparación mayor y caja rajada), y el T.T. del motor del 127 y de la hélice del 270 viene
+copiado en el papel. **YS-155-PE y YS-259-PE no tienen nada.**
+
+### 🚨 Trampas de esta tanda
+1. **Un `UPDATE` cuyo `SET` no referencia `$1` y `$2`** (eran solo la llave de búsqueda) da
+   **42P18 "could not determine data type of parameter"**. Y con NULL en todos los valores de un
+   parámetro hay que **castear** (`$9::numeric`) — la misma trampa de `$4::numeric` de §15.
+2. **Había otro backend viejo escuchando en el 5099**: el mío murió con EADDRINUSE y las pruebas
+   corrieron **contra el código viejo**, dando un 404 que parecía un bug de rutas. Es la lección de
+   §35.A y volvió a morder. **Confirmar en el log que el server que responde es el que levantaste.**
+3. **El medidor de contraste daba ratio exactamente 1.00 en todo**: el canvas necesita `width`/
+   `height` explícitos para que `getImageData` devuelva lo pintado. Un medidor roto que reporta
+   "30 defectos" es peor que no medir. Con el arreglo: **0 bajo umbral, peor caso 4.58:1**.
+4. **Heredocs largos rompen la shell** de este entorno (`unexpected EOF`). Para contenido grande:
+   escribir a archivo y anexar, o parchear con un script de Python.
+5. **`String.replace` con anclas multilínea falla por CRLF**: normalizar el `eol` antes de parchear.
+   Y `rfind` de un cierre JSX puede caer en un **sub-componente al final del archivo** — pasó, el
+   modal quedó insertado dentro de un helper.
+
+### Defectos que solo se vieron mirando la pantalla
+- **"TMA #TMA 001"**: `usuario.licencia_tma` ya se guarda con el prefijo (`"TMA 090"`).
+- **"el célula" / "el hélice"**: se renombró para hablar del **libro**, que concuerda con las tres.
+- 9 px de desborde horizontal a 375 px: faltaba `flexWrap` en las filas de botones.
+
+### Verificación
+**59/59 E2E** en dos suites contra Supabase real con limpieza total (45 de stickers + 14 de la
+declaración de partes), incluida la prueba explícita de las dos
+escalas (el TAC del libro sale con +10,000 y los tres offsets se reproducen exactos), el re-anclaje,
+que el anclaje quede en escala cruda, los 403 del técnico y que una edición parcial de la ficha no
+nulifique el resto. PDF revisado renderizado a PNG (1 y 2 páginas, sin partir recuadros). Pantallas
+revisadas en el navegador a 1280 y 375 px.
+
+### 🔴 Los bimotores necesitan CINCO libros, no tres
+El modelo asume **un motor y una hélice** por avión. Un bimotor lleva dos de cada uno, y cada uno
+tiene su libro con su T.T. y su TSO. El **YS-259-PE** ya está en la flota y **la escuela acaba de
+comprar un segundo bimotor** (dato de Daniel, 2026-08-22) ⇒ deja de ser hipotético.
+
+Ninguno tiene partes cargadas, así que **no hay nada mal registrado**: es hueco de alcance, no dato
+corrupto. Toca `taller_componente.posicion` (ya existe, ahí iría LH/RH), `partesDe()` (se queda con
+una fila por tipo), los CHECK de `parte` en `taller_sticker` y `taller_sticker_plantilla`, las tres
+banderas `orden_trabajo.toca_*` y las tres pestañas de la vista Libros.
+**No modelarlo a ciegas:** primero ver un juego de stickers real de un bimotor — si distinguen los
+motores por posición o por serie, y si el libro de la célula cambia en algo.
+
+### Lo que falta
+- **El formato de 25 h** no existe entre los archivos entregados: el tipo está creado con la plantilla
+  vacía y se escribe desde la app cuando lo tengan.
+- **Los dos bimotores** (ver arriba), cuando toque cargarles los libros.
+- **Dictar del libro** el T.T. del motor y la hélice del 127 y del 270, y las tres partes del 155 y
+  el 259. Es trabajo del mecánico, no del software.
+- Cotejar contra la **tabla grande de conteo de horas y seguimiento de mantenimientos** que Daniel
+  todavía no entregó. Cuando llegue, se coteja: no se rehace.

@@ -1,6 +1,7 @@
 import React from "react";
 import TallerSidebar from "../TallerSidebar/TallerSidebar";
 import NotificationBell from "../NotificationBell/NotificationBell";
+import PendientesBodega from "./PendientesBodega";
 import "../AdministracionLayout/AdministracionLayout.css";
 
 /**
@@ -30,6 +31,9 @@ export default function TallerLayout({ children }) {
           </span>
         </div>
         <div className="adf-topbar__right">
+          {/* Lo que espera acción, antes que nada: si hay material pedido sin
+              entregar, el jefe lo ve sin ir a buscarlo. */}
+          <PendientesBodega />
           <NotificationBell />
           <span className="adf-topbar__year">2026</span>
           <span className="adf-topbar__role">{user.rol || "TALLER"}</span>

@@ -292,7 +292,7 @@ exports.aceptarOferta = async (req, res) => {
       // Buscar una aeronave activa libre en ese horario.
       const alt = await client.query(`
         SELECT a.id_aeronave FROM aeronave a
-        WHERE a.activa=true AND a.estado='ACTIVO'
+        WHERE a.activa=true AND a.estado='ACTIVO' AND a.es_externa=false
           AND NOT EXISTS (SELECT 1 FROM vuelo v WHERE v.id_semana=$1 AND v.dia_semana=$2 AND v.id_bloque=$3 AND v.id_aeronave=a.id_aeronave AND v.estado<>'CANCELADO')
         ORDER BY a.codigo LIMIT 1
       `, [row.id_semana, row.dia_semana, row.id_bloque]);

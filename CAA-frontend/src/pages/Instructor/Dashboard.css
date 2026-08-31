@@ -861,8 +861,8 @@
   gap: 12px;
 }
 .ins__practica-card {
-  background: var(--c-surface);
-  border: 1px solid var(--c-line);
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
   border-radius: var(--radius-md);
   padding: 12px 14px;
   box-shadow: var(--shadow-sm);
@@ -901,7 +901,7 @@
   gap: 8px;
 }
 .ins__btn-practica {
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--c-line-1);
   background: var(--c-surface-2, #f6f8fb);
   color: var(--c-ink, #1a2230);
   border-radius: var(--radius-md);

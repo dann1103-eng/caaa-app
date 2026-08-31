@@ -15,7 +15,9 @@ const adminPushConfig = require("../controllers/admin/adminPushConfigController"
 
 // Roles de operaciones, o un INSTRUCTOR activo con el toggle puede_programar
 // (capacidad PROGRAMAR = todo lo que hace el rol PROGRAMACION).
-const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", "TURNO"], "PROGRAMAR")];
+// ADMINISTRACION entra como super-usuario de Operaciones (mismo alcance que ADMIN
+// acá); lo de Taller queda fuera, en aeronaveLectura/aeronaveEscritura.
+const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", "TURNO", "ADMINISTRACION"], "PROGRAMAR")];
 
 // El registro de aeronaves (módulo "Aeronaves") es más restrictivo que adminAccess:
 // dar de alta o de baja un avión no es algo que deba poder hacer Turno ni
@@ -25,8 +27,11 @@ const adminAccess = [authMiddleware, requireCapacidad(["ADMIN", "PROGRAMACION", 
 const aeronaveLectura = [authMiddleware, roleMiddleware(["ADMIN", "TALLER"])];
 const aeronaveEscritura = [authMiddleware, roleMiddleware(["ADMIN"])];
 
-// Configuración de push por rol: es config de sistema, solo ADMIN.
-const soloAdmin = [authMiddleware, roleMiddleware(["ADMIN"])];
+// Configuración de push por rol. Vive en /admin por historia, pero su UI es una
+// pantalla del módulo de administración (/administracion/notificaciones-push),
+// así que la comparten ADMIN y ADMINISTRACION — igual que el resto de ese módulo.
+// No abre nada de operaciones ni de taller: solo esta pareja de endpoints.
+const adminYAdministracion = [authMiddleware, roleMiddleware(["ADMIN", "ADMINISTRACION"])];
 
 // --- Semanas y Calendario ---
 router.get("/semanas", adminAccess, adminVuelo.getSemanas);
@@ -123,7 +128,7 @@ router.put("/standby", adminAccess, standby.setLista);
 router.delete("/standby/:id_standby", adminAccess, standby.quitarCandidato);
 
 // --- Notificaciones push por rol (qué perfil recibe qué tipo de aviso) ---
-router.get("/push-config", soloAdmin, adminPushConfig.listar);
-router.put("/push-config", soloAdmin, adminPushConfig.actualizar);
+router.get("/push-config", adminYAdministracion, adminPushConfig.listar);
+router.put("/push-config", adminYAdministracion, adminPushConfig.actualizar);
 
 module.exports = router;
