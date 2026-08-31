@@ -22,9 +22,11 @@
  */
 const bcrypt = require("bcrypt");
 const { sembrarTaller } = require("./escenarioTaller");
+const { insertarMuchos } = require("./lotes");
 
 // ── Fechas relativas ──────────────────────────────────────────────────────
 const DIA = 86400000;
+const r2 = (n) => Math.round(n * 100) / 100;
 const soloFecha = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 /** Lunes de la semana de `ref` (lunes = 1). */
@@ -59,8 +61,14 @@ const ALUMNA_TIERRA = ["a.reyes", "Andrea", "Reyes"]; // sobrecargo: no vuela
 const PASS = "demo123";
 
 // ── Helpers de escritura ──────────────────────────────────────────────────
+// Todos los usuarios del demo comparten contraseña, así que el hash se calcula
+// UNA vez y se reusa. bcrypt con coste 10 tarda ~70 ms; hacerlo 27 veces eran
+// casi dos segundos de puro CPU en un botón que se aprieta delante de un cliente.
+let hashCache = null;
+const hashDemo = async () => (hashCache ||= await bcrypt.hash(PASS, 10));
+
 async function crearUsuario(c, { u, n, a, rol }, prefijo = "") {
-  const hash = await bcrypt.hash(PASS, 10);
+  const hash = await hashDemo();
   u = prefijo + u;
   const r = await c.query(
     `INSERT INTO usuario (username, password_hash, nombre, apellido, correo, rol,
@@ -142,40 +150,54 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   }
 
   // ── Alumnos ────────────────────────────────────────────────────────────
+  // Por lotes, y los ids se releen por USERNAME. No se usa el RETURNING del
+  // INSERT multifila: su orden no está garantizado y emparejar mal a un alumno
+  // con su saldo sería un error que nadie ve hasta que el cliente pregunta.
   log("alumnos");
-  const idsAlumno = [];
-  for (let i = 0; i < ALUMNOS.length; i++) {
-    const [u, n, a] = ALUMNOS[i];
-    const idU = await crearUsuario(c, { u, n, a, rol: "ALUMNO" }, prefijo);
-    const r = await c.query(
-      `INSERT INTO alumno (id_usuario, id_instructor, id_licencia, activo, horas_acumuladas)
-       VALUES ($1,$2,$3,true,$4) RETURNING id_alumno`,
-      [idU, idsInstructor[i % idsInstructor.length], licVuelo, (i * 13) % 180]
-    );
-    const idA = r.rows[0].id_alumno;
-    idsAlumno.push(idA);
-    const saldo = saldoDe(i);
-    await c.query(
-      `INSERT INTO cuenta_corriente_alumno (id_alumno, saldo_actual_usd) VALUES ($1,$2)`, [idA, saldo]
-    );
-    await c.query(
-      `INSERT INTO movimiento_cuenta (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, fecha)
-       VALUES ($1,'AJUSTE_HABER','Saldo inicial',$2,$2,$3)`,
-      [idA, saldo, soloFecha(sumarDias(lunes, -30))]
-    );
+  const hash = await hashDemo();
+  const todos = ALUMNOS.map(([u, n, a]) => [u, n, a]);
+  if (licTierra) todos.push(ALUMNA_TIERRA);   // la de sobrecargo: no vuela
+
+  await insertarMuchos(c, "usuario",
+    ["username", "password_hash", "nombre", "apellido", "correo", "rol",
+     "activo", "datos_confirmados", "must_change_password", "must_set_email"],
+    todos.map(([u, n, a]) => [prefijo + u, hash, n, a, `${prefijo}${u}@demo.local`,
+                              "ALUMNO", true, true, false, false])
+  );
+  const idsUsuario = new Map(
+    (await c.query(`SELECT id_usuario, username FROM usuario WHERE username = ANY($1::text[])`,
+      [todos.map(([u]) => prefijo + u)])).rows.map((r) => [r.username, r.id_usuario])
+  );
+
+  await insertarMuchos(c, "alumno",
+    ["id_usuario", "id_instructor", "id_licencia", "activo", "horas_acumuladas"],
+    ALUMNOS.map(([u], i) => [idsUsuario.get(prefijo + u), idsInstructor[i % idsInstructor.length],
+                             licVuelo, true, (i * 13) % 180])
+  );
+  if (licTierra) {
+    // Sin instructor: su programa es de tierra. Es la fila que demuestra que el
+    // sistema sabe de alumnos que no vuelan.
+    await c.query(`INSERT INTO alumno (id_usuario, id_licencia, activo) VALUES ($1,$2,true)`,
+      [idsUsuario.get(prefijo + ALUMNA_TIERRA[0]), licTierra]);
   }
 
-  // El alumno de tierra: sin instructor y con un programa que no vuela.
-  if (licTierra) {
-    const [u, n, a] = ALUMNA_TIERRA;
-    const idU = await crearUsuario(c, { u, n, a, rol: "ALUMNO" }, prefijo);
-    const r = await c.query(
-      `INSERT INTO alumno (id_usuario, id_licencia, activo) VALUES ($1,$2,true) RETURNING id_alumno`,
-      [idU, licTierra]
-    );
-    await c.query(`INSERT INTO cuenta_corriente_alumno (id_alumno, saldo_actual_usd) VALUES ($1, 640)`,
-      [r.rows[0].id_alumno]);
-  }
+  const fichas = (await c.query(
+    `SELECT a.id_alumno, u.username FROM alumno a JOIN usuario u USING (id_usuario)
+      WHERE u.username = ANY($1::text[])`, [todos.map(([u]) => prefijo + u)]
+  )).rows;
+  const idPorUsuario = new Map(fichas.map((r) => [r.username, r.id_alumno]));
+  const idsAlumno = ALUMNOS.map(([u]) => idPorUsuario.get(prefijo + u));
+
+  const saldos = ALUMNOS.map((_, i) => saldoDe(i));
+  await insertarMuchos(c, "cuenta_corriente_alumno", ["id_alumno", "saldo_actual_usd"],
+    idsAlumno.map((id, i) => [id, saldos[i]])
+      .concat(licTierra ? [[idPorUsuario.get(prefijo + ALUMNA_TIERRA[0]), 640]] : [])
+  );
+  await insertarMuchos(c, "movimiento_cuenta",
+    ["id_alumno", "tipo", "descripcion", "monto_usd", "saldo_resultante_usd", "fecha"],
+    idsAlumno.map((id, i) => [id, "AJUSTE_HABER", "Saldo inicial", saldos[i], saldos[i],
+                              soloFecha(sumarDias(lunes, -30))])
+  );
 
   // ── Semanas ────────────────────────────────────────────────────────────
   log("semanas y vuelos");
@@ -191,72 +213,92 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   }
 
   // ── Un mes de vuelos CERRADOS, con vouchera y cargo ────────────────────
-  let tac = 1200, cerrados = 0;
+  // Se arma todo en memoria y se insertan tres lotes: vuelos, voucheras y
+  // cargos. Los ids de vuelo se releen por (semana, día, bloque), que dentro de
+  // una semana es único acá — y no por el orden del RETURNING, que no está
+  // garantizado: emparejar una vouchera con el vuelo equivocado sería un error
+  // invisible hasta que alguien mire el tacómetro.
+  let tac = 1200;
+  const plan = [];
   for (const off of [-4, -3, -2, -1]) {
     for (let k = 0; k < 12; k++) {
-      const idA = idsAlumno[(k * 3 + Math.abs(off)) % idsAlumno.length];
-      const idI = idsInstructor[k % idsInstructor.length];
-      const av = aeronaves[k % aeronaves.length];
-      const dia = (k % 5) + 1;
-      const bl = bloques[k % bloques.length];
-      const v = await c.query(
-        `INSERT INTO vuelo (id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque,
-                            estado, creado_por, fecha_vuelo, categoria)
-         VALUES ($1,$2,$3,$4,$5,$6,'COMPLETADO','PROGRAMACION',$7,'NORMAL') RETURNING id_vuelo`,
-        [semanas[off], idA, idI, av.id_aeronave, dia, bl, soloFecha(sumarDias(lunes, off * 7 + dia - 1))]
-      );
-      const idV = v.rows[0].id_vuelo;
       const horas = 1 + ((k % 3) * 0.3);
       tac += horas;
-      await c.query(
-        `INSERT INTO reporte_vuelo (id_vuelo, tacometro_salida, tacometro_llegada, horas_cobradas,
-                                    tipo_vuelo, estado, observaciones)
-         VALUES ($1,$2,$3,$4,'LOCAL','COMPLETADO','Vuelo de instrucción sin novedad.')`,
-        [idV, tac - horas, tac, horas]
-      );
-      const monto = -Math.round(horas * 150 * 100) / 100;
-      await c.query(
-        `INSERT INTO movimiento_cuenta (id_alumno, tipo, descripcion, monto_usd, saldo_resultante_usd, fecha, id_vuelo)
-         VALUES ($1,'CARGO_VUELO',$2,$3,0,$4,$5)`,
-        [idA, `Vuelo ${av.codigo} · ${horas.toFixed(1)} h`, monto,
-         soloFecha(sumarDias(lunes, off * 7 + dia - 1)), idV]
-      );
-      cerrados++;
+      plan.push({
+        off, dia: (k % 5) + 1, bloque: bloques[k % bloques.length],
+        idA: idsAlumno[(k * 3 + Math.abs(off)) % idsAlumno.length],
+        idI: idsInstructor[k % idsInstructor.length],
+        av: aeronaves[k % aeronaves.length],
+        horas, tacSalida: r2(tac - horas), tacLlegada: r2(tac),
+        fecha: soloFecha(sumarDias(lunes, off * 7 + (k % 5))),
+      });
     }
   }
 
+  await insertarMuchos(c, "vuelo",
+    ["id_semana", "id_alumno", "id_instructor", "id_aeronave", "dia_semana", "id_bloque",
+     "estado", "creado_por", "fecha_vuelo", "categoria"],
+    plan.map((v) => [semanas[v.off], v.idA, v.idI, v.av.id_aeronave, v.dia, v.bloque,
+                     "COMPLETADO", "PROGRAMACION", v.fecha, "NORMAL"])
+  );
+
+  const idsVuelo = new Map(
+    (await c.query(
+      `SELECT id_vuelo, id_semana, dia_semana, id_bloque FROM vuelo WHERE estado = 'COMPLETADO'`
+    )).rows.map((r) => [`${r.id_semana}|${r.dia_semana}|${r.id_bloque}`, r.id_vuelo])
+  );
+  const idDe = (v) => idsVuelo.get(`${semanas[v.off]}|${v.dia}|${v.bloque}`);
+  if (plan.some((v) => !idDe(v))) throw new Error("No pude reencontrar un vuelo sembrado por su día y bloque.");
+
+  await insertarMuchos(c, "reporte_vuelo",
+    ["id_vuelo", "tacometro_salida", "tacometro_llegada", "horas_cobradas",
+     "tipo_vuelo", "estado", "observaciones"],
+    plan.map((v) => [idDe(v), v.tacSalida, v.tacLlegada, v.horas,
+                     "LOCAL", "COMPLETADO", "Vuelo de instrucción sin novedad."])
+  );
+  await insertarMuchos(c, "movimiento_cuenta",
+    ["id_alumno", "tipo", "descripcion", "monto_usd", "saldo_resultante_usd", "fecha", "id_vuelo"],
+    plan.map((v) => [v.idA, "CARGO_VUELO", `Vuelo ${v.av.codigo} · ${v.horas.toFixed(1)} h`,
+                     -Math.round(v.horas * 150 * 100) / 100, 0, v.fecha, idDe(v)])
+  );
+  const cerrados = plan.length;
+
   // ── HOY: el ciclo del día en distintas etapas ──────────────────────────
   const etapas = ["PUBLICADO", "SALIDA_HANGAR", "EN_PROGRESO", "REGRESO_HANGAR"];
-  let enCurso = 0;
-  for (let k = 0; k < etapas.length && k < aeronaves.length; k++) {
-    await c.query(
-      `INSERT INTO vuelo (id_semana, id_alumno, id_instructor, id_aeronave, dia_semana, id_bloque,
-                          estado, creado_por, fecha_vuelo, categoria)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'PROGRAMACION',$8,'NORMAL')`,
-      [semanas[0], idsAlumno[k], idsInstructor[k % idsInstructor.length], aeronaves[k].id_aeronave,
-       diaHoy, bloques[k % bloques.length], etapas[k], soloFecha(hoy)]
-    );
-    enCurso++;
-  }
+  let enCurso;
+  const deHoy = etapas.slice(0, Math.min(etapas.length, aeronaves.length)).map((estado, k) =>
+    [semanas[0], idsAlumno[k], idsInstructor[k % idsInstructor.length], aeronaves[k].id_aeronave,
+     diaHoy, bloques[k % bloques.length], estado, "PROGRAMACION", soloFecha(hoy), "NORMAL"]);
+  await insertarMuchos(c, "vuelo",
+    ["id_semana", "id_alumno", "id_instructor", "id_aeronave", "dia_semana", "id_bloque",
+     "estado", "creado_por", "fecha_vuelo", "categoria"], deHoy);
+  enCurso = deHoy.length;
 
   // ── Semana próxima: solicitudes PENDIENTES de aprobar ──────────────────
-  let pendientes = 0;
-  for (let k = 0; k < 8; k++) {
-    const idA = idsAlumno[k];
-    const s = await c.query(
-      `INSERT INTO solicitud_semana (id_semana, id_alumno, estado, comentario_alumno)
-       VALUES ($1,$2,'EN_REVISION',$3) RETURNING id_solicitud`,
-      [semanas[1], idA, "Necesito completar horas antes del chequeo."]
-    );
-    await c.query(
-      `INSERT INTO solicitud_vuelo (id_solicitud, id_aeronave, dia_semana, id_semana, id_bloque,
-                                    id_instructor, estado, tipo_vuelo, categoria)
-       VALUES ($1,$2,$3,$4,$5,$6,'PENDIENTE','LOCAL','NORMAL')`,
-      [s.rows[0].id_solicitud, aeronaves[k % aeronaves.length].id_aeronave, (k % 5) + 1,
-       semanas[1], bloques[k % bloques.length], idsInstructor[k % idsInstructor.length]]
-    );
-    pendientes++;
-  }
+  const pedidos = Array.from({ length: 8 }, (_, k) => ({
+    idA: idsAlumno[k],
+    aeronave: aeronaves[k % aeronaves.length].id_aeronave,
+    dia: (k % 5) + 1,
+    bloque: bloques[k % bloques.length],
+    idI: idsInstructor[k % idsInstructor.length],
+  }));
+  await insertarMuchos(c, "solicitud_semana",
+    ["id_semana", "id_alumno", "estado", "comentario_alumno"],
+    pedidos.map((p) => [semanas[1], p.idA, "EN_REVISION",
+                        "Necesito completar horas antes del chequeo."])
+  );
+  // Se releen por alumno: dentro de una semana hay una solicitud por alumno.
+  const idsSolicitud = new Map(
+    (await c.query(`SELECT id_solicitud, id_alumno FROM solicitud_semana WHERE id_semana = $1`,
+      [semanas[1]])).rows.map((r) => [r.id_alumno, r.id_solicitud])
+  );
+  await insertarMuchos(c, "solicitud_vuelo",
+    ["id_solicitud", "id_aeronave", "dia_semana", "id_semana", "id_bloque",
+     "id_instructor", "estado", "tipo_vuelo", "categoria"],
+    pedidos.map((p) => [idsSolicitud.get(p.idA), p.aeronave, p.dia, semanas[1], p.bloque,
+                        p.idI, "PENDIENTE", "LOCAL", "NORMAL"])
+  );
+  const pendientes = pedidos.length;
 
   // ── Taller ─────────────────────────────────────────────────────────────
   // Al final: necesita la flota y el personal ya sembrados. Va en su propio

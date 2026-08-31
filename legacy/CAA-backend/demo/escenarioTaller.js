@@ -16,6 +16,7 @@
  */
 const bcrypt = require("bcrypt");
 const { MARCAS } = require("../utils/marca");
+const { insertarMuchos } = require("./lotes");
 
 // El papeleo del taller lleva impreso el nombre del cliente. Sale de la marca
 // del demo y no escrito a mano: si fuera el de CAAA, cada requisición que se
@@ -91,16 +92,18 @@ async function sembrarTaller(c, log, ctx) {
   // El stock NO se escribe a mano: sale de los movimientos, igual que en el
   // sistema real. Se carga con una factura de entrada y después se consume.
   log("bodega");
-  const idsRepuesto = {};
-  for (const [codigo, desc, unidad, cat, ubi, costo, min] of REPUESTOS) {
-    const r = await c.query(
-      `INSERT INTO taller_repuesto (codigo, descripcion, unidad, categoria, ubicacion,
-                                    costo_unitario, stock_minimo, stock_actual, activo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,0,true) RETURNING id_repuesto`,
-      [codigo, desc, unidad, cat, ubi, costo, min]
-    );
-    idsRepuesto[codigo] = r.rows[0].id_repuesto;
-  }
+  await insertarMuchos(c, "taller_repuesto",
+    ["codigo", "descripcion", "unidad", "categoria", "ubicacion",
+     "costo_unitario", "stock_minimo", "stock_actual", "activo"],
+    REPUESTOS.map(([codigo, desc, unidad, cat, ubi, costo, min]) =>
+      [codigo, desc, unidad, cat, ubi, costo, min, 0, true])
+  );
+  // Los ids se releen por CÓDIGO, que es la llave del inventario. Ver el
+  // comentario de lotes.js sobre por qué no se usa el RETURNING.
+  const idsRepuesto = Object.fromEntries(
+    (await c.query(`SELECT id_repuesto, codigo FROM taller_repuesto`)).rows
+      .map((r) => [r.codigo, r.id_repuesto])
+  );
 
   const anio = hoy.getFullYear();
   const doc = async (tipo, numero, prefijoCorr, campos = {}) => {
@@ -118,17 +121,21 @@ async function sembrarTaller(c, log, ctx) {
     );
     return r.rows[0].id_documento;
   };
-  const mover = (idDoc, codigo, cantidad, costo = null) => c.query(
-    `INSERT INTO taller_movimiento_inventario (id_documento, id_repuesto, cantidad, costo_unitario)
-     VALUES ($1,$2,$3,$4)`, [idDoc, idsRepuesto[codigo], cantidad, costo]
-  );
+  // Los renglones se juntan y se insertan todos juntos al final: son 21 viajes
+  // a la base que se vuelven uno.
+  const renglones = [];
+  const mover = (idDoc, codigo, cantidad, costo = null) => {
+    renglones.push([idDoc, idsRepuesto[codigo], cantidad, costo]);
+  };
+  const volcarRenglones = () => insertarMuchos(c, "taller_movimiento_inventario",
+    ["id_documento", "id_repuesto", "cantidad", "costo_unitario"], renglones.splice(0));
 
   // Compra que llena la bodega, hace tres semanas.
   const fa = await doc("ENTRADA", 1, "FA", {
     fecha: soloFecha(sumarDias(hoy, -21)), proveedor: "Aeropartes del Istmo, S.A.", factura: "12045",
   });
   for (const [codigo, , , , , costo, min] of REPUESTOS) {
-    await mover(fa, codigo, min * 3, costo);
+    mover(fa, codigo, min * 3, costo);
   }
 
   // Consumos: dan movimiento al kardex y dejan a un par de ítems bajo mínimo,
@@ -137,16 +144,20 @@ async function sembrarTaller(c, log, ctx) {
     fecha: soloFecha(sumarDias(hoy, -12)), aeronave: aeronaves[0].id_aeronave,
     cliente: CLIENTE, solicitante: "Luis Mecánico", tacometro: 3120.4,
   });
-  await mover(sal1, "000101", -8);
-  await mover(sal1, "000102", -1);
-  await mover(sal1, "000103", -8);
+  mover(sal1, "000101", -8);
+  mover(sal1, "000102", -1);
+  mover(sal1, "000103", -8);
 
   const sal2 = await doc("SALIDA", 2, "REQ", {
     fecha: soloFecha(sumarDias(hoy, -4)), aeronave: aeronaves[1].id_aeronave,
     cliente: CLIENTE, solicitante: "Luis Mecánico", tacometro: 2044.8,
   });
-  await mover(sal2, "000107", -20);
-  await mover(sal2, "000111", -110);
+  mover(sal2, "000107", -20);
+  mover(sal2, "000111", -110);
+
+  // ⚠️ VA ANTES del recálculo: el stock se calcula sumando estos renglones, así
+  // que si siguieran en memoria la bodega quedaría entera en cero.
+  await volcarRenglones();
 
   // El stock se recalcula desde los movimientos, nunca se teclea.
   //
@@ -176,11 +187,14 @@ async function sembrarTaller(c, log, ctx) {
   // inventado pero coherente: T.T. = tacómetro + un offset fijo por parte, que
   // es exactamente como funciona en los libros de verdad.
   log("aeronavegabilidad");
-  let tareas = 0;
+  // Se arma TODO en memoria y se insertan cuatro lotes al final. Con seis aviones
+  // eran 60 viajes a la base; así son 4.
+  const lecturas = [], componentes = [], programadas = [];
+
   for (let i = 0; i < aeronaves.length; i++) {
     const av = aeronaves[i];
     const tac = r2(1200 + i * 430.5);          // tacómetro de ese avión
-    await c.query(`UPDATE aeronave SET horas_acumuladas = $1 WHERE id_aeronave = $2`, [tac, av.id_aeronave]);
+    lecturas.push([av.id_aeronave, tac]);
 
     // Cada parte se ancla con DOS números, porque la fórmula del libro es
     //     T.T. = (lectura − horas_aeronave_instalacion) + horas_componente_instalacion
@@ -190,54 +204,45 @@ async function sembrarTaller(c, log, ctx) {
     // de tiempo total — imposible para un avión escuela.
     //
     // La historia que cuentan estos números: célula original (T.T. = tacómetro),
-    // motor con 2,600 h de las que 620 son desde el último overhaul, y hélice con
-    // 1,250 h y 310 desde su última reparación.
+    // motor con ~2,600 h de las que ~620 son desde el último overhaul, y hélice
+    // con ~1,250 h y ~310 desde su última reparación.
     const ANCLAJES = [
       // La célula lleva ahí desde el principio: se ancla en 0, y su T.T. es la
       // lectura entera. `null` = "todas las horas del avión", que no es lo mismo
       // que 0 horas desde que se instaló.
-      { desdeTac: null, propias: 0,    tso: null },  // célula: T.T. = lectura
-      { desdeTac: 620 + i * 55, propias: 1980 - i * 130, tso: 0 },  // motor
-      { desdeTac: 310 + i * 38, propias: 940 - i * 70,   tso: 0 },  // hélice
+      { desdeTac: null, propias: 0, tso: null },
+      { desdeTac: 620 + i * 55, propias: 1980 - i * 130, tso: 0 },   // motor
+      { desdeTac: 310 + i * 38, propias: 940 - i * 70,   tso: 0 },   // hélice
     ];
     for (let p = 0; p < PARTES.length; p++) {
-      const parte = PARTES[p];
-      const anc = ANCLAJES[p];
-      await c.query(
-        `INSERT INTO taller_componente (id_aeronave, tipo, nombre, parte_no, serie_no, marca,
-                                        tipo_certificado, horas_aeronave_instalacion,
-                                        horas_componente_instalacion, tso_ancla,
-                                        fecha_instalacion, activo, ancla_origen)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,'Sembrado por el escenario de demostración')`,
-        [av.id_aeronave, parte.tipo, parte.nombre,
-         `PN-${1000 + i * 10 + p}`, `SN-${47200 + i * 31 + p}`, parte.marca, parte.tc,
-         // ⚠️ El anclaje va en la escala CRUDA del sistema, igual que en producción:
-         // T.T. y TSO son DIFERENCIAS, así que el offset del tacómetro se cancela
-         // solo. Confundir las dos escalas son 10,000 horas en un documento legal.
-         anc.desdeTac === null ? 0 : r2(tac - anc.desdeTac), anc.propias, anc.tso,
-         soloFecha(sumarDias(hoy, -(400 + i * 30 + p * 60)))]
-      );
+      const parte = PARTES[p], anc = ANCLAJES[p];
+      componentes.push([
+        av.id_aeronave, parte.tipo, parte.nombre,
+        `PN-${1000 + i * 10 + p}`, `SN-${47200 + i * 31 + p}`, parte.marca, parte.tc,
+        // ⚠️ El anclaje va en la escala CRUDA del sistema, igual que en producción:
+        // T.T. y TSO son DIFERENCIAS, así que el offset del tacómetro se cancela
+        // solo. Confundir las dos escalas son 10,000 horas en un documento legal.
+        anc.desdeTac === null ? 0 : r2(tac - anc.desdeTac), anc.propias, anc.tso,
+        soloFecha(sumarDias(hoy, -(400 + i * 30 + p * 60))), true,
+        "Sembrado por el escenario de demostración",
+      ]);
     }
 
     // ⚠️ UNA sola inspección activa por avión: hay un índice único parcial
     // (id_aeronave WHERE tipo='INSPECCION' AND activo) que lo impone, porque el
-    // ciclo vigente es el que se cachea en aeronave.horas_proxima_revision.
-    // Así está en producción — 1 inspección, 210 ADs, 52 de vida límite — y el
-    // demo copia la FORMA aunque los números sean inventados.
+    // ciclo vigente es el que se cachea en aeronave.horas_proxima_revision. Así
+    // está en producción — 1 inspección, 210 ADs, 52 de vida límite — y el demo
+    // copia la FORMA aunque los números sean inventados.
     // La del primer avión queda a 4 horas de vencer, para que la franja de
     // atención del tablero tenga algo real que avisar.
     const cerca = i === 0;
     const ultima = r2(tac - (cerca ? 46 : 18 + i * 6));
-    await c.query(
-      `INSERT INTO taller_tarea_programada (id_aeronave, nombre, tipo, recurrente, intervalo_horas,
-                                            ultima_horas, proxima_horas, ultima_fecha, activo, aplica, origen)
-       VALUES ($1,'Inspección 50 horas','INSPECCION',true,50,$2,$3,$4,true,true,'DEMO')`,
-      [av.id_aeronave, ultima, r2(ultima + 50), soloFecha(sumarDias(hoy, -(cerca ? 25 : 40 + i * 8)))]
-    );
-    tareas++;
+    programadas.push([av.id_aeronave, "Inspección 50 horas", "INSPECCION", null, null, true,
+                      50, null, ultima, r2(ultima + 50),
+                      soloFecha(sumarDias(hoy, -(cerca ? 25 : 40 + i * 8))), null]);
 
-    // Directivas de aeronavegabilidad: unas por calendario y otra por horas.
-    // La primera del primer avión vence en pocos días.
+    // Directivas de aeronavegabilidad: por calendario. La primera del primer
+    // avión vence en pocos días.
     const ADS = [
       ["AD 2019-05-04 · Inspección de cinturones", "AD 2019-05-04", 365,
        "Inspección visual de anclajes y cinturones de seguridad."],
@@ -246,43 +251,50 @@ async function sembrarTaller(c, log, ctx) {
       ["AD 2015-19-07 · Líneas de combustible", "AD 2015-19-07", 365,
        "Inspección de líneas flexibles de combustible por agrietamiento."],
     ];
-    for (let k = 0; k < ADS.length; k++) {
-      const [nombre, ref, dias, descripcion] = ADS[k];
+    ADS.forEach(([nombre, ref, dias, descripcion], k) => {
       const vence = cerca && k === 0 ? 6 : 40 + k * 55 + i * 9;
-      await c.query(
-        `INSERT INTO taller_tarea_programada (id_aeronave, nombre, tipo, referencia, descripcion,
-                                              recurrente, intervalo_dias, ultima_fecha, proxima_fecha,
-                                              activo, aplica, origen)
-         VALUES ($1,$2,'AD',$3,$4,true,$5,$6,$7,true,true,'DEMO')`,
-        [av.id_aeronave, nombre, ref, descripcion, dias,
-         soloFecha(sumarDias(hoy, vence - dias)), soloFecha(sumarDias(hoy, vence))]
-      );
-      tareas++;
-    }
+      programadas.push([av.id_aeronave, nombre, "AD", ref, descripcion, true,
+                        null, dias, null, null,
+                        soloFecha(sumarDias(hoy, vence - dias)), soloFecha(sumarDias(hoy, vence))]);
+    });
 
-    // Partes con vida límite: NO son recurrentes — se cambian y se acabó.
-    // Es la lista que el jefe de taller necesita ver venir con tiempo.
+    // Partes con vida límite: NO son recurrentes — se cambian y se acabó. Es la
+    // lista que el jefe de taller necesita ver venir con tiempo. La del segundo
+    // avión vence dentro de la ventana de aviso, para que la alerta se vea.
     const VIDA = [
       ["Manguera de combustible motor-carburador", 8, 1825],
       ["Cinturón de seguridad piloto", 12, 3650],
     ];
-    for (let k = 0; k < VIDA.length; k++) {
-      const [nombre, anios, dias] = VIDA[k];
-      // La del segundo avión vence en 18 días: cae dentro de la ventana de
-      // aviso (30) y es lo que hace visible la alerta de vida límite, que es
-      // justo lo que el jefe de taller necesita ver venir con tiempo.
+    VIDA.forEach(([nombre, anios, dias], k) => {
       const instalada = sumarDias(hoy, -(dias - (i === 1 ? 18 + k * 9 : 300 + i * 120 + k * 40)));
-      await c.query(
-        `INSERT INTO taller_tarea_programada (id_aeronave, nombre, tipo, descripcion, recurrente,
-                                              intervalo_dias, ultima_fecha, proxima_fecha,
-                                              activo, aplica, origen)
-         VALUES ($1,$2,'VIDA_LIMITE',$3,false,$4,$5,$6,true,true,'DEMO')`,
-        [av.id_aeronave, nombre, `Vida límite de ${anios} años.`, dias,
-         soloFecha(instalada), soloFecha(sumarDias(instalada, dias))]
-      );
-      tareas++;
-    }
+      programadas.push([av.id_aeronave, nombre, "VIDA_LIMITE", null,
+                        `Vida límite de ${anios} años.`, false,
+                        null, dias, null, null,
+                        soloFecha(instalada), soloFecha(sumarDias(instalada, dias))]);
+    });
   }
+
+  // Las lecturas del tacómetro, en una sola sentencia.
+  await c.query(
+    `UPDATE aeronave a SET horas_acumuladas = v.horas
+       FROM (SELECT * FROM UNNEST($1::int[], $2::numeric[]) AS t(id, horas)) v
+      WHERE a.id_aeronave = v.id`,
+    [lecturas.map((l) => l[0]), lecturas.map((l) => l[1])]
+  );
+  await insertarMuchos(c, "taller_componente",
+    ["id_aeronave", "tipo", "nombre", "parte_no", "serie_no", "marca", "tipo_certificado",
+     "horas_aeronave_instalacion", "horas_componente_instalacion", "tso_ancla",
+     "fecha_instalacion", "activo", "ancla_origen"], componentes);
+  await insertarMuchos(c, "taller_tarea_programada",
+    ["id_aeronave", "nombre", "tipo", "referencia", "descripcion", "recurrente",
+     "intervalo_horas", "intervalo_dias", "ultima_horas", "proxima_horas",
+     "ultima_fecha", "proxima_fecha", "activo", "aplica", "origen"],
+    // `activo` y `aplica` van EXPLÍCITOS aunque el esquema los tenga por defecto:
+    // `aplica` es lo que decide si la tarea entra en el seguimiento, y dejarla
+    // librada a un DEFAULT es cómo una columna termina en NULL sin que nadie lo
+    // note. `origen='DEMO'` deja marcado de dónde salió cada fila.
+    programadas.map((t) => [...t, true, true, "DEMO"]));
+  const tareas = programadas.length;
 
   // ── Un avión adentro del hangar y sus órdenes de trabajo ────────────────
   // Se elige el ÚLTIMO de la flota a propósito: los primeros cuatro tienen los
@@ -341,8 +353,8 @@ async function sembrarTaller(c, log, ctx) {
     aeronave: enTaller.id_aeronave, cliente: CLIENTE, solicitante: "Luis Mecánico",
     tacometro: 1200, idOt: otAbierta, ot: `DEMO/${anio}-0001`,
   });
-  await mover(req, "000101", 8);
-  await mover(req, "000102", 1);
+  mover(req, "000101", 8);
+  mover(req, "000102", 1);
 
   // 2) Firmada por el mecánico, esperando al jefe: llena "Por revisar".
   await orden(2, {
@@ -362,6 +374,12 @@ async function sembrarTaller(c, log, ctx) {
     firma: soloFecha(sumarDias(hoy, -17)), aprobador: idJefe,
     aprobacion: soloFecha(sumarDias(hoy, -16)), celula: false, helice: false, horas: 18 * 24,
   });
+
+  // Segundo volcado: los renglones de la requisición de la orden abierta se
+  // agregaron DESPUÉS del recálculo de stock, y es correcto que así sea — una
+  // requisición es un borrador y no mueve existencia (§30). Pero hay que
+  // insertarlos igual: son el papeleo que cuelga de la orden.
+  await volcarRenglones();
 
   return {
     repuestos: REPUESTOS.length,

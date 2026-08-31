@@ -99,13 +99,14 @@ async function reiniciar({ log = () => {} } = {}) {
     try {
       await cli.query("BEGIN");
       await cli.query(`DELETE FROM public.demo_cuenta WHERE username LIKE 'demo.%'`);
-      for (const u of usuarios.rows) {
-        await cli.query(
-          `INSERT INTO public.demo_cuenta (username, nota) VALUES ($1, $2)
-             ON CONFLICT (username) DO NOTHING`,
-          [u.username, "Sembrada por el reinicio del escenario"]
-        );
-      }
+      // De una sola vez: eran 29 idas y vueltas a la base, casi cuatro segundos
+      // del botón girando delante de un cliente.
+      await cli.query(
+        `INSERT INTO public.demo_cuenta (username, nota)
+         SELECT u, $2 FROM UNNEST($1::text[]) AS u
+         ON CONFLICT (username) DO NOTHING`,
+        [usuarios.rows.map((u) => u.username), "Sembrada por el reinicio del escenario"]
+      );
       await cli.query("COMMIT");
     } catch (e) {
       await cli.query("ROLLBACK").catch(() => {});
