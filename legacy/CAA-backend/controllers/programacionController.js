@@ -865,6 +865,27 @@ exports.agendarVueloDirecto = async (req, res) => {
 
     const fin = Number(id_bloque_fin || id_bloque);
 
+    // Bloques no operables (bloque_bloqueado_dia — la misma tabla del ALMUERZO
+    // que ya pinta las celdas bloqueadas en los calendarios): un vuelo no
+    // puede EMPEZAR ni TERMINAR en un bloque bloqueado para ese día (ej. lunes
+    // y viernes el aeropuerto cierra más temprano y las 17:20 no se vuela).
+    // Solo los extremos: una RUTA larga sí puede sobrevolar el almuerzo.
+    const bloqueado = await client.query(
+      `SELECT bb.motivo, TO_CHAR(b.hora_inicio, 'HH24:MI') AS hora
+         FROM bloque_bloqueado_dia bb
+         JOIN bloque_horario b ON b.id_bloque = bb.id_bloque
+        WHERE bb.dia_semana = $1 AND bb.id_bloque IN ($2, $3)
+        LIMIT 1`,
+      [dia_semana, id_bloque, fin]
+    );
+    if (bloqueado.rows.length > 0) {
+      const dNombres = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+      const { motivo, hora } = bloqueado.rows[0];
+      return res.status(400).json({
+        message: `El bloque de las ${hora} no está disponible los ${dNombres[Number(dia_semana)] || 'ese día'}${motivo === 'AEROPUERTO CERRADO' ? ' (el aeropuerto cierra más temprano)' : ` (${motivo})`}.`
+      });
+    }
+
     const { normalizarParadas, construirTramos } = require("../utils/rutaTramos");
     const conParada = (tipo_vuelo === "RUTA") && con_parada === true;
     let paradasRuta = null;

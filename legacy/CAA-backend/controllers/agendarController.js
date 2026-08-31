@@ -432,6 +432,29 @@ exports.guardarSolicitud = async (req, res) => {
     const advertencias = [];
 
     for (const v of vuelos) {
+      // Bloques no operables (bloque_bloqueado_dia — la misma tabla del
+      // ALMUERZO): un vuelo no puede EMPEZAR ni TERMINAR en un bloque
+      // bloqueado para ese día (ej. lunes y viernes el aeropuerto cierra más
+      // temprano y las 17:20 no se vuela). Solo se validan los extremos, no
+      // los bloques intermedios: una RUTA larga sí puede sobrevolar el bloque
+      // de almuerzo — está en el aire, no despegando ni aterrizando.
+      const bloqueado = await client.query(
+        `SELECT bb.motivo, TO_CHAR(b.hora_inicio, 'HH24:MI') AS hora
+           FROM bloque_bloqueado_dia bb
+           JOIN bloque_horario b ON b.id_bloque = bb.id_bloque
+          WHERE bb.dia_semana = $1 AND bb.id_bloque IN ($2, $3)
+          LIMIT 1`,
+        [v.dia_semana, v.id_bloque, v.id_bloque_fin || v.id_bloque]
+      );
+      if (bloqueado.rows.length > 0) {
+        await client.query("ROLLBACK");
+        const dNombres = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+        const { motivo, hora } = bloqueado.rows[0];
+        return res.status(400).json({
+          message: `El bloque de las ${hora} no está disponible los ${dNombres[Number(v.dia_semana)] || 'ese día'}${motivo === 'AEROPUERTO CERRADO' ? ' (el aeropuerto cierra más temprano)' : ` (${motivo})`}.`
+        });
+      }
+
       // Los extracurriculares pueden usar cualquier aeronave activa (no se exige
       // que esté en la licencia del alumno).
       if (!v.es_extracurricular) {
