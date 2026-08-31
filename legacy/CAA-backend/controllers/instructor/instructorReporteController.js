@@ -372,6 +372,21 @@ exports.firmarReporteVuelo = async (req, res) => {
             });
           }
         }
+
+        // El delta del TAC contra las horas que el instructor digitó para cobrar.
+        // Es la señal MÁS fuerte contra un typo en la LLEGADA, que los dos
+        // chequeos de arriba no ven: la salida puede empatar perfecto y el delta
+        // quedar bajo el tope de 8h, y aun así estar mal. Caso real: YS-334-PE
+        // vuelo 764 (0413.23→0418.7, era 0413.87) cargó 5.47h al avión con 1.0h
+        // cobrada — pasó los dos chequeos y descuadró el mantenimiento.
+        // Se confirma, no se bloquea: un vuelo largo con poco cobro es legítimo.
+        const horasCobradasNum = blankToNull(horas_cobradas) != null ? parseFloat(horas_cobradas) : null;
+        if (horasCobradasNum != null && deltaTac - horasCobradasNum > 1 && req.body.confirmar_tac !== true) {
+          return res.status(409).json({
+            code: "TAC_VS_COBRO",
+            message: `El tacómetro dice ${deltaTac.toFixed(2)} h de vuelo pero estás cobrando ${horasCobradasNum} h. Revisá la lectura de llegada (${tacometro_llegada}) contra el instrumento — si de verdad voló eso, confirmá para firmar igual.`,
+          });
+        }
       }
     }
 
