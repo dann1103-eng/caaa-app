@@ -1585,7 +1585,18 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-29.** Resueltos: ~~los ADs y la vida límite solo vivían en archivos
+> **Última revisión: 2026-08-31.**
+>
+> ### 🎬 De la cuenta de demostraciones (§39)
+> - **Poner la marca del prospecto antes de una reunión**: se edita `marcas.molde` en `marca.json`
+>   y se reemplazan las imágenes `*-molde.png`. No toca lo que ve CAAA.
+> - **La pantalla de login sigue siendo de CAAA**: ahí todavía no hay sesión que decida la marca.
+>   Si molesta en las demostraciones se resuelve, pero hay que decidir cómo.
+> - **Después de cada migración hay que REGENERAR el esquema `demo`** (dos comandos, §3 del
+>   runbook). No se migra: se clona de `public` ya migrado. Mientras tanto la cuenta no funciona,
+>   así que no hacerlo cinco minutos antes de una reunión.
+>
+> **Revisión anterior: 2026-08-29.** Resueltos: ~~los ADs y la vida límite solo vivían en archivos
 > sueltos en las computadoras del taller~~ (§38: 261 renglones cargados, con cálculo de vencimiento y
 > aviso al jefe).
 >
