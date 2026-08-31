@@ -1,28 +1,10 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 
-const UMBRAL_HORAS = 10;
-const UMBRAL_DIAS = 30;
-
-function estadoTarea(t) {
-  const horasAeronave = parseFloat(t.aeronave_horas) || 0;
-  let horas_restantes = null;
-  let dias_restantes = null;
-  if (t.proxima_horas != null) horas_restantes = Math.round((parseFloat(t.proxima_horas) - horasAeronave) * 100) / 100;
-  if (t.proxima_fecha != null) dias_restantes = Math.round((new Date(t.proxima_fecha) - new Date()) / 86400000);
-
-  const dims = [];
-  if (horas_restantes != null) dims.push({ rest: horas_restantes, prox: horas_restantes <= UMBRAL_HORAS });
-  if (dias_restantes != null) dims.push({ rest: dias_restantes, prox: dias_restantes <= UMBRAL_DIAS });
-
-  let estado = "N_A";
-  if (dims.length) {
-    if (dims.some((d) => d.rest <= 0)) estado = "VENCIDO";
-    else if (dims.some((d) => d.prox)) estado = "PROXIMO";
-    else estado = "VIGENTE";
-  }
-  return { horas_restantes, dias_restantes, estado };
-}
+// Antes acá vivía una copia literal de calcularEstado, con los mismos umbrales
+// escritos por segunda vez — y sin saber de `aplica`, así que al cargar los ADs
+// habría contado como alerta los renglones que no aplican al avión.
+const { calcularEstado: estadoTarea } = require("../../utils/vencimientos");
 
 // ── Tablero general del taller ─────────────────────────────────────────────
 exports.dashboard = catchAsync(async (req, res) => {
@@ -31,6 +13,10 @@ exports.dashboard = catchAsync(async (req, res) => {
     -- El Taller SÍ ve las aeronaves de terceros: les da mantenimiento y les
     -- requisa material. Son las únicas pantallas donde aparecen.
     SELECT a.id_aeronave, a.codigo, a.modelo, a.tipo, a.estado, a.activa, a.es_externa,
+           -- Lo consume el selector de Aeronavegabilidad para pasar de escala del
+           -- sistema a escala de libro. Sin esto la pantalla mostraba la ultima
+           -- aplicacion del YS-334-PE como 0.03 en vez de 10,000.03.
+           COALESCE(a.tac_offset, 0) AS tac_offset,
            COALESCE(a.horas_acumuladas, 0) AS horas_acumuladas,
            a.horas_proxima_revision, a.tipo_proxima_revision,
            (a.horas_proxima_revision - a.horas_acumuladas) AS horas_restantes,
@@ -44,6 +30,10 @@ exports.dashboard = catchAsync(async (req, res) => {
   // 2. Tareas programadas → vencimientos próximos / vencidos.
   const tareasRes = await db.query(`
     SELECT t.id_tarea, t.nombre, t.tipo, t.referencia, t.proxima_horas, t.proxima_fecha,
+           -- Estos cuatro los NECESITA calcularEstado para distinguir NO_APLICA y
+           -- SIN_INTERVALO. Sin ellos llegan como undefined y el cálculo cae en la
+           -- rama vieja en silencio: la trampa del objeto literal de siempre.
+           t.aplica, t.recurrente, t.intervalo_horas, t.intervalo_dias,
            a.codigo AS aeronave_codigo, a.id_aeronave,
            COALESCE(a.horas_acumuladas, 0) AS aeronave_horas
     FROM taller_tarea_programada t

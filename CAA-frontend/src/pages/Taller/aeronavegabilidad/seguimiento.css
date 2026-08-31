@@ -1,0 +1,149 @@
+/* Seguimiento de ADs y vida límite. Estilo "Core Admin" (DESIGN.md): tarjetas
+   suaves, píldoras, tabular-nums, sin emojis.
+
+   ⚠️ Los tokens de este sistema llevan SUFIJO de escala: --c-line-1, no
+   --c-line; --c-surface-0, no --c-surface; --c-ink-1, no --c-ink. Y la rampa de
+   advertencia es --c-warn-*, NO --c-warning-*. Escribir un token que no existe
+   deja la propiedad sin valor y el elemento invisible — ya pasó cuatro veces en
+   este módulo. Verificar contra getComputedStyle antes de dar por buena una
+   pantalla, no leer el DOM. */
+
+/* ── Franja de atención ─────────────────────────────────────────────────── */
+.seg-franja { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--sp-5); }
+
+.seg-banda {
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  background: var(--c-surface-0);
+}
+.seg-banda__head { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; margin-bottom: 6px; }
+.seg-banda__items { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.seg-banda__item {
+  background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
+  font: inherit; font-size: 0.86rem; color: inherit;
+  display: inline-flex; gap: 6px; align-items: baseline;
+}
+.seg-banda__item:hover .seg-banda__nombre { text-decoration: underline; }
+.seg-banda__resto { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.seg-banda__mas { font-size: 0.82rem; }
+
+.seg-banda--vencido { background: var(--c-danger-50); border-color: var(--c-danger-100); color: var(--c-danger-700); }
+.seg-banda--proximo { background: var(--c-warn-50); border-color: var(--c-warn-100); color: var(--c-warn-700); }
+.seg-banda--sinint  { background: var(--c-surface-2); border-color: var(--c-line-2); color: var(--c-ink-2); }
+
+/* ── Filtros ────────────────────────────────────────────────────────────── */
+.seg-filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.seg-chip {
+  border: 1px solid var(--c-line-2); background: var(--c-surface-0); color: var(--c-ink-2);
+  border-radius: var(--radius-pill); padding: 4px 12px; font-size: 0.84rem; cursor: pointer;
+  display: inline-flex; gap: 6px; align-items: baseline;
+}
+.seg-chip:hover { border-color: var(--c-ink-4); }
+/* El chip activo va NAVY, no rojo: DESIGN.md reserva el acento rojo para ≤10%
+   de la pantalla (nav activa, "en vivo", alertas). El color se declara
+   explícito en las dos propiedades para no heredar del contenedor. */
+.seg-chip--activo { background: var(--c-brand-500); border-color: var(--c-brand-500); color: #fff; }
+.seg-chip--activo .seg-chip__n { color: #fff; }
+.seg-chip__n { font-variant-numeric: tabular-nums; color: var(--c-ink-3); font-size: 0.8rem; }
+.seg-busca { min-width: 200px; flex: 1 1 200px; max-width: 320px; }
+
+/* ── Grupos por libro ───────────────────────────────────────────────────── */
+.seg-grupo { margin-bottom: var(--sp-4); }
+.seg-grupo__head {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  background: var(--c-surface-2); border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-md); padding: 8px 12px; cursor: pointer;
+  font: inherit; color: var(--c-ink-1); text-align: left; margin-bottom: 6px;
+}
+.seg-grupo__head:hover { border-color: var(--c-ink-4); }
+.seg-grupo__n { font-size: 0.82rem; color: var(--c-ink-2); font-variant-numeric: tabular-nums; }
+.seg-grupo__alerta {
+  margin-left: auto; font-size: 0.78rem; padding: 2px 10px; border-radius: var(--radius-pill);
+  background: var(--c-danger-50); color: var(--c-danger-700);
+}
+
+/* ── Tabla ──────────────────────────────────────────────────────────────── */
+.seg-tabla { font-size: 0.86rem; }
+.seg-tabla .mono { font-family: var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.seg-tabla td { vertical-align: top; }
+.seg-tabla th { white-space: nowrap; }
+.seg-obs { max-width: 240px; font-size: 0.8rem; color: var(--c-ink-2); }
+/* La última aplicación es REFERENCIA, no la fuente del cálculo: manda la
+   próxima (decisión de Daniel). Va atenuada para que se lea así de un vistazo,
+   pero con --c-ink-2, que está muy por encima del mínimo de contraste. */
+.seg-vieja { color: var(--c-ink-2); }
+/* --c-ink-3 da 4.28:1 a este tamaño, por debajo del mínimo de 4.5. Medido, no
+   supuesto: es la fecha de la última aplicación y tiene que leerse. */
+.seg-sub { font-size: 0.74rem; color: var(--c-ink-2); }
+
+.seg-fila--noaplica td { color: var(--c-ink-3); }
+.seg-fila--vencido { background: var(--c-danger-50); }
+.seg-fila--conflicto { background: var(--c-warn-50); }
+/* El segundo renglón de una doble base es el MISMO ítem, no uno nuevo: se le
+   quita la línea de arriba para que los dos se lean como un bloque. */
+.seg-fila--cont td { border-top: 0; padding-top: 0; }
+
+.seg-badge {
+  display: inline-block; padding: 2px 9px; border-radius: var(--radius-pill);
+  font-size: 0.75rem; white-space: nowrap;
+}
+.seg-badge--vencido  { background: var(--c-danger-100); color: var(--c-danger-700); }
+.seg-badge--proximo  { background: var(--c-warn-100); color: var(--c-warn-700); }
+.seg-badge--vigente  { background: var(--c-success-50); color: var(--c-success-700); }
+.seg-badge--sinint   { background: var(--c-warn-50); color: var(--c-warn-700); }
+.seg-badge--noaplica { background: var(--c-surface-3); color: var(--c-ink-2); }
+.seg-badge--na       { background: var(--c-surface-2); color: var(--c-ink-2); }
+
+/* La nota del conflicto trae las DOS versiones del papel y es larga (~250
+   caracteres). Plegada, la fila mide lo mismo que cualquier otra; desplegada,
+   se lee entera. Sin esto la primera fila medía 404 px. */
+.seg-conflicto {
+  margin-top: 6px; padding: 6px 9px; border-radius: var(--radius-sm);
+  background: var(--c-warn-50); color: var(--c-warn-700); border: 1px solid var(--c-warn-100);
+  font-size: 0.78rem;
+}
+.seg-conflicto > summary { cursor: pointer; font-weight: 600; }
+.seg-conflicto > p { margin: 6px 0 8px; }
+.seg-acciones { display: flex; gap: 4px; }
+
+/* ── Impresión: la lista tiene que salir como el papel ──────────────────── */
+@media print {
+  .seg-filtros, .seg-acciones, .seg-franja, .adf-btn, .seg-grupo__head i { display: none !important; }
+  .seg-tabla { font-size: 0.72rem; }
+  .seg-grupo { break-inside: auto; }
+  .seg-tabla tr { break-inside: avoid; }
+  .seg-fila--vencido, .seg-fila--conflicto { background: none !important; }
+}
+
+@media (max-width: 768px) {
+  .seg-busca { max-width: none; }
+  .seg-obs { max-width: 140px; }
+}
+
+/* ── Tarjeta de Mi taller ───────────────────────────────────────────────── */
+.tec-venc {
+  border: 1px solid var(--c-line-1); border-radius: var(--radius-md);
+  background: var(--c-surface-0); padding: 12px 14px; margin-bottom: var(--sp-4);
+}
+.tec-venc__head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.tec-venc__resumen { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.tec-venc__aviones { display: flex; flex-direction: column; gap: 6px; }
+.tec-venc__avion {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  width: 100%; text-align: left; cursor: pointer; font: inherit;
+  border: 1px solid var(--c-line-1); border-radius: var(--radius-sm);
+  background: var(--c-surface-1); color: var(--c-ink-1); padding: 8px 10px;
+}
+.tec-venc__avion:hover { border-color: var(--c-ink-4); }
+.tec-venc__mat { font-family: var(--font-mono, monospace); font-weight: 600; }
+.tec-venc__v {
+  font-size: 0.78rem; padding: 2px 9px; border-radius: var(--radius-pill);
+  background: var(--c-danger-100); color: var(--c-danger-700);
+}
+.tec-venc__p {
+  font-size: 0.78rem; padding: 2px 9px; border-radius: var(--radius-pill);
+  background: var(--c-warn-100); color: var(--c-warn-700);
+}
+.tec-venc__peor { font-size: 0.8rem; color: var(--c-ink-2); margin-left: auto; }
+@media (max-width: 640px) { .tec-venc__peor { margin-left: 0; flex-basis: 100%; } }
