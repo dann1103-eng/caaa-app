@@ -1026,6 +1026,42 @@ function PopoverContent({
   // así que el estado arranca con el valor actual del item.
   const [remarksDraft, setRemarksDraft] = useState(activePopover.item.remarks_instructor || "");
   const [savingRemarks, setSavingRemarks] = useState(false);
+
+  // Parada de una RUTA ya agendada. El popover se monta al abrirse, así que el
+  // estado arranca con lo que hay guardado. Aplicar tiene botón propio (y no
+  // viaja con "Guardar cambios") porque reconstruye las filas de vuelo y puede
+  // devolver 409 si la ruta ya empezó — merece su propio sí/no.
+  const paradasGuardadas = Array.isArray(activePopover.item.tramos_ruta)
+    ? activePopover.item.tramos_ruta : [];
+  const [conParada, setConParada] = useState(activePopover.item.con_parada === true);
+  const [paradas, setParadas] = useState(paradasGuardadas.length ? paradasGuardadas : [""]);
+  const [savingParada, setSavingParada] = useState(false);
+  const paradasLimpias = paradas.map(p => p.trim().toUpperCase()).filter(Boolean);
+  const paradaCambiada =
+    conParada !== (activePopover.item.con_parada === true) ||
+    (conParada && paradasLimpias.join(",") !== paradasGuardadas.join(","));
+  const paradaValida = !conParada || (paradasLimpias.length > 0 && paradasLimpias.every(p => /^[A-Z]{4}$/.test(p)));
+
+  async function handleGuardarParada() {
+    setSavingParada(true);
+    const { toast } = await import("sonner");
+    try {
+      const { configurarParadaRuta } = await import("../../services/adminApi");
+      const r = await configurarParadaRuta(activePopover.item.id_detalle, {
+        con_parada: conParada,
+        tramos_ruta: conParada ? paradasLimpias : null,
+      });
+      toast.success(conParada
+        ? `Ruta con parada: ${r.tramos?.length || paradasLimpias.length + 1} tramos`
+        : "La ruta volvió a ser un solo vuelo");
+      closePopover();
+      if (onRefresh) onRefresh();
+    } catch (e) {
+      toast.error(e?.response?.data?.message || "No se pudo cambiar la parada");
+    } finally {
+      setSavingParada(false);
+    }
+  }
   const remarksCambiado = remarksDraft !== (activePopover.item.remarks_instructor || "");
 
   async function handleGuardarRemarks() {
@@ -1292,6 +1328,61 @@ function PopoverContent({
           >
             <i className="bi bi-hourglass-split"></i> Lista de espera
           </button>
+        )}
+
+        {/* Convertir una ruta ya agendada en ruta con parada (o quitarle la
+            parada) sin cancelarla. Antes esto solo se podía elegir al agendar. */}
+        {activePopover.item.tipo_vuelo === 'RUTA' && isEditable && allowInstructorChange && (
+          <div className="pop-row" style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-line, #e5e7eb)' }}>
+            <label className="avm-check" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={conParada}
+                onChange={(e) => setConParada(e.target.checked)} />
+              Con parada (un vuelo por tramo)
+            </label>
+
+            {conParada && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                <span style={{ fontWeight: 700 }}>MSSS</span>
+                {paradas.map((p, i) => (
+                  <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span>→</span>
+                    <input
+                      value={p}
+                      maxLength={4}
+                      placeholder="ICAO"
+                      style={{ width: 68, textTransform: 'uppercase' }}
+                      onChange={(e) => setParadas(paradas.map((x, j) => j === i ? e.target.value.toUpperCase() : x))}
+                    />
+                    {paradas.length > 1 && (
+                      <button type="button" className="btn-move-v" style={{ padding: '0 6px' }}
+                        onClick={() => setParadas(paradas.filter((_, j) => j !== i))}>×</button>
+                    )}
+                  </span>
+                ))}
+                <span>→ MSSS</span>
+                {paradas.length < 4 && (
+                  <button type="button" className="btn-move-v" style={{ padding: '0 6px' }}
+                    onClick={() => setParadas([...paradas, ""])}>+ tramo</button>
+                )}
+              </div>
+            )}
+
+            {paradaCambiada && (
+              <>
+                <p style={{ fontSize: 12, margin: '6px 0 0', color: 'var(--c-ink-3, #6b7280)' }}>
+                  {activePopover.item.id_vuelo
+                    ? 'Se rehacen los vuelos de la ruta. Solo se puede mientras no haya empezado a volarse.'
+                    : 'La semana aún no está publicada: los tramos se crean al publicarla.'}
+                </p>
+                <button type="button" className="btn-move-v" style={{ width: '100%', marginTop: 6 }}
+                  disabled={savingParada || !paradaValida}
+                  onClick={handleGuardarParada}>
+                  <i className="bi bi-signpost-split"></i>{' '}
+                  {savingParada ? 'Aplicando…' : (conParada ? 'Aplicar parada' : 'Quitar parada')}
+                </button>
+              </>
+            )}
+          </div>
         )}
 
         {/* Solo con id_vuelo: los tramos nacen al publicar la semana, así que en

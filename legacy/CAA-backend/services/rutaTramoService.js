@@ -8,6 +8,8 @@
 // Todas las funciones asumen que "client" es una conexión pg DENTRO de una transacción
 // abierta por el caller (BEGIN/COMMIT/ROLLBACK son responsabilidad del controller).
 
+const { construirTramos } = require("../utils/rutaTramos");
+
 function esTramo(vuelo) {
   return vuelo && vuelo.grupo_ruta != null;
 }
@@ -156,3 +158,177 @@ async function registrarAterrizajeTramo(client, { vuelo, tacometro, hobbs, id_us
 }
 
 module.exports = { esTramo, esTramoFinal, nextEstadoTramo, asegurarTramoAnteriorCerrado, registrarAterrizajeTramo };
+
+// ---------------------------------------------------------------------------
+// Reconfiguración de la parada de una ruta YA agendada
+// ---------------------------------------------------------------------------
+// Caso real: se agendó una RUTA y se olvidó marcar "con parada" (o al revés, o
+// hay que corregir el ICAO). Antes la única salida era cancelar y re-agendar.
+//
+// La fuente de verdad es solicitud_vuelo (día, bloques, aeronave, con_parada,
+// tramos_ruta): el caller la actualiza y luego llama a sincronizarTramos, que
+// deja las filas de `vuelo` calcadas a esa forma. Eso además elimina el desfase
+// que existía al mover una ruta desde el popover, que solo alcanzaba al tramo 1
+// (los hermanos llevan id_detalle NULL — ver uq_vuelo_detalle).
+//
+// ⚠️ Regla que sostiene todo esto: el TRAMO 1 SE REUTILIZA, NUNCA SE BORRA.
+// De vuelo cuelgan con ON DELETE CASCADE reporte_vuelo, loadsheet,
+// weight_balance, plan_vuelo y checklist_postvuelo ⇒ un DELETE se lleva en
+// silencio la vouchera y el loadsheet del alumno. Al convertir una ruta simple
+// en ruta con parada, el loadsheet que el alumno ya hizo queda en el tramo 1,
+// que es justo donde corresponde.
+
+const ESTADOS_SIN_EMPEZAR = ["PUBLICADO", "PROGRAMADO", "EN_ESPERA_TRAMO"];
+
+// Guard: la ruta solo se reconfigura mientras NO haya pasado nada. Lanza un
+// Error con .status=409 explicando qué lo impide. Se chequea el grupo COMPLETO:
+// basta que un tramo haya salido del hangar para que reordenarlos sea mentira.
+async function assertRutaReconfigurable(client, id_detalle) {
+  const r = await client.query(
+    `SELECT v.id_vuelo, v.estado, v.orden_tramo,
+            EXISTS (SELECT 1 FROM reporte_vuelo rv WHERE rv.id_vuelo = v.id_vuelo) AS tiene_reporte,
+            EXISTS (SELECT 1 FROM vuelo_estado_tiempo vt WHERE vt.id_vuelo = v.id_vuelo) AS tiene_estados
+       FROM vuelo v
+      WHERE v.id_detalle = $1 OR v.grupo_ruta = $1
+      ORDER BY COALESCE(v.orden_tramo, 1)`,
+    [id_detalle]
+  );
+  for (const v of r.rows) {
+    const donde = v.orden_tramo ? `El tramo ${v.orden_tramo}` : "El vuelo";
+    if (!ESTADOS_SIN_EMPEZAR.includes(v.estado)) {
+      throw Object.assign(
+        new Error(`${donde} ya está en ${v.estado}: la parada solo se puede cambiar mientras la ruta no haya empezado. Si ya se voló, hay que cancelarla y re-agendarla.`),
+        { status: 409 }
+      );
+    }
+    if (v.tiene_reporte || v.tiene_estados) {
+      throw Object.assign(
+        new Error(`${donde} ya tiene movimiento registrado (vouchera o cambios de estado). Cambiar la parada ahora dejaría esos datos colgando de un tramo que deja de existir.`),
+        { status: 409 }
+      );
+    }
+  }
+  return r.rows;
+}
+
+// Los tramos que SOBRAN se borran, y el borrado arrastra en cascada el trabajo
+// del alumno. Si tienen loadsheet, peso&balance o plan de vuelo, se frena.
+async function assertTramosBorrables(client, ids) {
+  if (!ids.length) return;
+  const r = await client.query(
+    `SELECT v.orden_tramo,
+            EXISTS (SELECT 1 FROM loadsheet l WHERE l.id_vuelo = v.id_vuelo) AS ls,
+            EXISTS (SELECT 1 FROM weight_balance w WHERE w.id_vuelo = v.id_vuelo) AS wb,
+            EXISTS (SELECT 1 FROM plan_vuelo p WHERE p.id_vuelo = v.id_vuelo) AS pv
+       FROM vuelo v WHERE v.id_vuelo = ANY($1::int[])`,
+    [ids]
+  );
+  const conTrabajo = r.rows.filter((x) => x.ls || x.wb || x.pv).map((x) => x.orden_tramo);
+  if (conTrabajo.length) {
+    throw Object.assign(
+      new Error(`El tramo ${conTrabajo.join(" y ")} ya tiene loadsheet o plan de vuelo cargado. Quitar ese tramo borraría ese trabajo — si igual hay que hacerlo, cancelá la ruta y re-agendala.`),
+      { status: 409 }
+    );
+  }
+}
+
+// Deja las filas de `vuelo` calcadas a lo que dice solicitud_vuelo.
+// Devuelve { aplicado, tramos } — aplicado=false cuando la semana todavía no
+// está publicada (ahí no hay vuelos: los tramos nacen en publicarSemana).
+async function sincronizarTramos(client, id_detalle) {
+  const svRes = await client.query(
+    `SELECT sv.id_detalle, sv.id_semana, sv.dia_semana, sv.id_bloque, sv.id_bloque_fin,
+            sv.id_aeronave, sv.tipo_vuelo, sv.con_parada, sv.tramos_ruta,
+            sv.es_extracurricular, sv.categoria, sv.tipo_instruccion, sv.nombre_externo,
+            sv.id_licencia_chequeo, ss.id_alumno,
+            COALESCE(sv.id_instructor, al.id_instructor) AS id_instructor,
+            sw.fecha_inicio
+       FROM solicitud_vuelo sv
+       JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+       JOIN alumno al ON al.id_alumno = ss.id_alumno
+       JOIN semana_vuelo sw ON sw.id_semana = sv.id_semana
+      WHERE sv.id_detalle = $1`,
+    [id_detalle]
+  );
+  if (!svRes.rows.length) {
+    throw Object.assign(new Error("No se encontró la solicitud de ese vuelo."), { status: 404 });
+  }
+  const sv = svRes.rows[0];
+
+  const existentes = await assertRutaReconfigurable(client, id_detalle);
+  if (!existentes.length) return { aplicado: false, tramos: [] };
+
+  // Forma deseada. Sin parada la ruta es UN vuelo plano: los campos de tramo
+  // vuelven a NULL para que tramoBadge/nextEstadoTramo dejen de tratarlo como tramo.
+  const conParada = sv.con_parada === true && sv.tipo_vuelo === "RUTA";
+  const deseados = conParada
+    ? construirTramos({
+        paradas: Array.isArray(sv.tramos_ruta) ? sv.tramos_ruta : JSON.parse(sv.tramos_ruta || "[]"),
+        id_bloque: sv.id_bloque,
+        id_bloque_fin: sv.id_bloque_fin,
+      })
+    : [{
+        orden_tramo: null, total_tramos: null, icao_origen: null, icao_destino: null,
+        id_bloque: sv.id_bloque, id_bloque_fin: sv.id_bloque_fin || sv.id_bloque,
+      }];
+
+  const sobran = existentes.slice(deseados.length);
+  await assertTramosBorrables(client, sobran.map((v) => v.id_vuelo));
+
+  // 1) Reutilizar las filas que ya existen, en orden. La primera conserva
+  //    SIEMPRE su id_vuelo y su id_detalle (uq_vuelo_detalle: los hermanos van
+  //    con NULL), así que el loadsheet y los enlaces del alumno sobreviven.
+  const tramos = [];
+  for (let i = 0; i < Math.min(existentes.length, deseados.length); i++) {
+    const v = existentes[i];
+    const d = deseados[i];
+    const primero = i === 0;
+    // EN_ESPERA_TRAMO solo tiene sentido para un tramo 2..N; si esta fila pasa
+    // a ser la primera (o deja de ser tramo), vuelve a PUBLICADO.
+    const estado = primero
+      ? (v.estado === "EN_ESPERA_TRAMO" ? "PUBLICADO" : v.estado)
+      : "EN_ESPERA_TRAMO";
+    await client.query(
+      `UPDATE vuelo
+          SET id_detalle = $2, dia_semana = $3, id_bloque = $4, id_bloque_fin = $5,
+              id_aeronave = $6, tipo_vuelo = $7, estado = $8,
+              fecha_vuelo = (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana = $9) + ($3 - 1),
+              grupo_ruta = $10, orden_tramo = $11, total_tramos = $12,
+              icao_origen = $13, icao_destino = $14
+        WHERE id_vuelo = $1`,
+      [v.id_vuelo, primero ? id_detalle : null, sv.dia_semana, d.id_bloque, d.id_bloque_fin,
+       sv.id_aeronave, sv.tipo_vuelo, estado, sv.id_semana,
+       conParada ? id_detalle : null, d.orden_tramo, d.total_tramos, d.icao_origen, d.icao_destino]
+    );
+    tramos.push({ id_vuelo: v.id_vuelo, ...d });
+  }
+
+  // 2) Tramos que faltan (la ruta ganó paradas).
+  for (let i = existentes.length; i < deseados.length; i++) {
+    const d = deseados[i];
+    const ins = await client.query(
+      `INSERT INTO vuelo (id_detalle, id_semana, id_alumno, id_instructor, id_aeronave, dia_semana,
+                          id_bloque, tipo_vuelo, id_bloque_fin, es_extracurricular, tipo_instruccion,
+                          categoria, nombre_externo, id_licencia_chequeo, estado, creado_por, fecha_vuelo,
+                          grupo_ruta, orden_tramo, total_tramos, icao_origen, icao_destino)
+       VALUES (NULL,$1,$2,$3,$4,$5,$6,'RUTA',$7,$8,$9,$10,$11,$12,'EN_ESPERA_TRAMO','PROGRAMACION',
+               (SELECT fecha_inicio FROM semana_vuelo WHERE id_semana = $1) + ($5 - 1), $13,$14,$15,$16,$17)
+       RETURNING id_vuelo`,
+      [sv.id_semana, sv.id_alumno, sv.id_instructor, sv.id_aeronave, sv.dia_semana,
+       d.id_bloque, d.id_bloque_fin, sv.es_extracurricular === true, sv.tipo_instruccion,
+       sv.categoria, sv.nombre_externo, sv.id_licencia_chequeo,
+       id_detalle, d.orden_tramo, d.total_tramos, d.icao_origen, d.icao_destino]
+    );
+    tramos.push({ id_vuelo: ins.rows[0].id_vuelo, ...d });
+  }
+
+  // 3) Tramos que sobran (la ruta perdió paradas). Ya verificados sin trabajo.
+  if (sobran.length) {
+    await client.query(`DELETE FROM vuelo WHERE id_vuelo = ANY($1::int[])`, [sobran.map((v) => v.id_vuelo)]);
+  }
+
+  return { aplicado: true, tramos };
+}
+
+module.exports.assertRutaReconfigurable = assertRutaReconfigurable;
+module.exports.sincronizarTramos = sincronizarTramos;

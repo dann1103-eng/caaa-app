@@ -57,6 +57,7 @@ router.patch("/semanas/:id_semana/rechazar-todo", adminAccess, adminVuelo.rechaz
 
 // Rutas con parada: tramos + reasignación de alumno por tramo (modal "Asignar alumnos por tramo").
 router.get("/rutas/:id_detalle/tramos", adminAccess, adminVuelo.getTramosRuta);
+router.patch("/rutas/:id_detalle/parada", adminAccess, adminVuelo.configurarParadaRuta);
 router.patch("/vuelos/:id_vuelo/alumno-tramo", adminAccess, adminVuelo.asignarAlumnoTramo);
 
 // --- Aeronaves ---

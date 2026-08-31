@@ -154,6 +154,13 @@ export const asignarAlumnoTramo = async (id_vuelo, id_alumno) => {
   return res.data;
 };
 
+// Convertir una RUTA ya agendada en ruta con parada (o quitarle la parada) sin
+// cancelarla. El backend responde 409 si la ruta ya empezó a volarse.
+export const configurarParadaRuta = async (id_detalle, { con_parada, tramos_ruta }) => {
+  const res = await axios.patch(`${API_URL}/admin/rutas/${id_detalle}/parada`, { con_parada, tramos_ruta });
+  return res.data;
+};
+
 // ── Instructores ──────────────────────────────────────────────────────────────
 export const getInstructoresActivos = async () => {
   const res = await axios.get(`${API_URL}/admin/instructores-activos`);

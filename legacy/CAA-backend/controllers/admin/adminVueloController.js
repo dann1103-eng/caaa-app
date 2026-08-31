@@ -7,6 +7,7 @@ const { getNextSemanaId, getCurrentSemanaId, crearSemanaFutura } = require("../.
 const { dispararOfertaPorCancelacion } = require("../../controllers/standbyController");
 const { notificarUsuario } = require("../../utils/notificaciones");
 const { normalizarParadas, construirTramos } = require("../../utils/rutaTramos");
+const { sincronizarTramos } = require("../../services/rutaTramoService");
 
 exports.getSemanas = catchAsync(async (req, res) => {
   const result = await db.query(`
@@ -284,6 +285,7 @@ exports.getCalendario = catchAsync(async (req, res) => {
       sv.id_detalle, sv.id_solicitud, sv.con_parada, sv.tramos_ruta, ss.estado AS estado_solicitud, sv.estado AS estado_vuelo_individual,
       ss.comentario_alumno, sv.remarks_instructor,
       v.id_vuelo, v.estado AS estado_vuelo, COALESCE(v.estado, ss.estado) AS estado_mostrar,
+      v.grupo_ruta, v.orden_tramo, v.total_tramos, v.icao_origen, v.icao_destino,
       sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
       sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,
       ss.id_alumno, u_al.nombre || ' ' || u_al.apellido AS alumno_nombre,
@@ -458,6 +460,24 @@ exports.guardarCambios = catchAsync(async (req, res) => {
         [m.dia_semana, m.id_bloque, m.id_aeronave, m.id_bloque_fin || null, m.id_detalle, categoria, idLicenciaChequeo]
       );
 
+      // 1b. Rutas con parada: los hermanos llevan id_detalle NULL (uq_vuelo_detalle),
+      // así que el UPDATE de abajo (WHERE id_detalle = ...) solo alcanzaría al
+      // tramo 1 y dejaría los demás en el día/bloque/avión viejos. Para esas se
+      // resincroniza el grupo entero desde la solicitud, que es la fuente de
+      // verdad, y se re-reparte el rango de bloques entre los tramos.
+      const tieneTramos = await client.query(
+        `SELECT 1 FROM vuelo WHERE grupo_ruta = $1 LIMIT 1`, [m.id_detalle]
+      );
+      if (tieneTramos.rows.length) {
+        try {
+          await sincronizarTramos(client, m.id_detalle);
+        } catch (e) {
+          await client.query("ROLLBACK");
+          return res.status(e.status || 500).json({ message: e.message });
+        }
+        continue; // el grupo ya quedó calcado a la solicitud
+      }
+
       // 2. Si existe el vuelo (semana publicada), actualizarlo y notificar
       const vueloRes = await client.query(`
         SELECT v.id_vuelo, sw.publicada, sw.fecha_inicio,
@@ -518,6 +538,99 @@ exports.guardarCambios = catchAsync(async (req, res) => {
     await client.query("ROLLBACK");
     console.error("Error en guardarCambios:", e);
     res.status(500).json({ message: "Error al guardar cambios" });
+  } finally {
+    client.release();
+  }
+});
+
+// Cambiar la parada de una RUTA ya agendada, sin cancelarla ni re-agendarla.
+// Caso real (Samuel, 2026-08-31): se agenda una ruta y se olvida marcar "con
+// parada"; hasta ahora la única salida era cancelar y volver a agendar, que
+// además le borra al alumno el loadsheet que ya hubiera hecho.
+//
+// La solicitud es la fuente de verdad: se actualiza acá y sincronizarTramos
+// deja las filas de `vuelo` calcadas. En semana NO publicada no hay vuelos que
+// tocar (los tramos nacen en publicarSemana) y esto es solo un UPDATE.
+//
+// Solo mientras la ruta no haya empezado: el guard de sincronizarTramos
+// devuelve 409 si algún tramo ya tiene vouchera o cambios de estado.
+exports.configurarParadaRuta = catchAsync(async (req, res) => {
+  const id_detalle = Number(req.params.id_detalle);
+  const { con_parada, tramos_ruta } = req.body;
+  const client = await db.connect();
+  try {
+    const svRes = await client.query(
+      `SELECT sv.tipo_vuelo, ss.id_alumno, al.id_usuario AS usuario_alumno
+         FROM solicitud_vuelo sv
+         JOIN solicitud_semana ss ON ss.id_solicitud = sv.id_solicitud
+         JOIN alumno al ON al.id_alumno = ss.id_alumno
+        WHERE sv.id_detalle = $1`,
+      [id_detalle]
+    );
+    if (!svRes.rows.length) return res.status(404).json({ message: "No se encontró ese vuelo." });
+    if (svRes.rows[0].tipo_vuelo !== "RUTA") {
+      return res.status(400).json({ message: "Solo una RUTA puede tener parada. Cambiá primero el tipo de vuelo a Ruta." });
+    }
+
+    const quiereParada = con_parada === true;
+    let paradas = null;
+    if (quiereParada) {
+      try { paradas = normalizarParadas(tramos_ruta); }
+      catch (e) { return res.status(e.status || 400).json({ message: e.message }); }
+    }
+
+    await client.query("BEGIN");
+    await client.query(
+      `UPDATE solicitud_vuelo SET con_parada = $2, tramos_ruta = $3 WHERE id_detalle = $1`,
+      [id_detalle, quiereParada, paradas ? JSON.stringify(paradas) : null]
+    );
+
+    let resultado;
+    try {
+      resultado = await sincronizarTramos(client, id_detalle);
+    } catch (e) {
+      await client.query("ROLLBACK");
+      if (e.status) return res.status(e.status).json({ message: e.message });
+      throw e;
+    }
+
+    const descripcionCambio = quiereParada
+      ? `Ruta con parada: MSSS→${paradas.join("→")}→MSSS (${resultado.tramos.length} tramos)`
+      : "Ruta sin parada (un solo vuelo)";
+
+    await logAuditoria(client, {
+      accion: "EDITAR_SOLICITUD",
+      entidad: "solicitud_vuelo",
+      id_entidad: id_detalle,
+      actor: req.user,
+      req,
+      descripcion: descripcionCambio,
+      metadata: { con_parada: quiereParada, tramos_ruta: paradas, aplicado: resultado.aplicado },
+    });
+
+    // Aviso al alumno: le cambia la cantidad de loadsheets que tiene que hacer.
+    // Dentro de la tx: si falla, el cambio no queda a medias.
+    await notificarUsuario(client, svRes.rows[0].usuario_alumno, {
+      tipo: "VUELO",
+      mensaje: quiereParada
+        ? `Tu ruta quedó como MSSS→${paradas.join("→")}→MSSS: es un vuelo (y un loadsheet) por tramo.`
+        : "Tu ruta volvió a ser un solo vuelo, sin escala.",
+    });
+
+    await client.query("COMMIT");
+
+    const io = req.app.get("socketio");
+    if (io) io.emit("guardar_cambios");
+
+    res.json({
+      message: quiereParada ? "Parada configurada" : "Parada quitada",
+      aplicado: resultado.aplicado,
+      tramos: resultado.tramos,
+    });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Error en configurarParadaRuta:", e);
+    res.status(500).json({ message: "Error al configurar la parada de la ruta" });
   } finally {
     client.release();
   }
