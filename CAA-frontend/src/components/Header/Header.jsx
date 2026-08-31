@@ -116,7 +116,9 @@ export default function Header() {
                     </Link>
                   )}
 
-                  {user.rol === "ALUMNO" && (
+                  {/* El loadsheet es peso y balance de una aeronave: no va para
+                      un alumno de un programa de tierra. */}
+                  {user.rol === "ALUMNO" && user.vuela !== false && (
                     <Link to="/alumno/loadsheet/practica" className="header__action-link" onClick={closeMenu}>
                       <i className="bi bi-clipboard-data header__action-icon" />
                       <span>Practicar loadsheet</span>

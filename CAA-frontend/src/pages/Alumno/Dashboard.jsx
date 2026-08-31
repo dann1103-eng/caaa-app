@@ -54,9 +54,20 @@ const CARD_ICONS = {
 
 export default function AlumnoDashboard() {
   const user = JSON.parse(localStorage.getItem("user")) || {};
+  // ¿Su programa se vuela? Lo manda el backend en el login y en el refresh; acá
+  // NO se deduce de otra cosa. Un alumno de sobrecargo no ve los bloques de
+  // vuelo, pero conserva clases, material, notas, asistencia y cuenta corriente.
+  // Los bloques se encienden uno por uno para poder sumarle después cosas
+  // propias del alumno de tierra sin partir la pantalla en dos.
+  const vuela = user.vuela !== false;
   const navigate = useNavigate();
 
-  const [weekMode, setWeekMode] = useState("current"); // "current", "next", "cancelaciones"
+  // Arranca en "clases" para quien no vuela: las tres pestañas de vuelo están
+  // ocultas, y sin esto el panel abría en una pestaña invisible y se quedaba en
+  // "Cargando horario…" para siempre.
+  const [weekMode, setWeekMode] = useState(
+    (JSON.parse(localStorage.getItem("user")) || {}).vuela === false ? "clases" : "current"
+  ); // "current", "next", "cancelaciones", "clases"
   const [vuelos, setVuelos] = useState([]);
   const [loadingVuelos, setLoadingVuelos] = useState(false);
   const [solicitudes, setSolicitudes] = useState([]);
@@ -227,7 +238,7 @@ export default function AlumnoDashboard() {
       <div className="dash">
         {/* ── Estado de operaciones + avisos de turno (antes del botón de agendar) ── */}
         <div className="dash__ops">
-          <EstadoOperacionesWidget />
+          {vuela && <EstadoOperacionesWidget />}
           <AvisosTurnoWidget />
         </div>
 
@@ -238,16 +249,22 @@ export default function AlumnoDashboard() {
             <h2 className="dash__title">
               Hola, <span className="dash__title-name">{user.nombre || "Alumno"}</span>
             </h2>
-            <p className="dash__subtitle">Revisá y gestioná tu horario semanal de vuelos.</p>
+            <p className="dash__subtitle">
+              {vuela
+                ? "Revisá y gestioná tu horario semanal de vuelos."
+                : "Revisá tus clases, tus notas y tu cuenta."}
+            </p>
           </div>
+          {vuela && (
           <button 
-            className="btn-agendar" 
-            onClick={() => navigate("/alumno/agendar")}
-            disabled={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0}
-            title={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "No tenés vuelos habilitados para esta semana" : ""}
-          >
-            <i className="bi bi-plus-lg"></i> {info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "Vuelos deshabilitados" : "Agendar clase"}
-          </button>
+              className="btn-agendar" 
+              onClick={() => navigate("/alumno/agendar")}
+              disabled={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0}
+              title={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "No tenés vuelos habilitados para esta semana" : ""}
+            >
+              <i className="bi bi-plus-lg"></i> {info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "Vuelos deshabilitados" : "Agendar clase"}
+            </button>
+          )}
         </div>
 
         {/* ── Info cards ── */}
@@ -260,29 +277,31 @@ export default function AlumnoDashboard() {
             </div>
           </div>
 
+          {vuela && (<>
           <div className="dash__card">
-            <span className="dash__card-icon">{CARD_ICONS.instructor}</span>
-            <div>
-              <div className="dash__card-label">Instructor</div>
-              <div className="dash__card-value">{instructorNombre}</div>
+              <span className="dash__card-icon">{CARD_ICONS.instructor}</span>
+              <div>
+                <div className="dash__card-label">Instructor</div>
+                <div className="dash__card-value">{instructorNombre}</div>
+              </div>
             </div>
-          </div>
-
-          <div className="dash__card">
-            <span className="dash__card-icon">{CARD_ICONS.semana}</span>
-            <div>
-              <div className="dash__card-label">Límite Avión</div>
-              <div className="dash__card-value">{info?.limite_vuelos_avion ?? 3}</div>
+  
+            <div className="dash__card">
+              <span className="dash__card-icon">{CARD_ICONS.semana}</span>
+              <div>
+                <div className="dash__card-label">Límite Avión</div>
+                <div className="dash__card-value">{info?.limite_vuelos_avion ?? 3}</div>
+              </div>
             </div>
-          </div>
-
-          <div className="dash__card">
-            <span className="dash__card-icon">{CARD_ICONS.estado}</span>
-            <div>
-              <div className="dash__card-label">Límite Simulador</div>
-              <div className="dash__card-value">{info?.limite_vuelos_simulador ?? 3}</div>
+  
+            <div className="dash__card">
+              <span className="dash__card-icon">{CARD_ICONS.estado}</span>
+              <div>
+                <div className="dash__card-label">Límite Simulador</div>
+                <div className="dash__card-value">{info?.limite_vuelos_simulador ?? 3}</div>
+              </div>
             </div>
-          </div>
+          </>)}
         </div>
 
         {/* ── Body: main + sidebar ── */}
@@ -316,24 +335,30 @@ export default function AlumnoDashboard() {
 
             {/* Tabs */}
             <div className="dash__tabs">
+              {vuela && (
               <button
-                className={`dash__tab${weekMode === "current" ? " dash__tab--active" : ""}`}
-                onClick={() => setWeekMode("current")}
-              >
-                Semana actual
-              </button>
+                  className={`dash__tab${weekMode === "current" ? " dash__tab--active" : ""}`}
+                  onClick={() => setWeekMode("current")}
+                >
+                  Semana actual
+                </button>
+              )}
+              {vuela && (
               <button
-                className={`dash__tab${weekMode === "next" ? " dash__tab--active" : ""}`}
-                onClick={() => setWeekMode("next")}
-              >
-                Semana siguiente
-              </button>
+                  className={`dash__tab${weekMode === "next" ? " dash__tab--active" : ""}`}
+                  onClick={() => setWeekMode("next")}
+                >
+                  Semana siguiente
+                </button>
+              )}
+              {vuela && (
               <button
-                className={`dash__tab${weekMode === "cancelaciones" ? " dash__tab--active" : ""}`}
-                onClick={() => setWeekMode("cancelaciones")}
-              >
-                Mis cancelaciones
-              </button>
+                  className={`dash__tab${weekMode === "cancelaciones" ? " dash__tab--active" : ""}`}
+                  onClick={() => setWeekMode("cancelaciones")}
+                >
+                  Mis cancelaciones
+                </button>
+              )}
               <button
                 className={`dash__tab${weekMode === "clases" ? " dash__tab--active" : ""}`}
                 onClick={() => setWeekMode("clases")}
@@ -415,28 +440,32 @@ export default function AlumnoDashboard() {
           </div>
 
           {/* ── Sidebar ── */}
-          <aside className="dash__sidebar">
-            <MetarWidget />
-          </aside>
+          {vuela && (
+            <aside className="dash__sidebar">
+              <MetarWidget />
+            </aside>
+          )}
         </div>
 
+        {vuela && (<>
         {/* ── Programación de la semana (toda la escuela) ──
-            Solo lectura: le sirve al alumno para ver qué horarios están libres
-            o se liberaron antes de pedir un vuelo. Mismo componente y misma
-            fuente que el dashboard del instructor y la Proyección. */}
-        <div className="dash__schedule">
-          <h3 className="dash__schedule-title">
-            <i className="bi bi-calendar3"></i>
-            Programación de la semana (toda la escuela)
-          </h3>
-          <p className="dash__schedule-hint">
-            Consultá los espacios libres o los vuelos cancelados para pedir tus horas.
-            Se actualiza solo cada 20 segundos.
-          </p>
-          <div className="pp">
-            <ScheduleWeekTable vuelos={calendarioEscuela} diaHoy={diaHoyDb} />
+              Solo lectura: le sirve al alumno para ver qué horarios están libres
+              o se liberaron antes de pedir un vuelo. Mismo componente y misma
+              fuente que el dashboard del instructor y la Proyección. */}
+          <div className="dash__schedule">
+            <h3 className="dash__schedule-title">
+              <i className="bi bi-calendar3"></i>
+              Programación de la semana (toda la escuela)
+            </h3>
+            <p className="dash__schedule-hint">
+              Consultá los espacios libres o los vuelos cancelados para pedir tus horas.
+              Se actualiza solo cada 20 segundos.
+            </p>
+            <div className="pp">
+              <ScheduleWeekTable vuelos={calendarioEscuela} diaHoy={diaHoyDb} />
+            </div>
           </div>
-        </div>
+        </>)}
       </div>
     </>
   );
