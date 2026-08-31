@@ -6,13 +6,13 @@ import { getSession } from "../../utils/auth";
 const API = () => window.__APP_CONFIG__?.API_URL || "";
 
 /**
- * Botón para devolver el demo a su punto de partida, en vivo delante de un
- * prospecto.
+ * Botón para devolver la demostración a su punto de partida, en vivo delante de
+ * un prospecto.
  *
- * 🚨 Dispara un endpoint que BORRA la base. Se dibuja SOLO si el backend
- * contesta /api/demo/estado — y ese endpoint solo existe cuando el despliegue
- * tiene DEMO_MODE=true, variable que no existe en CAAA. En producción esta
- * llamada da 404, el componente se apaga y no queda ni rastro en la pantalla.
+ * 🚨 Dispara un endpoint que BORRA datos — pero solo los del esquema `demo`.
+ * Corre en el MISMO despliegue que CAAA, así que se dibuja únicamente cuando el
+ * backend confirma que ESTA SESIÓN trabaja sobre demo. Un admin real de CAAA no
+ * lo ve, y si lo llamara igual recibiría 403: su token dice `public`.
  *
  * El candado del frontend es cosmético: los que valen están en el backend
  * (demo/guardas.js). Acá no se decide nada, solo se pregunta.
@@ -32,10 +32,10 @@ export default function DemoReset() {
     axios.get(`${API()}/api/demo/estado`)
       .then((r) => {
         if (!vivo) return;
-        setDisponible(!!r.data?.base_desechable);
+        setDisponible(!!r.data?.en_demo);
         setFrase(r.data?.frase || "");
       })
-      .catch(() => setDisponible(false));   // 404 en CAAA: no se dibuja nada.
+      .catch(() => setDisponible(false));   // Ante la duda, no se dibuja.
     return () => { vivo = false; };
   }, [esAdmin]);
 
@@ -74,9 +74,13 @@ export default function DemoReset() {
             </div>
             <div style={{ padding: "0 var(--sp-5) var(--sp-5)" }}>
               <p style={{ marginBottom: 12 }}>
-                Esto <strong>borra todo lo que se hizo</strong> en el demo —alumnos, vuelos,
-                voucheras, movimientos— y lo devuelve al punto de partida. La flota, los cursos
-                y la configuración no se tocan.
+                Esto <strong>borra todo lo que se hizo en la demostración</strong> —alumnos,
+                vuelos, voucheras, movimientos— y lo devuelve al punto de partida. La flota, los
+                cursos y la configuración no se tocan.
+              </p>
+              <p style={{ marginBottom: 12, color: "var(--c-ink-2)", fontSize: "0.88rem" }}>
+                Los datos reales de la escuela viven en otro esquema de la base y esta acción no
+                puede alcanzarlos.
               </p>
               <div className="adf-form-field">
                 <label>Para confirmar, escribí: <code>{frase}</code></label>

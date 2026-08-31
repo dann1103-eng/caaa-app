@@ -114,18 +114,12 @@ app.use("/api/metar", metarRoutes);
 app.use("/api/administracion", administracionRoutes);
 app.use("/api/taller", tallerRoutes);
 
-// ── Entorno de demo ───────────────────────────────────────────────────────
-// 🚨 Este router expone un endpoint que BORRA la base. Se monta SOLO si el
-// despliegue está marcado como demo. Sin la variable, las rutas no existen:
-// responden 404, no 403 — una ruta que no existe no se puede forzar.
-// DEMO_MODE no existe ni va a existir en el entorno de CAAA.
-{
-  const { esDemo } = require("./demo/guardas");
-  if (esDemo()) {
-    app.use("/api/demo", require("./routes/demoRoutes"));
-    console.warn("[DEMO] DEMO_MODE activo: /api/demo montado. El reinicio BORRA la base.");
-  }
-}
+// ── Cuenta de demostraciones ──────────────────────────────────────────────
+// Corre en el MISMO despliegue: el candado no es el despliegue sino la SESION.
+// Solo un token que diga esquema "demo" -- que solo recibe quien este en
+// public.demo_cuenta -- puede disparar el reinicio. Ver demo/guardas.js.
+app.use("/api/demo", require("./routes/demoRoutes"));
+
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/dueno", duenoRoutes);

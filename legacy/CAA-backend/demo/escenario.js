@@ -55,9 +55,9 @@ const ALUMNA_TIERRA = ["a.reyes", "Andrea", "Reyes"]; // sobrecargo: no vuela
 const PASS = "demo123";
 
 // ── Helpers de escritura ──────────────────────────────────────────────────
-async function crearUsuario(c, { u, n, a, rol }, sufijo = "") {
+async function crearUsuario(c, { u, n, a, rol }, prefijo = "") {
   const hash = await bcrypt.hash(PASS, 10);
-  u = u + sufijo;
+  u = prefijo + u;
   const r = await c.query(
     `INSERT INTO usuario (username, password_hash, nombre, apellido, correo, rol,
                           activo, datos_confirmados, must_change_password, must_set_email)
@@ -71,12 +71,19 @@ async function crearUsuario(c, { u, n, a, rol }, sufijo = "") {
 const saldoDe = (i) => Math.round(((i * 7919) % 2400) + 120);
 
 /**
+ * ⚠️ TODOS los usuarios del demo llevan el prefijo `demo.`, y no es cosmético.
+ *
+ * El ruteo de esquema se resuelve por NOMBRE DE USUARIO (public.demo_cuenta es
+ * la única pieza compartida entre los dos esquemas). Si el demo sembrara un
+ * nombre que ya existe en CAAA -- `r.flores`, por ejemplo, que es una persona
+ * real -- ese usuario quedaría ruteado al esquema demo y perdería el acceso a
+ * sus propios datos. El prefijo hace la colisión imposible, y de paso deja a la
+ * vista quién es de demostración.
+ *
  * @param {object} opciones
- * @param {string} [opciones.sufijo] - Se pega a cada username. El sembrador
- *   asume una base VACÍA, que es lo que garantiza el reinicio; el sufijo existe
- *   para poder probarlo contra una base que ya tiene gente, sin colisionar.
+ * @param {string} [opciones.prefijo="demo."]
  */
-async function sembrar(c, log = () => {}, { sufijo = "" } = {}) {
+async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   const hoy = new Date();
   const lunes = lunesDe(hoy);
   const diaHoy = ((hoy.getDay() + 6) % 7) + 1; // 1=lunes … 7=domingo
@@ -104,14 +111,14 @@ async function sembrar(c, log = () => {}, { sufijo = "" } = {}) {
 
   // ── Staff ──────────────────────────────────────────────────────────────
   log("staff");
-  await crearUsuario(c, { u: "admin",   n: "Ana",   a: "Directora", rol: "ADMIN" }, sufijo);
-  await crearUsuario(c, { u: "turno",   n: "Óscar", a: "Turno",     rol: "TURNO" }, sufijo);
-  await crearUsuario(c, { u: "conta",   n: "Rosa",  a: "Contreras", rol: "ADMINISTRACION" }, sufijo);
-  await crearUsuario(c, { u: "taller",  n: "José",  a: "Mecánico",  rol: "TALLER" }, sufijo);
+  await crearUsuario(c, { u: "admin",   n: "Ana",   a: "Directora", rol: "ADMIN" }, prefijo);
+  await crearUsuario(c, { u: "turno",   n: "Óscar", a: "Turno",     rol: "TURNO" }, prefijo);
+  await crearUsuario(c, { u: "conta",   n: "Rosa",  a: "Contreras", rol: "ADMINISTRACION" }, prefijo);
+  await crearUsuario(c, { u: "taller",  n: "José",  a: "Mecánico",  rol: "TALLER" }, prefijo);
 
   const idsInstructor = [];
   for (const i of INSTRUCTORES) {
-    const idU = await crearUsuario(c, { ...i, rol: "INSTRUCTOR" }, sufijo);
+    const idU = await crearUsuario(c, { ...i, rol: "INSTRUCTOR" }, prefijo);
     const r = await c.query(
       `INSERT INTO instructor (id_usuario, activo, es_instructor_vuelo, es_instructor_teoria, puede_programar)
        VALUES ($1, true, true, true, $2) RETURNING id_instructor`,
@@ -125,7 +132,7 @@ async function sembrar(c, log = () => {}, { sufijo = "" } = {}) {
   const idsAlumno = [];
   for (let i = 0; i < ALUMNOS.length; i++) {
     const [u, n, a] = ALUMNOS[i];
-    const idU = await crearUsuario(c, { u, n, a, rol: "ALUMNO" }, sufijo);
+    const idU = await crearUsuario(c, { u, n, a, rol: "ALUMNO" }, prefijo);
     const r = await c.query(
       `INSERT INTO alumno (id_usuario, id_instructor, id_licencia, activo, horas_acumuladas)
        VALUES ($1,$2,$3,true,$4) RETURNING id_alumno`,
@@ -147,7 +154,7 @@ async function sembrar(c, log = () => {}, { sufijo = "" } = {}) {
   // El alumno de tierra: sin instructor y con un programa que no vuela.
   if (licTierra) {
     const [u, n, a] = ALUMNA_TIERRA;
-    const idU = await crearUsuario(c, { u, n, a, rol: "ALUMNO" }, sufijo);
+    const idU = await crearUsuario(c, { u, n, a, rol: "ALUMNO" }, prefijo);
     const r = await c.query(
       `INSERT INTO alumno (id_usuario, id_licencia, activo) VALUES ($1,$2,true) RETURNING id_alumno`,
       [idU, licTierra]

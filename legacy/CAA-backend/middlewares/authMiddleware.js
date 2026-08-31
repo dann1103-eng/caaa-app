@@ -13,6 +13,24 @@ module.exports = async function authMiddleware(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
 
+    // ── Ruteo de esquema ─────────────────────────────────────────────────
+    // El esquema viaja FIRMADO dentro del token, así que nadie puede pasarse a
+    // demo -- ni salirse de demo -- manipulando la petición. Se resuelve acá,
+    // apenas se verifica el token y ANTES de la primera consulta, para que todo
+    // lo que siga (incluida la validación de sesión única de abajo) golpee el
+    // esquema correcto.
+    if (decoded.esquema === "demo") {
+      return db.enEsquema("demo", () => continuar(req, res, next, decoded));
+    }
+    return continuar(req, res, next, decoded);
+  } catch (err) {
+    return res.status(401).json({ message: "Token inválido o expirado" });
+  }
+};
+
+async function continuar(req, res, next, decoded) {
+  try {
+
     // ── Control de Sesión Única (Concurrente) ────────────────────────────────
     // Si el token tiene session_id, validamos contra la DB: si el current_session_id
     // de la BD cambió (login en otro lado), se echa la sesión vieja.
@@ -70,4 +88,4 @@ module.exports = async function authMiddleware(req, res, next) {
   } catch (err) {
     return res.status(401).json({ message: "Token inválido o expirado" });
   }
-};
+}
