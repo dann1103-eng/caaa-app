@@ -3013,6 +3013,43 @@ vuelo`— y la **semana por publicar pasa de 8 a 27 solicitudes con choques**
   distancia. Se quitó del tablero en vez de dejarlo en los dos lados — una
   acción disponible desde dos pantallas termina contradiciéndose (§36).
 
+### 🚨 G. El jefe de taller no tenía dónde aprobar (bug de CAAA en producción)
+Reportado por Daniel probando el demo, pero **pasaba igual en producción**. Eran
+tres cosas encadenadas:
+
+1. **`MiTaller.abrirTrabajo` preguntaba "¿es mío?" ANTES que "¿espera mi
+   firma?"**. Como el jefe suele ser quien ABRE las órdenes, todas le contaban
+   como propias, así que tocar una orden firmada lo mandaba a su tarjeta de
+   trabajo en vez de abrirle la revisión. Una orden firmada no tiene nada que
+   "seguir trabajando": esa rama va primero.
+2. **En la tarjeta solo había la etiqueta "esperando tu firma"**, que se lee como
+   un aviso y no como algo que hacer. Ahora hay un botón *Revisar y firmar*.
+3. **Una orden firmada de un avión que ya salió del hangar era invisible.** "El
+   taller ahora" lista los aviones que están ADENTRO; al consolidar las
+   pantallas (§36) esas órdenes perdieron su entrada. Mi taller gana una franja
+   **"Esperando tu firma"** arriba de todo con TODAS las firmadas, y el detalle
+   de la orden (en Trabajos) ofrece la misma acción.
+
+### H. Dos defectos de fondo que salieron en el camino
+- **El reinicio del demo vaciaba tablas que estaban en la lista de las que
+  sobreviven.** `TRUNCATE ... CASCADE` arrastra las tablas que APUNTAN a las
+  vaciadas: se perdían los 75 textos de sticker y los 7 códigos de formulario de
+  la AAC, los dos por `actualizado_por → usuario`. Y TRUNCATE **sin** CASCADE se
+  niega en cuanto otra tabla la referencie, aunque las FK estén desactivadas —
+  esa verificación no pasa por los triggers. Se pasó a **DELETE** (67 borrados en
+  una sola sentencia con CTEs), reinicio manual de las secuencias de las tablas
+  vaciadas, y limpieza de las referencias huérfanas calculada del catálogo.
+  ⚠️ **Una lista de "esto se conserva" no se cumple sola: hay que verificar que
+  se conservó.**
+- **`.adf-note` era `display:flex`**, así que cada hijo se volvía un ítem aparte
+  y una nota escrita como texto + `<strong>` salía en dos columnas encimadas.
+  Medido: **27 de las 54 notas de la app** lo tenían; el flex servía a UNA sola.
+  Ahora es bloque con el ícono flotado.
+- De paso: **`TallerAhora.css` no lo importaba nadie** (los estilos vivos están
+  en `taller-tecnico.css`) y **el correlativo de la orden usa ahora la SIGLA** de
+  la marca — para CAAA no cambia nada, pero "Tu Escuela de Aviación/2026-0001"
+  no es un correlativo.
+
 ### Verificado en producción
 El reinicio por el botón, con censo de CAAA antes y después: **una sola fila cambió, y fue un
 vuelo que cerró un instructor mientras yo probaba**. Medido aparte: un reinicio completo **no mueve
