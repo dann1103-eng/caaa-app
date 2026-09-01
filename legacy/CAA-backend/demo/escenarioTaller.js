@@ -378,6 +378,83 @@ async function sembrarTaller(c, log, ctx) {
     aprobacion: soloFecha(sumarDias(hoy, -16)), celula: false, helice: false, horas: 18 * 24,
   });
 
+  // ── Lo ya pegado en los libros del avión ────────────────────────────────
+  // Un libro sin un solo sticker se ve como una función que nadie usa. Estos son
+  // los trabajos que YA se certificaron: llevan congelados el TAC, el T.T. y el
+  // TSO del momento en que se pegaron, igual que en el sistema real — una vez
+  // pegado es un registro legal y re-imprimirlo no recalcula nada.
+  log("libros del avión");
+  const partesPorAvion = new Map();
+  for (const r of (await c.query(
+    `SELECT id_componente, id_aeronave, tipo, parte_no, serie_no, marca, tipo_certificado,
+            horas_aeronave_instalacion, horas_componente_instalacion, tso_ancla
+       FROM taller_componente ORDER BY id_aeronave, id_componente`
+  )).rows) {
+    if (!partesPorAvion.has(r.id_aeronave)) partesPorAvion.set(r.id_aeronave, []);
+    partesPorAvion.get(r.id_aeronave).push(r);
+  }
+
+  const TEXTO = {
+    CELULA: "Se efectuó inspección de 50 horas a la aeronave: inspección y lubricación de tren, " +
+            "cables de control y pruebas operacionales de cabina, de acuerdo con el manual de " +
+            "mantenimiento del fabricante.",
+    MOTOR:  "Se efectuó cambio de aceite y filtro, inspección de bujías y compresión de cilindros, " +
+            "de acuerdo con el manual de mantenimiento del motor.",
+    HELICE: "Se efectuó inspección visual de palas y cono, verificación de torque de pernos y " +
+            "lubricación del cubo, de acuerdo con el manual de la hélice.",
+  };
+
+  const stickers = [];
+  for (const [idAeronave, partes] of partesPorAvion) {
+    const av = aeronaves.find((a) => a.id_aeronave === idAeronave);
+    if (!av) continue;
+    const tacAv = Number((await c.query(
+      `SELECT horas_acumuladas FROM aeronave WHERE id_aeronave = $1`, [idAeronave]
+    )).rows[0]?.horas_acumuladas || 0);
+
+    // Dos trabajos anteriores por avión: uno hace tres meses y otro hace uno.
+    for (const atras of [3, 1]) {
+      const tac = r2(tacAv - atras * 42);          // el TAC que marcaba entonces
+      for (const p of partes) {
+        const delta = tac - Number(p.horas_aeronave_instalacion || 0);
+        stickers.push([
+          idAeronave, p.id_componente, p.tipo, atras === 3 ? "100H" : "50H",
+          soloFecha(sumarDias(hoy, -atras * 30)), "Ilopango", av.codigo,
+          p.marca, p.parte_no, p.serie_no, p.tipo_certificado,
+          tac,
+          p.horas_componente_instalacion == null ? null : r2(delta + Number(p.horas_componente_instalacion)),
+          p.tso_ancla == null ? null : r2(delta + Number(p.tso_ancla)),
+          TEXTO[p.tipo], idTecnico, "Luis Mecánico", "TMA 002",
+          r2(tac + 25), r2(tac + 50),
+        ]);
+      }
+    }
+  }
+  await insertarMuchos(c, "taller_sticker",
+    ["id_aeronave", "id_componente", "parte", "tipo", "fecha", "lugar", "matricula",
+     "marca", "mn", "sn", "tc", "tac", "tt", "tso", "texto",
+     "id_mecanico", "mecanico_nombre", "mecanico_tma", "proxima_25", "proxima_50"],
+    stickers);
+
+  // ── Inspecciones ya cumplidas ───────────────────────────────────────────
+  // El historial que la pantalla de Aeronavegabilidad muestra bajo cada tarea:
+  // sin esto, toda inspección parece no haberse hecho nunca.
+  const inspecciones = (await c.query(
+    `SELECT t.id_tarea, t.id_aeronave, t.ultima_horas, t.ultima_fecha
+       FROM taller_tarea_programada t WHERE t.tipo = 'INSPECCION' AND t.activo`
+  )).rows;
+  await insertarMuchos(c, "taller_cumplimiento",
+    ["id_tarea", "fecha", "horas_aeronave", "descripcion", "realizado_por", "id_usuario"],
+    inspecciones.flatMap((t) => [
+      [t.id_tarea, t.ultima_fecha, t.ultima_horas,
+       "Inspección de 50 horas cumplida conforme al manual de mantenimiento.",
+       "Luis Mecánico", idTecnico],
+      [t.id_tarea, soloFecha(sumarDias(new Date(t.ultima_fecha), -45)),
+       r2(Number(t.ultima_horas) - 50),
+       "Inspección de 50 horas cumplida — ciclo anterior.", "Luis Mecánico", idTecnico],
+    ])
+  );
+
   // Segundo volcado: los renglones de la requisición de la orden abierta se
   // agregaron DESPUÉS del recálculo de stock, y es correcto que así sea — una
   // requisición es un borrador y no mueve existencia (§30). Pero hay que
@@ -385,6 +462,8 @@ async function sembrarTaller(c, log, ctx) {
   await volcarRenglones();
 
   return {
+    stickers: stickers.length,
+    cumplimientos: inspecciones.length * 2,
     repuestos: REPUESTOS.length,
     componentes: aeronaves.length * PARTES.length,
     tareas_programadas: tareas,

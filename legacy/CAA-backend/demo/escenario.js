@@ -22,6 +22,8 @@
  */
 const bcrypt = require("bcrypt");
 const { sembrarTaller } = require("./escenarioTaller");
+const { sembrarAula } = require("./escenarioAula");
+const { sembrarAdmin } = require("./escenarioAdmin");
 const { insertarMuchos } = require("./lotes");
 
 // ── Fechas relativas ──────────────────────────────────────────────────────
@@ -237,6 +239,9 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   )).rows;
   const idPorUsuario = new Map(fichas.map((r) => [r.username, r.id_alumno]));
   const idsAlumno = ALUMNOS.map(([u]) => idPorUsuario.get(prefijo + u));
+  // La de tierra va aparte: no vuela, así que no entra en los repartos de vuelos
+  // ni en los límites, pero SÍ tiene su recorrido en el aula.
+  const idTierra = licTierra ? idPorUsuario.get(prefijo + ALUMNA_TIERRA[0]) : null;
 
   const saldos = ALUMNOS.map((_, i) => saldoDe(i));
   await insertarMuchos(c, "cuenta_corriente_alumno", ["id_alumno", "saldo_actual_usd"],
@@ -270,14 +275,19 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   // invisible hasta que alguien mire el tacómetro.
   let tac = 1200;
   const plan = [];
-  const agendar = (off, k, dia) => {
+  // ⚠️ `avIdx` permite separar el avión del bloque. Por defecto van juntos (el
+  // mismo índice), y con seis bloques y seis aviones eso da solo SEIS
+  // combinaciones por día — que es la clave con la que después se enlaza cada
+  // vuelo con su solicitud de respaldo. Al querer siete vuelos en un mismo día
+  // se repetía una y el índice único de esa clave lo rechazaba.
+  const agendar = (off, k, dia, avIdx = k) => {
     const horas = 1 + ((k % 3) * 0.3);
     tac += horas;
     plan.push({
       off, dia, bloque: bloques[k % bloques.length],
       idA: idsAlumno[(k * 3 + Math.abs(off)) % idsAlumno.length],
       idI: idsInstructor[k % idsInstructor.length],
-      av: aeronaves[k % aeronaves.length],
+      av: aeronaves[avIdx % aeronaves.length],
       horas, tacSalida: r2(tac - horas), tacLlegada: r2(tac),
       fecha: soloFecha(sumarDias(lunes, off * 7 + dia - 1)),
     });
@@ -285,6 +295,15 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   for (const off of [-4, -3, -2, -1]) {
     for (let k = 0; k < 12; k++) agendar(off, k, (k % 5) + 1);
   }
+
+  // HOY: tres vuelos ya CERRADOS, con su vouchera firmada. Sin esto la pantalla
+  // de Voucheras sale vacía el día de la demostración —solo lista las del día— y
+  // el "Reporte del día" de Turno no tiene nada que imprimir. Los cuatro vuelos
+  // en curso de más abajo son los que quedan por cerrar en vivo.
+  // Bloques 4 y 5, que los cuatro vuelos en curso (bloques 0-3) no ocupan.
+  agendar(0, 4, diaHoy, 4);
+  agendar(0, 5, diaHoy, 5);
+  agendar(0, 4, diaHoy, 0);   // mismo bloque, otro avión: par distinto
 
   // La SEMANA EN CURSO también se llena, de lunes a sábado. Sin esto quedaba
   // con los cuatro vuelos de hoy y nada más: si el demo se reinicia un lunes
@@ -322,10 +341,15 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
     (await c.query(
       // Sin filtrar por estado: la semana en curso trae vuelos ya volados y
       // otros que todavía no.
-      `SELECT id_vuelo, id_semana, dia_semana, id_bloque FROM vuelo`
-    )).rows.map((r) => [`${r.id_semana}|${r.dia_semana}|${r.id_bloque}`, r.id_vuelo])
+      //
+      // ⚠️ La clave lleva TAMBIÉN la aeronave. Sin ella, dos vuelos del mismo día
+      // y bloque en aviones distintos —que es lo normal: la escuela vuela varios
+      // a la vez— caían en la misma entrada del mapa y sus voucheras terminaban
+      // apuntando al mismo vuelo.
+      `SELECT id_vuelo, id_semana, dia_semana, id_bloque, id_aeronave FROM vuelo`
+    )).rows.map((r) => [`${r.id_semana}|${r.dia_semana}|${r.id_bloque}|${r.id_aeronave}`, r.id_vuelo])
   );
-  const idDe = (v) => idsVuelo.get(`${semanas[v.off]}|${v.dia}|${v.bloque}`);
+  const idDe = (v) => idsVuelo.get(`${semanas[v.off]}|${v.dia}|${v.bloque}|${v.av.id_aeronave}`);
   if (plan.some((v) => !idDe(v))) throw new Error("No pude reencontrar un vuelo sembrado por su día y bloque.");
 
   await insertarMuchos(c, "reporte_vuelo",
@@ -450,6 +474,23 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
   // archivo porque es la otra mitad del sistema y no cabe legible acá.
   const taller = await sembrarTaller(c, log, { aeronaves, prefijo, pass: PASS });
 
+  // ── Aula virtual y administración ──────────────────────────────────────
+  const aula = await sembrarAula(c, log, { idsAlumno, idsInstructor, idTierra });
+  const admin = await sembrarAdmin(c, log, { idsAlumno, idsInstructor, prefijo });
+
+  // ── Avisos in-app ──────────────────────────────────────────────────────
+  // La campana del encabezado vacía se ve como una función que no anda.
+  const AVISOS = [
+    ["Aprobaste el examen FINAL teórico. Tu expediente pasa a comité.", "/alumno/aula-virtual"],
+    ["Se te asignó un vuelo para el martes a las 08:00.", "/alumno/horario"],
+    ["Tu saldo está por debajo de $200. Recordá depositar antes del próximo vuelo.", "/alumno/cuenta"],
+  ];
+  await insertarMuchos(c, "notificacion", ["id_usuario", "tipo", "mensaje", "enlace", "leida"],
+    idsAlumno.slice(0, 6).flatMap((_, k) => AVISOS.map(([m, e], j) => [
+      idsUsuario.get(prefijo + ALUMNOS[k][0]), "INFO", m, e, j > 0,
+    ]))
+  );
+
   return {
     instructores: idsInstructor.length,
     alumnos: idsAlumno.length + (licTierra ? 1 : 0),
@@ -458,7 +499,7 @@ async function sembrar(c, log = () => {}, { prefijo = "demo." } = {}) {
     vuelos_en_curso: enCurso,
     solicitudes_pendientes: pendientes,
     semana_del: soloFecha(lunes),
-    taller,
+    taller, aula, admin,
   };
 }
 
