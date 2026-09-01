@@ -34,6 +34,7 @@ const RUTA = path.join(__dirname, "..", "..", "..", "marca.json");
 // un logo equivocado, y el error queda en el log para que se vea.
 const RESPALDO = {
   nombre: "CAAA",
+  sigla: "CAAA",
   nombre_legal: "CAAA, S.A. de C.V.",
   nombre_completo: "Centro de Adiestramiento Aéreo Académico",
   lema: "Profesionales en aviación",

@@ -35,7 +35,9 @@ async function siguienteCorrelativoOT(client, anio) {
     "SELECT COALESCE(MAX(numero),0)+1 AS n FROM orden_trabajo WHERE anio = $1", [anio]
   );
   const numero = Number(r.rows[0].n);
-  return { numero, correlativo: `${marca.nombre}/${anio}-${String(numero).padStart(4, "0")}` };
+  // La SIGLA, no el nombre: para CAAA son lo mismo, pero una escuela que se
+  // llame "Tu Escuela de Aviación" no puede tener eso dentro de un correlativo.
+  return { numero, correlativo: `${marca.sigla || marca.nombre}/${anio}-${String(numero).padStart(4, "0")}` };
 }
 
 async function siguienteCorrelativoRI(client, anio) {

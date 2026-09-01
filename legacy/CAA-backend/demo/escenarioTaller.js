@@ -22,6 +22,9 @@ const { insertarMuchos } = require("./lotes");
 // del demo y no escrito a mano: si fuera el de CAAA, cada requisición que se
 // imprima delante de un prospecto diría de quién es realmente el sistema.
 const CLIENTE = `${MARCAS.demo.nombre} / OMA`;
+// Misma sigla que usa el sistema al crear una orden en vivo: si el escenario
+// sembrara otra, el prospecto vería dos formatos de correlativo conviviendo.
+const SIGLA = MARCAS.demo.sigla || MARCAS.demo.nombre;
 
 const DIA = 86400000;
 const sumarDias = (d, n) => new Date(d.getTime() + n * DIA);
@@ -329,7 +332,7 @@ async function sembrarTaller(c, log, ctx) {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
                (NOW() AT TIME ZONE 'America/El_Salvador') - ($24 || ' hours')::interval)
        RETURNING id_orden`,
-      [anio, n, `DEMO/${anio}-${String(n).padStart(4, "0")}`, campos.aeronave,
+      [anio, n, `${SIGLA}/${anio}-${String(n).padStart(4, "0")}`, campos.aeronave,
        campos.fecha, campos.tac, campos.piloto, campos.discrepancia, campos.accion || null,
        campos.estado, campos.mant || null, campos.asignado || null,
        campos.asignado ? campos.fecha : null, idJefe,
@@ -351,7 +354,7 @@ async function sembrarTaller(c, log, ctx) {
   // La requisición de material de ESE trabajo, para que la orden tenga papeleo colgando.
   const req = await doc("REQUISICION", 3, "REQ", {
     aeronave: enTaller.id_aeronave, cliente: CLIENTE, solicitante: "Luis Mecánico",
-    tacometro: 1200, idOt: otAbierta, ot: `DEMO/${anio}-0001`,
+    tacometro: 1200, idOt: otAbierta, ot: `${SIGLA}/${anio}-0001`,
   });
   mover(req, "000101", 8);
   mover(req, "000102", 1);

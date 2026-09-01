@@ -11,6 +11,7 @@ import EstimadoModal from "./ordenes/EstimadoModal";
 import { reloj } from "./inventario/formato";
 import TallerAhora from "./ordenes/TallerAhora";
 import RevisarOrdenModal from "./ordenes/RevisarOrdenModal";
+import { esJefeTaller } from "./permisos";
 import OrdenDetalleModal from "./ordenes/OrdenDetalleModal";
 import FirmarEntregaModal from "./inventario/FirmarEntregaModal";
 import "./inventario/inventario.css";
@@ -35,10 +36,6 @@ import TarjetaVencimientos from "./aeronavegabilidad/TarjetaVencimientos";
 // El jefe firma, reasigna y despacha material; el técnico no. Lo que uno puede
 // hacer sale de quién es, no de en qué pantalla está: por eso esta pantalla es
 // la misma para los dos y solo cambian los botones que ofrece.
-const esJefe = () => {
-  try { return ["TALLER", "ADMIN"].includes(JSON.parse(localStorage.getItem("user") || "{}")?.rol); }
-  catch { return false; }
-};
 const miUid = () => {
   try { return JSON.parse(localStorage.getItem("user") || "{}")?.id_usuario || null; } catch { return null; }
 };
@@ -53,7 +50,7 @@ export default function MiTaller() {
   const [activa, setActiva] = useState(null);   // el trabajo en curso elegido
   const [accion, setAccion] = useState(null);   // 'abrir' | 'material' | 'aceite' | 'firmar'
   const [aceites, setAceites] = useState([]);
-  const jefe = esJefe();
+  const jefe = esJefeTaller();
   const [personal, setPersonal] = useState([]);
   const [pendientes, setPendientes] = useState({});   // material pedido, por orden
   const [revisando, setRevisando] = useState(null);   // firmar/devolver (jefe)
@@ -119,12 +116,20 @@ export default function MiTaller() {
     }
   };
 
-  // Tocar un trabajo hace lo que corresponda según de quién sea y cómo esté:
-  // el mío me lleva a mi tarjeta, el firmado el jefe lo revisa, y el resto se mira.
+  // Tocar un trabajo hace lo que corresponda según de quién sea y cómo esté.
+  //
+  // 🚨 La REVISIÓN va primero, y ese orden es el arreglo de un bug real: antes
+  // se preguntaba "¿es mío?" antes que "¿espera mi firma?", y como el jefe suele
+  // ser quien ABRE las órdenes, todas le contaban como propias — así que tocar
+  // una orden firmada lo mandaba a su tarjeta de trabajo en vez de abrirle la
+  // revisión, y no había forma de aprobarla desde ningún lado.
+  //
+  // Una orden firmada no tiene nada que "seguir trabajando": está esperando al
+  // jefe. Por eso gana esa rama.
   const abrirTrabajo = (t) => {
+    if (t.estado === "FIRMADA" && jefe) return setRevisando(t);
     const mio = ordenes.find((x) => x.id_orden === t.id_orden);
     if (mio) return irAMiTrabajo(mio);
-    if (t.estado === "FIRMADA" && jefe) return setRevisando(t);
     setViendo(t.id_orden);
   };
 

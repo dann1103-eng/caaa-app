@@ -74,11 +74,61 @@ async function reiniciar({ log = () => {} } = {}) {
     if (!tablas.length) throw new Error(`El esquema ${ESQUEMA} está vacío: corré primero clonar_demo().`);
 
     log(`vaciando ${tablas.length} tablas de ${ESQUEMA}`);
-    // Cada tabla va calificada con el esquema: aunque el search_path fallara,
-    // esto no puede alcanzar a public.
+
+    // 🚨 Se BORRA, no se TRUNCA, y no es un detalle de estilo.
+    //
+    // `TRUNCATE ... CASCADE` arrastra también las tablas que APUNTAN a las
+    // vaciadas, aunque estén en la lista de las que deben sobrevivir. Así se
+    // perdían en cada reinicio los 75 textos de sticker y los 7 códigos de
+    // formulario de la AAC —los dos apuntan a `usuario` por `actualizado_por`—
+    // y nadie se enteraba, porque la lista decía que se conservaban.
+    //
+    // Y TRUNCATE sin CASCADE no es opción: se niega en cuanto otra tabla la
+    // referencie, aunque las claves foráneas estén desactivadas (esa
+    // verificación no pasa por los triggers). Con DELETE sí alcanza apagarlas.
+    //
+    // Va todo en UNA sentencia con CTEs que modifican datos: 67 borrados en un
+    // solo viaje a la base en vez de 67.
+    await c.query("SET LOCAL session_replication_role = replica");
     await c.query(
-      `TRUNCATE TABLE ${tablas.map((t) => `${ESQUEMA}."${t}"`).join(", ")} RESTART IDENTITY CASCADE`
+      "WITH " + tablas.map((t, i) => `t${i} AS (DELETE FROM ${ESQUEMA}."${t}")`).join(", ") +
+      " SELECT 1"
     );
+
+    // DELETE no reinicia las secuencias. Se reinician las de las tablas
+    // vaciadas y SOLO esas: las conservadas siguen teniendo filas, y bajarles el
+    // contador haría que el próximo INSERT choque contra su clave primaria.
+    await c.query(
+      `SELECT setval(s.seq, 1, false)
+         FROM (SELECT pg_get_serial_sequence($1 || '.' || quote_ident(c.table_name), c.column_name) AS seq
+                 FROM information_schema.columns c
+                WHERE c.table_schema = $1
+                  AND c.table_name = ANY($2::text[])
+                  AND pg_get_serial_sequence($1 || '.' || quote_ident(c.table_name), c.column_name) IS NOT NULL
+              ) s`,
+      [ESQUEMA, tablas]
+    );
+
+    // Lo que queda: filas conservadas que apuntaban a un usuario que ya no
+    // existe. Se calcula del catálogo en vez de escribir la lista a mano, para
+    // que siga siendo correcto cuando alguien agregue una tabla.
+    const colgadas = await c.query(
+      `SELECT c.conrelid::regclass::text AS tabla, a.attname AS col
+         FROM pg_constraint c
+         JOIN unnest(c.conkey) k ON true
+         JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k
+        WHERE c.contype = 'f' AND c.connamespace = $1::regnamespace
+          AND NOT a.attnotnull
+          AND c.conrelid::regclass::text <> ALL($2::text[])
+          AND c.confrelid::regclass::text = ANY($2::text[])`,
+      [ESQUEMA, tablas.map((t) => `${ESQUEMA}.${t}`)]
+    );
+    for (const { tabla, col } of colgadas.rows) {
+      await c.query(`UPDATE ${tabla} SET "${col}" = NULL WHERE "${col}" IS NOT NULL`);
+    }
+    if (colgadas.rowCount) {
+      log(`referencias huérfanas limpiadas: ${colgadas.rows.map((x) => `${x.tabla}.${x.col}`).join(", ")}`);
+    }
 
     log("sembrando el escenario");
     const resumen = await sembrar(c, log);

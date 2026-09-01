@@ -18,6 +18,7 @@ const DESTINO = join(AQUI, "..", "src", "marca.js");
 
 const RESPALDO = {
   nombre: "CAAA",
+  sigla: "CAAA",
   nombre_legal: "CAAA, S.A. de C.V.",
   nombre_completo: "Centro de Adiestramiento Aéreo Académico",
   lema: "Profesionales en aviación",

@@ -6,6 +6,8 @@
   "marcas": {
     "caaa": {
       "nombre": "CAAA",
+      "_sigla": "Va en correlativos y códigos de formulario (CAAA/2026-0049), donde el nombre completo quedaría largo.",
+      "sigla": "CAAA",
       "nombre_legal": "CAAA, S.A. de C.V.",
       "nombre_completo": "Centro de Adiestramiento Aéreo Académico",
       "lema": "Profesionales en aviación",
@@ -29,6 +31,7 @@
     "_molde": "Modo 'tu marca': se activa poniendo 'activa': 'molde'. Sirve para mostrarle a un prospecto, en vivo, cómo se vería el sistema con lo suyo.",
     "molde": {
       "nombre": "TU ESCUELA",
+      "sigla": "DEMO",
       "nombre_legal": "Tu Razón Social, S.A. de C.V.",
       "nombre_completo": "Tu Escuela de Aviación",
       "lema": "Tu lema acá",

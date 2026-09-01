@@ -388,3 +388,13 @@
   .ahora-avion__head { flex-direction: column; }
   .ahora-ot__asignar { flex-direction: column; align-items: stretch; gap: 4px; }
 }
+
+/* La franja de "Revisar y firmar" de un trabajo que espera al jefe. Va pegada
+   al pie de la tarjeta y ocupa el ancho: es la única acción de esa tarjeta.
+   (Antes acá solo había una etiqueta que decía "esperando tu firma", que se lee
+   como un aviso y no como algo que hay que hacer.) */
+.ahora-ot__revisar {
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--c-line-1);
+}
+.ahora-ot__revisar .tec-btn { width: 100%; justify-content: center; }
