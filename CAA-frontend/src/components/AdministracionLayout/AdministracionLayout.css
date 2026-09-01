@@ -570,8 +570,13 @@
 .adf-icon-btn.danger:hover { background: var(--c-danger-50); color: var(--c-danger-700); }
 
 /* ─── Nota informativa (caja azul suave) ──────────────────────────────── */
+/* 🚨 BLOQUE, no flex. Era `display:flex` y eso convertía en un ítem aparte a
+   cada hijo: una nota escrita como texto + <strong> se partía en dos columnas
+   que se pisaban entre sí. Medido: 27 de las 54 notas de la app llevan <strong>
+   adentro y se veían mal; el flex servía a UNA sola, la del ícono suelto.
+   El ícono se resuelve con float, que deja al texto rodearlo igual que antes. */
 .adf-note {
-  display: flex; align-items: flex-start; gap: var(--sp-2);
+  display: block;
   background: var(--c-info-50);
   border: 1px solid var(--c-info-100, var(--c-line-1));
   border-radius: var(--radius-md);
@@ -580,7 +585,7 @@
   color: var(--c-info-700);
   line-height: var(--leading-base);
 }
-.adf-note i { margin-top: 1px; }
+.adf-note > i { float: left; margin: 1px var(--sp-2) 0 0; }
 
 /* Botón primario con sombra suave (look Core Admin) */
 .adf-btn { box-shadow: var(--shadow-sm); }
