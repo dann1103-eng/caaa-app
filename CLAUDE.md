@@ -3050,6 +3050,27 @@ tres cosas encadenadas:
   la marca — para CAAA no cambia nada, pero "Tu Escuela de Aviación/2026-0001"
   no es un correlativo.
 
+### 🚨 I. El backend en producción NUNCA pudo leer `marca.json`
+Los PDF de la cuenta de demostraciones salían con el logo y el código de OMA de
+CAAA. **Railway despliega el backend con Root Directory = `legacy/CAA-backend`,
+y `marca.json` estaba en la RAÍZ del repo**: fuera del despliegue. El backend
+caía a sus valores de respaldo —que son los de CAAA— **sin fallar ni loguear
+nada visible**. Para CAAA daba igual (respaldo == CAAA) y por eso nunca se notó.
+
+Yo había verificado el Proxy de la marca en LOCAL, donde el archivo sí está, y
+el frontend en producción. **Nunca comprobé el backend en producción.**
+
+> **La lección: un fallback silencioso hace que "no encuentro la configuración"
+> se vea idéntico a "todo bien".** Es el enemigo recurrente de este repo (§10) y
+> volvió a morder. Al agregar una configuración leída de un archivo, verificar
+> en PRODUCCIÓN que se está leyendo, no solo que el código la lee.
+
+`marca.json` se mudó a `legacy/CAA-backend/` —la carpeta con la raíz de
+despliegue más ajustada; Vercel clona el repo entero y lo lee desde ahí— así que
+sigue habiendo **un solo archivo**. `GET /api/demo/estado` informa ahora el
+**origen** de la marca, que es lo que separa "no encuentro el archivo" de "perdí
+el contexto de esquema": desde afuera se veían iguales.
+
 ### Verificado en producción
 El reinicio por el botón, con censo de CAAA antes y después: **una sola fila cambió, y fue un
 vuelo que cerró un instructor mientras yo probaba**. Medido aparte: un reinicio completo **no mueve
