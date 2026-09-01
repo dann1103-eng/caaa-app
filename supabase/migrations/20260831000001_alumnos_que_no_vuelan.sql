@@ -1,7 +1,8 @@
 -- Alumnos que no vuelan (sobrecargo y cualquier curso de tierra).
 --
 -- `licencia` ya significa "la habilitacion hacia la que el alumno progresa", y
--- todo el sistema se apoya en ella. Sobrecargo es exactamente eso, solo que no
+-- todo el sistema se apoya en ella. El tripulante de cabina es exactamente eso,
+-- solo que no
 -- se vuela: gana UNA columna y es una fila mas.
 --
 -- La bandera va en licencia y no en alumno a proposito: "volar o no" describe al
@@ -46,5 +47,8 @@ SELECT setval(
 -- puede reservar aunque quisiera, el mismo mecanismo que dejo a Bimotor sin
 -- aviones durante meses sin romper nada.
 INSERT INTO licencia (nombre, nivel, dia_apertura_agenda, vuela)
-SELECT 'Sobrecargo', 1, 1, false
- WHERE NOT EXISTS (SELECT 1 FROM licencia WHERE nombre = 'Sobrecargo');
+SELECT 'Tripulante de Cabina', 1, 1, false
+ -- La guarda mira los DOS nombres: la fila se llamó 'Sobrecargo' hasta el
+ -- 2026-09-01 y re-ejecutar esto sobre una base ya renombrada la duplicaría.
+ WHERE NOT EXISTS (SELECT 1 FROM licencia
+                    WHERE nombre IN ('Tripulante de Cabina', 'Sobrecargo'));

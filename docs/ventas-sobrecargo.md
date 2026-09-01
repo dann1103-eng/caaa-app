@@ -1,5 +1,9 @@
 # Qué responder sobre cursos de sobrecargo
 
+> **El sistema lo rotula "Tripulante de Cabina"**, que es el nombre del puesto
+> en la industria. "Sobrecargo" es el término coloquial y es como lo van a
+> preguntar; acá se usa así solo cuando es la pregunta de ellos.
+
 Para cuando una escuela pregunte *"¿y la gente que estudia sobrecargo?"*.
 CAAA no da esos cursos; el sistema sí los soporta desde el 2026-08-31.
 
@@ -8,13 +12,13 @@ CAAA no da esos cursos; el sistema sí los soporta desde el 2026-08-31.
 ## La respuesta corta
 
 > El sistema no es solo de vuelo: la parte académica es genérica. Un alumno de
-> sobrecargo se inscribe, tiene su malla de materias, se le pasa lista, sube y
+> tripulante de cabina se inscribe, tiene su malla de materias, se le pasa lista, sube y
 > descarga material, rinde exámenes con sus notas, se le lleva cuenta corriente y
 > se le factura — exactamente igual que a un alumno de piloto. Lo único que no
 > tiene es la parte de vuelo, porque no vuela: no agenda aeronaves, no lleva
 > loadsheet y no necesita instructor de vuelo.
 
-## Lo que ve el alumno de sobrecargo cuando entra
+## Lo que ve el alumno de tripulante de cabina cuando entra
 
 | Sí tiene | No tiene |
 |---|---|
@@ -30,7 +34,7 @@ aparte ni un sistema aparte.
 
 ## Lo que ve la escuela
 
-- Se da de alta como cualquier alumno, eligiendo el **programa** "Sobrecargo" en
+- Se da de alta como cualquier alumno, eligiendo el **programa** "Tripulante de Cabina" en
   vez de una licencia de piloto.
 - **No pide instructor de vuelo** — y si la escuela quiere asignarle un tutor,
   puede.
@@ -47,10 +51,10 @@ programa que no vuele: es dar de alta un programa nuevo, no desarrollar nada.
 
 ## Lo que hay que ser honesto en decir
 
-- **La malla curricular de sobrecargo no viene cargada.** El sistema recibe las
+- **La malla curricular no viene cargada.** El sistema recibe las
   materias, sus horas y sus evaluaciones, pero el contenido lo carga cada
   escuela — igual que pasa con los cursos de piloto.
-- **No hay simulador de cabina ni nada específico de sobrecargo** (maniobras de
+- **No hay simulador de cabina ni nada específico del programa** (maniobras de
   evacuación, primeros auxilios como módulo con su propia certificación). Si lo
   piden, es desarrollo nuevo y conviene decirlo en la reunión, no después.
 - **La certificación final** se registra como cualquier examen aprobado; no hay
@@ -59,7 +63,7 @@ programa que no vuele: es dar de alta un programa nuevo, no desarrollar nada.
 ## Por dentro (por si preguntan cómo está hecho)
 
 `licencia` en el sistema significa *"el programa hacia el que el alumno
-progresa"*. Sobrecargo es una fila más de esa tabla, marcada como que no se
+progresa"*. Tripulante de Cabina es una fila más de esa tabla, marcada como que no se
 vuela. Por eso todo lo académico, lo administrativo y lo contable funciona sin
 cambios: no se duplicó nada.
 

@@ -2892,7 +2892,8 @@ reporte). **261 renglones cargados** = 209 + 61 − 9 fusionados por conflicto.
 ### A. Alumnos que no vuelan — cursos de sobrecargo
 Otras escuelas ofrecen **sobrecargo** (tripulante de cabina), y había que poder responderles.
 Resultó que el aula virtual ya era genérica: el trabajo fue **dos columnas**, no un módulo.
-- `licencia.vuela boolean DEFAULT true` + la fila `Sobrecargo` (id 7, `vuela=false`), y
+- `licencia.vuela boolean DEFAULT true` + la fila `Tripulante de Cabina` (id 7, `vuela=false`
+  — se llamó `Sobrecargo` hasta el 2026-09-01, migración `20260901000001`), y
   `alumno.id_instructor` deja de ser NOT NULL — un alumno de tierra no tiene instructor de vuelo.
 - **`utils/alumnoVuela.js` → `alumnoVuelaSQL(alias)`**, fragmento compartido (la lección de
   `soloHorasFacturables`, §27). Se aplica **solo en los selectores** —agendar, roster del

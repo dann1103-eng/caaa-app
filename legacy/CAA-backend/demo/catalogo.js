@@ -171,7 +171,7 @@ async function disfrazar(c, log) {
     [MARCAS.demo.codigo_oma]
   );
 
-  // ── El curso de SOBRECARGO ──────────────────────────────────────────────
+  // ── El curso de TRIPULANTE DE CABINA ────────────────────────────────────
   // CAAA no lo ofrece, pero es de lo primero que pregunta una escuela que sí, y
   // el sistema lo soporta desde que `licencia.vuela` distingue los programas de
   // tierra. Va en el CATÁLOGO —no en el escenario— porque el catálogo sobrevive
@@ -182,7 +182,7 @@ async function disfrazar(c, log) {
       `INSERT INTO demo.curso (codigo, nombre, descripcion, costo_teorico_usd, horas_teoricas,
                                gastos_administrativos_usd, total_usd_estimado, activo,
                                pago_teoria_instructor_usd)
-       VALUES ('SOB', 'Tripulante de Cabina (Sobrecargo)',
+       VALUES ('SOB', 'Tripulante de Cabina',
                'Programa de tierra: no requiere horas de vuelo ni instructor asignado.',
                1450, 120, 150, 1600, true, 250)
        RETURNING id`
@@ -202,7 +202,7 @@ async function disfrazar(c, log) {
         [curso.rows[0].id, i + 1, UNIDADES[i]]
       );
     }
-    log("catálogo: curso de sobrecargo con sus 6 unidades");
+    log("catálogo: curso de tripulante de cabina con sus 6 unidades");
   }
 
   log("catálogo disfrazado: matrículas, salones y códigos de formulario");
