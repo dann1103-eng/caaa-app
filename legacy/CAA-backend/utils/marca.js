@@ -57,6 +57,7 @@ function cargar() {
       return { ...RESPALDO, ...m };
     };
     return {
+      origen: RUTA,
       produccion: arma(j.activa),
       // Si no se declaró marca para el demo, usa la de producción. Un demo con
       // la marca de CAAA es feo, pero arrancar es más importante.
@@ -64,7 +65,7 @@ function cargar() {
     };
   } catch (e) {
     console.error(`[MARCA] No pude leer ${RUTA}: ${e.message}. Uso los valores de respaldo.`);
-    return { produccion: RESPALDO, demo: RESPALDO };
+    return { produccion: RESPALDO, demo: RESPALDO, origen: "respaldo", error: e.message };
   }
 }
 
