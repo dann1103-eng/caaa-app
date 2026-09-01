@@ -17,7 +17,7 @@ const API = () => window.__APP_CONFIG__?.API_URL || "";
  * El candado del frontend es cosmético: los que valen están en el backend
  * (demo/guardas.js). Acá no se decide nada, solo se pregunta.
  */
-export default function DemoReset() {
+export default function DemoReset({ variante }) {
   const [disponible, setDisponible] = useState(false);
   const [frase, setFrase] = useState("");
   const [abierto, setAbierto] = useState(false);
@@ -57,7 +57,11 @@ export default function DemoReset() {
 
   return (
     <>
-      <button type="button" className="adf-btn secondary small" onClick={() => setAbierto(true)}
+      {/* En el sidebar toma la forma de un ítem de navegación, para no meter un
+          botón de otra pantalla en medio de la barra. */}
+      <button type="button"
+        className={variante === "sidebar" ? "adm-sidebar__demo" : "adf-btn secondary small"}
+        onClick={() => setAbierto(true)}
         title="Devuelve el demo a su punto de partida">
         <i className="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Reiniciar demo
       </button>

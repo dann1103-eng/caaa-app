@@ -120,3 +120,26 @@
   text-align: left;
 }
 .adm-sidebar__logout:hover { background-color: var(--c-danger-50); }
+
+/* Reiniciar la demostración. Mismas medidas que "Cerrar sesión" para que la
+   barra no tenga dos botones de tamaños distintos pegados; en ámbar porque
+   borra datos, y separado por una línea para que nadie lo apriete creyendo que
+   es el de salir. Solo se dibuja en sesiones de demostración. */
+.adm-sidebar__demo {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 9px var(--sp-4);
+  margin-bottom: var(--sp-2);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--c-line-1);
+  border-radius: var(--radius-sm);
+  color: var(--c-warn-700);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+.adm-sidebar__demo:hover { background-color: var(--c-warn-50); }
