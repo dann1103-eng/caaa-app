@@ -1333,7 +1333,7 @@ function PopoverContent({
         {/* Convertir una ruta ya agendada en ruta con parada (o quitarle la
             parada) sin cancelarla. Antes esto solo se podía elegir al agendar. */}
         {activePopover.item.tipo_vuelo === 'RUTA' && isEditable && allowInstructorChange && (
-          <div className="pop-row" style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-line, #e5e7eb)' }}>
+          <div style={{ display: 'block', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--c-line, #e5e7eb)' }}>
             <label className="avm-check" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <input type="checkbox" checked={conParada}
                 onChange={(e) => setConParada(e.target.checked)} />
