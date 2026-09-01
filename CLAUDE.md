@@ -2997,6 +2997,22 @@ vacío aunque los vuelos existan, porque se arma `FROM solicitud_vuelo LEFT JOIN
 vuelo`— y la **semana por publicar pasa de 8 a 27 solicitudes con choques**
 (3 de avión, uno con tres alumnos; 2 de instructor).
 
+### F. Dos correcciones de navegación que aplican a CAAA, no solo al demo
+- **El menú del ADMIN no mostraba lo mismo que el del jefe de taller.** Le
+  faltaban **Mi taller** —la pantalla principal del módulo desde §36— y
+  **Trabajos**. Las rutas siempre lo dejaron entrar (`ProtectedTaller` admite
+  ADMIN); lo que faltaba era el menú. Los cinco primeros ítems de la sección
+  Taller de `AdminSidebar` son ahora EXACTAMENTE los de `TallerSidebar`, en el
+  mismo orden, y después van los dos que sí son solo del ADMIN (Aeronaves y
+  Mantenimiento). **La regla: la referencia es lo que usa el taller; el ADMIN
+  agrega, nunca quita.** Al tocar una barra, tocar la otra.
+- **"Practicar loadsheet" pasó de Taller a Operaciones**: es una herramienta de
+  vuelo, no de mantenimiento.
+- El botón **Reiniciar demo** pasó del tablero de Administración al sidebar: la
+  cuenta demo entra por Operaciones y el botón quedaba a una sección de
+  distancia. Se quitó del tablero en vez de dejarlo en los dos lados — una
+  acción disponible desde dos pantallas termina contradiciéndose (§36).
+
 ### Verificado en producción
 El reinicio por el botón, con censo de CAAA antes y después: **una sola fila cambió, y fue un
 vuelo que cerró un instructor mientras yo probaba**. Medido aparte: un reinicio completo **no mueve

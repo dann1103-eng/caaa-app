@@ -26,8 +26,11 @@ las aeronaves de CAAA van las de los **clientes externos de su OMA** —aviones 
 otras escuelas—, y eso no se le enseña a un competidor. El disfraz vive en
 `demo/catalogo.js`.
 
-Arriba a la derecha del dashboard de Administración aparece **Reiniciar demo**,
-que devuelve todo al punto de partida en unos segundos. Sirve para rehacer una
+Abajo del todo en la barra lateral, junto a *Cerrar sesión*, aparece
+**Reiniciar demo** (en ámbar): devuelve todo al punto de partida en unos
+segundos. Se ve desde cualquier pantalla — estaba solo en el tablero de
+Administración, y como la cuenta entra por Operaciones, no había forma de
+encontrarlo sin saber dónde estaba. Sirve para rehacer una
 demostración delante del cliente si alguien se perdió.
 
 Las cuentas de demostración están **eximidas de la sesión única**: podés tenerlas
