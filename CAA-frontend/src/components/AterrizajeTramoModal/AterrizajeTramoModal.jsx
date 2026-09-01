@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import MedidorInput from "../MedidorInput/MedidorInput";
+import { FORMATO_HOBBS, FORMATO_TACOMETRO } from "../../utils/medidor";
 import "./AterrizajeTramoModal.css";
 
 // Mini-form del aterrizaje en destino (rutas con parada): 2 campos, pensado
@@ -37,13 +39,11 @@ export default function AterrizajeTramoModal({ vuelo, onSubmit, onClose }) {
         </p>
         <div className="atm-field">
           <label>TAC de llegada</label>
-          <input type="number" inputMode="decimal" step="0.01" value={tac}
-            onChange={(e) => setTac(e.target.value)} autoFocus />
+          <MedidorInput formato={FORMATO_TACOMETRO} value={tac} onChange={setTac} autoFocus />
         </div>
         <div className="atm-field">
           <label>HOBBS de llegada</label>
-          <input type="number" inputMode="decimal" step="0.1" value={hobbs}
-            onChange={(e) => setHobbs(e.target.value)} />
+          <MedidorInput formato={FORMATO_HOBBS} value={hobbs} onChange={setHobbs} />
         </div>
         <div className="atm-actions">
           <button className="atm-btn-cancel" onClick={onClose} disabled={saving}>Cancelar</button>
