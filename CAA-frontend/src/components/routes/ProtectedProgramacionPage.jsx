@@ -7,7 +7,7 @@ export default function ProtectedProgramacionPage({ children }) {
   const key = params.get("key");
   
   // Si tiene la llave de proyección válida, dejamos pasar sin importar el usuario
-  const PROYECCION_KEY = "caaa_proyeccion_secret_2024"; 
+  const PROYECCION_KEY = window.__APP_CONFIG__?.PROYECCION_KEY || ""; 
   if (key === PROYECCION_KEY) return children;
 
   if (!user) return <Navigate to="/login" replace />;

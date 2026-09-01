@@ -1585,7 +1585,18 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-29.** Resueltos: ~~los ADs y la vida límite solo vivían en archivos
+> **Última revisión: 2026-08-31.**
+>
+> ### 🎬 De la cuenta de demostraciones (§39)
+> - **Poner la marca del prospecto antes de una reunión**: se edita `marcas.molde` en `marca.json`
+>   y se reemplazan las imágenes `*-molde.png`. No toca lo que ve CAAA.
+> - **La pantalla de login sigue siendo de CAAA**: ahí todavía no hay sesión que decida la marca.
+>   Si molesta en las demostraciones se resuelve, pero hay que decidir cómo.
+> - **Después de cada migración hay que REGENERAR el esquema `demo`** (dos comandos, §3 del
+>   runbook). No se migra: se clona de `public` ya migrado. Mientras tanto la cuenta no funciona,
+>   así que no hacerlo cinco minutos antes de una reunión.
+>
+> **Revisión anterior: 2026-08-29.** Resueltos: ~~los ADs y la vida límite solo vivían en archivos
 > sueltos en las computadoras del taller~~ (§38: 261 renglones cargados, con cálculo de vencimiento y
 > aviso al jefe).
 >
@@ -2868,3 +2879,201 @@ reporte). **261 renglones cargados** = 209 + 61 − 9 fusionados por conflicto.
 - **Campana y web push** — la cañería existe; se suman cuando el número lleve un par de semanas
   verificado.
 - **Los dos bimotores** siguen sin caber en el modelo de tres libros (§37).
+
+---
+
+## 39. Sesión 2026-08-31 — Alumnos que no vuelan (sobrecargo) y la cuenta de demostraciones
+
+**Desplegado y verificado en producción** (`origin/master` = `2890888`). Migraciones
+`20260831000001` y `20260831000002`. Specs:
+`docs/superpowers/specs/2026-08-31-alumnos-que-no-vuelan-design.md` y
+`…-demo-white-label-design.md`. Manual de operación: **`docs/demo/RUNBOOK.md`**.
+
+### A. Alumnos que no vuelan — cursos de sobrecargo
+Otras escuelas ofrecen **sobrecargo** (tripulante de cabina), y había que poder responderles.
+Resultó que el aula virtual ya era genérica: el trabajo fue **dos columnas**, no un módulo.
+- `licencia.vuela boolean DEFAULT true` + la fila `Tripulante de Cabina` (id 7, `vuela=false`
+  — se llamó `Sobrecargo` hasta el 2026-09-01, migración `20260901000001`), y
+  `alumno.id_instructor` deja de ser NOT NULL — un alumno de tierra no tiene instructor de vuelo.
+- **`utils/alumnoVuela.js` → `alumnoVuelaSQL(alias)`**, fragmento compartido (la lección de
+  `soloHorasFacturables`, §27). Se aplica **solo en los selectores** —agendar, roster del
+  instructor, lista de licencias—, nunca en los históricos: un alumno que voló y después pasó a
+  tierra tiene que seguir apareciendo en su propia bitácora.
+- Respuesta de venta redactada en **`docs/ventas-sobrecargo.md`**.
+- Encontrada de paso: `alumno.id_instructor_teoria` es la **tercera columna muerta** del proyecto
+  (0 de 103 filas). Misma familia que la licencia TMA y el aprendiz (§33).
+
+### B. La marca deja de estar escrita en 148 lugares
+`marca.json` en la raíz es la fuente única: nombre, logos, color de acento, teléfonos, código OMA.
+La lee el backend (`utils/marca.js`) y el frontend (generado en el prebuild). Se retiró
+`src/assets/logoCaaa.js` — 27 KB de base64 a mano — que ahora sale del PNG en cada build.
+
+### C. 🚨 La demostración: un ESQUEMA aparte, no una bandera por fila
+Daniel quiere mostrarle el sistema a otras escuelas **sin exponer datos de CAAA**, con la misma
+app y el mismo despliegue: *"un usuario especial al que se le muestren datos ficticios"*.
+
+**Se descartó la bandera `es_demo` por fila** después de medir el radio: 87 tablas y ~600
+consultas, y **un solo filtro olvidado le muestra a un prospecto el saldo real de un alumno**.
+En su lugar, un esquema `demo` con las mismas tablas vacías (migración `20260831000002`,
+`clonar_demo()`), y el ruteo por conexión:
+
+| | |
+|---|---|
+| `config/db.js` | dos pools; el de demo con **`search_path=demo` A SECAS**, sin `,public` — una tabla que falte tiene que fallar a gritos, no leer producción en silencio |
+| `authMiddleware` | mete la petición en `db.enEsquema("demo", …)` **antes de cualquier consulta** |
+| `public.demo_cuenta` | la única pieza compartida: dice qué usuarios se autentican contra demo. El login corre antes de saber quién es, así que no puede rutearse solo |
+| el token | el esquema viaja **FIRMADO**; nadie entra ni sale de demo tocando la petición |
+
+⚠️ **Todos los usuarios llevan el prefijo `demo.` y NO es cosmético**: el ruteo se resuelve por
+nombre de usuario. Sembrar `r.flores` —una persona real— la rutearía a demo y la dejaría sin
+acceso a sus propios datos.
+
+**La marca también se resuelve por sesión.** El backend usa un **Proxy** que resuelve cada lectura
+contra el esquema de la petición: un objeto mutable sería peor que uno fijo, porque dos peticiones
+concurrentes de esquemas distintos se pisarían la marca y el prospecto vería una vouchera con el
+logo de CAAA. En el frontend el bundle lleva las dos y `aplicarMarca()` deja puesta la que toca.
+⚠️ **No guardar un valor de la marca en una constante de módulo**: eso lo congela con la del
+proceso. Por eso los logos de los PDF son funciones.
+
+**Botón "Reiniciar demo"** (dashboard de Administración, solo cuenta demo con rol ADMIN): devuelve
+todo al punto de partida en ~5 s. Cuatro candados, cada uno alcanza por sí solo (§4 del runbook).
+Las cuentas de demostración quedan **eximidas de la sesión única** — laptop y proyector a la vez, y
+sin eso el reinicio te escupía al login delante del prospecto.
+
+### D. El demo andaba con la ropa de CAAA (encontrado mirando la pantalla)
+La copia del catálogo traía las matrículas reales, **"Salón Cap. Tito Gutiérrez"** —el nombre de
+una persona— y los códigos de formulario de su OMA. Y entre las aeronaves iban las de los
+**clientes externos de la OMA**: aviones de otras escuelas a las que CAAA les da mantenimiento.
+`demo/catalogo.js` ahora las disfraza (`YS-5xx-D`, salones Alfa/Bravo/Charlie, formularios
+neutros) y **pone `tac_offset` en cero** — ese 10,000 describe un instrumento físico de CAAA
+(§37.B), no una preferencia. Cambia NOMBRES, nunca ids: las plantillas de peso y balance se
+enganchan por FK.
+
+Además el **módulo Taller estaba completamente vacío** — cero repuestos, componentes, tareas y
+órdenes. Un tercio del sistema no se podía mostrar. `demo/escenarioTaller.js` lo siembra.
+
+### 🚨 Trampas de esta sesión
+1. **El reinicio no era idempotente**, y lo destapó correr el botón dos veces y comparar los
+   números: el escenario manda un avión al hangar (`activa=false`) y el catálogo sobrevive al
+   reinicio, así que **la flota se encogía en un avión por corrida**. El "punto de partida" no era
+   siempre el mismo punto.
+2. **La fórmula del libro necesita DOS anclajes** (`horas_aeronave_instalacion` y
+   `horas_componente_instalacion`); sembrando solo el primero, la célula salía con 180 h de tiempo
+   total. Y la célula se ancla en **0**, no en `tac − 0`.
+3. **Un índice único parcial** (`taller_tarea_programada`, `id_aeronave WHERE tipo='INSPECCION' AND
+   activo`) permite **una sola inspección activa por avión**. El escenario copia la FORMA del
+   sistema real —1 inspección, muchos ADs y vida límite— aunque los números sean inventados.
+4. **El reinicio tardaba 34 s** con el botón girando delante de un cliente: 414 consultas a ~83 ms.
+   No eran consultas caras, era **el viaje**. Agrupadas quedan 70 y **5 s en producción**. El helper
+   (`demo/lotes.js`) **no devuelve ids a propósito**: el orden del `RETURNING` de un INSERT
+   multifila no lo garantiza el estándar, y emparejar mal una vouchera con su vuelo sería invisible.
+   Los ids se releen por clave natural. Verificado con una **huella de 22 medidas** antes y después.
+5. **Los 14 ítems decían "sin movimiento"** al lado de un kardex lleno: el escenario no llenaba
+   `ultimo_movimiento_en`. Otra columna que la pantalla muestra y ningún camino de escritura llena.
+6. **Un 403 puede venir de dos gates distintos** (§33) y **el `creado_en` con zona fijada** (§35.A)
+   volvieron a aparecer. Y dos veces más: **backticks dentro de un comentario SQL** en un template
+   string, que impide compilar (§36).
+
+### 🚨 E. La fuga que el aislamiento por esquema NO cubría
+Daniel entró con un usuario demo, abrió **Proyección** y vio alumnos,
+instructores y matrículas de CAAA. **`proyeccionMiddleware` es la otra puerta de
+entrada del sistema** además de `authMiddleware` —las pantallas pasivas aceptan
+también la llave del televisor— y **nunca entraba al esquema**: leía el token
+pero no llamaba a `db.enEsquema`. Medido: **5 de sus 10 rutas filtraban**
+(calendario público, aeronaves, estado de flota, resumen de mantenimiento y
+ocupación de salones, que traía "Salón Cap. Tito Gutiérrez").
+
+Además se invirtió el orden: **la sesión se evalúa antes que la llave**. Antes
+ganaba la llave, así que abrir la Proyección con `?key=` te convertía en el
+usuario anónimo `PROYECCION` — y una sesión de demostración terminaba en
+producción. La llave sigue cayendo en `public`: es la del televisor del hangar.
+
+> **La lección: el aislamiento no vive en las consultas, vive en las PUERTAS.**
+> Al agregar una forma nueva de autenticar hay que rutear el esquema ahí mismo.
+
+En la misma tanda, para que Programación se pueda mostrar: la **semana en curso**
+se llena de lunes a sábado (antes solo los 4 de hoy), **los vuelos publicados
+reciben su solicitud de respaldo** —sin ella el calendario de Programación sale
+vacío aunque los vuelos existan, porque se arma `FROM solicitud_vuelo LEFT JOIN
+vuelo`— y la **semana por publicar pasa de 8 a 27 solicitudes con choques**
+(3 de avión, uno con tres alumnos; 2 de instructor).
+
+### F. Dos correcciones de navegación que aplican a CAAA, no solo al demo
+- **El menú del ADMIN no mostraba lo mismo que el del jefe de taller.** Le
+  faltaban **Mi taller** —la pantalla principal del módulo desde §36— y
+  **Trabajos**. Las rutas siempre lo dejaron entrar (`ProtectedTaller` admite
+  ADMIN); lo que faltaba era el menú. Los cinco primeros ítems de la sección
+  Taller de `AdminSidebar` son ahora EXACTAMENTE los de `TallerSidebar`, en el
+  mismo orden, y después van los dos que sí son solo del ADMIN (Aeronaves y
+  Mantenimiento). **La regla: la referencia es lo que usa el taller; el ADMIN
+  agrega, nunca quita.** Al tocar una barra, tocar la otra.
+- **"Practicar loadsheet" pasó de Taller a Operaciones**: es una herramienta de
+  vuelo, no de mantenimiento.
+- El botón **Reiniciar demo** pasó del tablero de Administración al sidebar: la
+  cuenta demo entra por Operaciones y el botón quedaba a una sección de
+  distancia. Se quitó del tablero en vez de dejarlo en los dos lados — una
+  acción disponible desde dos pantallas termina contradiciéndose (§36).
+
+### 🚨 G. El jefe de taller no tenía dónde aprobar (bug de CAAA en producción)
+Reportado por Daniel probando el demo, pero **pasaba igual en producción**. Eran
+tres cosas encadenadas:
+
+1. **`MiTaller.abrirTrabajo` preguntaba "¿es mío?" ANTES que "¿espera mi
+   firma?"**. Como el jefe suele ser quien ABRE las órdenes, todas le contaban
+   como propias, así que tocar una orden firmada lo mandaba a su tarjeta de
+   trabajo en vez de abrirle la revisión. Una orden firmada no tiene nada que
+   "seguir trabajando": esa rama va primero.
+2. **En la tarjeta solo había la etiqueta "esperando tu firma"**, que se lee como
+   un aviso y no como algo que hacer. Ahora hay un botón *Revisar y firmar*.
+3. **Una orden firmada de un avión que ya salió del hangar era invisible.** "El
+   taller ahora" lista los aviones que están ADENTRO; al consolidar las
+   pantallas (§36) esas órdenes perdieron su entrada. Mi taller gana una franja
+   **"Esperando tu firma"** arriba de todo con TODAS las firmadas, y el detalle
+   de la orden (en Trabajos) ofrece la misma acción.
+
+### H. Dos defectos de fondo que salieron en el camino
+- **El reinicio del demo vaciaba tablas que estaban en la lista de las que
+  sobreviven.** `TRUNCATE ... CASCADE` arrastra las tablas que APUNTAN a las
+  vaciadas: se perdían los 75 textos de sticker y los 7 códigos de formulario de
+  la AAC, los dos por `actualizado_por → usuario`. Y TRUNCATE **sin** CASCADE se
+  niega en cuanto otra tabla la referencie, aunque las FK estén desactivadas —
+  esa verificación no pasa por los triggers. Se pasó a **DELETE** (67 borrados en
+  una sola sentencia con CTEs), reinicio manual de las secuencias de las tablas
+  vaciadas, y limpieza de las referencias huérfanas calculada del catálogo.
+  ⚠️ **Una lista de "esto se conserva" no se cumple sola: hay que verificar que
+  se conservó.**
+- **`.adf-note` era `display:flex`**, así que cada hijo se volvía un ítem aparte
+  y una nota escrita como texto + `<strong>` salía en dos columnas encimadas.
+  Medido: **27 de las 54 notas de la app** lo tenían; el flex servía a UNA sola.
+  Ahora es bloque con el ícono flotado.
+- De paso: **`TallerAhora.css` no lo importaba nadie** (los estilos vivos están
+  en `taller-tecnico.css`) y **el correlativo de la orden usa ahora la SIGLA** de
+  la marca — para CAAA no cambia nada, pero "Tu Escuela de Aviación/2026-0001"
+  no es un correlativo.
+
+### 🚨 I. El backend en producción NUNCA pudo leer `marca.json`
+Los PDF de la cuenta de demostraciones salían con el logo y el código de OMA de
+CAAA. **Railway despliega el backend con Root Directory = `legacy/CAA-backend`,
+y `marca.json` estaba en la RAÍZ del repo**: fuera del despliegue. El backend
+caía a sus valores de respaldo —que son los de CAAA— **sin fallar ni loguear
+nada visible**. Para CAAA daba igual (respaldo == CAAA) y por eso nunca se notó.
+
+Yo había verificado el Proxy de la marca en LOCAL, donde el archivo sí está, y
+el frontend en producción. **Nunca comprobé el backend en producción.**
+
+> **La lección: un fallback silencioso hace que "no encuentro la configuración"
+> se vea idéntico a "todo bien".** Es el enemigo recurrente de este repo (§10) y
+> volvió a morder. Al agregar una configuración leída de un archivo, verificar
+> en PRODUCCIÓN que se está leyendo, no solo que el código la lee.
+
+`marca.json` se mudó a `legacy/CAA-backend/` —la carpeta con la raíz de
+despliegue más ajustada; Vercel clona el repo entero y lo lee desde ahí— así que
+sigue habiendo **un solo archivo**. `GET /api/demo/estado` informa ahora el
+**origen** de la marca, que es lo que separa "no encuentro el archivo" de "perdí
+el contexto de esquema": desde afuera se veían iguales.
+
+### Verificado en producción
+El reinicio por el botón, con censo de CAAA antes y después: **una sola fila cambió, y fue un
+vuelo que cerró un instructor mientras yo probaba**. Medido aparte: un reinicio completo **no mueve
+ninguna secuencia ni ninguna fila de `public`**. La marca de CAAA vuelve sola al salir del demo.
+

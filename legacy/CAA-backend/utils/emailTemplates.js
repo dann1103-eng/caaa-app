@@ -1,4 +1,5 @@
 // Plantillas de correo HTML para CAAA — Centro de Adiestramiento Aéreo Académico.
+const { marca } = require("./marca");
 //
 // Diseño "email-safe": layout 100% en tablas + estilos inline (los clientes de
 // correo descartan <style>/CSS externo y flex/grid). Header navy con isotipo
@@ -19,7 +20,10 @@ const BRAND = {
 };
 
 const APP_URL = (process.env.APP_PUBLIC_URL || "https://caaa-app.vercel.app").replace(/\/+$/, "");
-const LOGO_URL = `${APP_URL}/iso-caaa-white.png`;
+// Funcion y no constante: la marca depende del esquema de la peticion, y
+// resolverla al arrancar dejaria a la cuenta de demostraciones mandando
+// correos firmados como CAAA. Misma razon que en los PDF.
+const LOGO_URL = () => `${APP_URL}/${marca.iso_blanco}`;
 const ESCUELA = "Centro de Adiestramiento Aéreo Académico";
 
 function esc(s) {
@@ -65,7 +69,7 @@ function baseLayout({ preheader = "", kicker = "", heading = "", introHtml = "",
       <tr><td style="background:${BRAND.navy};padding:22px 28px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
           <td align="left" style="vertical-align:middle;">
-            <img src="${LOGO_URL}" width="34" height="34" alt="CAAA"
+            <img src="${LOGO_URL()}" width="34" height="34" alt="${marca.nombre}"
                  style="vertical-align:middle;border:0;display:inline-block;">
             <span style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:bold;color:#ffffff;letter-spacing:3px;vertical-align:middle;padding-left:10px;">C A A A</span>
           </td>
@@ -97,7 +101,7 @@ function baseLayout({ preheader = "", kicker = "", heading = "", introHtml = "",
           ${esc(ESCUELA)} · Aeropuerto de Ilopango, El Salvador
         </p>
         <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.6;color:${BRAND.muted};">
-          Este es un correo automático del sistema de gestión CAAA. Por favor no respondas a este mensaje.
+          Este es un correo automático del sistema de gestión ${marca.nombre}. Por favor no respondas a este mensaje.
           Para gestionar tus vuelos ingresá a <a href="${APP_URL}" style="color:${BRAND.navy};">${APP_URL.replace(/^https?:\/\//, "")}</a>.
         </p>
       </td></tr>

@@ -113,6 +113,13 @@ app.use("/api/instructor", instructorRoutes);
 app.use("/api/metar", metarRoutes);
 app.use("/api/administracion", administracionRoutes);
 app.use("/api/taller", tallerRoutes);
+
+// ── Cuenta de demostraciones ──────────────────────────────────────────────
+// Corre en el MISMO despliegue: el candado no es el despliegue sino la SESION.
+// Solo un token que diga esquema "demo" -- que solo recibe quien este en
+// public.demo_cuenta -- puede disparar el reinicio. Ver demo/guardas.js.
+app.use("/api/demo", require("./routes/demoRoutes"));
+
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/push", pushRoutes);
 app.use("/api/dueno", duenoRoutes);

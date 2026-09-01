@@ -14,6 +14,25 @@ exports.login = async (req, res) => {
 
   const u = String(username).trim().toLowerCase();
 
+  // ── En que esquema vive esta cuenta ──────────────────────────────────────
+  // El login corre ANTES de saber quien es el usuario, asi que no puede
+  // rutearse solo: hay que preguntar primero. public.demo_cuenta es la unica
+  // pieza compartida entre los dos esquemas y dice que usuarios son de
+  // demostracion. Se consulta contra poolPublic EXPLICITAMENTE, nunca ruteado.
+  let esquema = "public";
+  try {
+    const d = await db.poolPublic.query(
+      `SELECT 1 FROM demo_cuenta WHERE LOWER(username) = $1`, [u]
+    );
+    if (d.rows.length) esquema = "demo";
+  } catch (e) {
+    // La tabla no existe (instalacion sin demo): todo el mundo va a public.
+  }
+
+  return db.enEsquema(esquema, () => loginEn(req, res, u, password, esquema));
+};
+
+async function loginEn(req, res, u, password, esquema) {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
@@ -38,6 +57,10 @@ exports.login = async (req, res) => {
         a.seguro_vida,
         a.seguro_vida_numero,
         a.certificado_medico_numero,
+        -- Si el programa del alumno se vuela. El panel enciende o apaga los
+        -- bloques de vuelo con esto; el front NO lo deduce de otra cosa.
+        -- COALESCE true: quien no tiene ficha de alumno (staff) no cambia en nada.
+        COALESCE(lic.vuela, true) AS vuela,
         ins.id_instructor,
         ins.es_instructor_vuelo,
         ins.es_instructor_teoria,
@@ -45,6 +68,7 @@ exports.login = async (req, res) => {
         ins.puede_operaciones
       FROM usuario u
       LEFT JOIN alumno a ON a.id_usuario = u.id_usuario
+      LEFT JOIN licencia lic ON lic.id_licencia = a.id_licencia
       LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
       WHERE LOWER(u.username) = LOWER($1)
         AND u.activo = true
@@ -170,6 +194,8 @@ exports.login = async (req, res) => {
       must_set_email: user.must_set_email,
       must_confirm_data: mustConfirmData,
       must_complete_profile: mustCompleteProfile,
+      // Firmado: nadie puede pasarse a demo -- ni salirse -- tocando la peticion.
+      esquema,
       session_id: currentSessionId,
     };
 
@@ -187,6 +213,11 @@ exports.login = async (req, res) => {
         correo: user.correo,
         rol: user.rol,
         ...capacidades,
+        // Si el programa del alumno se vuela. Va en LOS DOS literales (login y
+        // refresh): agregarlo solo al SELECT no alcanza -- la respuesta se arma
+        // campo por campo y el dato nunca llegaria.
+        vuela: user.vuela !== false,
+        es_demo: esquema === "demo",
         must_change_password: user.must_change_password,
         must_set_email: user.must_set_email,
         must_confirm_data: mustConfirmData,
@@ -200,7 +231,7 @@ exports.login = async (req, res) => {
   } finally {
     client.release();
   }
-};
+}
 
 exports.refresh = async (req, res) => {
   const header = req.headers.authorization;
@@ -209,15 +240,37 @@ exports.refresh = async (req, res) => {
 
   try {
     const decoded = jwt.verify(oldToken, process.env.JWT_SECRET);
+    // El esquema se ARRASTRA del token viejo. Sin esto, un usuario de demo
+    // saltaria a los datos de produccion con solo renovar la sesion -- el mismo
+    // agujero que tuvo `vuela` antes de unir alumno en esta misma consulta.
+    if (decoded.esquema === "demo") {
+      return db.enEsquema("demo", () => refrescarEn(req, res, decoded, "demo"));
+    }
+    return refrescarEn(req, res, decoded, "public");
+  } catch (err) {
+    return res.status(401).json({ message: "Token invalido o expirado" });
+  }
+};
+
+async function refrescarEn(req, res, decoded, esquema) {
+  try {
     
     // Obtener datos frescos de la DB para recalcular el estado del perfil
     const result = await db.query(`
       SELECT
         u.id_usuario, u.username, u.nombre, u.apellido, u.rol,
         u.must_change_password, u.must_set_email, u.datos_confirmados,
-        ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar, ins.puede_operaciones
+        ins.id_instructor, ins.es_instructor_vuelo, ins.es_instructor_teoria, ins.puede_programar, ins.puede_operaciones,
+        -- Sin esta union el campo llegaria undefined y el literal de abajo lo
+        -- resolveria como true: un alumno de un programa de tierra recuperaria
+        -- los bloques de vuelo con solo renovar el token.
+        -- (Nada de comillas invertidas en estos comentarios: cortan el template
+        --  literal de JS que los envuelve.)
+        COALESCE(lic.vuela, true) AS vuela
       FROM usuario u
       LEFT JOIN instructor ins ON ins.id_usuario = u.id_usuario
+      LEFT JOIN alumno a ON a.id_usuario = u.id_usuario
+      LEFT JOIN licencia lic ON lic.id_licencia = a.id_licencia
       WHERE u.id_usuario = $1
     `, [decoded.id_usuario]);
 
@@ -246,6 +299,9 @@ exports.refresh = async (req, res) => {
       must_set_email: user.must_set_email,
       must_confirm_data: mustConfirmData,
       must_complete_profile: mustCompleteProfile,
+      // Sin esto el token renovado sale SIN esquema y la siguiente petición
+      // del usuario de demo caería sobre los datos de producción.
+      esquema,
       session_id: decoded.session_id,
     };
 
@@ -262,10 +318,15 @@ exports.refresh = async (req, res) => {
         apellido: user.apellido,
         rol: user.rol,
         ...capacidades,
+        // Si el programa del alumno se vuela. Va en LOS DOS literales (login y
+        // refresh): agregarlo solo al SELECT no alcanza -- la respuesta se arma
+        // campo por campo y el dato nunca llegaria.
+        vuela: user.vuela !== false,
         must_change_password: user.must_change_password,
         must_set_email: user.must_set_email,
         must_confirm_data: mustConfirmData,
         must_complete_profile: mustCompleteProfile,
+        es_demo: esquema === "demo",
       }
     });
   } catch (err) {

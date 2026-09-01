@@ -1,6 +1,7 @@
 import React from "react";
 import AdministracionSidebar from "../AdministracionSidebar/AdministracionSidebar";
 import NotificationBell from "../NotificationBell/NotificationBell";
+import { MARCA, IMG } from "../../marca";
 import "./AdministracionLayout.css";
 
 export default function AdministracionLayout({ children }) {
@@ -17,8 +18,8 @@ export default function AdministracionLayout({ children }) {
           <button className="adf-topbar__menu-btn" onClick={toggleSidebar}>
             <i className={`bi ${sidebarOpen ? 'bi-x' : 'bi-list'}`}></i>
           </button>
-          <img src="/iso-caaa-white.png" alt="CAAA" className="adf-topbar__logo-img" style={{ height: 28, width: "auto", display: "block" }} />
-          <span className="adf-topbar__logo">CAAA</span>
+          <img src={IMG.isoBlanco} alt={MARCA.nombre} className="adf-topbar__logo-img" style={{ height: 28, width: "auto", display: "block" }} />
+          <span className="adf-topbar__logo">{MARCA.nombre}</span>
           <span className="adf-topbar__divider">|</span>
           <span className="adf-topbar__title">
             <i className="bi bi-cash-coin me-2"></i>

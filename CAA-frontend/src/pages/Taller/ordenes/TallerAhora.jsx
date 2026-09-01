@@ -122,6 +122,19 @@ export default function TallerAhora({
                       </div>
                     </div>
 
+                    {/* El trabajo terminó y espera al jefe: acá va un BOTÓN, no una
+                        etiqueta. "esperando tu firma" se lee como un aviso, no como
+                        algo que hay que hacer, y era lo único que había — el jefe
+                        no encontraba dónde aprobar. */}
+                    {puedeAsignar && cerrado && (
+                      <div className="ahora-ot__revisar">
+                        <button type="button" className="tec-btn tec-btn--principal"
+                          onClick={() => onAbrirTrabajo?.(t, m)}>
+                          <i className="bi bi-pen"></i> Revisar y firmar
+                        </button>
+                      </div>
+                    )}
+
                     {/* Reasignar es del jefe, y solo mientras el trabajo siga abierto. */}
                     {puedeAsignar && !cerrado && (
                       <div className="ahora-ot__asignar">

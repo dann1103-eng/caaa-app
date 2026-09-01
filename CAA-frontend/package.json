@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/generate-config.mjs",
+    "predev": "node scripts/generate-marca.mjs",
+    "prebuild": "node scripts/generate-config.mjs && node scripts/generate-marca.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",

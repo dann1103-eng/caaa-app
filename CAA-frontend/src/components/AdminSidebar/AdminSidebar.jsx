@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getSolicitudesCancelacion } from "../../services/adminApi";
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
+const PROY_KEY = window.__APP_CONFIG__?.PROYECCION_KEY || "";
+import DemoReset from "../DemoReset/DemoReset";
 import "./AdminSidebar.css";
 
 export default function AdminSidebar({ isOpen, onClose }) {
@@ -49,7 +51,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
         { label: "Dashboard", path: "/admin/dashboard", icon: "bi-grid-fill" },
         {
           label: "Programación",
-          path: "/proyeccion?modo=proyeccion&key=caaa_proyeccion_secret_2024",
+          path: `/proyeccion?modo=proyeccion&key=${PROY_KEY}`,
           icon: "bi-calendar3",
           external: true,
         },
@@ -58,6 +60,9 @@ export default function AdminSidebar({ isOpen, onClose }) {
         // publicar avisos del ticker); ProtectedTurno ya lo permite.
         { label: "Turno", path: "/turno", icon: "bi-megaphone" },
         { label: "Cancelaciones", path: "/admin/cancelaciones", icon: "bi-x-circle", badge: pendingCancelCount },
+        // Practicar el peso y balance es una herramienta de VUELO, no de
+        // mantenimiento: estaba en Taller y ahí no la busca nadie.
+        { label: "Practicar loadsheet", path: "/admin/loadsheet/practica", icon: "bi-clipboard-data" },
       ],
     },
     {
@@ -79,13 +84,27 @@ export default function AdminSidebar({ isOpen, onClose }) {
     },
     {
       titulo: "Taller",
+      // 🚨 Estos cinco primeros son EXACTAMENTE los del jefe de taller
+      // (TallerSidebar.jsx), en el mismo orden y con las mismas etiquetas.
+      //
+      // No es una preferencia estética: al ADMIN le faltaban "Mi taller" —que
+      // es la pantalla principal del módulo desde 2026-08-20— y "Trabajos", así
+      // que no tenía forma de ver lo que el jefe de taller ve todos los días.
+      // El menú del ADMIN no puede ser un subconjunto distinto del de quien
+      // opera el módulo: la referencia es lo que usa el taller, y el ADMIN
+      // agrega, nunca quita.
+      //
+      // Al tocar TallerSidebar, tocar también acá.
       items: [
+        { label: "Mi taller", path: "/taller/mi-taller", icon: "bi-tools" },
         { label: "Dashboard", path: "/taller/dashboard", icon: "bi-speedometer2" },
-        { label: "Aeronaves", path: "/admin/aeronaves", icon: "bi-airplane" },
-        { label: "Aeronavegabilidad", path: "/taller/aeronavegabilidad", icon: "bi-clipboard2-check" },
-        { label: "Mantenimiento", path: "/admin/mantenimiento", icon: "bi-tools" },
+        { label: "Trabajos", path: "/taller/ordenes", icon: "bi-clipboard2-check" },
+        { label: "Aeronavegabilidad", path: "/taller/aeronavegabilidad", icon: "bi-clipboard2-pulse" },
         { label: "Inventario", path: "/taller/inventario", icon: "bi-box-seam" },
-        { label: "Practicar loadsheet", path: "/admin/loadsheet/practica", icon: "bi-clipboard-data" },
+        // Lo que sigue es SOLO del ADMIN: dar de alta y baja aviones y mandar
+        // uno a mantenimiento son decisiones de la escuela, no del taller.
+        { label: "Aeronaves", path: "/admin/aeronaves", icon: "bi-airplane" },
+        { label: "Mantenimiento", path: "/admin/mantenimiento", icon: "bi-wrench-adjustable" },
       ],
     },
   ];
@@ -152,6 +171,14 @@ export default function AdminSidebar({ isOpen, onClose }) {
       </nav>
 
       <div className="adm-sidebar__bottom">
+        {/* Reiniciar la demostración. Se dibuja solo si ESTA sesión trabaja
+            sobre el esquema demo (el propio componente se lo pregunta al
+            backend), así que a la gente de la escuela no le aparece nunca.
+            Va en el sidebar y no en una pantalla suelta porque se aprieta en
+            vivo, delante de un cliente: estaba solo en el tablero de
+            Administración y quien entra cae en Operaciones, así que no había
+            forma de encontrarlo sin saber dónde estaba. */}
+        <DemoReset variante="sidebar" />
         <button className="adm-sidebar__logout" onClick={handleLogout}>
           <i className="bi bi-box-arrow-left"></i>
           Cerrar sesión

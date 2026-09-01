@@ -6,12 +6,13 @@ import {
 } from "../../../services/tallerApi";
 import ItemPicker from "./ItemPicker";
 import { fmt, hoy, META_TIPO } from "./formato";
+import { MARCA } from "../../../marca";
 
 const VACIO = { item: null, cantidad: "", costo_unitario: "", nota: "" };
 
 // El taller es una OMA de la propia escuela: salvo que el avión sea de un
 // tercero, el cliente es siempre este. Se precarga y se puede cambiar.
-const CLIENTE_PROPIO = "CAAA / OMA";
+const CLIENTE_PROPIO = `${MARCA.nombre} / OMA`;
 // Quien está llenando el papel es quien tiene la sesión abierta.
 const yo = () => {
   try {
@@ -290,7 +291,7 @@ export default function DocumentoModal({ tipo, desde, editar, contexto, onClose,
                       const m = v.match(/(\d{3,4})\s*$/);
                       setCab((p) => ({ ...p, orden_trabajo_no: v, numero_solicitud: m ? m[1] : p.numero_solicitud }));
                     }}
-                    placeholder="CAAA/2026-0049"
+                    placeholder={`${MARCA.nombre}/2026-0049`}
                   />
                 </div>
                 <div className="adf-form-field">

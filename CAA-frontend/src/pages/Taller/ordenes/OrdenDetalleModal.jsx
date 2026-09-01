@@ -6,6 +6,8 @@ import {
 } from "../../../services/tallerApi";
 import { fecha, fmt, META_TIPO } from "../inventario/formato";
 import FirmarOrdenModal from "./FirmarOrdenModal";
+import RevisarOrdenModal from "./RevisarOrdenModal";
+import { esJefeTaller } from "../permisos";
 
 /**
  * El folder del trabajo: la orden con TODO lo que le cuelga.
@@ -20,6 +22,8 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
   const [motivo, setMotivo] = useState("");
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
   const [stickers, setStickers] = useState(false);
+  const [revisando, setRevisando] = useState(false);
+  const jefe = esJefeTaller();
 
   const cargar = () => getOrden(id).then(setD).catch((e) =>
     toast.error(e.response?.data?.message || "No se pudo abrir la orden"));
@@ -56,6 +60,16 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
             )}
             {o?.estado === "ABIERTA" && (
               <button className="adf-btn" onClick={() => setFirmando(true)}><i className="bi bi-pen"></i> Firmar</button>
+            )}
+            {/* Una orden FIRMADA está esperando al jefe. Sin este botón, quien
+                venía a buscarla desde Trabajos se quedaba sin salida: veía la
+                etiqueta "esperando revisión" y solo podía imprimir o anular.
+                Lo que se puede hacer sale de QUIÉN SOS, no de en qué pantalla
+                entraste. */}
+            {o?.estado === "FIRMADA" && jefe && (
+              <button className="adf-btn" onClick={() => setRevisando(true)}>
+                <i className="bi bi-pen"></i> Revisar y firmar
+              </button>
             )}
             {/* Los stickers se pegan cuando el trabajo ya se hizo: una orden
                 todavía abierta no tiene nada que certificar en un libro. */}
@@ -187,6 +201,13 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
         </div>
       </div>
 
+      {revisando && o && (
+        <RevisarOrdenModal
+          orden={o}
+          onClose={() => setRevisando(false)}
+          onResuelta={() => { setRevisando(false); cargar(); onCambio?.(); }}
+        />
+      )}
       {firmando && o && (
         <FirmarOrdenModal
           orden={o}

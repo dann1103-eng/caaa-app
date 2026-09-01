@@ -1,12 +1,16 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { logAuditoria } = require("../../utils/auditoria");
+const { alumnoVuelaSQL } = require("../../utils/alumnoVuela");
 
+// Selector de alumnos para AGENDAR (modal del staff). Solo los que vuelan: un
+// alumno de sobrecargo no puede aparecer en una lista para ponerle un vuelo.
 exports.getAlumnosListAdmin = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT a.id_alumno, a.id_instructor, u.nombre, u.apellido, u.nombre || ' ' || u.apellido AS nombre_completo
     FROM alumno a JOIN usuario u ON u.id_usuario = a.id_usuario
     WHERE a.activo = true AND NOT COALESCE(a.es_practicante, false) AND NOT COALESCE(a.es_externo, false)
+      AND ${alumnoVuelaSQL("a")}
     ORDER BY u.apellido, u.nombre
   `);
   res.json(result.rows);
@@ -87,7 +91,11 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
       seguro_vida_numero        = COALESCE($10, seguro_vida_numero),
       limite_vuelos_avion       = COALESCE($11, limite_vuelos_avion),
       limite_vuelos_simulador   = COALESCE($12, limite_vuelos_simulador),
-      id_instructor             = COALESCE($13, id_instructor),
+      -- El tutor SI se puede quitar: COALESCE leeria el null como "no lo
+      -- toques" y dejaria al alumno con un instructor que ya no le
+      -- corresponde. Clave ausente = no se toca; clave en null = se borra.
+      -- Mismo patron que licencia_tma en §33.
+      id_instructor             = CASE WHEN $15 THEN $13 ELSE id_instructor END,
       horas_acumuladas          = COALESCE($14, horas_acumuladas)
     WHERE id_alumno = $1
     RETURNING id_alumno
@@ -100,6 +108,7 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
     limite_vuelos_avion ?? null, limite_vuelos_simulador ?? null,
     id_instructor ?? null,
     horasSet,
+    Object.prototype.hasOwnProperty.call(req.body, "id_instructor"),
   ]);
   if (r.rows.length === 0) return res.status(404).json({ message: "Alumno no encontrado" });
 
@@ -129,8 +138,17 @@ exports.actualizarAlumnoFull = catchAsync(async (req, res) => {
 // logAuditoria espera un client/db; usamos db directo.
 function client_safe() { return db; }
 
+// Programas. Por defecto solo los que se vuelan, porque el consumidor principal
+// es el selector "licencia a chequear" del modal de agendar y un chequeo de
+// Sobrecargo no existe. Con ?todos=true devuelve también los de tierra, para las
+// pantallas que dan de alta alumnos.
 exports.listLicencias = catchAsync(async (req, res) => {
-  const r = await db.query(`SELECT id_licencia, nombre FROM licencia ORDER BY id_licencia`);
+  const todos = req.query.todos === "true";
+  const r = await db.query(
+    `SELECT id_licencia, nombre, vuela FROM licencia
+      ${todos ? "" : "WHERE vuela = true"}
+      ORDER BY vuela DESC, id_licencia`
+  );
   res.json(r.rows);
 });
 

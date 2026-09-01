@@ -82,7 +82,18 @@ exports.crearAlumno = async (req, res) => {
     if (!username || !password || !nombre || !apellido) {
       return res.status(400).json({ ok: false, message: "Usuario, contraseña, nombre y apellido son obligatorios" });
     }
-    if (!id_instructor || !id_licencia) {
+    // El PROGRAMA (licencia) siempre es obligatorio: es lo que define qué está
+    // estudiando. El TUTOR solo lo es si ese programa se vuela — un alumno de
+    // sobrecargo no tiene instructor de vuelo, y obligarlo a elegir uno mete
+    // datos falsos que después ensucian el roster y la nómina.
+    if (!id_licencia) {
+      return res.status(400).json({ ok: false, message: "El programa (licencia) es obligatorio para un alumno" });
+    }
+    const lic = await client.query(`SELECT nombre, vuela FROM licencia WHERE id_licencia = $1`, [id_licencia]);
+    if (!lic.rows.length) {
+      return res.status(400).json({ ok: false, message: "El programa indicado no existe" });
+    }
+    if (lic.rows[0].vuela && !id_instructor) {
       return res.status(400).json({ ok: false, message: "Instructor y licencia son obligatorios para un alumno" });
     }
 
@@ -95,7 +106,14 @@ exports.crearAlumno = async (req, res) => {
       INSERT INTO alumno (id_usuario, id_instructor, id_licencia, numero_licencia, telefono, activo)
       VALUES ($1, $2, $3, $4, $5, TRUE)
       RETURNING id_alumno
-    `, [id_usuario, id_instructor, id_licencia, numero_licencia || null, telefono || null]);
+    `, [
+      id_usuario,
+      // Se normaliza a null y no se pasa el valor pelado: el formulario manda
+      // cadena vacía cuando no se eligió tutor, y eso en una FK integer revienta
+      // con invalid input syntax.
+      id_instructor || null,
+      id_licencia, numero_licencia || null, telefono || null,
+    ]);
 
     // Cuenta corriente en cero (lista para depósitos / cargos).
     await client.query(`

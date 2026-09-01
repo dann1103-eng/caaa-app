@@ -1,4 +1,4 @@
-import { LOGO_CAAA_DATAURL } from "../../assets/logoCaaa";
+import { MARCA, logoDataUrl } from "../../marca";
 
 export async function generarPdfPlanVuelo(datos, vuelo) {
   const pdfMakeModule = await import("pdfmake/build/pdfmake");
@@ -47,11 +47,11 @@ export async function generarPdfPlanVuelo(datos, vuelo) {
     content: [
       {
         columns: [
-          { image: LOGO_CAAA_DATAURL, width: 40, margin: [0, 0, 8, 0] },
+          { image: logoDataUrl(), width: 40, margin: [0, 0, 8, 0] },
           {
             width: "*",
             stack: [
-              { text: "CAAA", fontSize: 18, bold: true, color: "#1e3a5f" },
+              { text: MARCA.nombre, fontSize: 18, bold: true, color: "#1e3a5f" },
               {
                 text: "Centro de Adiestramiento Aéreo Académico",
                 fontSize: 8,

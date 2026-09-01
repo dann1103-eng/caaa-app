@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getPerfil, cambiarPassword, cambiarCorreo, confirmarDatos, refreshToken } from "../../services/usuarioApi";
+import { MARCA, IMG } from "../../marca";
 import "./ConfirmDataModal.css";
 
 const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || "");
@@ -79,7 +80,7 @@ export default function ConfirmDataModal({ user, onDone }) {
     <div className="cdm-backdrop">
       <div className="cdm-card">
         <div className="cdm-head">
-          <span className="cdm-logo"><img src="/iso-caaa-navy.png" alt="CAAA" /></span>
+          <span className="cdm-logo"><img src={IMG.isoNavy} alt={MARCA.nombre} /></span>
           <div>
             <h2 className="cdm-title">{requiereDatos ? "Confirmá tus datos" : "Actualizá tus credenciales"}</h2>
             <p className="cdm-sub">{requiereDatos

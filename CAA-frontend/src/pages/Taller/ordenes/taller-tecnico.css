@@ -388,3 +388,47 @@
   .ahora-avion__head { flex-direction: column; }
   .ahora-ot__asignar { flex-direction: column; align-items: stretch; gap: 4px; }
 }
+
+/* La franja de "Revisar y firmar" de un trabajo que espera al jefe. Va pegada
+   al pie de la tarjeta y ocupa el ancho: es la única acción de esa tarjeta.
+   (Antes acá solo había una etiqueta que decía "esperando tu firma", que se lee
+   como un aviso y no como algo que hay que hacer.) */
+.ahora-ot__revisar {
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--c-line-1);
+}
+.ahora-ot__revisar .tec-btn { width: 100%; justify-content: center; }
+
+/* ── "Esperando tu firma" ────────────────────────────────────────────────────
+   Lo primero que ve el jefe al entrar a Mi taller. Son las órdenes que el
+   mecánico ya firmó y que bloquean el cierre del trabajo, vengan del avión que
+   vengan — a diferencia de "El taller ahora", que lista solo los que están
+   adentro del hangar. */
+.tec-revisar {
+  background: var(--c-surface-0);
+  border: 1px solid var(--c-warn-500);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  box-shadow: var(--shadow-sm);
+}
+.tec-revisar__tit {
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin: 0 0 var(--sp-3);
+  font-size: var(--text-base); font-weight: 700; color: var(--c-warn-700);
+}
+.tec-revisar__fila {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--c-line-1);
+}
+.tec-revisar__fila:first-of-type { border-top: none; }
+.tec-revisar__datos { flex: 1 1 260px; min-width: 0; }
+.tec-revisar__num {
+  font-family: var(--font-mono); font-weight: 700; color: var(--c-ink-1);
+}
+.tec-revisar__avion {
+  font-family: var(--font-mono); margin-left: var(--sp-2); color: var(--c-ink-2);
+}
+.tec-revisar__disc { margin: 2px 0; color: var(--c-ink-2); font-size: var(--text-sm); }
+.tec-revisar__quien { font-size: var(--text-xs); color: var(--c-ink-3); }

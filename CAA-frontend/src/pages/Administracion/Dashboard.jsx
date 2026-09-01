@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getKpisDashboard, getMorosos } from "../../services/administracionApi";
+import { MARCA } from "../../marca";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -56,7 +57,7 @@ export default function Dashboard() {
     <div>
       <header style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-          <div className="u-label">CAAA · Administración</div>
+          <div className="u-label">{MARCA.nombre} · Administración</div>
           {usingMock && <span className="adf-tag amber">Datos demo</span>}
         </div>
         <h1 style={{ fontSize: "var(--text-2xl)", fontWeight: 700, marginTop: 4, letterSpacing: "var(--tracking-tight)" }}>
@@ -141,7 +142,7 @@ export default function Dashboard() {
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 18 }}>
         <div>
-          <SectionTitle title="Tarifas vigentes" hint="CAAA 2026 · USD por hora" icon="bi-tag" />
+          <SectionTitle title="Tarifas vigentes" hint={`${MARCA.nombre} · USD por hora`} icon="bi-tag" />
           <div className="adf-card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="adf-table" style={{ borderRadius: 0, border: "none" }}>
               <thead><tr><th>Aeronave / sim</th><th style={{ width: 110, textAlign: "right" }}>USD/h</th></tr></thead>

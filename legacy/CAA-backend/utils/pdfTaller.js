@@ -14,9 +14,13 @@
 const PDFDocument = require("pdfkit");
 const path = require("path");
 const fs = require("fs");
+const { marca, imagen } = require("./marca");
 
 const AZUL = "#1B365D";
-const LOGO = path.join(__dirname, "..", "assets", "iso-caaa-navy.png");
+// ⚠️ FUNCIÓN, no constante: la marca depende del esquema de la petición
+// (CAAA o la cuenta de demostraciones), así que resolver la ruta una sola
+// vez al arrancar dejaría todos los PDF con el logo de quien entró primero.
+const LOGO = () => imagen("iso_navy");
 
 const txt = (v) => (v === null || v === undefined ? "" : String(v));
 const num = (v, d = 0) => (v === null || v === undefined || isNaN(Number(v)) ? "" : Number(v).toFixed(d));
@@ -35,8 +39,8 @@ const fecha = (v) => {
 
 /** Encabezado común: logo, razón social y título centrado. */
 function encabezado(doc, titulo, subtitulo) {
-  if (fs.existsSync(LOGO)) {
-    try { doc.image(LOGO, 45, 38, { height: 40 }); } catch { /* sigue sin logo */ }
+  if (fs.existsSync(LOGO())) {
+    try { doc.image(LOGO(), 45, 38, { height: 40 }); } catch { /* sigue sin logo */ }
   }
   doc.fillColor(AZUL).font("Helvetica-Bold").fontSize(11)
     .text("CENTRO DE ADIESTRAMIENTO AEREO ACADEMICO, S.A. DE C.V.", 95, 42, { width: doc.page.width - 145, align: "center" });
@@ -279,14 +283,14 @@ function generarOrdenTrabajoPDF({ orden: o, partes = [], formulario }) {
   const doc = new PDFDocument({ size: "LETTER", margin: 45 });
   const W = doc.page.width - 90;
 
-  if (fs.existsSync(LOGO)) {
-    try { doc.image(LOGO, 45, 40, { height: 38 }); } catch { /* sigue sin logo */ }
+  if (fs.existsSync(LOGO())) {
+    try { doc.image(LOGO(), 45, 40, { height: 38 }); } catch { /* sigue sin logo */ }
   }
   // Bloque central: CAAA / OMA + el código del procedimiento.
   doc.font("Helvetica-Bold").fontSize(14).fillColor("#000")
-    .text("CAAA / OMA", 140, 46, { width: W - 260, align: "center" })
+    .text(`${marca.nombre} / OMA`, 140, 46, { width: W - 260, align: "center" })
     .fontSize(12)
-    .text(txt(formulario?.procedimiento) || "CO-OMA-CAAA-014", 140, 68, { width: W - 260, align: "center" });
+    .text(txt(formulario?.procedimiento) || marca.codigo_oma, 140, 68, { width: W - 260, align: "center" });
 
   // Recuadro del número de orden, a la derecha, como en el papel.
   const xN = 45 + W - 190;
@@ -407,7 +411,7 @@ function generarReporteInspeccionPDF({ reporte: r, formulario }) {
   }
 
   const yf = doc.page.height - 110;
-  firma(doc, 60, yf, 190, "OPERACIONES CAAA");
+  firma(doc, 60, yf, 190, `OPERACIONES ${marca.nombre}`);
   firma(doc, doc.page.width - 250, yf, 190, "MECÁNICO");
   pieFormulario(doc, formulario);
   doc.end();
@@ -429,7 +433,10 @@ function generarReporteInspeccionPDF({ reporte: r, formulario }) {
 // Spec: docs/superpowers/specs/2026-08-22-stickers-libros-aeronave-design.md
 // ═══════════════════════════════════════════════════════════════════════════
 
-const LOGO_STICKER = path.join(__dirname, "..", "assets", "logo-caaa.png");
+// ⚠️ FUNCIÓN, no constante: la marca depende del esquema de la petición
+// (CAAA o la cuenta de demostraciones), así que resolver la ruta una sola
+// vez al arrancar dejaría todos los PDF con el logo de quien entró primero.
+const LOGO_STICKER = () => imagen("logo");
 
 /** Horas con separador de miles y dos decimales, como en el papel. */
 const horas = (v) =>
@@ -472,15 +479,15 @@ function dibujarSticker(doc, s, x, y, ancho) {
   doc.strokeColor("#111").lineWidth(1).rect(x, y, ancho, alto).stroke();
 
   // ── Cabecera: logo a la izquierda, la organización centrada ──────────────
-  if (fs.existsSync(LOGO_STICKER)) {
-    try { doc.image(LOGO_STICKER, x + 8, y + 7, { height: 32 }); } catch { /* sale sin logo */ }
+  if (fs.existsSync(LOGO_STICKER())) {
+    try { doc.image(LOGO_STICKER(), x + 8, y + 7, { height: 32 }); } catch { /* sale sin logo */ }
   }
   doc.fillColor("#000").font("Helvetica-Bold").fontSize(9)
     .text("ORGANIZACIÓN DE MANTENIMIENTO AUTORIZADO", x + 46, y + 8, { width: ancho - 60, align: "center" });
   doc.fontSize(8.5)
     .text("C.A.A.A. S.A. de C.V.", x + 46, y + 20, { width: ancho - 60, align: "center" });
   doc.font("Helvetica").fontSize(8)
-    .text(txt(s.codigo_formulario) || "CO-OMA-CAAA-014", x + 46, y + 31, { width: ancho - 60, align: "center" });
+    .text(txt(s.codigo_formulario) || marca.codigo_oma, x + 46, y + 31, { width: ancho - 60, align: "center" });
 
   // ── Grilla de tres columnas, tal como el papel ───────────────────────────
   // Col 1: Matrícula / Marca / Modelo · Col 2: TAC / T.T. / TSO
@@ -574,7 +581,7 @@ function generarStickersPDF({ stickers = [], formulario = null }) {
   const x = 36;
   const ancho = doc.page.width - 72;
   const limite = doc.page.height - 50;
-  const codigo = formulario?.codigo || "CO-OMA-CAAA-014";
+  const codigo = formulario?.codigo || marca.codigo_oma;
   let y = 44;
 
   stickers.forEach((s0, i) => {

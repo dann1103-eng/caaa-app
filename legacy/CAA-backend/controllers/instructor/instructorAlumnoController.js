@@ -3,6 +3,7 @@ const { logAuditoria } = require("../../utils/auditoria");
 const { resolverIdInstructor, getSemanaProxima } = require("../../utils/instructorHelpers");
 const { generarReciboNominaPDF } = require("../../utils/pdfGenerator");
 const { soloHorasFacturables } = require("../../utils/horasFacturables");
+const { alumnoVuelaSQL } = require("../../utils/alumnoVuela");
 
 // Recibo de nómina propio (PDF) — solo del instructor autenticado.
 exports.descargarMiRecibo = async (req, res) => {
@@ -84,6 +85,9 @@ exports.getMisAlumnos = async (req, res) => {
          AND a.activo = true
          AND NOT COALESCE(a.es_practicante, false)
          AND NOT COALESCE(a.es_externo, false)
+         -- Roster de VUELO: un alumno de un programa de tierra no va acá aunque
+         -- la escuela se lo haya asignado a este instructor como tutor.
+         AND ${alumnoVuelaSQL("a")}
        ORDER BY u.apellido, u.nombre`,
       [id_instructor, semana?.id_semana ?? null]
     );
