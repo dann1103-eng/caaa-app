@@ -4,6 +4,7 @@ import { getSolicitudesCancelacion } from "../../services/adminApi";
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
 const PROY_KEY = window.__APP_CONFIG__?.PROYECCION_KEY || "";
+import DemoReset from "../DemoReset/DemoReset";
 import "./AdminSidebar.css";
 
 export default function AdminSidebar({ isOpen, onClose }) {
@@ -153,6 +154,14 @@ export default function AdminSidebar({ isOpen, onClose }) {
       </nav>
 
       <div className="adm-sidebar__bottom">
+        {/* Reiniciar la demostración. Se dibuja solo si ESTA sesión trabaja
+            sobre el esquema demo (el propio componente se lo pregunta al
+            backend), así que a la gente de la escuela no le aparece nunca.
+            Va en el sidebar y no en una pantalla suelta porque se aprieta en
+            vivo, delante de un cliente: estaba solo en el tablero de
+            Administración y quien entra cae en Operaciones, así que no había
+            forma de encontrarlo sin saber dónde estaba. */}
+        <DemoReset />
         <button className="adm-sidebar__logout" onClick={handleLogout}>
           <i className="bi bi-box-arrow-left"></i>
           Cerrar sesión
