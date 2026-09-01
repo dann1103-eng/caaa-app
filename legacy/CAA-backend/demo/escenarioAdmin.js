@@ -13,6 +13,8 @@ const { insertarMuchos } = require("./lotes");
 const DIA = 86400000;
 const sumarDias = (d, n) => new Date(d.getTime() + n * DIA);
 const soloFecha = (d) => d.toISOString().slice(0, 10);
+/** Una fecha que nunca cae adelante de hoy. */
+const noFuturo = (d, hoy) => (d > hoy ? hoy : d);
 const r2 = (n) => Math.round(n * 100) / 100;
 
 /** Gastos de una escuela de aviación en un mes cualquiera. */
@@ -95,7 +97,7 @@ async function sembrarAdmin(c, log, ctx) {
     periodos.map((p) => [soloFecha(mesPasado), soloFecha(finMes), p.estado, p.tipo,
                          mesPasado.getFullYear(), mesPasado.getMonth() + 1,
                          idAdmin, idAdmin,
-                         p.estado === "PAGADA" ? soloFecha(sumarDias(finMes, 3)) : null])
+                         p.estado === "PAGADA" ? soloFecha(noFuturo(sumarDias(finMes, 3), hoy)) : null])
   );
   const idsPeriodo = new Map(
     (await c.query(`SELECT id, tipo_planilla FROM nomina_periodo`)).rows
@@ -142,7 +144,7 @@ async function sembrarAdmin(c, log, ctx) {
     `INSERT INTO egreso (categoria, proveedor, concepto, monto_usd, fecha, id_nomina, registrado_por)
      VALUES ('NOMINA', 'Planilla de personal', $1, $2, $3, $4, $5)`,
     [`Planilla PLANTA ${mesPasado.getMonth() + 1}/${mesPasado.getFullYear()}`,
-     r2(totalPlanta), soloFecha(sumarDias(finMes, 3)), idsPeriodo.get("PLANTA"), idAdmin]
+     r2(totalPlanta), soloFecha(noFuturo(sumarDias(finMes, 3), hoy)), idsPeriodo.get("PLANTA"), idAdmin]
   );
 
   return {

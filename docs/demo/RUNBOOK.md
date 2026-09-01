@@ -18,7 +18,15 @@ inventados:
 | **Operaciones** | 20 alumnos, 3 instructores y un mes de vuelos cerrados con su vouchera y su cargo. La **semana en curso** va llena de lunes a sábado: lo anterior a hoy cerrado, los 4 vuelos de HOY en las cuatro etapas del ciclo —publicado, salida de hangar, en progreso, de regreso— y lo que viene, programado. |
 | **Semana por publicar** | **27 solicitudes con choques a propósito**: tres de avión (uno con **tres** alumnos por la misma avioneta, para la lista de espera) y dos de instructor. `Publicar semana` se niega mientras queden sin resolver, así que el recorrido completo se puede mostrar: intentar publicar → ver el rechazo → mover o rechazar una → publicar. |
 | **Taller** | bodega con kardex (una compra y dos consumos, dos ítems bajo mínimo), los tres libros de cada avión, inspecciones y directivas con vencimientos a la vista, un avión adentro del hangar y tres órdenes de trabajo: una en curso, una firmada esperando al jefe y una ya aprobada. |
+| **Contabilidad** | 14 egresos repartidos en ocho categorías, 9 facturas emitidas y **dos planillas del mes pasado**: la de PLANTA (pagada, con ISR por tramos, ISSS y AFP reales de El Salvador) y la de SERVICIOS (aprobada, lista para "Marcar pagada" en vivo). |
+| **Aula virtual** | 17 alumnos inscritos en dos cursos de vuelo, 6 clases con su lista de asistencia, 5 evaluaciones —internas y de la AAC— con 60 notas puestas, y **material de estudio descargable de verdad**. |
 | **Marca** | logos, nombre y color del molde: **TU ESCUELA** (§5). |
+
+**La alumna de sobrecargo (`demo.a.reyes`) tiene su propio recorrido**, y es la
+que muestra que el sistema sirve para programas que no vuelan: curso
+*Tripulante de Cabina* con 6 unidades, 3 clases ya dictadas con asistencia, 3
+agendadas hacia adelante, dos notas puestas y el examen final pendiente. Al
+entrar con su usuario hay historial por donde navegar.
 
 **La flota y los salones del demo son inventados**, no los de CAAA: matrículas
 `YS-5xx-D`, salones Alfa/Bravo/Charlie y códigos de formulario neutros. Entre
@@ -52,7 +60,7 @@ Todos los usuarios sembrados usan `demo123`:
 | `demo.e.molina` | **alumno con saldo** ($2,510) — el mejor para mostrar cómo se solicitan vuelos |
 | `demo.a.zavala` | alumna con **saldo bajo** ($120) — sale marcada en el tablero financiero |
 | `demo.g.mena`, … | los otros 17 alumnos |
-| `demo.a.reyes` | alumna de sobrecargo (programa de tierra) |
+| `demo.a.reyes` | **alumna de sobrecargo** — programa de tierra, con su curso, clases y notas |
 
 ---
 
