@@ -27,7 +27,21 @@ const fs = require("fs");
 const path = require("path");
 const db = require("../config/db");
 
-const RUTA = path.join(__dirname, "..", "..", "..", "marca.json");
+// 🚨 El archivo vive DENTRO de legacy/CAA-backend, y no en la raíz del repo.
+//
+// Railway despliega este servicio con Root Directory = legacy/CAA-backend, así
+// que lo que esté más arriba NO llega al servidor. Estuvo en la raíz y el
+// backend en producción cayó todo el tiempo a los valores de respaldo —que son
+// los de CAAA— sin fallar ni loguear nada visible: los PDF de la cuenta de
+// demostraciones salían con el logo y el código de OMA de CAAA.
+//
+// Se conserva la ruta vieja como segunda opción por si alguien tiene el archivo
+// en la raíz de una copia anterior.
+const CANDIDATAS = [
+  path.join(__dirname, "..", "marca.json"),
+  path.join(__dirname, "..", "..", "..", "marca.json"),
+];
+const RUTA = CANDIDATAS.find((r) => fs.existsSync(r)) || CANDIDATAS[0];
 
 // Valores de emergencia. Si el archivo falta o está roto, el sistema arranca
 // igual con la identidad de CAAA en vez de caerse: un backend caído es peor que

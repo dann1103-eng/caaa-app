@@ -152,8 +152,8 @@ La cuenta de demostraciones ve **TU ESCUELA** —con su propio logo y su propio
 color— mientras la gente de CAAA, en el mismo momento y en la misma URL, sigue
 viendo CAAA. No hay que activar nada ni acordarse de volverlo atrás.
 
-La identidad vive en **`marca.json`**, en la raíz del repo, con dos juegos de
-valores y dos punteros:
+La identidad vive en **`marca.json`**, dentro de `legacy/CAA-backend/`, con dos
+juegos de valores y dos punteros:
 
 ```json
 { "activa": "caaa", "marca_demo": "molde", "marcas": { "caaa": {…}, "molde": {…} } }
@@ -163,6 +163,14 @@ valores y dos punteros:
 demostraciones. Para cambiar cómo se ve el molde —ponerle el nombre del
 prospecto antes de una reunión, por ejemplo— se edita `marcas.molde` y se
 reemplazan las imágenes `*-molde.png`. Nada de eso toca lo que ve CAAA.
+
+⚠️ **El archivo vive dentro de `legacy/CAA-backend/` y no en la raíz, a
+propósito.** Railway despliega el backend con esa carpeta como raíz, así que lo
+que esté más arriba no llega al servidor: estuvo en la raíz del repo y el
+backend cayó todo el tiempo a sus valores de respaldo —que son los de CAAA— sin
+fallar ni avisar, así que los PDF de la demostración salían con el logo y el
+código de OMA de CAAA. Vercel sí clona el repo entero y lo lee desde ahí.
+Para comprobarlo: `GET /api/demo/estado` informa el `origen` de la marca.
 
 ### Cómo se resuelve
 

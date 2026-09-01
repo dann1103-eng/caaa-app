@@ -39,7 +39,16 @@ const RESPALDO = {
 let marca = RESPALDO;        // la de producción
 let marcaDemo = RESPALDO;    // la que ve la cuenta de demostraciones
 try {
-  const j = JSON.parse(readFileSync(join(RAIZ, "marca.json"), "utf8"));
+  // marca.json vive dentro de legacy/CAA-backend porque ese servicio se despliega
+  // con la carpeta como raíz y no alcanza nada de más arriba (ver utils/marca.js).
+  // Vercel sí clona el repo entero, así que desde acá se lo puede leer.
+  const CANDIDATAS = [
+    join(RAIZ, "legacy", "CAA-backend", "marca.json"),
+    join(RAIZ, "marca.json"),
+  ];
+  const ruta = CANDIDATAS.find((r) => existsSync(r));
+  if (!ruta) throw new Error("no encontré marca.json");
+  const j = JSON.parse(readFileSync(ruta, "utf8"));
   const arma = (clave) => {
     const m = j.marcas?.[clave];
     if (!m) throw new Error(`no existe la marca "${clave}"`);
