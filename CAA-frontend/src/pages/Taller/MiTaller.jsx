@@ -43,6 +43,7 @@ const miUid = () => {
 export default function MiTaller() {
   const uid = miUid();
   const [ordenes, setOrdenes] = useState([]);
+  const [porRevisar, setPorRevisar] = useState([]);   // firmadas esperando al jefe
   const [cola, setCola] = useState([]);
   const [estimando, setEstimando] = useState(null);
   const [desdeCola, setDesdeCola] = useState(null);   // avión elegido de la cola
@@ -80,13 +81,21 @@ export default function MiTaller() {
       // y "Mi taller" del jefe se autoseleccionaba el trabajo del mecánico y decía
       // "estás trabajando en" sobre algo que no era suyo. Acá solo va lo mío: lo que
       // abrí yo o lo que me asignaron.
-      const [r, c, docs] = await Promise.all([
+      const [r, c, docs, rev] = await Promise.all([
         getOrdenes({ abiertas: "true", asignadas: "true" }),
         getColaTrabajo(),
         // El técnico no despacha, y para él esto responde 403: sin pendientes.
         getDocumentos({ sin_despachar: "true" }).catch(() => []),
+        // 🚨 TODAS las firmadas, no solo las mías ni solo las del hangar.
+        //
+        // "El taller ahora" lista los aviones que están ADENTRO, y una orden
+        // firmada puede ser de un avión que ya salió o que nunca tuvo un
+        // mantenimiento abierto. Esas quedaban invisibles: el jefe no tenía
+        // dónde aprobarlas desde ninguna pantalla.
+        jefe ? getOrdenes({ estado: "FIRMADA" }).catch(() => []) : [],
       ]);
       setOrdenes(r);
+      setPorRevisar(Array.isArray(rev) ? rev : rev?.ordenes || []);
       setCola(c);
       setPendientes(
         (Array.isArray(docs) ? docs : []).reduce((acc, d) => {
@@ -101,7 +110,7 @@ export default function MiTaller() {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [jefe]);
 
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => { if (jefe) getPersonalTaller().then(setPersonal).catch(() => {}); }, [jefe]);
@@ -171,6 +180,42 @@ export default function MiTaller() {
       {/* Lo que esta por vencer, arriba: si el jefe tiene que acordarse de ir a
           Aeronavegabilidad a mirarlo, no es un aviso sino un reporte. */}
       <TarjetaVencimientos />
+
+      {/* Lo que espera la firma del jefe. Va ARRIBA porque es lo único de esta
+          pantalla que bloquea a otro: hasta que se apruebe, el mecánico no
+          cierra y el avión no vuelve al servicio.
+          No sale de "El taller ahora" a propósito: esa lista son los aviones
+          que están adentro del hangar, y una orden firmada puede ser de uno que
+          ya salió. */}
+      {jefe && porRevisar.length > 0 && (
+        <section className="tec-revisar">
+          <h2 className="tec-revisar__tit">
+            <i className="bi bi-pen"></i> Esperando tu firma
+            <span className="adf-tag amber">{porRevisar.length}</span>
+          </h2>
+          {porRevisar.map((o) => (
+            <div key={o.id_orden} className="tec-revisar__fila">
+              <div className="tec-revisar__datos">
+                <span className="tec-revisar__num">{o.correlativo}</span>
+                <span className="tec-revisar__avion">{o.aeronave_codigo}</span>
+                <p className="tec-revisar__disc">{o.discrepancia}</p>
+                <span className="tec-revisar__quien">
+                  Firmó {o.mecanico_nombre || "el mecánico"}
+                  {o.devoluciones > 0 && (
+                    <span className="adf-tag amber" style={{ marginLeft: 6 }}>
+                      devuelta {o.devoluciones}×
+                    </span>
+                  )}
+                </span>
+              </div>
+              <button type="button" className="tec-btn tec-btn--principal"
+                onClick={() => setRevisando(o)}>
+                <i className="bi bi-pen"></i> Revisar y firmar
+              </button>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Qué trabajo está en curso: el contexto de todo lo demás. */}
       {activa ? (
