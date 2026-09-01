@@ -57,6 +57,31 @@ function pdfSimple(titulo, cuerpo) {
 }
 
 /**
+ * El progreso unidad por unidad, que es de donde salen la barra del curso y el
+ * "0 / 6 unidades" del tablero del alumno.
+ *
+ * Tiene que ser COHERENTE con lo demás: si hay tres clases dictadas y dos
+ * exámenes aprobados, un curso que dice "0 de 6, ninguna iniciada" se lee como
+ * que el sistema no registró nada. Se marcan completadas las unidades ya
+ * dictadas, en progreso la que sigue, y sin tocar el resto.
+ */
+async function progresoDeUnidades(c, alumnos, unids, dictadas, actualizadoPor) {
+  const filas = [];
+  for (const idA of alumnos) {
+    unids.forEach((u, k) => {
+      const estado = k < dictadas ? "COMPLETADA" : k === dictadas ? "EN_PROGRESO" : "NO_INICIADA";
+      // Las no iniciadas no se escriben: la ausencia de fila YA significa eso, y
+      // llenar la tabla de filas vacías solo hace ruido.
+      if (estado === "NO_INICIADA") return;
+      filas.push([idA, u.id, estado, estado === "COMPLETADA" ? u.horas_estimadas || 20 : 0, actualizadoPor]);
+    });
+  }
+  await insertarMuchos(c, "progreso_unidad_alumno",
+    ["id_alumno", "id_unidad", "estado", "horas_acumuladas", "actualizado_por"], filas);
+  return filas.length;
+}
+
+/**
  * @param ctx.idsAlumno    alumnos de vuelo, en orden
  * @param ctx.idsInstructor instructores
  * @param ctx.idTierra     la alumna de sobrecargo (o null)
@@ -67,7 +92,7 @@ async function sembrarAula(c, log, ctx) {
 
   const cursos = (await c.query(`SELECT id, nombre FROM curso ORDER BY id`)).rows;
   const unidades = (await c.query(
-    `SELECT id, id_curso, numero, nombre FROM unidad_teorica ORDER BY id_curso, numero`
+    `SELECT id, id_curso, numero, nombre, horas_estimadas FROM unidad_teorica ORDER BY id_curso, numero`
   )).rows;
   const salones = (await c.query(`SELECT id FROM salon ORDER BY id`)).rows.map((r) => r.id);
   if (!cursos.length) return { inscripciones: 0 };
@@ -172,6 +197,9 @@ async function sembrarAula(c, log, ctx) {
   });
   await insertarMuchos(c, "asistencia_alumno",
     ["id_sesion", "id_alumno", "estado", "registrado_por"], asistencia);
+
+  const dictadasPrivado = clases.filter((cl) => cl.estado === "CERRADA").length;
+  await progresoDeUnidades(c, alumnosPrivado, unidsPrivado, dictadasPrivado, idsInstructor[0]);
 
   // ── Exámenes y notas ────────────────────────────────────────────────────
   // Dos orígenes distintos, que es la separación que pidió la escuela: los
@@ -285,6 +313,8 @@ async function sembrarAula(c, log, ctx) {
       })
     );
     notasSob = evalsSob.length;
+    await progresoDeUnidades(c, [idTierra], unidsSob,
+      agenda.filter((a) => a.estado === "CERRADA").length, idsInstructor[0]);
   }
 
   return {
