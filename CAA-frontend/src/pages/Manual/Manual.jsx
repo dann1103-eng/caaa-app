@@ -24,7 +24,7 @@ const ROLE_CARDS = [
   { id: "turno", icon: "bi-megaphone", title: "Turno", text: "Abrir y cerrar el turno, monitorear los vuelos del día, publicar avisos y generar el reporte de cierre." },
   { id: "programacion", icon: "bi-grid-3x3-gap", title: "Programación", text: "Organizar el calendario semanal, asignar aeronaves y resolver conflictos de horario." },
   { id: "administracion", icon: "bi-cash-coin", title: "Administración", text: "Cuentas corrientes, contabilidad, usuarios, cursos y documentación de alumnos." },
-  { id: "taller", icon: "bi-tools", title: "Taller", text: "Aeronavegabilidad, mantenimientos programados e inventario de repuestos." },
+  { id: "taller", icon: "bi-tools", title: "Taller", text: "Órdenes de trabajo, pedidos de material, inventario, libros del avión y aeronavegabilidad." },
   { id: "admin", icon: "bi-shield-check", title: "Admin", text: "Acceso completo: supervisa operaciones, administración y taller desde un solo lugar." },
 ];
 
@@ -270,7 +270,7 @@ export default function Manual({ solo = null }) {
               </div>
             </Step>
             <Step n={3} title="Elegí tus horarios en la grilla">
-              <p className="man__step-text">Cada casilla es una combinación de <strong>hora + aeronave + día</strong>. Hacé clic en las que digan "Disponible para agendar" hasta llegar a tu límite semanal (máximo un avión por día).</p>
+              <p className="man__step-text">Cada casilla es una combinación de <strong>hora + aeronave + día</strong>. Hacé clic en las que digan "Disponible para agendar" hasta llegar a tu límite semanal (máximo un avión por día, salvo que tu instructor te haya habilitado más de uno).</p>
               <div className="man__ui">
                 <div className="man__grid-mock">
                   <table>
@@ -283,9 +283,13 @@ export default function Manual({ solo = null }) {
                 </div>
               </div>
             </Step>
-            <Step n={4} title={<>Hacé clic en <Chip>Guardar (N vuelos)</Chip></>}>
+            <Step n={4} title='Si el vuelo va a tener escala, marcá "Con parada"'>
+              <p className="man__step-text">Aparece como casilla junto al horario. Tu ruta siempre empieza y termina en tu base — vos solo agregás los aeropuertos intermedios (hasta 4), en el orden en que los vas a tocar. Cada tramo se cierra y se reporta por separado, pero para tu límite semanal la ruta completa cuenta como <strong>un solo vuelo</strong>.</p>
+            </Step>
+            <Step n={5} title={<>Hacé clic en <Chip>Guardar (N vuelos)</Chip></>}>
               <p className="man__step-text">El botón muestra cuántos vuelos llevás seleccionados. Tu solicitud queda <strong>en revisión</strong>: Programación la organiza en el calendario y, cuando la publique, tus vuelos aparecen en tu horario con estado <Badge variant="gris">PROGRAMADO</Badge>.</p>
               <p className="man__note man__note--info"><i className="bi bi-info-circle" />Guardar no confirma el vuelo al instante — es una solicitud. Revisá tu horario más tarde para ver qué quedó publicado.</p>
+              <p className="man__note man__note--warn"><i className="bi bi-exclamation-triangle" />Si tu saldo no alcanza para cubrir el vuelo, un aviso te lo advierte — pero no te bloquea: podés confirmar igual (por ejemplo, si vas a depositar antes de volar).</p>
             </Step>
           </div>
 
@@ -342,7 +346,7 @@ export default function Manual({ solo = null }) {
           <div className="man__kicker"><i className="bi bi-headset" />Manual 02</div>
           <h1 className="man__title">Instructor</h1>
           <p className="man__lede">El corazón de tu día: marcar cada vuelo desde que sale del hangar hasta que se cierra, y dejar el reporte y el loadsheet en orden.</p>
-          <div className="man__strip"><span>Marcar vuelo</span><span>Inasistencia</span><span>Checklist</span><span>Reporte</span><span>Loadsheet</span><span>Agenda de teoría</span><span>Aula virtual</span></div>
+          <div className="man__strip"><span>Marcar vuelo</span><span>Inasistencia</span><span>Checklist</span><span>Reporte</span><span>Regreso por emergencia</span><span>Rutas con escala</span><span>Loadsheet</span><span>Vuelos de práctica</span><span>Agenda de teoría</span><span>Aula virtual</span></div>
 
           <SectionHead icon="bi-arrow-repeat" hint={<>Repasá la <a href="#ciclo" onClick={(e) => { e.preventDefault(); go("ciclo"); }}>página de referencia del ciclo de vida</a> si algún estado no te hace sentido.</>}>Marcar las etapas de un vuelo</SectionHead>
           <div className="man__steps">
@@ -391,10 +395,56 @@ export default function Manual({ solo = null }) {
             </Step>
           </div>
 
+          <SectionHead icon="bi-exclamation-triangle" hint="Salió del hangar, se quedó en pista o volvió antes de despegar — el avión sí se movió, pero el vuelo como tal no ocurrió.">Regreso por emergencia: el avión se movió pero no se voló</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title="Anotá el TAC y el Hobbs reales igual que siempre">
+              <p className="man__step-text">Aunque la diferencia sea mínima — es lo que mantiene al día el mantenimiento del avión. Esas horas <strong>sí</strong> cuentan para la aeronave.</p>
+            </Step>
+            <Step n={2} title={<>Activá <Chip variant="danger">Regreso por emergencia</Chip> y elegí el motivo</>}>
+              <p className="man__step-text">Clima, Falla mecánica u Otro, con un detalle breve. El campo "horas a cobrar" desaparece solo: este vuelo <strong>no se cobra</strong>, no suma horas de licencia, no avanza tu curso y no te paga a vos en nómina.</p>
+              <p className="man__note man__note--warn"><i className="bi bi-exclamation-triangle" />No aplica a simulador ni junto con Inasistencia — son casos distintos. Usalo solo cuando el avión salió a moverse pero el vuelo en sí no se hizo.</p>
+            </Step>
+            <Step n={3} title="Firmá y enviá normalmente">
+              <p className="man__step-text">Podés guardarlo como borrador con la marca puesta y sigue ahí al reabrirlo. Una vez firmado, revisalo bien: <strong>no hay forma de deshacer</strong> la firma desde tu panel si te equivocaste.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-signpost-split" hint="Cuando la ruta que pediste el alumno tiene escala en otro aeropuerto.">Vuelos con escala (rutas con parada)</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title="Cada tramo es un vuelo propio, con su loadsheet y su vouchera">
+              <p className="man__step-text">Ves la ruta completa en tu tarjeta ("Tramo 1/3 · MSSS→MGGT", etc.). El primer tramo sale del hangar y avanza como cualquier vuelo; los siguientes empiezan en <Badge variant="naranja">EN ESPERA DE TRAMO</Badge>.</p>
+            </Step>
+            <Step n={2} title="Al aterrizar en cada escala, completá el mini-formulario">
+              <p className="man__step-text">Te pide solo <strong>TAC y Hobbs de llegada</strong> — pensado para hacerlo desde el teléfono en pista. Con eso cierra ese tramo y habilita el siguiente.</p>
+            </Step>
+            <Step n={3} title="El checklist post-vuelo va solo en el último tramo">
+              <p className="man__step-text">Los tramos que cierran fuera de tu base no vuelven al hangar, así que no lo piden. El ciclo completo (Salida hangar → Regreso hangar → Finalizar) se hace normal en el tramo final.</p>
+            </Step>
+            <Step n={4} title="Si la ruta se corta a mitad de camino">
+              <p className="man__step-text">Firmá la vouchera del tramo que sí volaste como <strong>Regreso anticipado</strong>, y pedile a Turno que cancele los tramos restantes desde su panel.</p>
+            </Step>
+          </div>
+
           <SectionHead icon="bi-geo-alt">Ver el loadsheet que te envía el alumno</SectionHead>
           <div className="man__steps">
             <Step n={1} title={<>Buscá el botón <Chip variant="outline">Ver Loadsheet del alumno</Chip></>}>
               <p className="man__step-text">Aparece en la tarjeta del vuelo apenas el alumno hace clic en "Guardar y enviar" desde el suyo. Lo abrís en <strong>modo lectura</strong>: podés ver, imprimir y descargar el PDF, pero no editarlo.</p>
+            </Step>
+            <Step n={2} title={<>¿Querés practicar? Usá <Chip variant="outline">Practicar loadsheet</Chip> en tu menú</>}>
+              <p className="man__step-text">Abre un loadsheet de prueba, sin vuelo real detrás — elegís cualquier aeronave libre, no se guarda ni se envía. Sirve para ensayar el cálculo sin afectar nada.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-headset" hint='Aparece como "Mis vuelos de práctica" en tu Dashboard, si aplica.'>Vuelos de práctica con otro instructor (CHEQUEO / REFRESH)</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title="Vos sos el que RECIBE la instrucción — el otro instructor va como PIC">
+              <p className="man__step-text">Se agenda igual que cualquier vuelo, pero a tu propio nombre como practicante. Se avisa siempre en dos sub-tipos: <strong>CHEQUEO</strong> (lo paga la escuela) o <strong>REFRESH</strong> (lo pagás vos).</p>
+            </Step>
+            <Step n={2} title='Si es REFRESH, elegís si se debita de tu saldo al completarse'>
+              <p className="man__step-text">Al pedirlo ves tu saldo y el costo estimado; el checkbox "Debitar de mi saldo" viene marcado por defecto si te alcanza. Nunca te bloquea el pedido ni te deja en saldo negativo — si al momento de cerrar el vuelo ya no te alcanza, simplemente no se cobra automático y queda pendiente de pago manual.</p>
+            </Step>
+            <Step n={3} title="Firmás el reporte como si fueras el alumno">
+              <p className="man__step-text">Desde "Mis vuelos de práctica" abrís tu propio loadsheet y firmás tu propio reporte de vuelo, con los mismos pasos que ya conocés del lado del alumno.</p>
             </Step>
           </div>
 
@@ -462,7 +512,11 @@ export default function Manual({ solo = null }) {
               <p className="man__step-text">Cada tarjeta tiene el mismo botón de avance (<Chip>→ Salida hangar</Chip>, etc.). Es un respaldo — el instructor es quien normalmente marca su propio vuelo.</p>
             </Step>
             <Step n={3} title="Editá la tripulación si hace falta">
-              <p className="man__step-text">El ícono de lápiz en la tarjeta abre el editor de <strong>alumno, instructor, aeronave y almas a bordo</strong>.</p>
+              <p className="man__step-text">El ícono de lápiz en la tarjeta abre el editor de <strong>alumno, instructor, aeronave y almas a bordo</strong>. En una ruta con escala, cambiar instructor o aeronave se aplica a <strong>todos los tramos</strong> a la vez.</p>
+              <p className="man__note man__note--info"><i className="bi bi-info-circle" />Una ruta con escala no se puede mover de día — partiría el viaje en dos fechas y dejaría el regreso sin poder volarse. Si hace falta reprogramarla, cancelá la ruta completa y volvela a agendar.</p>
+            </Step>
+            <Step n={4} title='Si una ruta con escala se corta a mitad de camino: "Cancelar tramos restantes"'>
+              <p className="man__step-text">Disponible en la tarjeta del vuelo cuando hay tramos todavía sin volar. Cancela solo lo que falta — el tramo ya volado (con su vouchera firmada) queda intacto.</p>
             </Step>
           </div>
 
@@ -561,6 +615,17 @@ export default function Manual({ solo = null }) {
             <Step n={1} title={'Entrá a "Agendar Vuelos para Alumno"'}>
               <p className="man__step-text">Elegí el alumno y el instructor, y seleccioná los horarios igual que en la grilla del alumno — pero sin pasar por la revisión: queda agendado directamente.</p>
             </Step>
+            <Step n={2} title='Si el vuelo tiene escala, marcá "Con parada"'>
+              <p className="man__step-text">Agregá hasta 4 aeropuertos intermedios (código ICAO de 4 letras) entre tu base y el regreso. El sistema reparte el horario en tramos iguales y valida que ni el avión ni el instructor choquen en ninguno de ellos.</p>
+            </Step>
+            <Step n={3} title='Asignar un alumno distinto a cada tramo'>
+              <p className="man__step-text">Útil cuando la ida la vuela un alumno y el retorno otro (mismo instructor). Desde el popover de un vuelo con escala ya publicado, "Asignar alumnos por tramo" te deja elegir uno por tramo.</p>
+            </Step>
+          </div>
+
+          <div className="man__callout">
+            <h4><i className="bi bi-cash-coin" />Badge "$" en el calendario</h4>
+            <p>Un vuelo cuyo alumno no tiene saldo suficiente para cubrirlo sale marcado con una etiqueta ámbar — es solo un aviso, no bloquea el agendado.</p>
           </div>
 
           <hr className="man__sep" />
@@ -605,6 +670,27 @@ export default function Manual({ solo = null }) {
             <Step n={2} title={<>Un depósito es un <strong>Registrar abono</strong>; un cobro de examen o material es <strong>Cobrar concepto</strong></>}>
               <p className="man__step-text">"Cobrar concepto" usa el catálogo configurado en Contabilidad (ej. "Reposición de examen"), así el monto siempre es consistente.</p>
             </Step>
+            <Step n={3} title="El extracto se comporta como una hoja de Excel">
+              <p className="man__step-text">Si metés un movimiento con fecha anterior, el saldo de <strong>todas las filas de abajo se recalcula solo</strong> — ya no queda congelado en el número de cuando se creó.</p>
+            </Step>
+            <Step n={4} title={<>¿Te equivocaste de movimiento? <Chip variant="danger"><i className="bi bi-trash" /></Chip></>}>
+              <p className="man__step-text">El ícono de papelera lo borra de verdad (no queda una fila de "anulación" en el historial). Si el movimiento tenía un recibo o factura ligado, te pregunta si también querés borrar ese documento.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-airplane" hint="Para cuando un alumno tiene un acuerdo distinto al precio de lista.">Precios especiales por avión</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title={<>Desde <strong>Contabilidad → Tarifas</strong>, botón <Chip variant="secondary">Precios</Chip> en la fila del avión</>}>
+              <p className="man__step-text">Ahí creás y editás montos especiales (a diferencia de la tarifa estándar, estos no llevan historial por fecha — son un monto fijo que editás cuando cambie).</p>
+            </Step>
+            <Step n={2} title={<>Asignaselo al alumno desde su ficha, pestaña <strong>"Precios por avión"</strong></>}>
+              <p className="man__step-text">Al cerrar un vuelo de ese alumno en ese avión, el sistema cobra el precio especial en vez del estándar. Quitarle la asignación lo devuelve al precio de lista.</p>
+            </Step>
+          </div>
+
+          <div className="man__callout">
+            <h4><i className="bi bi-clock-history" />Horas totales acumuladas</h4>
+            <p>En la ficha del alumno (pestaña Perfil) podés editar directamente sus <strong>horas totales acumuladas</strong> — útil para setear el punto de partida de un alumno que viene con horas de otra escuela o de antes de usar el sistema.</p>
           </div>
 
           <SectionHead icon="bi-clipboard2-check">Contabilidad, cursos y documentación</SectionHead>
@@ -622,10 +708,103 @@ export default function Manual({ solo = null }) {
         <section className={`man__page ${active === "taller" ? "active" : ""}`}>
           <div className="man__kicker"><i className="bi bi-tools" />Manual 06</div>
           <h1 className="man__title">Taller</h1>
-          <p className="man__lede">Mantenés la aeronavegabilidad de la flota bajo control: componentes, tareas programadas e inventario de repuestos.</p>
-          <div className="man__strip"><span>Aeronavegabilidad</span><span>Cumplir tarea</span><span>Inventario</span></div>
+          <p className="man__lede">Todo gira alrededor de <strong>Mi taller</strong>: ahí aparece qué avión estás trabajando, qué le falta, y los cuatro botones que usás todo el día. Este manual te sirve seas <strong>mecánico (rol Técnico)</strong> o <strong>jefe de taller</strong> — las diferencias están marcadas.</p>
+          <div className="man__strip"><span>Mi taller</span><span>Orden de trabajo</span><span>Requisición</span><span>Solicitud</span><span>Préstamos</span><span>Inventario</span><span>Libros del avión</span><span>Aeronavegabilidad</span><span>Revisar y aprobar</span></div>
 
-          <SectionHead icon="bi-tools">Aeronavegabilidad</SectionHead>
+          <div className="man__callout">
+            <h4><i className="bi bi-award" />Para firmar necesitás tu licencia TMA cargada</h4>
+            <p>Sin ella, el botón de firmar te va a rechazar con un error. Pedile a Administración que la cargue desde tu ficha de usuario (número TMA + certificado de aprendiz, si aplica) — es lo que respalda legalmente tu firma en la orden.</p>
+          </div>
+
+          <SectionHead icon="bi-house-gear" hint="Es la primera pantalla que ves al entrar — pensada para el teléfono.">Tu pantalla principal: Mi taller</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title='Arriba: "El taller ahora" — los aviones que tienen trabajo abierto'>
+              <p className="man__step-text">Cada tarjeta muestra quién está adentro, el tacómetro, un cronómetro del tiempo trabajado, el material que se pidió (con botón para despacharlo ahí mismo) y — si sos jefe — un selector para reasignar el mecánico.</p>
+            </Step>
+            <Step n={2} title="Abajo: tus cuatro botones">
+              <div className="man__ui">
+                <Chip variant="primary"><i className="bi bi-tools" /> Iniciar un mantenimiento</Chip>
+                <Chip variant="secondary"><i className="bi bi-box-seam" /> Pedir material</Chip>
+                <Chip variant="secondary"><i className="bi bi-droplet" /> Sacar aceite</Chip>
+                <Chip variant="positive-fill"><i className="bi bi-pen" /> Firmar mi trabajo</Chip>
+              </div>
+              <p className="man__step-text" style={{ marginTop: 10 }}>Con un trabajo en curso, el botón relleno cambia a <strong>"Terminé — mandar a revisión"</strong>: siempre es lo próximo que corresponde hacer.</p>
+            </Step>
+            <Step n={3} title="Tocar un avión hace lo que corresponda según quién sos">
+              <p className="man__step-text">Si el trabajo es tuyo, te lleva a tu tarjeta. Si está <Badge variant="naranja">Esperando tu firma</Badge> (jefe), te abre la revisión. El resto los podés mirar, sin poder tocarlos.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-arrow-repeat" hint="Operaciones (Turno/Admin) es quien manda el avión a mantenimiento — el Taller nunca inicia eso.">El circuito completo de una orden de trabajo</SectionHead>
+          <div className="man__legend-wrap">
+            <table className="man__legend">
+              <thead><tr><th>Paso</th><th>Qué pasa</th><th>Quién</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>El avión entra a mantenimiento y aparece en tu cola, "Aviones esperando trabajo".</td><td>Operaciones lo manda</td></tr>
+                <tr><td>2</td><td>Tocás <Chip variant="secondary">Iniciar un mantenimiento</Chip> en ese avión (o el jefe te lo asigna).</td><td>Vos</td></tr>
+                <tr><td>3</td><td>Se abre su orden de trabajo, con correlativo propio (ej. <code>CAAA/2026-0049</code>). De ahí cuelga todo el papeleo.</td><td>Automático</td></tr>
+                <tr><td>4</td><td>Pedís material, trabajás, y cuando termines tocás <Chip>Terminé — mandar a revisión</Chip>.</td><td>Vos</td></tr>
+                <tr><td>5</td><td>El jefe revisa: <Chip variant="positive">Aprobar</Chip> o la devuelve con una nota si falta algo.</td><td>Jefe de taller</td></tr>
+                <tr><td>6</td><td>Cuando ya no queda ninguna orden pendiente de ese avión, se avisa a Operaciones "listo para devolver".</td><td>Automático</td></tr>
+                <tr><td>7</td><td>Operaciones cierra el mantenimiento y el avión vuelve a estar disponible.</td><td>Turno/Admin</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="man__note man__note--info"><i className="bi bi-info-circle" />Un avión puede llevar varias órdenes abiertas a la vez (ej. una inspección grande con varios mecánicos). No se libera hasta que todas queden aprobadas.</p>
+
+          <SectionHead icon="bi-box-seam" hint="Tres papeles, tres momentos — así lo pide la AAC.">Pedir material: requisición → solicitud → retorno</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title={<>Anotá lo que vas a necesitar: <Chip variant="secondary">Pedir material</Chip> → Requisición</>}>
+              <p className="man__step-text">Es un borrador — <strong>no descarga nada del inventario todavía</strong>. Es el único de los tres documentos que podés editar después de creado.</p>
+            </Step>
+            <Step n={2} title="La solicitud es la que de verdad descarga el almacén">
+              <p className="man__step-text">Lleva el número de orden de trabajo, quién entrega y quién recibe — y ambos <strong>firman en pantalla</strong> (igual que la firma de una vouchera). El PDF sale del sistema ya firmado.</p>
+            </Step>
+            <Step n={3} title="Si sobró material, se registra el retorno">
+              <p className="man__step-text">Suma de vuelta al inventario con su fecha real de devolución.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-arrow-left-right" hint="Con otro taller del aeropuerto — en cualquiera de las dos direcciones.">Préstamo de partes</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title="Elegí primero la dirección: Recibido o Entregado">
+              <p className="man__step-text">Define todo lo demás. Si <strong>nos prestan</strong> algo, suma a tu existencia; si <strong>vos prestás</strong>, resta. Anotá la contraparte y, si aplica, una fecha comprometida de devolución.</p>
+            </Step>
+            <Step n={2} title="La devolución puede ser parcial">
+              <p className="man__step-text">Anotás lo que volvió y el préstamo sigue abierto por el resto. Si se pagó o se cruzó en cuenta sin devolver la parte física, usá "Cerrar sin devolución" — no mueve inventario.</p>
+            </Step>
+            <Step n={3} title="Los vencidos salen marcados en rojo">
+              <p className="man__step-text">Pasó la fecha comprometida, o lleva más de un mes afuera sin fecha.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-boxes" hint="Reorganizado por lo que hacés, no por el nombre del papel.">Inventario</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title="Existencias, Entradas, Salidas, Aceites, Préstamos, Consumo por aeronave y Costos pendientes">
+              <p className="man__step-text">Cada pestaña es una acción de bodega. Una <strong>entrada</strong> con costo genera su egreso en Contabilidad automáticamente; una <strong>salida</strong> se cuelga opcionalmente de una orden de trabajo o de un mantenimiento.</p>
+            </Step>
+            <Step n={2} title="Hacé clic en cualquier ítem para ver su kardex">
+              <p className="man__step-text">El saldo corrido de ese repuesto, movimiento por movimiento — igual que el extracto de una cuenta corriente.</p>
+            </Step>
+            <Step n={3} title={<>Si no alcanza la existencia, el sistema avisa <strong>409</strong></>}>
+              <p className="man__step-text">Salvo que tengas permiso para forzarlo (con motivo escrito) — pedile a Administración ese permiso si lo necesitás seguido.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-journal-text" hint="Los tres libros físicos que exige la AAC: célula, motor y hélice.">Libros del avión y stickers</SectionHead>
+          <div className="man__steps">
+            <Step n={1} title='Desde una orden de trabajo: "Emitir stickers"'>
+              <p className="man__step-text">Elegís sobre qué libro(s) trabajaste, el tipo (inspección, AD, SB…) y el texto. El sistema calcula el <strong>T.T. (Tiempo Total)</strong> y el <strong>TSO</strong> de esa parte y los imprime — junto con dos mini-stickers de próxima inspección.</p>
+            </Step>
+            <Step n={2} title='Consultá "Libros del avión" para ver el historial completo de cada parte'>
+              <p className="man__step-text">Célula, motor y hélice por separado, con su ficha (marca, modelo, número de serie) y la lista cronológica de stickers.</p>
+            </Step>
+            <Step n={3} title="Si una parte no tiene anclaje, el sistema no inventa un número">
+              <p className="man__step-text">Dice "sin anclaje: dictalo del libro" — hay que transcribir el T.T. real del papel una vez para que el sistema pueda seguir calculando desde ahí.</p>
+            </Step>
+          </div>
+
+          <SectionHead icon="bi-tools">Aeronavegabilidad — componentes, ADs y vida límite</SectionHead>
           <div className="man__steps">
             <Step n={1} title="Elegí la aeronave y revisá sus estados">
               <div className="man__ui">
@@ -636,18 +815,26 @@ export default function Manual({ solo = null }) {
               </div>
             </Step>
             <Step n={2} title={<>Agregá componentes y tareas con <Chip variant="secondary">+ Componente</Chip> / <Chip variant="secondary">+ Tarea</Chip></>}>
-              <p className="man__step-text">Las tareas pueden vencer por horas de vuelo, ciclos o fecha calendario (inspecciones, AD, SB, vida límite).</p>
+              <p className="man__step-text">Las tareas pueden vencer por horas de vuelo, ciclos o fecha calendario — incluidas las <strong>directivas de aeronavegabilidad (AD)</strong>, boletines de servicio y vida límite de componentes, todo en la misma pantalla.</p>
             </Step>
             <Step n={3} title={<>Cuando se realice el trabajo, tocá <Chip variant="secondary">Cumplir</Chip></>}>
-              <p className="man__step-text">Reinicia el reloj de esa tarea desde cero — el próximo vencimiento se recalcula automáticamente.</p>
+              <p className="man__step-text">Reinicia el reloj de esa tarea desde cero — el próximo vencimiento se recalcula automáticamente. Los avisos de vencimiento salen con 10 horas de vuelo, 7 días o 30 días de anticipación, según lo que corresponda.</p>
             </Step>
           </div>
 
-          <SectionHead icon="bi-cash-coin">Inventario de repuestos</SectionHead>
+          <SectionHead icon="bi-clipboard2-check" hint="Solo lo ve y lo usa el jefe de taller.">Si sos el jefe de taller</SectionHead>
           <div className="man__steps">
-            <Step n={1} title={<>Registrá un repuesto nuevo con <Chip variant="secondary">+ Nuevo repuesto</Chip></>} />
-            <Step n={2} title={<>Movimientos de stock: <Chip variant="secondary">Movimiento</Chip></>}>
-              <p className="man__step-text">Tres tipos: <strong>Entrada (+)</strong>, <strong>Salida (−)</strong> y <strong>Ajuste</strong> (fija el stock a un número exacto). Una salida de repuesto genera automáticamente un egreso contable.</p>
+            <Step n={1} title='"Esperando tu firma" arriba de todo en Mi taller'>
+              <p className="man__step-text">Todas las órdenes que sus mecánicos ya firmaron y esperan tu revisión, sin importar si el avión ya salió del hangar.</p>
+            </Step>
+            <Step n={2} title={<>Revisala y tocá <Chip variant="positive">Aprobar</Chip>, o devolvela con una nota</>}>
+              <p className="man__step-text">Si la devolvés, vuelve a <Badge variant="gris">ABIERTA</Badge> y tu mecánico ve la nota en su pantalla.</p>
+            </Step>
+            <Step n={3} title="Asigná mecánicos y movés la fecha estimada de un mantenimiento">
+              <p className="man__step-text">Desde el avión en la cola, "¿Cuándo está listo?". <strong>Siempre te muestra antes una vista previa</strong> de qué vuelos se cancelarían con esa fecha — mover una fecha puede afectarle el horario a varios alumnos.</p>
+            </Step>
+            <Step n={4} title="En Trabajos: el archivo completo por avión">
+              <p className="man__step-text">Buscador de órdenes y el folder de cada aeronave con todo su papeleo junto — reporte de inspección, requisiciones, solicitudes, retornos y partes reemplazadas.</p>
             </Step>
           </div>
 
@@ -673,6 +860,9 @@ export default function Manual({ solo = null }) {
             </Step>
             <Step n={3} title="Mantenimiento y Auditoría">
               <p className="man__step-text">Vistas de solo consulta para revisar el estado general de la flota y la actividad del sistema.</p>
+            </Step>
+            <Step n={4} title="Tu sección Taller es la misma que la del jefe de taller">
+              <p className="man__step-text">Incluye <strong>Mi taller</strong> y <strong>Trabajos</strong> con exactamente las mismas pantallas — ver el <a href="#taller" onClick={(e) => { e.preventDefault(); go("taller"); }}>manual de Taller</a> para el circuito completo. Además tenés Aeronaves y Mantenimiento, que son solo tuyas.</p>
             </Step>
           </div>
 
