@@ -2973,6 +2973,30 @@ Además el **módulo Taller estaba completamente vacío** — cero repuestos, co
    volvieron a aparecer. Y dos veces más: **backticks dentro de un comentario SQL** en un template
    string, que impide compilar (§36).
 
+### 🚨 E. La fuga que el aislamiento por esquema NO cubría
+Daniel entró con un usuario demo, abrió **Proyección** y vio alumnos,
+instructores y matrículas de CAAA. **`proyeccionMiddleware` es la otra puerta de
+entrada del sistema** además de `authMiddleware` —las pantallas pasivas aceptan
+también la llave del televisor— y **nunca entraba al esquema**: leía el token
+pero no llamaba a `db.enEsquema`. Medido: **5 de sus 10 rutas filtraban**
+(calendario público, aeronaves, estado de flota, resumen de mantenimiento y
+ocupación de salones, que traía "Salón Cap. Tito Gutiérrez").
+
+Además se invirtió el orden: **la sesión se evalúa antes que la llave**. Antes
+ganaba la llave, así que abrir la Proyección con `?key=` te convertía en el
+usuario anónimo `PROYECCION` — y una sesión de demostración terminaba en
+producción. La llave sigue cayendo en `public`: es la del televisor del hangar.
+
+> **La lección: el aislamiento no vive en las consultas, vive en las PUERTAS.**
+> Al agregar una forma nueva de autenticar hay que rutear el esquema ahí mismo.
+
+En la misma tanda, para que Programación se pueda mostrar: la **semana en curso**
+se llena de lunes a sábado (antes solo los 4 de hoy), **los vuelos publicados
+reciben su solicitud de respaldo** —sin ella el calendario de Programación sale
+vacío aunque los vuelos existan, porque se arma `FROM solicitud_vuelo LEFT JOIN
+vuelo`— y la **semana por publicar pasa de 8 a 27 solicitudes con choques**
+(3 de avión, uno con tres alumnos; 2 de instructor).
+
 ### Verificado en producción
 El reinicio por el botón, con censo de CAAA antes y después: **una sola fila cambió, y fue un
 vuelo que cerró un instructor mientras yo probaba**. Medido aparte: un reinicio completo **no mueve

@@ -15,7 +15,8 @@ inventados:
 
 | | |
 |---|---|
-| **Operaciones** | 20 alumnos, 3 instructores, un mes de vuelos cerrados con su vouchera y su cargo, solicitudes de la semana próxima esperando aprobación, y 4 vuelos de HOY en las cuatro etapas del ciclo — publicado, salida de hangar, en progreso y de regreso — para poder mostrar cómo se abre y se cierra un vuelo. |
+| **Operaciones** | 20 alumnos, 3 instructores y un mes de vuelos cerrados con su vouchera y su cargo. La **semana en curso** va llena de lunes a sábado: lo anterior a hoy cerrado, los 4 vuelos de HOY en las cuatro etapas del ciclo —publicado, salida de hangar, en progreso, de regreso— y lo que viene, programado. |
+| **Semana por publicar** | **27 solicitudes con choques a propósito**: tres de avión (uno con **tres** alumnos por la misma avioneta, para la lista de espera) y dos de instructor. `Publicar semana` se niega mientras queden sin resolver, así que el recorrido completo se puede mostrar: intentar publicar → ver el rechazo → mover o rechazar una → publicar. |
 | **Taller** | bodega con kardex (una compra y dos consumos, dos ítems bajo mínimo), los tres libros de cada avión, inspecciones y directivas con vencimientos a la vista, un avión adentro del hangar y tres órdenes de trabajo: una en curso, una firmada esperando al jefe y una ya aprobada. |
 | **Marca** | logos, nombre y color del molde: **TU ESCUELA** (§5). |
 
@@ -45,7 +46,9 @@ Todos los usuarios sembrados usan `demo123`:
 | `demo.tecnico` | TECNICO — el mecánico; entra directo a "Mi taller" |
 | `demo.aprendiz` | TECNICO — aprendiz, para el selector de "quién asistió" al firmar |
 | `demo.r.flores`, `demo.m.aguilar`, `demo.j.portillo` | instructores |
-| `demo.a.zavala`, `demo.g.mena`, … | alumnos |
+| `demo.e.molina` | **alumno con saldo** ($2,510) — el mejor para mostrar cómo se solicitan vuelos |
+| `demo.a.zavala` | alumna con **saldo bajo** ($120) — sale marcada en el tablero financiero |
+| `demo.g.mena`, … | los otros 17 alumnos |
 | `demo.a.reyes` | alumna de sobrecargo (programa de tierra) |
 
 ---
@@ -58,6 +61,14 @@ Los datos ficticios viven en un **esquema aparte** de la misma base:
 Cuando entra una cuenta de demostración, su conexión a la base apunta a
 `demo.*`; la de cualquier otro apunta a `public.*`. **No hay ningún filtro en las
 consultas**, porque no hace falta: son objetos distintos.
+
+🚨 **El aislamiento vive en las PUERTAS, no en las consultas.** Hay dos formas de
+entrar al sistema y las dos tienen que rutear el esquema: `authMiddleware` (la
+sesión normal) y `proyeccionMiddleware` (las pantallas pasivas, que además
+aceptan la llave del televisor). La segunda no lo hacía, y sus diez rutas le
+mostraban a la cuenta de demostraciones los alumnos, instructores y matrículas
+reales de CAAA. **Al agregar una forma nueva de autenticar, rutear el esquema
+ahí mismo** — si no, todo lo que cuelgue de ella lee producción en silencio.
 
 Esa es la razón de fondo del diseño. La alternativa —una bandera `es_demo` en
 cada fila y un filtro en cada consulta— son 87 tablas y unas 600 consultas, y un
