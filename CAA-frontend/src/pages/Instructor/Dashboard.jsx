@@ -23,6 +23,7 @@ import {
   registrarAterrizajeTramoInstructor,
 } from "../../services/instructorApi";
 import { getCalendarioPublico } from "../../services/programacionApi";
+import { weekModeInicial, rangoSemana, diaHoyDb } from "../../utils/semanaVuelo";
 import { SOCKET_URL } from "../../api/axiosConfig";
 import "./Dashboard.css";
 
@@ -472,7 +473,9 @@ export default function InstructorDashboard() {
   // no salía en la consola de React porque un throw dentro de un handler va a
   // window.onerror, no a console.error.
   const navigate = useNavigate();
-  const [weekMode, setWeekMode] = useState("current");
+  // El domingo la "semana actual" ya no tiene días por volar (se vuela lunes a
+  // sábado) y el programa recién publicado es el que arranca mañana: se abre ahí.
+  const [weekMode, setWeekMode] = useState(weekModeInicial);
 
   const [vuelos, setVuelos]               = useState([]);
   const [semana, setSemana]               = useState(null);
@@ -548,13 +551,17 @@ export default function InstructorDashboard() {
   }, [weekMode, fetchVuelos]);
 
   // Programación de toda la escuela (mismo dato que consume Proyección).
+  // Sigue a la pestaña de arriba: sin esto la tabla se quedaba clavada en la
+  // semana en curso y contradecía a las tarjetas del instructor —el domingo,
+  // recién publicado el programa, mostraba la semana que ya había pasado.
   useEffect(() => {
     const cargarCalendarioEscuela = () =>
-      getCalendarioPublico().then((data) => setCalendarioEscuela(Array.isArray(data) ? data : [])).catch(() => {});
+      getCalendarioPublico(weekMode).then((data) => setCalendarioEscuela(Array.isArray(data) ? data : [])).catch(() => {});
+    setCalendarioEscuela([]);
     cargarCalendarioEscuela();
     const t = setInterval(cargarCalendarioEscuela, 20000);
     return () => clearInterval(t);
-  }, []);
+  }, [weekMode]);
 
   // Socket.io tiempo real
   useEffect(() => {
@@ -684,12 +691,11 @@ export default function InstructorDashboard() {
     });
   }
   const diasBase = Object.keys(porDia).map(Number).sort();
-  const hoyNum = new Date().getDay();
-  const diaHoyDb = hoyNum === 0 ? 7 : hoyNum; // Ajustar si domingo es 7
+  const diaHoy = diaHoyDb(); // ISO: lunes=1 … domingo=7, hora de El Salvador
   // Hoy siempre primero (semana actual): así el instructor ve sus vuelos del
   // momento sin tener que hacer scroll pasando los días ya pasados de la semana.
-  const dias = (weekMode === "current" && diasBase.includes(diaHoyDb))
-    ? [diaHoyDb, ...diasBase.filter((d) => d !== diaHoyDb)]
+  const dias = (weekMode === "current" && diasBase.includes(diaHoy))
+    ? [diaHoy, ...diasBase.filter((d) => d !== diaHoy)]
     : diasBase;
 
   return (
@@ -748,12 +754,18 @@ export default function InstructorDashboard() {
               onClick={() => { setWeekMode("current"); setLoadingVuelos(true); }}
             >
               Semana actual
+              {weekMode === "current" && semana && (
+                <span className="ins__tab-fechas">{rangoSemana(semana)}</span>
+              )}
             </button>
             <button
               className={`ins__tab ${weekMode === "next" ? "ins__tab--active" : ""}`}
               onClick={() => { setWeekMode("next"); setLoadingVuelos(true); }}
             >
               Semana siguiente
+              {weekMode === "next" && semana && (
+                <span className="ins__tab-fechas">{rangoSemana(semana)}</span>
+              )}
             </button>
           </div>
         </div>
@@ -819,7 +831,7 @@ export default function InstructorDashboard() {
                 <div key={dia} className="ins__day-group">
                   <div className="ins__day-header">
                     <span className="ins__day-name">{DIAS[dia]}</span>
-                    {dia === diaHoyDb && weekMode === "current" && (
+                    {dia === diaHoy && weekMode === "current" && (
                       <span className="ins__day-today">Hoy</span>
                     )}
                   </div>
@@ -835,7 +847,7 @@ export default function InstructorDashboard() {
                         onRefresh={fetchVuelos}
                         advancing={advancing}
                         weekMode={weekMode}
-                        isToday={dia === diaHoyDb && weekMode === "current"}
+                        isToday={dia === diaHoy && weekMode === "current"}
                       />
                     ))}
                   </div>
@@ -849,9 +861,16 @@ export default function InstructorDashboard() {
           <h3 className="ins__section-title">
             <i className="bi bi-calendar3" style={{ color: 'var(--c-brand-700)' }}></i>
             Programación de la semana (toda la escuela)
+            <span className="ins__section-sub">
+              {weekMode === "next" ? "Semana siguiente" : "Semana actual"}
+              {semana ? ` · ${rangoSemana(semana)}` : ""}
+            </span>
           </h3>
           <div className="pp">
-            <ScheduleWeekTable vuelos={calendarioEscuela} diaHoy={diaHoyDb} />
+            <ScheduleWeekTable
+              vuelos={calendarioEscuela}
+              diaHoy={weekMode === "current" ? diaHoy : null}
+            />
           </div>
         </div>
 

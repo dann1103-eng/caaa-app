@@ -10,6 +10,7 @@ import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/Es
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
 import ScheduleWeekTable from "../../components/ScheduleWeekTable/ScheduleWeekTable";
 import { getCalendarioPublico } from "../../services/programacionApi";
+import { weekModeInicial, rangoSemana, diaHoyDb } from "../../utils/semanaVuelo";
 import {
   getMiHorario,
   getMiInfo,
@@ -65,8 +66,10 @@ export default function AlumnoDashboard() {
   // Arranca en "clases" para quien no vuela: las tres pestañas de vuelo están
   // ocultas, y sin esto el panel abría en una pestaña invisible y se quedaba en
   // "Cargando horario…" para siempre.
+  // El domingo la "semana actual" ya no tiene días por volar (se vuela lunes a
+  // sábado) y el programa recién publicado es el que arranca mañana: se abre ahí.
   const [weekMode, setWeekMode] = useState(
-    (JSON.parse(localStorage.getItem("user")) || {}).vuela === false ? "clases" : "current"
+    (JSON.parse(localStorage.getItem("user")) || {}).vuela === false ? "clases" : weekModeInicial()
   ); // "current", "next", "cancelaciones", "clases"
   const [vuelos, setVuelos] = useState([]);
   const [loadingVuelos, setLoadingVuelos] = useState(false);
@@ -78,18 +81,26 @@ export default function AlumnoDashboard() {
   const [loadingClases, setLoadingClases] = useState(false);
   const [ofertas, setOfertas] = useState([]);
   const [calendarioEscuela, setCalendarioEscuela] = useState([]);
+  const [semana, setSemana] = useState(null); // la semana que devuelve /alumno/mi-horario
   const cargarOfertas = () => getMisOfertas().then((d) => setOfertas(Array.isArray(d) ? d : [])).catch(() => setOfertas([]));
 
   // Programación de toda la escuela (mismo dato que consumen Proyección y el
   // dashboard del instructor). Sirve para que el alumno vea qué horarios están
   // libres o se liberaron antes de pedir un vuelo.
+  // Sigue a la pestaña de arriba: sin esto la tabla se quedaba clavada en la
+  // semana en curso y contradecía a las tarjetas del alumno —el domingo, recién
+  // publicado el programa, mostraba la semana que ya había pasado.
+  const semanaCalendario = weekMode === "next" ? "next" : "current";
   useEffect(() => {
     const cargarCalendarioEscuela = () =>
-      getCalendarioPublico().then((data) => setCalendarioEscuela(Array.isArray(data) ? data : [])).catch(() => {});
+      getCalendarioPublico(semanaCalendario)
+        .then((data) => setCalendarioEscuela(Array.isArray(data) ? data : []))
+        .catch(() => {});
+    setCalendarioEscuela([]);
     cargarCalendarioEscuela();
     const t = setInterval(cargarCalendarioEscuela, 20000);
     return () => clearInterval(t);
-  }, []);
+  }, [semanaCalendario]);
 
   const fetchClases = useCallback(async () => {
     setLoadingClases(true);
@@ -142,8 +153,10 @@ export default function AlumnoDashboard() {
     try {
       const data = await getMiHorario(weekMode);
       setVuelos(Array.isArray(data?.vuelos) ? data.vuelos : []);
+      setSemana(data?.semana || null);
     } catch {
       setVuelos([]);
+      setSemana(null);
     } finally {
       setLoadingVuelos(false);
     }
@@ -225,11 +238,9 @@ export default function AlumnoDashboard() {
 
   // Día de hoy en formato de la BD (ISO: lunes=1 … domingo=7), para que el
   // calendario de la escuela abra en la pestaña del día actual.
-  const hoyNum = new Date().getDay();
-  const diaHoyDb = hoyNum === 0 ? 7 : hoyNum;
+  const diaHoy = diaHoyDb();
 
-  const semanaLabel = weekMode === "current" ? "Semana actual" : weekMode === "next" ? "Semana siguiente" : "Mis Cancelaciones";
-  const estadoLabel = weekMode === "current" ? "En curso" : weekMode === "next" ? "Próxima" : "Variado";
+  const semanaRango = (weekMode === "current" || weekMode === "next") ? rangoSemana(semana) : "";
 
   return (
     <>
@@ -341,6 +352,9 @@ export default function AlumnoDashboard() {
                   onClick={() => setWeekMode("current")}
                 >
                   Semana actual
+                  {weekMode === "current" && semanaRango && (
+                    <span className="dash__tab-fechas">{semanaRango}</span>
+                  )}
                 </button>
               )}
               {vuela && (
@@ -349,6 +363,9 @@ export default function AlumnoDashboard() {
                   onClick={() => setWeekMode("next")}
                 >
                   Semana siguiente
+                  {weekMode === "next" && semanaRango && (
+                    <span className="dash__tab-fechas">{semanaRango}</span>
+                  )}
                 </button>
               )}
               {vuela && (
@@ -456,13 +473,20 @@ export default function AlumnoDashboard() {
             <h3 className="dash__schedule-title">
               <i className="bi bi-calendar3"></i>
               Programación de la semana (toda la escuela)
+              <span className="dash__schedule-week">
+                {semanaCalendario === "next" ? "Semana siguiente" : "Semana actual"}
+                {semanaRango ? ` · ${semanaRango}` : ""}
+              </span>
             </h3>
             <p className="dash__schedule-hint">
               Consultá los espacios libres o los vuelos cancelados para pedir tus horas.
               Se actualiza solo cada 20 segundos.
             </p>
             <div className="pp">
-              <ScheduleWeekTable vuelos={calendarioEscuela} diaHoy={diaHoyDb} />
+              <ScheduleWeekTable
+                vuelos={calendarioEscuela}
+                diaHoy={semanaCalendario === "current" ? diaHoy : null}
+              />
             </div>
           </div>
         </>)}

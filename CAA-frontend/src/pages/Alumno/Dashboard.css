@@ -420,3 +420,24 @@
   padding: 12px;
   border-radius: var(--radius-md);
 }
+
+/* ── Rango de fechas de la pestaña activa ─────────────────────────────────
+   El domingo, "Semana actual" y "Semana siguiente" se prestan a confusión
+   (la semana en curso ya no tiene días por volar). Las fechas debajo del
+   rótulo dejan claro qué semana se está mirando. */
+.dash__tab-fechas {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--c-ink-3);
+}
+
+/* Semana que está mostrando la tabla de programación de la escuela. */
+.dash__schedule-week {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--c-ink-3);
+  text-align: right;
+}
