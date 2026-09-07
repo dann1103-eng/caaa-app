@@ -911,3 +911,27 @@
   cursor: pointer;
 }
 .ins__btn-practica:hover { filter: brightness(0.98); border-color: var(--c-brand-700, #1b365d); }
+
+/* ── Rango de fechas de la pestaña activa ─────────────────────────────────
+   El domingo, "Semana actual" y "Semana siguiente" se prestan a confusión
+   (la semana en curso ya no tiene días por volar). Las fechas debajo del
+   rótulo dejan claro qué semana se está mirando. */
+.ins__tab-fechas {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--c-ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Semana que está mostrando la tabla "Programación de la semana": sigue a la
+   pestaña de arriba, así que conviene decirlo. */
+.ins__section-sub {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--c-ink-3);
+  text-align: right;
+}

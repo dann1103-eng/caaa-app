@@ -69,8 +69,12 @@ export const getMantenimientoResumen = async () => {
   return res.data;
 };
 
-export const getCalendarioPublico = async () => {
-  const res = await axios.get(`${API_URL}/calendario/publico`);
+// week: "current" (default) | "next". Proyeccion la llama sin argumento y sigue
+// viendo la semana en curso; los dashboards de alumno e instructor le pasan la
+// pestana que tienen elegida para que la tabla de abajo no contradiga a las
+// tarjetas de arriba.
+export const getCalendarioPublico = async (week = "current") => {
+  const res = await axios.get(`${API_URL}/calendario/publico`, { params: { week } });
   return res.data;
 };
 
