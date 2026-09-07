@@ -1,5 +1,17 @@
 const db = require("../../config/db");
 
+// Qué aviones pueden llevar tarifa. La pregunta NO es "¿está disponible hoy?":
+// un avión en el taller sigue teniendo precio por hora, y de hecho es cuando más
+// falta hace poder configurarlo. `activa` es estado DERIVADO —lo recalcula
+// sincronizarEstadoFlota según el mantenimiento del día— así que filtrar por él
+// escondía del selector a los tres aviones que estaban en el hangar.
+// Se excluyen los dados de BAJA (activa=false con estado ACTIVO, ver
+// adminAeronaveController) y los de terceros de la OMA, que no se cobran por hora.
+const AERONAVE_TARIFABLE = (a = "") => {
+  const c = a ? `${a}.` : "";
+  return `NOT (${c}activa = false AND ${c}estado = 'ACTIVO') AND ${c}es_externa = false`;
+};
+
 exports.listAeronaveTarifas = async (req, res) => {
   try {
     // Solo el precio ESTÁNDAR vigente de cada avión (los precios especiales se
@@ -130,7 +142,7 @@ exports.getPreciosAlumno = async (req, res) => {
       ) est ON TRUE
       LEFT JOIN alumno_tarifa_aeronave ata
         ON ata.id_aeronave = a.id_aeronave AND ata.id_alumno = $1
-      WHERE a.activa = TRUE AND a.es_externa = FALSE
+      WHERE ${AERONAVE_TARIFABLE('a')}
       ORDER BY a.codigo
     `, [id_alumno]);
     res.json({ ok: true, data: r.rows });
@@ -184,7 +196,7 @@ exports.listAeronaves = async (req, res) => {
     const r = await db.query(`
       SELECT id_aeronave, codigo, modelo, tipo
       FROM aeronave
-      WHERE activa = true AND es_externa = false
+      WHERE ${AERONAVE_TARIFABLE()}
       ORDER BY codigo
     `);
     res.json({ ok: true, data: r.rows });
