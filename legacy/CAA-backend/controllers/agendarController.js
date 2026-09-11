@@ -201,11 +201,22 @@ exports.getMisSolicitudes = async (req, res) => {
 
     const solicitudRes = await db.query(
       `
-      SELECT id_solicitud, estado, comentario_alumno,
-             COALESCE(limite_vuelos_avion, $1) AS limite_vuelos_avion,
-             COALESCE(limite_vuelos_simulador, $2) AS limite_vuelos_simulador
-      FROM solicitud_semana
-      WHERE id_alumno = $3 AND id_semana = $4
+      SELECT ss.id_solicitud, ss.estado, ss.comentario_alumno,
+             COALESCE(ss.limite_vuelos_avion, $1) AS limite_vuelos_avion,
+             COALESCE(ss.limite_vuelos_simulador, $2) AS limite_vuelos_simulador,
+             -- Quién la envió a Programación y cuándo. El alumno solo veía el
+             -- nombre crudo del estado ("EN_REVISION") y lo leía como que la
+             -- plataforma estaba trabada; con esto la pantalla puede decirle
+             -- que su pedido sí entró y quién lo tiene.
+             -- La fecha se formatea ACÁ, en SQL, a propósito: la columna es
+             -- timestamp SIN zona, así que si viaja como Date la reinterpreta
+             -- la zona del proceso y se corre 6 h (CLAUDE.md §35.A).
+             to_char(ss.enviada_instructor_en, 'DD/MM/YYYY') AS enviada_fecha,
+             to_char(ss.enviada_instructor_en, 'HH24:MI')    AS enviada_hora,
+             (SELECT u.nombre || ' ' || u.apellido FROM usuario u
+               WHERE u.id_usuario = ss.enviada_por)          AS enviada_por_nombre
+      FROM solicitud_semana ss
+      WHERE ss.id_alumno = $3 AND ss.id_semana = $4
       `,
       [defLimAvion, defLimSim, idAlumno, idSemana]
     );
@@ -224,11 +235,15 @@ exports.getMisSolicitudes = async (req, res) => {
         comentario_alumno: "",
         vuelos: [],
         saldo,
-        costo_estimado: 0
+        costo_estimado: 0,
+        enviada_fecha: null,
+        enviada_hora: null,
+        enviada_por_nombre: null
       });
     }
 
-    const { id_solicitud, estado, comentario_alumno, limite_vuelos_avion, limite_vuelos_simulador } = solicitudRes.rows[0];
+    const { id_solicitud, estado, comentario_alumno, limite_vuelos_avion, limite_vuelos_simulador,
+            enviada_fecha, enviada_hora, enviada_por_nombre } = solicitudRes.rows[0];
 
     const vuelosRes = await db.query(
       `
@@ -242,7 +257,7 @@ exports.getMisSolicitudes = async (req, res) => {
     let costo_estimado = 0;
     try { costo_estimado = await estimarCostoVuelos(vuelosRes.rows, new Date(), db, idAlumno); } catch (_) {}
 
-    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia: limDia, comentario_alumno: comentario_alumno || "", vuelos: vuelosRes.rows, saldo, costo_estimado });
+    res.json({ estado, limite_vuelos_avion, limite_vuelos_simulador, limite_vuelos_dia: limDia, comentario_alumno: comentario_alumno || "", vuelos: vuelosRes.rows, saldo, costo_estimado, enviada_fecha, enviada_hora, enviada_por_nombre });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: "Error obtener solicitudes" });
