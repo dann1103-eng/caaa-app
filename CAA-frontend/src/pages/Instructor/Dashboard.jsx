@@ -92,7 +92,7 @@ function EstadoTag({ estado }) {
 }
 
 // ── Tarjeta de vuelo interactiva ──────────────────────────────────────────
-function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrirReporte, advancing, weekMode, isToday, onRefresh }) {
+function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrirReporte, advancing, weekMode, isToday, esDiaPasado, onRefresh }) {
   const navigate = useNavigate();
   const [progreso, setProgreso] = useState(() => calcProgreso(vuelo));
   const [tiempoMin, setTiempoMin] = useState("");
@@ -128,7 +128,11 @@ function VueloCard({ vuelo, onAvanzar, onInasistencia, onCompletarVuelo, onAbrir
   // siguiente bloque si en la práctica despega antes de lo previsto — la
   // única restricción real la aplica el backend (guardia de "avión ocupado").
   const esSemanaProxima = weekMode === "next";
-  const canOperate = isToday && !esSemanaProxima;
+  // Los días PASADOS de la semana también se pueden operar: cubre la
+  // regularización retroactiva (ej. un préstamo del avión que se registra al
+  // día siguiente para que su vouchera tape el hueco de TAC). Solo los días
+  // FUTUROS y la semana próxima quedan bloqueados.
+  const canOperate = (isToday || esDiaPasado) && !esSemanaProxima;
   const isSim = vuelo.aeronave_tipo === 'SIMULADOR';
   const btnLabel = isSim
     ? BTN_LABEL_SIM[vuelo.estado]
@@ -836,6 +840,7 @@ export default function InstructorDashboard() {
                         advancing={advancing}
                         weekMode={weekMode}
                         isToday={dia === diaHoyDb && weekMode === "current"}
+                        esDiaPasado={dia < diaHoyDb && weekMode === "current"}
                       />
                     ))}
                   </div>
