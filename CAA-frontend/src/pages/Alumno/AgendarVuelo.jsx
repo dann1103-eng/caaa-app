@@ -29,6 +29,26 @@ function bloqueadoEseDia(a, dia) {
   return Array.isArray(a?.dias_bloqueados) && a.dias_bloqueados.includes(Number(dia));
 }
 
+// El estado crudo de la base no le dice nada al alumno: "EN_REVISION" se lee
+// como un error del sistema, no como "ya la enviaron".
+const ESTADO_LEGIBLE = {
+  BORRADOR: "Borrador",
+  EN_REVISION: "Enviada",
+  PUBLICADO: "Publicada",
+  RECHAZADA: "Rechazada",
+  CANCELADA: "Cancelada",
+};
+
+// Los nombres en la base vienen con mayúsculas inconsistentes ("miguel
+// salaverria"). Esto es solo para mostrarlos; no normaliza el dato.
+function capitalizarNombre(s) {
+  return String(s || "")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default function AgendarVuelo() {
   const navigate = useNavigate();
 
@@ -48,6 +68,11 @@ export default function AgendarVuelo() {
   // Saldo prepagado + costo estimado de lo pedido, para la advertencia de
   // saldo bajo (informativa — el guardado nunca se bloquea, solo se confirma).
   const [saldoInfo, setSaldoInfo] = useState({ saldo: null, costo_estimado: 0 });
+
+  // Quién envió la solicitud a Programación y cuándo. Solo viene cuando la
+  // solicitud ya salió de manos del alumno; si el backend todavía no lo manda,
+  // el aviso se muestra igual sin el dato.
+  const [envio, setEnvio] = useState({ fecha: null, hora: null, por: null });
 
   // Extracurricular: habilitado solo cuando el alumno ya completó sus horas de licencia.
   const [extraHabilitado, setExtraHabilitado] = useState(false);
@@ -138,6 +163,11 @@ export default function AgendarVuelo() {
           setInitialSelecciones(JSON.parse(JSON.stringify(vuelos))); // Guardar copia inicial para detectar cambios
           setComentario(solicitud.comentario_alumno || "");
           setInitialComentario(solicitud.comentario_alumno || "");
+          setEnvio({
+            fecha: solicitud.enviada_fecha || null,
+            hora: solicitud.enviada_hora || null,
+            por: solicitud.enviada_por_nombre || null,
+          });
           
           // Si ya hay vuelos guardados y ocupan el límite, marcar como ya guardado
           // Pero si está en RECHAZADA, permitimos editar
@@ -324,11 +354,21 @@ export default function AgendarVuelo() {
               disabled={saveBloqueado}
               onClick={handleGuardar}
             >
-              {tieneConflictoAvionDia
-                ? "Conflicto de aviones"
-                : !hayCambios && !bloqueadoPorEstado
-                  ? "Sin cambios"
-                  : `Guardar (${selecciones.length} vuelos)`}
+              {/* Nunca ofrecer "Guardar" cuando guardar es imposible: con la
+                  solicitud fuera de manos del alumno el botón decía
+                  "Guardar (N vuelos)" y quedaba gris, y eso se lee como que la
+                  plataforma está trabada. */}
+              {bloqueadoPorEstado
+                ? estadoSolicitud === "EN_REVISION"
+                  ? "Enviada a Programación"
+                  : estadoSolicitud === "PUBLICADO"
+                    ? "Horario publicado"
+                    : "No editable"
+                : tieneConflictoAvionDia
+                  ? "Conflicto de aviones"
+                  : !hayCambios
+                    ? "Sin cambios"
+                    : `Guardar (${selecciones.length} vuelos)`}
             </button>
           </div>
 
@@ -376,7 +416,7 @@ export default function AgendarVuelo() {
           <div className="ag__info-card">
             <span className="ag__info-label">Estado solicitud</span>
             <span className={`ag__info-value ${bloqueadoPorEstado || yaGuardado ? "ag__info-value--warn" : "ag__info-value--teal"}`}>
-              {estadoSolicitud}
+              {ESTADO_LEGIBLE[estadoSolicitud] || estadoSolicitud}
             </span>
           </div>
         </div>
@@ -425,11 +465,63 @@ export default function AgendarVuelo() {
           </div>
         )}
 
-        {bloqueadoPorEstado && estadoSolicitud !== "RECHAZADA" && (
-          <div className="ag__alert">
-            <span className="ag__alert-icon"><i className="bi bi-exclamation-triangle-fill"></i></span>
-            Tu solicitud está en <strong>{estadoSolicitud}</strong> y ya no puede
-            modificarse.
+        {bloqueadoPorEstado && (
+          <div
+            className={`ag__alert ${estadoSolicitud === "EN_REVISION" || estadoSolicitud === "PUBLICADO" ? "ag__alert--info" : "ag__alert--rejected"}`}
+            style={{ alignItems: "flex-start" }}
+          >
+            <span className="ag__alert-icon">
+              <i className={`bi ${estadoSolicitud === "EN_REVISION" ? "bi-send-check-fill" : estadoSolicitud === "PUBLICADO" ? "bi-calendar-check-fill" : "bi-x-octagon-fill"}`}></i>
+            </span>
+            <div>
+              {estadoSolicitud === "EN_REVISION" && (
+                <>
+                  <strong>Tu solicitud ya fue enviada a Programación.</strong>
+                  <br />
+                  {envio.por
+                    ? `Tu instructor ${capitalizarNombre(envio.por)} la envió`
+                    : "Tu instructor ya la envió"}
+                  {envio.fecha ? ` el ${envio.fecha}` : ""}
+                  {envio.hora ? ` a las ${envio.hora}` : ""}.
+                  {selecciones.length > 0 ? (
+                    <> Tus <strong>{selecciones.length} vuelo{selecciones.length !== 1 ? "s" : ""}</strong> quedaron pedidos y esperan a que Programación arme el horario de la semana.</>
+                  ) : (
+                    <> Queda esperando a que Programación arme el horario de la semana.</>
+                  )}
+                  <br />
+                  <small>
+                    Por eso esta pantalla quedó de solo lectura: no perdiste nada. Si necesitás
+                    agregar o cambiar un vuelo, pedíselo a tu instructor, que sí puede ajustarlo
+                    mientras el horario no esté publicado.
+                  </small>
+                </>
+              )}
+
+              {estadoSolicitud === "PUBLICADO" && (
+                <>
+                  <strong>El horario de la próxima semana ya se publicó.</strong>
+                  <br />
+                  {selecciones.length > 0 ? (
+                    <>Tus <strong>{selecciones.length} vuelo{selecciones.length !== 1 ? "s" : ""}</strong> quedaron confirmados; los ves en tu horario, en el panel de inicio.</>
+                  ) : (
+                    <>Revisá tu horario en el panel de inicio.</>
+                  )}
+                  <br />
+                  <small>
+                    Ya no se piden horas para esa semana. Si necesitás un cambio, hablá con tu
+                    instructor o con Programación.
+                  </small>
+                </>
+              )}
+
+              {estadoSolicitud !== "EN_REVISION" && estadoSolicitud !== "PUBLICADO" && (
+                <>
+                  <strong>Tu solicitud de esta semana fue cancelada.</strong>
+                  <br />
+                  <small>Hablá con tu instructor para volver a pedir horas.</small>
+                </>
+              )}
+            </div>
           </div>
         )}
 

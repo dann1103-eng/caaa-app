@@ -1,4 +1,5 @@
 import { MARCA, logoDataUrl } from "../../marca";
+import { FORMATO_HOBBS, FORMATO_TACOMETRO, formatMedidor } from "../../utils/medidor";
 
 // ¿El error viene de un chunk que ya no existe (deploy nuevo con la pestaña
 // vieja abierta)? El generador se carga bajo demanda: tras un deploy, el
@@ -49,17 +50,6 @@ const formatNum = (val) => {
   if (val === null || val === undefined || val === "") return "—";
   const n = parseFloat(val);
   return isNaN(n) ? val : n.toFixed(1);
-};
-
-// Lecturas de medidor: el instrumento tiene 4 dígitos enteros, el cero
-// inicial (ej. 0847.2) se conserva rellenando la parte entera a 4 dígitos.
-const formatMedidor = (val) => {
-  if (val === null || val === undefined || val === "") return "—";
-  const s = String(val);
-  if (!/^\d+(\.\d+)?$/.test(s)) return s;
-  const [ent, dec = ""] = s.split(".");
-  const decLimpio = dec.replace(/0+$/, "") || "0";
-  return `${ent.padStart(4, "0")}.${decLimpio}`;
 };
 
 // Etiquetas legibles del motivo de emergencia. Espejo de MOTIVOS_EMERGENCIA en
@@ -152,8 +142,8 @@ function buildVoucheraContent({
     centro = [{
       columns: [
         miniTabla("HOBBS", [
-          ["Inicio", formatMedidor(d.hobbs_salida)],
-          ["Cierre", formatMedidor(d.hobbs_llegada)],
+          ["Inicio", formatMedidor(d.hobbs_salida, FORMATO_HOBBS)],
+          ["Cierre", formatMedidor(d.hobbs_llegada, FORMATO_HOBBS)],
         ]),
         miniTabla("COBRO", [["Horas a cobrar", formatNum(d.horas_cobradas)]]),
       ],
@@ -176,12 +166,12 @@ function buildVoucheraContent({
         },
         // Llegada arriba y Salida abajo, como el instrumento físico.
         miniTabla("TACÓMETRO", [
-          ["Llegada", formatMedidor(d.tacometro_llegada)],
-          ["Salida", formatMedidor(d.tacometro_salida)],
+          ["Llegada", formatMedidor(d.tacometro_llegada, FORMATO_TACOMETRO)],
+          ["Salida", formatMedidor(d.tacometro_salida, FORMATO_TACOMETRO)],
         ]),
         miniTabla("HOBBS", [
-          ["Llegada", formatMedidor(d.hobbs_llegada)],
-          ["Salida", formatMedidor(d.hobbs_salida)],
+          ["Llegada", formatMedidor(d.hobbs_llegada, FORMATO_HOBBS)],
+          ["Salida", formatMedidor(d.hobbs_salida, FORMATO_HOBBS)],
         ]),
         miniTabla("COMBUSTIBLE", [
           ["Salida", formatNum(d.combustible_salida)],

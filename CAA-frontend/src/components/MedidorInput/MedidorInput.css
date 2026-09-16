@@ -1,0 +1,69 @@
+/* El fantasma pinta el molde en gris y lo tecleado en negro. Un <input> no lleva
+   dos colores adentro, así que el número se dibuja en una capa aparte y el input
+   queda con la letra transparente y el cursor visible.
+
+   Para que las dos capas no se corran entre sí, el COMPONENTE se queda con las
+   medidas de las que depende la alineación —tipografía, padding y grosor de
+   borde— y le deja a la pantalla que lo usa el resto (color de borde, radio,
+   anillo de foco). Así da igual con qué clase lo envuelvan. */
+.mdi {
+  position: relative;
+}
+
+.mdi-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  /* Explícito por encima del fondo del input: sin z-index funciona por orden de
+     pintado, pero se rompe con cualquier z-index que aparezca alrededor. */
+  z-index: 1;
+}
+
+.mdi-ghost-molde { color: var(--c-ink-3); }
+.mdi-ghost-escrito { color: var(--c-ink-1); }
+
+.mdi-input {
+  width: 100%;
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--radius-sm);
+  color: var(--c-ink-1);
+  background: var(--c-surface-0);
+  box-sizing: border-box;
+}
+
+/* Los dos puntos de especificidad NO son decorativos: el campo también lleva la
+   clase de la pantalla que lo usa (.rv-input, .atm-field input), que fija color,
+   padding y tamaño de letra. Con un solo punto ganaría la que se declare
+   después y el número quedaría dibujado dos veces, uno encima del otro. */
+.mdi .mdi-input {
+  padding: 10px 12px;
+  border-width: 1px;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-variant-numeric: tabular-nums;
+}
+
+.mdi .mdi-input--enmascarado {
+  color: transparent;
+  caret-color: var(--c-ink-1);
+}
+
+.mdi-input:focus {
+  outline: none;
+  border-color: var(--c-primary-500);
+  box-shadow: var(--shadow-focus);
+}
+
+.mdi--off .mdi-ghost-molde,
+.mdi--off .mdi-ghost-escrito { color: var(--c-ink-3); }
+.mdi .mdi-input:disabled { background: var(--c-surface-1); cursor: not-allowed; }

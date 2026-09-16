@@ -14,6 +14,8 @@ import {
 } from "../../services/instructorApi";
 import { getReporteVueloAdmin } from "../../services/administracionApi";
 import SignaturePad from "../SignaturePad/SignaturePad";
+import MedidorInput from "../MedidorInput/MedidorInput";
+import { FORMATO_HOBBS, FORMATO_TACOMETRO, formatMedidor } from "../../utils/medidor";
 import { generarPdfReporteVuelo, mensajeErrorPdf } from "./reporteVueloPdf";
 import "./ReporteVueloModal.css";
 
@@ -30,39 +32,14 @@ const MOTIVOS_EMERGENCIA = [
 const labelMotivoEmergencia = (val) =>
   MOTIVOS_EMERGENCIA.find((m) => m.value === val)?.label ?? "";
 
-// Lecturas de medidor (tacómetro/hobbs): el instrumento tiene 4 dígitos
-// enteros, así que una lectura como 0847.2 debe MOSTRARSE con su cero inicial
-// aunque la BD (NUMERIC) lo normalice a 847.2. Se rellena la parte entera a 4
-// dígitos y se conservan los decimales tal cual (mínimo 1, sin ceros de cola).
-function formatMedidor(val) {
-  if (val === null || val === undefined || val === "") return "";
-  const s = String(val);
-  if (!/^\d+(\.\d+)?$/.test(s)) return s;
-  const [ent, dec = ""] = s.split(".");
-  const decLimpio = dec.replace(/0+$/, "") || "0";
-  return `${ent.padStart(4, "0")}.${decLimpio}`;
-}
-
-// Cuántos dígitos enteros/decimales tiene cada medidor, para armar el punto
-// decimal solo: el instructor tipea puros números seguidos (sin el punto) y
-// acá se insertan 4 enteros + N decimales según el instrumento — tacómetro
-// se lee en centésimas (6 dígitos: 4+2), Hobbs en décimas (5 dígitos: 4+1).
-const MEDIDOR_DIGITOS = {
-  tacometro_salida:  { enteros: 4, decimales: 2 },
-  tacometro_llegada: { enteros: 4, decimales: 2 },
-  hobbs_salida:      { enteros: 4, decimales: 1 },
-  hobbs_llegada:     { enteros: 4, decimales: 1 },
+// Qué instrumento es cada campo. El tacómetro se lee en centésimas y el Hobbs
+// en décimas; de ahí sale el molde con el que se teclea (ver utils/medidor.js).
+const MEDIDOR_FORMATO = {
+  tacometro_salida: FORMATO_TACOMETRO,
+  tacometro_llegada: FORMATO_TACOMETRO,
+  hobbs_salida: FORMATO_HOBBS,
+  hobbs_llegada: FORMATO_HOBBS,
 };
-
-// Toma el valor crudo del input (puede traer el punto que ya insertamos antes,
-// o uno que el instructor haya tecleado por su cuenta) y lo reconstruye desde
-// los puros dígitos: los primeros `enteros` dígitos son la parte entera, el
-// resto (hasta `decimales`) son la parte decimal.
-function maskMedidor(rawValue, { enteros, decimales }) {
-  const digits = rawValue.replace(/\D/g, "").slice(0, enteros + decimales);
-  if (digits.length <= enteros) return digits;
-  return `${digits.slice(0, enteros)}.${digits.slice(enteros)}`;
-}
 
 const DATOS_INICIALES = {
   tipo_vuelo: "",
@@ -161,10 +138,13 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
           if (r.detalle_emergencia) setDetalleEmergencia(r.detalle_emergencia);
           setDatos({
             tipo_vuelo: r.tipo_vuelo ?? "",
-            tacometro_salida: formatMedidor(r.tacometro_salida),
-            tacometro_llegada: formatMedidor(r.tacometro_llegada),
-            hobbs_salida: formatMedidor(r.hobbs_salida),
-            hobbs_llegada: formatMedidor(r.hobbs_llegada),
+            // Con los decimales exactos del instrumento: recortar el cero de
+            // cola (847.20 → "0847.2") haría que el campo relea la lectura como
+            // 084.72 en cuanto el instructor la toque.
+            tacometro_salida: formatMedidor(r.tacometro_salida, FORMATO_TACOMETRO),
+            tacometro_llegada: formatMedidor(r.tacometro_llegada, FORMATO_TACOMETRO),
+            hobbs_salida: formatMedidor(r.hobbs_salida, FORMATO_HOBBS),
+            hobbs_llegada: formatMedidor(r.hobbs_llegada, FORMATO_HOBBS),
             combustible_salida: r.combustible_salida ?? "",
             combustible_llegada: r.combustible_llegada ?? "",
             cantidad_combustible: r.cantidad_combustible ?? "",
@@ -189,10 +169,10 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
   const tacDiff = !isNaN(tacSal) && !isNaN(tacLle) && tacLle > tacSal ? tacLle - tacSal : null;
 
   function setField(key, val) {
-    // Tacómetro/Hobbs: el instructor solo tipea dígitos seguidos, el punto
-    // decimal se arma solo (4 enteros + N decimales según el instrumento).
-    if (MEDIDOR_DIGITOS[key]) {
-      setDatos((prev) => ({ ...prev, [key]: maskMedidor(val, MEDIDOR_DIGITOS[key]) }));
+    // Tacómetro/Hobbs llegan ya armados desde MedidorInput (se teclean de
+    // derecha a izquierda contra un molde fijo), así que pasan tal cual.
+    if (MEDIDOR_FORMATO[key]) {
+      setDatos((prev) => ({ ...prev, [key]: val }));
       return;
     }
 
@@ -774,14 +754,21 @@ export default function ReporteVueloModal({ id_vuelo, mode = "alumno", onClose }
                   {isReadonly ? (
                     <span className="rv-info-val">
                       {datos[key] !== "" && !isNaN(parseFloat(datos[key]))
-                        ? (medidor ? formatMedidor(datos[key]) : parseFloat(datos[key]).toFixed(1))
+                        ? (medidor ? formatMedidor(datos[key], MEDIDOR_FORMATO[key]) : parseFloat(datos[key]).toFixed(1))
                         : "—"}
                     </span>
+                  ) : MEDIDOR_FORMATO[key] ? (
+                    <MedidorInput
+                      formato={MEDIDOR_FORMATO[key]}
+                      className="rv-input"
+                      value={datos[key]}
+                      onChange={(val) => setField(key, val)}
+                    />
                   ) : (
                     <input
                       type="text"
-                      inputMode={MEDIDOR_DIGITOS[key] ? "numeric" : "decimal"}
-                      placeholder={MEDIDOR_DIGITOS[key] ? "0".repeat(MEDIDOR_DIGITOS[key].enteros + MEDIDOR_DIGITOS[key].decimales) : "0000.0"}
+                      inputMode="decimal"
+                      placeholder="0000.0"
                       className="rv-input"
                       value={datos[key]}
                       onChange={(e) => setField(key, e.target.value)}

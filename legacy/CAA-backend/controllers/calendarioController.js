@@ -1,13 +1,33 @@
 const db = require("../config/db");
 
+// ?week=current|next  (default: current, para no cambiarle nada a Proyeccion,
+// que llama sin parametro).
+//
+// El "next" existe porque los dashboards de alumno e instructor muestran esta
+// misma tabla DEBAJO de sus pestanas "Semana actual / Semana siguiente": sin el
+// parametro la tabla se quedaba clavada en la semana actual y contradecia a las
+// tarjetas de arriba. Importa sobre todo el DOMINGO: las semanas van lunes a
+// domingo (fecha_fin = inicio + 6) pero los vuelos solo existen dia_semana 1..6
+// (lunes a sabado), asi que el domingo "la semana actual" es una semana cuyos
+// dias operativos ya pasaron, y el programa recien publicado -que arranca el
+// lunes- cae del lado "next". Misma convencion que adminVueloController.getCalendario.
 exports.getCalendarioPublico = async (req, res) => {
   try {
-    const semanaRes = await db.query(`
-      SELECT id_semana
-      FROM semana_vuelo
-      WHERE CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin
-      LIMIT 1
-    `);
+    const { week = "current" } = req.query;
+
+    const semanaRes = await db.query(
+      week === "next"
+        ? `SELECT id_semana
+             FROM semana_vuelo
+            WHERE fecha_inicio > CURRENT_DATE
+            ORDER BY fecha_inicio
+            LIMIT 1`
+        : `SELECT id_semana
+             FROM semana_vuelo
+            WHERE CURRENT_DATE BETWEEN fecha_inicio AND fecha_fin
+            ORDER BY fecha_inicio DESC
+            LIMIT 1`
+    );
 
     const idSemana = semanaRes.rows[0]?.id_semana;
     if (!idSemana) return res.json([]);
