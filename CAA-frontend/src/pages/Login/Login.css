@@ -158,6 +158,13 @@
 }
 .login__submit:hover  { background: var(--c-brand-900); }
 .login__submit:active { transform: translateY(1px); }
+.login__submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.login__submit:disabled:hover { background: var(--c-brand-700); }
+
+.login__help {
+  margin-top: var(--sp-5); font-size: var(--text-sm);
+  color: var(--c-ink-3); text-align: center;
+}
 
 .login__foot {
   margin-top: var(--sp-8); padding-top: var(--sp-5);

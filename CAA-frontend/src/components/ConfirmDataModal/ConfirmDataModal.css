@@ -65,6 +65,22 @@
   box-shadow: 0 0 0 3px oklch(45% 0.1 255 / 0.15);
 }
 
+/* Campo de contraseña con el ojito por dentro. */
+.cdm-passwrap { position: relative; display: flex; align-items: center; }
+.cdm-passwrap input { width: 100%; padding-right: 42px; }
+.cdm-eye {
+  position: absolute; right: 6px;
+  background: none; border: none; cursor: pointer;
+  padding: 6px 8px; display: flex; align-items: center;
+  color: var(--c-ink-3, #667); border-radius: 6px;
+}
+.cdm-eye:hover { color: var(--c-ink-1, #222); }
+/* Presente en el DOM para el administrador de contraseñas, invisible para la persona. */
+.cdm-hidden {
+  position: absolute; width: 1px; height: 1px; opacity: 0;
+  pointer-events: none; overflow: hidden;
+}
+
 .cdm-submit {
   margin-top: 20px;
   width: 100%;

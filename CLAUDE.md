@@ -1585,7 +1585,30 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-08-31.**
+> **Última revisión: 2026-09-18.**
+>
+> ### 🔐 Login y sesiones (§40)
+> - **Resetear la contraseña de `mayra.ventura`** (ADMINISTRACION): 12 intentos fallidos seguidos el
+>   2026-09-18 desde la IP del colegio, y esa cuenta sigue con la contraseña que no logra escribir. Se hace
+>   desde Usuarios → Personal → "Nueva contraseña" (desde el deploy de §40 ese reseteo también limpia el
+>   contador y el bloqueo). Los contadores de esa cuenta y de `david.arteaga` (4), `hector.guevara` (2),
+>   `jose.valle` (2) y `alumno.prueba` (1) ya se pusieron en 0 (2026-09-18); si `david.arteaga` o
+>   `hector.guevara` piden ayuda, es el mismo reseteo.
+> - **Decidir el vencimiento de sesión.** Los JWT duran 30 días (`JWT_EXPIRES_IN=30d`) y nada los renueva:
+>   cada usuario es expulsado al login una vez al mes, todos a la vez si se incorporaron juntos, y tiene
+>   que escribir una contraseña que no usa desde hace un mes. Opción recomendada: renovación deslizante
+>   (al abrir la app, `GET /auth/refresh` si al token le quedan menos de ~7 días). ⚠️ Antes de hacerlo,
+>   `authMiddleware` y `refresh` deben verificar `usuario.activo` (hoy un usuario desactivado conserva su
+>   acceso hasta 30 días, y con renovación sería para siempre).
+> - **El correo no sale nunca.** Cada envío SMTP desde Railway termina en `Connection timeout`
+>   (ETIMEDOUT en `CONN`, ~2 min) — 10 en 2 días, 25 en los 5 anteriores. No bloquea el login (va en
+>   segundo plano) pero ningún correo llega (horarios, loadsheet, avisos). Ver "correo transaccional" abajo.
+> - **El pool de `pg` no tiene `connectionTimeoutMillis`** (`config/db.js`): si el pool se satura o el
+>   pooler no contesta, la petición espera para siempre. NO agregarlo a ciegas: un `pool.connect()` que
+>   rechace en un controller sin `try/catch` cae en `unhandledRejection` y, como el mensaje no está en
+>   `esTransitorioDB` (`server.js`), **apaga el proceso**. Hay que agregarlo junto con ese mensaje.
+>
+> **Revisión anterior: 2026-08-31.**
 >
 > ### 🎬 De la cuenta de demostraciones (§39)
 > - **Poner la marca del prospecto antes de una reunión**: se edita `marcas.molde` en `marca.json`
@@ -3077,3 +3100,91 @@ El reinicio por el botón, con censo de CAAA antes y después: **una sola fila c
 vuelo que cerró un instructor mientras yo probaba**. Medido aparte: un reinicio completo **no mueve
 ninguna secuencia ni ninguna fila de `public`**. La marca de CAAA vuelve sola al salir del demo.
 
+---
+
+## 40. Sesión 2026-09-18 — Login: por qué los usuarios "no podían entrar"
+
+**ESTADO: subido a `master` el 2026-09-18** (rama `claude/login-timeout-error-2e84e6`, avance directo:
+`origin/master` no se había movido). Sin migración. ⚠️ **Desde este deploy el bloqueo de 3 min SÍ se aplica**:
+quien falle 5 veces seguidas espera de verdad. El mismo día, a pedido de Daniel, se pusieron en 0 los
+contadores de fallos de `mayra.ventura`, `david.arteaga`, `hector.guevara`, `jose.valle` y `alumno.prueba`
+(`UPDATE` acotado por username: no se tocó ninguna contraseña ni sesión).
+
+**Síntoma:** un usuario no podía entrar; otros veían "demasiados intentos, intentá en 3 minutos" con
+credenciales que juraban correctas y, a veces, un "tiempo de espera agotado".
+
+### Evidencia (logs HTTP de Railway del despliegue del día + BD; nada de esto es suposición)
+- 17 `POST /api/auth/login`: 5×200 y 12 fallos (10×401, 2×403), todos entre 340 y 840 ms y todos los
+  fallos desde la IP del colegio. **Los 12 calzan con UNA sola cuenta**, `mayra.ventura` (ADMINISTRACION),
+  fallando en 3 h sin un solo éxito de por medio: los dos 403 caen exactamente en el 5º y el 10º fallo, y
+  el contador de esa cuenta en la BD pasó de 1 a 2 en el único intento entre dos lecturas.
+- **0 respuestas 5xx y 0 requests >3 s** fuera de socket.io: NO hubo lentitud ni caída del backend.
+- **17 `POST /api/auth/refresh` → 404**, en ráfagas de 3–9 en el mismo segundo.
+- Logs de despliegues anteriores: `57P01 terminating connection due to administrator command` (el pooler
+  de Supabase mata conexiones) y `Email falló: Connection timeout` (el SMTP no entrega nunca).
+
+### Causas y qué se hizo
+1. **El bloqueo de 3 min nunca bloqueaba.** `locked_until` es `timestamp` SIN zona; se escribía en hora de
+   El Salvador (la zona de la sesión de BD) pero se comparaba en JS (`new Date(x) > new Date()`), que lo
+   lee en la zona del proceso (UTC en Railway): quedaba **5.95 h en el pasado**. En la máquina de
+   desarrollo (UTC-6) sí funcionaba, por eso nadie lo vio. Efecto: la 5ª contraseña mala decía "Demasiados
+   intentos… 3 minutos" y reiniciaba el contador, pero no frenaba a nadie: mensaje engañoso **y cero
+   protección por cuenta**. Otra aparición más del desfase de zona (§21.D, §31, §34, §35.A, §38.F). Ahora la
+   comparación y la escritura van **en SQL con la zona fijada** (`now() AT TIME ZONE 'America/El_Salvador'`)
+   y el 403 dice cuántos minutos faltan (`minutos_restantes`).
+2. **El contador no decae, y el reseteo de Administración no lo limpiaba.** `resetPasswordPersonal` y
+   `resetPasswordAlumno` ahora ponen `failed_login_count = 0, locked_until = NULL`. Sigue sin decaer por
+   tiempo (solo lo reinicia un login exitoso, un bloqueo o un reseteo); hacerlo decaer requiere una columna
+   nueva (`last_failed_login_at`).
+3. **Las expulsiones al login eran JWT vencidos.** Las ráfagas de 401 incluían endpoints de
+   `proyeccionMiddleware`, que responde 401 SIN tocar la BD: el token en sí no verificaba. El interceptor
+   de axios intentaba renovar con `POST /auth/refresh`, pero la ruta es `GET`: 404 siempre, y el usuario
+   caía al login **sin explicación**. Además ningún 401 se puede arreglar con un refresh (vencido/inválido/
+   ausente), así que el intento se eliminó: ahora `/login?reason=expired` (o `conflict` si fue otro
+   dispositivo) y el login lo explica.
+4. **Contraseñas creadas a ciegas.** El modal obligatorio del primer login pedía la contraseña nueva UNA
+   vez, sin poder verla y sin `autocomplete="new-password"` (el navegador seguía ofreciendo la inicial
+   `caaa2026`). Cada reseteo de Administración fuerza otro cambio en ese mismo modal. Ahora: confirmación,
+   ojito, `new-password` y un campo de usuario oculto para que el administrador de contraseñas actualice
+   la guardada.
+5. **El modal de primer ingreso no aparecía tras el login (solo tras recargar).** `ForcePasswordChange`
+   lee `localStorage` al renderizar y nada lo re-renderizaba con `navigate()`: el usuario nuevo veía un
+   dashboard vacío (con la API real, todo en 403) sin saber por qué. Reproducido en el navegador; ahora
+   escucha `useLocation()`.
+6. **Doble envío.** "Ingresar" no se deshabilitaba: doble toque = 2 intentos (gastaba 2 de los 5) o 2
+   logins que se invalidan entre sí por la sesión única. Ahora `useRef` + botón deshabilitado.
+7. **Latentes (hay evidencia del disparador —`57P01`—, no víctima confirmada):** `authMiddleware` respondía
+   401 a CUALQUIER excepción, incluido un fallo de BD → el interceptor lo tomaba por sesión vencida y
+   expulsaba, sin dejar rastro en el log (ahora **503 + log**). Y `loginEn` hacía `await db.connect()`
+   fuera del `try`: sin conexión, la petición quedaba SIN respuesta hasta que el navegador se rendía con
+   un "tiempo de espera agotado" (ahora **503**; y una conexión muerta ya no vuelve al pool).
+
+### Lo que NO se pudo confirmar
+- **El origen literal de "el tiempo de espera ha caducado":** esa frase no existe en el código. El
+  servidor no mostró un solo timeout ese día; lo más probable es el aviso del bloqueo parafraseado, o la
+  red del cliente.
+- **Por qué `mayra.ventura` falla:** el servidor tiene su hash intacto y las cuentas de primer ingreso sí
+  coinciden con `caaa2026` (20 de 23; las 3 que no coinciden son cuentas de prueba), o sea que escribe otra cosa (olvidada,
+  creada a ciegas o autocompletado viejo). Hay que resetearla.
+
+### Archivos y verificación
+Backend: `controllers/authController.js`, `controllers/administracion/usuariosController.js`,
+`middlewares/authMiddleware.js`. Frontend: `pages/Login/Login.{jsx,css}`, `api/axiosConfig.js`,
+`components/ConfirmDataModal/ConfirmDataModal.{jsx,css}`, `components/routes/ForcePasswordChange.jsx`.
+- Tests locales (ignorados por git, `_*.js`): `legacy/CAA-backend/_test_login_lock.js` (13 checks contra la
+  cuenta ficticia `demo.admin`, restaura la fila; **correr con `TZ=UTC` Y con `TZ=America/El_Salvador`**) y
+  `_test_auth_robustez.js` (8 checks con stubs). Ambos se vieron **fallar** contra el código anterior.
+- Frontend verificado en el navegador con un backend simulado (mock en :5000 + `public/config.js`, que está
+  ignorado por git; se restauró): doble envío → 1 sola petición, mensajes 403/503, token vencido/conflicto →
+  `?reason=`, 0 `POST /auth/refresh`, modal con confirmación y 1 solo `PUT cambiar-password`.
+
+### Trampas de esta sesión
+- **`railway logs --http --path` NO filtra** (devuelve 0 líneas); usar `--filter '@path:/api/auth/login AND
+  @method:POST'`. `--lines` tope ~5000. Los logs HTTP **solo cubren el despliegue vigente**: los REMOVED no
+  los conservan. Un worktree nuevo necesita `railway link -p <id> -e production -s <id>` (solo toca la
+  config local del CLI).
+- **`railway ssh` exige una llave SSH registrada en la cuenta**: no generarla sin permiso de Daniel.
+- **Un 401 sin `session_conflict` en un endpoint de `proyeccionMiddleware` es un JWT que no verifica**, no un
+  fallo de BD (ese middleware no consulta la BD antes de responder).
+- **`pg` parsea `timestamp` sin zona en la zona del proceso**, no la de la sesión: el mismo valor se lee
+  distinto en tu máquina (UTC-6) y en Railway (UTC). Cualquier comparación de fechas de esas columnas, en SQL.

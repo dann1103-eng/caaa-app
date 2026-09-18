@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import ConfirmDataModal from "../ConfirmDataModal/ConfirmDataModal";
 
 /**
@@ -10,6 +10,13 @@ import ConfirmDataModal from "../ConfirmDataModal/ConfirmDataModal";
  */
 export default function ForcePasswordChange({ children }) {
   const [bump, setBump] = useState(0); // fuerza re-render tras confirmar
+
+  // Suscribe este componente a la navegación. Lee la sesión de localStorage al
+  // renderizar, y el login guarda esa sesión y recién después llama a navigate():
+  // sin esto nadie lo volvía a renderizar (no depende del router ni de ningún
+  // estado) y el usuario de primer ingreso veía el dashboard vacío, sin el modal,
+  // hasta que recargaba la página.
+  useLocation();
 
   const token = localStorage.getItem("token");
   const raw = localStorage.getItem("user");

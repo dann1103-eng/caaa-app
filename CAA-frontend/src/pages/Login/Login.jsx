@@ -1,5 +1,5 @@
 import "./Login.css";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { login } from "../../services/loginApi";
@@ -50,6 +50,10 @@ function mensajeErrorLogin(err) {
   if (status === 400) {
     return data?.message || "Completá tu usuario y contraseña.";
   }
+  if (status === 503) {
+    // El servidor no pudo hablar con la base de datos en ese instante: pasa solo.
+    return data?.message || "El servidor está ocupado. Esperá unos segundos e intentá de nuevo.";
+  }
   return "Ocurrió un error inesperado. Intentá de nuevo en unos minutos.";
 }
 
@@ -58,6 +62,11 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  // El ref se actualiza en el acto; el estado no, hasta el próximo render. Con solo
+  // el estado, dos envíos que llegan antes de que React vuelva a pintar (Enter
+  // sostenido + click) verían los dos "enviando = false".
+  const enviandoRef = useRef(false);
   const navigate = useNavigate();
 
   // La PWA en iOS mata el proceso de una pestaña en segundo plano por presión
@@ -92,6 +101,13 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Un segundo toque mientras el primero sigue en vuelo (con mala señal el login
+    // tarda) mandaba DOS intentos: con una contraseña equivocada gastaba dos de los
+    // cinco que da el bloqueo, y con la correcta el segundo login rotaba la sesión
+    // y dejaba inválido el token del primero.
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+    setEnviando(true);
 
     try {
       const data = await login(username, password);
@@ -111,6 +127,9 @@ export default function Login() {
       navigate(dashboardPathFor(user) || "/login");
     } catch (err) {
       toast.error(mensajeErrorLogin(err));
+    } finally {
+      enviandoRef.current = false;
+      setEnviando(false);
     }
   };
 
@@ -177,6 +196,11 @@ export default function Login() {
               Sesión cerrada: se inició sesión en otro dispositivo.
             </div>
           )}
+          {reason === "expired" && (
+            <div className="login__notice login__notice--warn">
+              Tu sesión venció. Iniciá sesión de nuevo para continuar.
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="login__form">
             <div className="login__field">
@@ -191,6 +215,9 @@ export default function Login() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                 />
               </div>
@@ -221,11 +248,15 @@ export default function Login() {
               </div>
             </div>
 
-            <button type="submit" className="login__submit">
+            <button type="submit" className="login__submit" disabled={enviando}>
               <i className="bi bi-box-arrow-in-right" />
-              Ingresar
+              {enviando ? "Ingresando…" : "Ingresar"}
             </button>
           </form>
+
+          <p className="login__help">
+            ¿No recordás tu contraseña? Pedile a Administración que te la restablezca.
+          </p>
 
           <footer className="login__foot">
             {MARCA.nombre} © {new Date().getFullYear()} · {MARCA.nombre_completo}

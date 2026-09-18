@@ -436,8 +436,13 @@ exports.resetPasswordPersonal = async (req, res) => {
     const { password } = req.body;
     if (!password) return res.status(400).json({ ok: false, message: "Contraseña requerida" });
     const hash = await bcrypt.hash(String(password), 10);
+    // Restablecer tambien limpia los fallos y el bloqueo: si no, quien vino a
+    // pedir el reseteo porque se le olvido la clave entra con el contador donde lo
+    // dejo (p. ej. en 4) y un solo tropiezo lo bloquea otra vez.
     const r = await db.query(
-      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE WHERE id_usuario = $1 RETURNING id_usuario`,
+      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE,
+              failed_login_count = 0, locked_until = NULL
+        WHERE id_usuario = $1 RETURNING id_usuario`,
       [id_usuario, hash]
     );
     if (!r.rows.length) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
@@ -460,8 +465,10 @@ exports.resetPasswordAlumno = async (req, res) => {
     }
     const hash = await bcrypt.hash(String(password), 10);
     // Un solo UPDATE con subconsulta: no hace falta transacción.
+    // Igual que en el reseteo de personal: limpia fallos y bloqueo.
     const r = await db.query(
-      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE
+      `UPDATE usuario SET password_hash = $2, must_change_password = TRUE,
+              failed_login_count = 0, locked_until = NULL
         WHERE id_usuario = (SELECT id_usuario FROM alumno WHERE id_alumno = $1)
         RETURNING id_usuario`,
       [id_alumno, hash]
