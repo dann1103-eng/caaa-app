@@ -876,13 +876,16 @@ exports.agendarVueloDirecto = async (req, res) => {
     // puede EMPEZAR ni TERMINAR en un bloque bloqueado para ese día (ej. lunes
     // y viernes el aeropuerto cierra más temprano y las 17:20 no se vuela).
     // Solo los extremos: una RUTA larga sí puede sobrevolar el almuerzo.
+    // Y una RUTA ignora el ALMUERZO también en los extremos (misma regla que
+    // agendarController — ver el comentario allá). El AEROPUERTO CERRADO sigue.
     const bloqueado = await client.query(
       `SELECT bb.motivo, TO_CHAR(b.hora_inicio, 'HH24:MI') AS hora
          FROM bloque_bloqueado_dia bb
          JOIN bloque_horario b ON b.id_bloque = bb.id_bloque
         WHERE bb.dia_semana = $1 AND bb.id_bloque IN ($2, $3)
+          AND NOT ($4::boolean AND bb.motivo = 'ALMUERZO')
         LIMIT 1`,
-      [dia_semana, id_bloque, fin]
+      [dia_semana, id_bloque, fin, tipo_vuelo === "RUTA"]
     );
     if (bloqueado.rows.length > 0) {
       const dNombres = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
