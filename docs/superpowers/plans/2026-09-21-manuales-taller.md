@@ -22,6 +22,7 @@
 - **Errores en controllers:** envolver en `catchAsync`; para errores esperados lanzar `new AppError(mensaje, status)` (`utils/appError.js`) — el middleware global responde `{message}` con ese status. Un error sin `isOperational` sale como 500.
 - **Zona horaria:** columnas `timestamp` sin zona. Todo valor "ahora" se escribe como `(NOW() AT TIME ZONE 'America/El_Salvador')` (CLAUDE.md §35.A).
 - **Commits:** mensaje en archivo y `git commit -F <archivo>`; terminar con `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`.
+- **Cambio deliberado respecto de la spec §10:** el `sha256` y las páginas de un manual subido los calcula el **servidor** (baja el archivo una vez desde Storage y lo abre con pdf-lib, de a uno por vez), no el navegador. Así no se confía en lo que diga el cliente y de paso se detecta un PDF cifrado o roto antes de registrarlo. La subida en sí sigue yendo directo del navegador a Storage. La spec ya lo refleja.
 - **Spike ya hecho (2026-09-21):** una URL firmada de Supabase contesta `Range` con **206** y `access-control-allow-origin: *`, el preflight permite `range`, pero **no expone `Accept-Ranges`** → pdf.js por sí solo bajaría el archivo entero. Por eso `PDFDataRangeTransport` (Task 10). Una subida con `upsert:false` sobre un objeto existente da **409 "The resource already exists"**. `createSignedUploadUrl` funciona.
 
 ## Mapa de archivos
@@ -180,7 +181,7 @@ Expected: termina sin error. Si el clasificador de auto-mode lo bloquea, pedir a
 
 - [ ] **Step 3: Verificar**
 
-Run: `node query.js "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE 'taller_%manual%' OR table_name LIKE 'taller_%extracto' ORDER BY 1"` y `node query.js "SELECT id, public FROM storage.buckets WHERE id='manuales-taller'"`
+Run: `node query.js "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND (table_name LIKE 'taller_%manual%' OR table_name LIKE 'taller_%extracto') ORDER BY 1"` y `node query.js "SELECT id, public FROM storage.buckets WHERE id='manuales-taller'"`
 Expected: `taller_manual`, `taller_manual_aeronave`, `taller_orden_extracto`, `taller_paquete_extracto`, `taller_paquete_manual`; bucket `manuales-taller` con `public: false`.
 
 - [ ] **Step 4: Commit**
@@ -722,6 +723,9 @@ const BUCKET = storage.BUCKETS.MANUALES;
 const selectExtractos = (tabla) => `
   SELECT e.id_extracto, e.id_manual, e.pagina_desde, e.pagina_hasta, e.titulo, e.orden, e.origen,
          e.agregado_por, e.creado_en,
+         -- Formateado en SQL: creado_en es timestamp SIN zona y pg lo leería en
+         -- la zona del proceso (UTC en Railway): la hora saldría corrida 6 h (§40).
+         to_char(e.creado_en, 'DD/MM/YYYY HH24:MI') AS creado_txt,
          NULLIF(TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')), '') AS agregado_por_nombre,
          mn.titulo AS manual_titulo, mn.revision AS manual_revision, mn.estado AS manual_estado,
          mn.paginas AS manual_paginas, mn.tamano_bytes AS manual_tamano_bytes,
@@ -940,6 +944,7 @@ exports.listar = catchAsync(async (req, res) => {
   const params = [];
   const p = (v) => `$${params.push(v)}`;
   if (incluir_reemplazados !== "true") cond.push("m.estado = 'VIGENTE'");
+  if (aeronave && !idValido(aeronave)) return res.status(400).json({ message: "Avión inválido" });
   if (aeronave) {
     cond.push(`(m.es_general OR EXISTS (SELECT 1 FROM taller_manual_aeronave z
                  WHERE z.id_manual = m.id_manual AND z.id_aeronave = ${p(Number(aeronave))}))`);
@@ -1370,7 +1375,7 @@ exports.guardar = catchAsync(async (req, res) => {
   const av = await db.query("SELECT 1 FROM aeronave WHERE id_aeronave = $1", [k.idAeronave]);
   if (!av.rows.length) return res.status(404).json({ message: "Avión no encontrado" });
 
-  const manuales = await manualesPorId([...new Set(filas.map((f) => Number(f.id_manual)).filter((n) => n > 0))]);
+  const manuales = await manualesPorId([...new Set(filas.map((f) => Number(f.id_manual)).filter((n) => Number.isInteger(n) && n > 0))]);
   const limpias = [];
   for (const [i, f] of filas.entries()) {
     const m = manuales.get(Number(f.id_manual));
@@ -2044,15 +2049,18 @@ export async function abrirPdfCuandoEste(obtener) {
 ```js
 /**
  * pdf.js, cargado solo cuando se abre un manual: no engorda el bundle principal.
- * Versión fija 4.10.38 (anda en navegadores más viejos que la 5 y la 6).
+ *
+ * Versión fija 4.10.38 y el build LEGACY: el normal usa Promise.withResolvers,
+ * que Safari no tiene antes de iOS 17.4, y los mecánicos abren esto en su
+ * celular. El legacy trae los polyfills.
  */
 let cargando = null;
 
 export function cargarPdfjs() {
   if (!cargando) {
     cargando = Promise.all([
-      import("pdfjs-dist"),
-      import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+      import("pdfjs-dist/legacy/build/pdf.mjs"),
+      import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
     ])
       .then(([pdfjs, worker]) => {
         pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
@@ -2158,8 +2166,9 @@ export function subirAStorage(signedUrl, archivo, onProgreso) {
       if (x.status >= 200 && x.status < 300) return resolve();
       const texto = x.responseText || "";
       if (x.status === 413 || /maximum allowed size|too large|exceeded/i.test(texto)) {
+        const mb = Math.round(archivo.size / 1048576);
         return reject(new Error(
-          "El archivo pasa el tamaño máximo que permite el almacenamiento. Partilo en dos tomos y subí cada uno."
+          `El archivo pesa ${mb} MB y pasa el tope por archivo del almacenamiento (50 MB en el plan gratuito de Supabase). Partilo en dos tomos y subí cada uno.`
         ));
       }
       reject(new Error(`No se pudo subir el archivo (${x.status}).`));
@@ -2389,7 +2398,9 @@ export default function VisorManual({ manual, paginaInicial = 1, accion }) {
       setHasta(null);
       setTitulo("");
     } catch (e) {
-      toast.error(mensajeError(e, "No se pudo"));
+      toast.error(mensajeError(e, "No se pudo"), {
+        action: { label: "Reintentar", onClick: () => ejecutar() },
+      });
     } finally {
       setEnviando(false);
     }
@@ -2752,6 +2763,9 @@ export default function Biblioteca() {
                     {m.necesita_confirmacion && <span className="adf-tag amber" title={m.nota_confirmacion || ""}>Por confirmar</span>}
                     {m.estado === "REEMPLAZADO" && (
                       <span className="adf-tag gray">Reemplazado por {m.reemplazado_por_revision || m.reemplazado_por_titulo}</span>
+                    )}
+                    {m.estado !== "VIGENTE" && m.usos_paquetes > 0 && (
+                      <span className="adf-tag red">{m.usos_paquetes} rango(s) de paquetes todavía la usan</span>
                     )}
                     {m.estado === "ARCHIVADO" && <span className="adf-tag gray">Archivado</span>}
                   </div>
@@ -3558,7 +3572,9 @@ export default function ManualesOrdenModal({ orden, onClose }) {
 
   const imprimirTodo = () =>
     abrirPdfCuandoEste(() => pdfDeOrden(orden.id_orden))
-      .catch((e) => toast.error(mensajeError(e, "No se pudo armar el PDF")));
+      .catch((e) => toast.error(mensajeError(e, "No se pudo armar el PDF"), {
+        action: { label: "Reintentar", onClick: () => imprimirTodo() },
+      }));
 
   const ver = (e) =>
     getManual(e.id_manual).then((m) => setVisor({ manual: m, pagina: e.pagina_desde, agregar: false }))
@@ -3603,6 +3619,7 @@ export default function ManualesOrdenModal({ orden, onClose }) {
             <span className="mo-fila__meta">
               {e.manual_titulo} · págs. {e.pagina_desde}–{e.pagina_hasta} ({e.paginas})
               {quitable && e.agregado_por_nombre ? ` · ${e.agregado_por_nombre}` : ""}
+              {quitable && e.creado_txt ? ` · ${e.creado_txt}` : ""}
             </span>
             {e.manual_estado !== "VIGENTE" && <span className="adf-tag amber">De la revisión anterior</span>}
           </button>
@@ -3885,16 +3902,21 @@ def bytes_finales(z, clave, nombres):
         for n in sorted(nombres):
             with fitz.open(stream=z.read(n), filetype="pdf") as parte:
                 salida.insert_pdf(parte)
-        datos = salida.tobytes(garbage=3, deflate=True, no_new_id=True)
+        # garbage=1 y sin deflate: rápido y determinista. garbage=3 + deflate tardaba minutos.
+        datos = salida.tobytes(garbage=1, no_new_id=True)
         salida.close()
     else:
         datos = z.read(nombres[0])
     with fitz.open(stream=datos, filetype="pdf") as doc:
-        if not doc.is_encrypted:
-            return datos
         if doc.needs_pass:
             sys.exit(f"{clave} pide contraseña para abrirse: no se puede cargar así.")
-        return doc.tobytes(encryption=fitz.PDF_ENCRYPT_NONE, garbage=3, deflate=True, no_new_id=True)
+        # 🚨 NO usar doc.is_encrypted: PyMuPDF desbloquea solo los PDF que tienen
+        # únicamente contraseña de dueño y ahí `is_encrypted` da False. Son 10 de
+        # los 35 manuales (RC4), entre ellos el del Cessna 152, y pdf-lib no los
+        # puede recortar. Lo que sí lo dice es el metadato "encryption".
+        if not doc.metadata.get("encryption"):
+            return datos
+        return doc.tobytes(encryption=fitz.PDF_ENCRYPT_NONE, no_new_id=True)
 
 
 def en_tomos(clave, datos):
@@ -3907,7 +3929,7 @@ def en_tomos(clave, datos):
         for i, (desde, hasta) in enumerate([(0, mitad - 1), (mitad, doc.page_count - 1)], start=1):
             t = fitz.open()
             t.insert_pdf(doc, from_page=desde, to_page=hasta)
-            partes.append((f"{clave}-tomo-{i}", t.tobytes(garbage=3, deflate=True, no_new_id=True)))
+            partes.append((f"{clave}-tomo-{i}", t.tobytes(garbage=1, no_new_id=True)))
             t.close()
     return partes
 ```
@@ -3943,7 +3965,11 @@ def main():
     z = zipfile.ZipFile(ruta)
     manuales = []
     for clave, nombres in grupos_del_zip(z):
+        with fitz.open(stream=z.read(sorted(nombres)[0]), filetype="pdf") as original:
+            cifrado = bool(original.metadata.get("encryption"))
         datos = bytes_finales(z, clave, nombres)
+        with fitz.open(stream=datos, filetype="pdf") as limpio:
+            assert not limpio.metadata.get("encryption"), f"{clave} sigue cifrado después de descifrarlo"
         if clave == AZTECA_CLAVE:
             # Tiene que salir idéntico cada vez: su ruta en Storage sale de la huella.
             otra = bytes_finales(z, clave, nombres)
@@ -3956,13 +3982,16 @@ def main():
                 "sha256": hashlib.sha256(datos).hexdigest(),
                 "paginas": doc.page_count,
                 "tamano_bytes": len(datos),
+                "venia_cifrado": cifrado,
                 "portada": " ".join(doc[0].get_text().split())[:400],
                 "indice_inspeccion": [[lvl, t.strip(), p] for lvl, t, p in toc if INSPECCION.search(t)][:40],
             })
     salida = Path(__file__).parent / "inventario.json"
     salida.write_text(json.dumps({"zip": ruta.name, "manuales": manuales}, ensure_ascii=False, indent=1), encoding="utf-8")
     mb = sum(m["tamano_bytes"] for m in manuales) / 1048576
+    cifrados = [m["clave"] for m in manuales if m["venia_cifrado"]]
     print(f"{len(manuales)} manuales · {mb:.0f} MB → {salida.name}")
+    print(f"venían cifrados ({len(cifrados)}): {', '.join(cifrados)}")
 
 
 if __name__ == "__main__":
@@ -3972,7 +4001,7 @@ if __name__ == "__main__":
 - [ ] **Step 3: Correrlo**
 
 Run (desde `supabase/dump/manuales_taller`): `python preparar.py`
-Expected: `35 manuales · ~630 MB → inventario.json`. El Azteca con `paginas: 1433`.
+Expected: `35 manuales · ~630 MB → inventario.json` y `venían cifrados (10): …` (entre ellos `cessna-152-mm` y `slick-4300-6300-overhaul-manual-l-1363f`). El Azteca con `paginas: 1433`. Si la cuenta de cifrados no es 10, parar y averiguar por qué antes de seguir.
 
 - [ ] **Step 4: Commit**
 
@@ -4013,7 +4042,7 @@ Punto de partida (deducido de las portadas). En el Step 2 se coteja cada `numero
     {"clave": "lycoming-parts-catalog-o-235-series-engines-june-1982-revise", "titulo": "Lycoming O-235 Parts Catalog", "categoria": "PARTES", "fabricante": "Lycoming", "numero_parte": "PC-302B", "revision": "Jun 1982, rev. Jan 1987", "aeronaves": ["YS-334-PE", "YS-333-PE"], "es_general": false},
     {"clave": "maintenance-manual-pa-38", "titulo": "PA-38-112 Tomahawk Maintenance Manual (fichas, 2000)", "categoria": "MANTENIMIENTO", "fabricante": "Piper", "numero_parte": "761-660", "revision": "Interim revision Feb 25, 2000", "aeronaves": ["YS-334-PE"], "es_general": false, "nota": "Hay dos ediciones del manual del Tomahawk: esta (2000) y la de 2019. Sus páginas no coinciden. ¿Cuál es la vigente? Los paquetes sugeridos usan la de 2019."},
     {"clave": "o-235-o-290-operator-manual-60297-9", "titulo": "Lycoming O-235 / O-290 Operator's Manual", "categoria": "OPERACION", "fabricante": "Lycoming", "numero_parte": "60297-9", "revision": "5th ed., Jan 2007", "aeronaves": ["YS-334-PE", "YS-333-PE"], "es_general": false},
-    {"clave": "operator-s-manual-continental-ys303p", "titulo": "Continental TSIO-520 / LTSIO-520-AE Operator's Manual", "categoria": "OPERACION", "fabricante": "Continental", "numero_parte": "X30044", "revision": "Aug 2011", "aeronaves": [], "es_general": false, "nota": "El nombre del archivo dice «YS303P»: motor del T303. ¿Es un avión cliente de la OMA?"},
+    {"clave": "operator-s-manual-continental-ys303p", "titulo": "Continental TSIO-520 / LTSIO-520-AE Operator's Manual", "categoria": "OPERACION", "fabricante": "Continental", "numero_parte": "X30044", "revision": "Aug 2011", "aeronaves": [], "es_general": false, "nota": "Motor del T303; el nombre del archivo menciona una matrícula. ¿Es un avión cliente de la OMA?"},
     {"clave": "overhaul-manual-lycoming-direct-drive-eng", "titulo": "Lycoming Direct Drive Engines Overhaul Manual", "categoria": "OVERHAUL", "fabricante": "Lycoming", "numero_parte": "60294-7", "revision": "6th printing, Dec 1974", "aeronaves": ["YS-334-PE", "YS-333-PE", "YS-270-PE", "YS-155-PE", "YS-127-P"], "es_general": false},
     {"clave": "p689-12-cessna-t303-parts-catalog", "titulo": "Cessna T303 Crusader Parts Catalog", "categoria": "PARTES", "fabricante": "Cessna", "numero_parte": "P689-12", "revision": null, "aeronaves": [], "es_general": false, "nota": "¿De qué avión es?"},
     {"clave": "pa-23-250-azteca-mm", "titulo": "PA-23 Apache / Aztec Service Manual", "categoria": "MANTENIMIENTO", "fabricante": "Piper", "numero_parte": "753-564", "revision": "Jan 1, 2009", "aeronaves": [], "es_general": false, "nota": "Venía partido en 144 pedazos; se unió en orden de fichas (1A1 a 5L20). ¿De qué avión es?"},
@@ -4024,8 +4053,8 @@ Punto de partida (deducido de las portadas). En el Step 2 se coteja cada `numero
     {"clave": "parts-catalog-cessna-152", "titulo": "Cessna 152 Parts Catalog", "categoria": "PARTES", "fabricante": "Cessna", "numero_parte": null, "revision": null, "aeronaves": ["YS-333-PE"], "es_general": false, "nota": "Escaneo sin texto: la búsqueda no encuentra nada, se navega por página."},
     {"clave": "parts-catalog-pa-140-180r", "titulo": "Cherokee Parts Catalog PA-28 / PA-28R (fichas)", "categoria": "PARTES", "fabricante": "Piper", "numero_parte": null, "revision": null, "aeronaves": ["YS-270-PE", "YS-155-PE", "YS-127-P"], "es_general": false},
     {"clave": "parts-catalog-pa-38", "titulo": "PA-38-112 Tomahawk Parts Catalog", "categoria": "PARTES", "fabricante": "Piper", "numero_parte": "761-659", "revision": "Interim revision Jun 26, 1998", "aeronaves": ["YS-334-PE"], "es_general": false},
-    {"clave": "piper-pa-28-180e-poh", "titulo": "Cherokee 180 E Owner's Handbook", "categoria": "OPERACION", "fabricante": "Piper", "numero_parte": null, "revision": null, "aeronaves": ["YS-270-PE"], "es_general": false, "nota": "¿Es el POH del YS-270-PE?"},
-    {"clave": "piper-pa-28r-180-poh", "titulo": "Cherokee Arrow (PA-28R-180) Owner's Handbook", "categoria": "OPERACION", "fabricante": "Piper", "numero_parte": null, "revision": null, "aeronaves": ["YS-127-P"], "es_general": false, "nota": "¿El YS-127-P es PA-28R-180 o PA-28R-200?"},
+    {"clave": "piper-pa-28-180e-poh", "titulo": "Cherokee 180 E Owner's Handbook", "categoria": "OPERACION", "fabricante": "Piper", "numero_parte": null, "revision": null, "aeronaves": ["YS-270-PE"], "es_general": false, "nota": "¿Es el POH del Cherokee al que está asignado?"},
+    {"clave": "piper-pa-28r-180-poh", "titulo": "Cherokee Arrow (PA-28R-180) Owner's Handbook", "categoria": "OPERACION", "fabricante": "Piper", "numero_parte": null, "revision": null, "aeronaves": ["YS-127-P"], "es_general": false, "nota": "¿El Arrow al que está asignado es PA-28R-180 o PA-28R-200?"},
     {"clave": "rapco-fuelpump-app", "titulo": "Rapco Fuel Pump Application Guide", "categoria": "CATALOGO", "fabricante": "Rapco", "numero_parte": null, "revision": null, "aeronaves": [], "es_general": true},
     {"clave": "rapcobrakeapp-2013", "titulo": "Rapco Brake Application Guide (2013)", "categoria": "CATALOGO", "fabricante": "Rapco", "numero_parte": null, "revision": "2013", "aeronaves": [], "es_general": true},
     {"clave": "service-manual-140-200r", "titulo": "Cherokee Service Manual PA-28-140 a PA-28R-200 (fichas)", "categoria": "MANTENIMIENTO", "fabricante": "Piper", "numero_parte": "753-586", "revision": null, "aeronaves": ["YS-270-PE", "YS-155-PE", "YS-127-P"], "es_general": false, "nota": "Hay dos service manuals del Cherokee: este (fichas) y la edición 2021. ¿Cuál es el vigente?"},
@@ -4112,6 +4141,9 @@ Para cada rango:
 Volver a correr `python verificar_rangos.py` hasta que todos los bordes cuadren. Ningún `hasta` puede quedar en 0.
 
 - [ ] **Step 4: Cotejar números de parte y revisiones**
+
+> Regla: **ninguna `nota` ni `titulo` lleva matrículas.** Se copian tal cual al esquema `demo`, y el disfraz del demo cambia las matrículas de las aeronaves pero no el texto libre (§39.D). Verificar: `python -c "import json,re; print([m['clave'] for m in json.load(open('catalogo.json',encoding='utf-8'))['manuales'] if re.search(r'YS-?\d', (m.get('nota') or '') + m['titulo'])])"` → `[]`.
+
 
 Con `python -c "import json; [print(m['clave'], '|', m['portada'][:220]) for m in json.load(open('inventario.json', encoding='utf-8'))['manuales']]"`, recorrer las 35 portadas y corregir en `catalogo.json` todo `numero_parte` / `revision` que la portada contradiga. Si la portada no lo dice, `null` (no se inventa). Confirmar que hay exactamente 35 entradas y que cada `clave` de `catalogo.json` existe en `inventario.json` y viceversa:
 
@@ -4225,6 +4257,40 @@ Expected: 35 líneas `OK`, `35 subidos · 0 fallos`. Tarda varios minutos (630 M
 
 Run: `node query.js "SELECT COUNT(*) n, ROUND(SUM((metadata->>'size')::bigint)/1048576.0) mb FROM storage.objects WHERE bucket_id='manuales-taller' AND name LIKE 'manuales/%'"`
 Expected: `n` = cantidad de entradas de `subidos.json` (35, o 37 con tomos); `mb` ≈ 630.
+
+- [ ] **Step 3b: Comprobar que el SERVIDOR puede recortar cada manual subido**
+
+La spec da por hecho que pdf-lib maneja los 35; esto lo prueba de verdad, con los archivos de Storage. Crear `legacy/CAA-backend/_verificar_manuales.js` (gitignored):
+
+```js
+// Carga cada manual subido con pdf-lib y recorta su primera página, como lo hará la app.
+const fs = require("fs");
+const path = require("path");
+const storage = require("./utils/storage");
+const { analizarPdf, armarPdf } = require("./utils/pdfExtractos");
+const subidos = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "supabase", "dump", "manuales_taller", "subidos.json"), "utf8"));
+(async () => {
+  let fallos = 0;
+  for (const [clave, s] of Object.entries(subidos)) {
+    try {
+      const bytes = await storage.descargarArchivo("manuales-taller", s.archivo_path);
+      const a = await analizarPdf(bytes);
+      if (a.error) throw new Error(a.error);
+      if (a.sha256 !== s.sha256 || a.paginas !== s.paginas) throw new Error(`no coincide: ${a.paginas} págs.`);
+      const out = await armarPdf([{ sha256: a.sha256, pagina_desde: 1, pagina_hasta: 1 }], new Map([[a.sha256, bytes]]));
+      console.log(`OK    ${clave} (${out.length} bytes la pág. 1)`);
+    } catch (e) {
+      fallos++;
+      console.log(`FALLO ${clave}: ${e.message}`);
+    }
+  }
+  console.log(`\n${Object.keys(subidos).length - fallos} OK · ${fallos} fallos`);
+  process.exit(fallos ? 1 : 0);
+})();
+```
+
+Run (desde `legacy/CAA-backend`): `railway run node _verificar_manuales.js`
+Expected: todas `OK` y `0 fallos`. Un fallo acá significa que ese manual no se podría imprimir desde la app: arreglar `comun.py` (o el armado) y volver a subir **antes** de registrar nada en la base.
 
 - [ ] **Step 4: `cargar.js`**
 

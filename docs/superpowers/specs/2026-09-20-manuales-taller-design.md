@@ -408,9 +408,12 @@ El configurador está pensado para computadora. El modal de la orden, para el ce
 id_aprendiz = uid`: el criterio de "lo mío" de `asignadas=true` (§36) más quien la trabaja como segundo
 (al abrir la orden se puede poner ahí al aprendiz o a otro mecánico, y los dos usan los manuales).
 
-**La subida no pasa por Railway**: el navegador sube directo a Storage con el permiso temporal. El
-`sha256` y la cantidad de páginas los calcula el navegador (`crypto.subtle` y `pdfjs`) antes de
-registrar. Así 70 MB no cruzan el backend, que tiene `express.json` a 10 MB y `multer` en memoria.
+**La subida no pasa por el backend**: el navegador sube directo a Storage con el permiso temporal,
+así 70 MB no cruzan Railway (que tiene `express.json` a 10 MB y `multer` en memoria). Al registrar,
+el **servidor** baja el archivo una vez desde Storage y saca el `sha256` y la cantidad de páginas
+con pdf-lib, de a uno por vez: no se confía en lo que diga el navegador, y un PDF cifrado o roto se
+rechaza antes de entrar a la biblioteca. (Corregido durante el plan: al principio esto lo calculaba
+el navegador.)
 
 Todos los controllers nuevos con `try/catch` (lección de §15.D) y parámetros casteados.
 
@@ -531,6 +534,7 @@ un PDF de paquete se genera y se abre.
 | Rango + CORS en Supabase | se prueba primero (§13) |
 | Memoria en Railway | ~350 MB de pico por armado; cola de uno en uno |
 | `pdf-lib` arrastra páginas por los links | quitar `/Annots` y `/Thumb` es obligatorio; la prueba acota el tamaño |
+| 10 de los 35 manuales vienen cifrados (RC4, solo contraseña de dueño) | se descifran en la carga; PyMuPDF los abre solos y `is_encrypted` da `False`, así que se detectan por el metadato `encryption` |
 | Manuales escaneados sin texto | la búsqueda no encuentra nada en esos tres; se navega por índice y página |
 
 ---
