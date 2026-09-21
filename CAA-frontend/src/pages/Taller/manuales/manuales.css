@@ -1,0 +1,80 @@
+/* Manuales del taller (spec 2026-09-20). Tokens de src/styles/tokens.css. */
+
+/* ── Visor ──────────────────────────────────────────────────────────────── */
+.vm { display: flex; flex-direction: column; min-height: 0; height: 100%; background: var(--c-surface-0); }
+/* `.adf-modal-card.vm-modal` y no solo `.vm-modal`: `.adf-card` y
+   `.adf-modal-card` tienen la misma especificidad y ganaría el que el bundle
+   ponga después, que depende del orden de los imports. */
+.adf-modal-card.vm-modal {
+  padding: 0; margin: 0; width: min(1200px, 96vw); max-width: none;
+  height: calc(100vh - 2 * var(--sp-6)); max-height: none; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.vm-modal .vm { flex: 1; }
+.vm-modal__titulo { flex: 1 1 0; min-width: 0; }
+.vm-modal__titulo .adf-edit-head__chip { flex-shrink: 0; }
+.vm-modal__texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vm-barra {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--c-line-1);
+}
+.vm-barra .adf-icon-btn:disabled { opacity: 0.4; cursor: default; background: transparent; }
+.vm-barra .adf-icon-btn[aria-pressed="true"] { background: var(--c-surface-2); color: var(--c-brand-700); }
+.vm-nav, .vm-zoom { display: flex; align-items: center; gap: var(--sp-1); font-size: 0.85rem; color: var(--c-ink-2); }
+.vm-zoom span { min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+.vm-pag {
+  width: 64px; height: 32px; text-align: center; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--c-line-2); border-radius: var(--radius-sm);
+  background: var(--c-surface-0); color: var(--c-ink-1);
+}
+.vm-de { color: var(--c-ink-3); font-variant-numeric: tabular-nums; }
+.vm-buscar { display: flex; gap: var(--sp-2); margin-left: auto; }
+.vm-buscar .inv-campo { min-width: 180px; height: 32px; }
+.vm-aviso { margin: 0; padding: var(--sp-2) var(--sp-3); font-size: 0.82rem; color: var(--c-warn-700); background: var(--c-warn-50); }
+.vm-cuerpo { position: relative; flex: 1; display: flex; min-height: 0; }
+.vm-indice {
+  width: 280px; flex-shrink: 0; overflow-y: auto; padding: var(--sp-2) 0;
+  border-right: 1px solid var(--c-line-1); font-size: 0.82rem; background: var(--c-surface-0);
+}
+.vm-indice__lista { list-style: none; margin: 0; padding: 0; }
+.vm-indice__fila { display: flex; align-items: flex-start; }
+.vm-indice__toggle { width: 22px; flex-shrink: 0; background: none; border: 0; padding: 3px 0; color: var(--c-ink-3); cursor: pointer; }
+.vm-indice__titulo {
+  flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 3px 6px;
+  color: var(--c-ink-2); cursor: pointer; border-radius: var(--radius-xs); line-height: 1.3;
+}
+.vm-indice__titulo:hover { background: var(--c-surface-1); color: var(--c-ink-1); }
+/* La hoja NO se centra con justify-content: con zoom, una página más ancha que
+   el marco desbordaría a los dos lados y la parte izquierda quedaría fuera del
+   alcance del scroll. El margen automático del lienzo centra sin ese problema.
+   scrollbar-gutter: sin él, la barra de scroll que aparece al dibujar achica el
+   ancho, el ResizeObserver redibuja más chico, la barra se va... y así. */
+.vm-hoja {
+  flex: 1; min-width: 0; overflow: auto; display: flex; align-items: flex-start;
+  padding: var(--sp-3); background: var(--c-surface-2); scrollbar-gutter: stable;
+}
+.vm-lienzo { flex-shrink: 0; margin: 0 auto; background: #fff; box-shadow: 0 1px 3px oklch(20% 0.02 262 / 0.2); }
+.vm-hoja > .vm-cargando, .vm-hoja > .vm-error { flex: 1; }
+.vm-cargando, .vm-vacio { color: var(--c-ink-3); font-size: 0.9rem; padding: var(--sp-6) var(--sp-3); text-align: center; }
+.vm-error {
+  color: var(--c-danger-700); font-size: 0.9rem; padding: var(--sp-6);
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+}
+.vm-rango {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3); border-top: 1px solid var(--c-line-1); background: var(--c-surface-0);
+}
+.vm-rango__marcas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.vm-rango__txt { font-size: 0.85rem; color: var(--c-ink-2); font-variant-numeric: tabular-nums; }
+.vm-rango .vm-rango__titulo { flex: 1; min-width: 200px; height: 36px; }
+.man-tenue { color: var(--c-ink-3); }
+@media (max-width: 900px) {
+  .adf-modal-card.vm-modal { width: 100vw; height: 100dvh; border-radius: 0; }
+  .vm-indice {
+    position: absolute; top: 0; bottom: 0; left: 0; z-index: 2; width: min(300px, 85vw);
+    box-shadow: 2px 0 8px oklch(20% 0.02 262 / 0.2);
+  }
+  .vm-buscar { margin-left: 0; width: 100%; }
+  .vm-buscar .inv-campo { flex: 1; min-width: 0; }
+  .vm-rango .vm-rango__titulo { min-width: 0; flex-basis: 100%; }
+}
