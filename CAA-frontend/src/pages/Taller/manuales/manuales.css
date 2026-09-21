@@ -186,3 +186,33 @@
 @media (max-width: 640px) {
   .pe-visor__elegir .inv-campo { min-width: 0; flex-basis: 100%; }
 }
+
+/* ── Manuales de una orden (celular primero) ────────────────────────────── */
+/* Compuestos por el mismo motivo que .vm-modal: `.adf-card` y
+   `.adf-modal-card` pesan igual y ganaría el último del bundle. */
+.adf-modal-card.mo { padding: 0; margin: 0; max-width: 620px; }
+.mo-cuerpo { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.mo-sub { margin: 0; font-size: 0.88rem; color: var(--c-ink-3); }
+.mo-seccion h4 { margin: 0 0 var(--sp-2); font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--c-ink-3); }
+.mo-fila { display: flex; align-items: center; gap: var(--sp-2); border-bottom: 1px solid var(--c-line-1); }
+.mo-fila__abrir {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: var(--sp-2) 0; text-align: left; background: none; border: 0; cursor: pointer;
+}
+.mo-fila__titulo { font-weight: 600; color: var(--c-ink-1); }
+.mo-fila__abrir:hover .mo-fila__titulo { color: var(--c-brand-500); text-decoration: underline; }
+.mo-fila__meta { font-size: 0.8rem; color: var(--c-ink-3); }
+/* Se toca con el dedo (y a veces con guantes): 40 px, no los 30 de la tabla. */
+.mo-fila .adf-icon-btn { width: 40px; height: 40px; flex-shrink: 0; }
+.mo-acciones { display: flex; flex-direction: column; gap: var(--sp-2); }
+/* Sin el nowrap de .adf-btn: "Abrir e imprimir todo (N págs.)" no entra en 375 px. */
+.adf-btn.mo-grande { width: 100%; min-height: 48px; justify-content: center; font-size: 1rem; white-space: normal; text-align: center; }
+.mo-traer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: 0.88rem; color: var(--c-ink-2); }
+.mo-seccion .mo-todos { margin-bottom: var(--sp-2); }
+.mo-manual {
+  display: flex; justify-content: space-between; gap: var(--sp-2); width: 100%; margin-bottom: 6px;
+  padding: var(--sp-3); text-align: left; cursor: pointer; color: var(--c-ink-1);
+  background: var(--c-surface-0); border: 1px solid var(--c-line-1); border-radius: var(--radius-sm);
+}
+.mo-manual:hover { border-color: var(--c-brand-500); }
+.mo-manual small { flex-shrink: 0; color: var(--c-ink-3); }
