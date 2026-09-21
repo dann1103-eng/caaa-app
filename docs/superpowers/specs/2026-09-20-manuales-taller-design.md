@@ -381,6 +381,30 @@ tarjeta; el total aparece dentro del modal, en "Abrir e imprimir todo (N págs.)
 
 El configurador está pensado para computadora. El modal de la orden, para el celular (375 px).
 
+### 9.6 Selección de páginas (rediseño tras el primer recorrido, 2026-09-21)
+
+En el primer recorrido con Daniel aparecieron tres problemas: los botones para marcar páginas
+quedaban **debajo del borde de la pantalla** (medido: la barra en el píxel 924 de una ventana de
+922), solo se podía marcar **un rango continuo** por vez, y agregar páginas de **otro manual**
+dependía de un desplegable que no se entendía como paso. Decidido con Daniel:
+
+- **Barra de selección arriba del visor, siempre visible**, en orden: *Manual* → *Páginas* →
+  *Título* → **Agregar**.
+- **Campo «Páginas» como el de imprimir:** `43, 45, 47-50`. Se ordena, se unen los repetidos y
+  los contiguos, y se muestra cuántas páginas son. Error en línea si una página no existe.
+- **Formas de llenarlo sin teclear:** «+ Esta página», «Desde aquí» / «Hasta aquí», y
+  **«+ sección» en cada entrada del índice** (desde su página hasta antes de la siguiente entrada
+  del mismo nivel o superior; pone el nombre de la entrada como título si está vacío).
+- La página que se está viendo lleva la marca **«en la selección»** si está incluida.
+- **Lista agrupada por manual.** Una *sección* = rangos consecutivos del mismo manual con el mismo
+  título; se muestra como `págs. 170, 172, 174–175`, se edita en bloque (título y páginas) y se
+  mueve o quita entera. Botón **«Agregar páginas de otro manual»**.
+- **Sin cambios de esquema:** una sección con páginas sueltas se guarda como varios extractos con el
+  mismo título; el armado del PDF no cambia. `POST /ordenes/:id/manuales` acepta además
+  `rangos: [{pagina_desde, pagina_hasta}]` (hasta 50) para agregar una sección en una sola
+  transacción.
+- El índice muestra «Cargando índice…» mientras carga (antes decía «no trae índice»).
+
 ---
 
 ## 10. API (`/api/taller`)
