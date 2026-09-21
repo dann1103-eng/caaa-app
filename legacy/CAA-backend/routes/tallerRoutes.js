@@ -15,6 +15,7 @@ const estimado = require("../controllers/taller/estimadoController");
 const sticker = require("../controllers/taller/stickerController");
 const manual = require("../controllers/taller/manualController");
 const paqueteManual = require("../controllers/taller/paqueteManualController");
+const ordenManual = require("../controllers/taller/ordenManualController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -204,5 +205,13 @@ router.delete("/manuales/:id", roleMiddleware(JEFE), manual.eliminar);
 router.get("/paquetes-manuales", roleMiddleware(READ), paqueteManual.tabla);
 router.get("/paquetes-manuales/:id_aeronave/:tipo", roleMiddleware(READ), paqueteManual.detalle);
 router.put("/paquetes-manuales/:id_aeronave/:tipo", roleMiddleware(JEFE), paqueteManual.guardar);
+
+// Las páginas de manual de una orden. WRITE deja pasar al mecánico; el
+// controller decide si es el de ESA orden.
+router.get("/ordenes/:id/manuales", roleMiddleware(READ), ordenManual.listar);
+router.post("/ordenes/:id/manuales", roleMiddleware(WRITE), ordenManual.agregar);
+router.post("/ordenes/:id/manuales/paquete", roleMiddleware(WRITE), ordenManual.traerPaquete);
+router.post("/ordenes/:id/manuales/pdf", roleMiddleware(READ), ordenManual.pdf);
+router.delete("/ordenes/:id/manuales/:id_extracto", roleMiddleware(WRITE), ordenManual.quitar);
 
 module.exports = router;
