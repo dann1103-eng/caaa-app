@@ -7,17 +7,26 @@
 const db = require("../config/db");
 const storage = require("../utils/storage");
 const AppError = require("../utils/appError");
-const { armarPdf, claveExtractos, enCola, paginasDe, MAX_PAGINAS } = require("../utils/pdfExtractos");
+const {
+  armarPdf, claveExtractos, enCola, paginasDe, MAX_PAGINAS, MAX_MANUALES,
+} = require("../utils/pdfExtractos");
 const { resolverInspeccion, esMecanicoDeOrden, esJefe } = require("../utils/manualesReglas");
 
 const BUCKET = storage.BUCKETS.MANUALES;
 
-/** Un extracto con los datos de su manual. `tabla` es taller_paquete_extracto o taller_orden_extracto. */
+/**
+ * Un extracto con los datos de su manual. `tabla` es taller_paquete_extracto o
+ * taller_orden_extracto.
+ *
+ * Trae sha256 y archivo_path porque el armado del PDF los necesita; al
+ * responder JSON hay que pasar cada fila por sinInternos().
+ */
 const selectExtractos = (tabla) => `
   SELECT e.id_extracto, e.id_manual, e.pagina_desde, e.pagina_hasta, e.titulo, e.orden, e.origen,
-         e.agregado_por, e.creado_en,
-         -- Formateado en SQL: creado_en es timestamp SIN zona y pg lo leería en
-         -- la zona del proceso (UTC en Railway): la hora saldría corrida 6 h (§40).
+         e.agregado_por,
+         -- Solo formateado en SQL, sin el valor crudo: creado_en es timestamp SIN
+         -- zona y pg lo leería en la zona del proceso (UTC en Railway): la hora
+         -- saldría corrida 6 h (§40).
          to_char(e.creado_en, 'DD/MM/YYYY HH24:MI') AS creado_txt,
          NULLIF(TRIM(COALESCE(u.nombre,'') || ' ' || COALESCE(u.apellido,'')), '') AS agregado_por_nombre,
          mn.titulo AS manual_titulo, mn.revision AS manual_revision, mn.estado AS manual_estado,
@@ -135,23 +144,39 @@ async function pdfDeExtractos(extractos) {
   if (paginas > MAX_PAGINAS) {
     throw new AppError(`Son ${paginas} páginas: el máximo por PDF es ${MAX_PAGINAS}. Partilo en dos.`, 400);
   }
+  const caminoPorSha = new Map(extractos.map((e) => [e.sha256, e.archivo_path]));
+  if (caminoPorSha.size > MAX_MANUALES) {
+    throw new AppError(`Un PDF puede juntar páginas de hasta ${MAX_MANUALES} manuales distintos.`, 400);
+  }
   const ruta = `extractos/${claveExtractos(extractos)}.pdf`;
   if (!(await storage.existeArchivo(BUCKET, ruta))) {
     await enCola(async () => {
       if (await storage.existeArchivo(BUCKET, ruta)) return; // lo armó otro mientras esperaba
-      const fuentes = new Map();
-      for (const e of extractos) {
-        if (!fuentes.has(e.sha256)) fuentes.set(e.sha256, await storage.descargarArchivo(BUCKET, e.archivo_path));
-      }
-      const bytes = await armarPdf(extractos, fuentes);
+      // Cada manual se baja recién cuando armarPdf lo pide, de a uno: nunca hay
+      // dos manuales enteros en memoria a la vez.
+      const bytes = await armarPdf(extractos, (sha) => storage.descargarArchivo(BUCKET, caminoPorSha.get(sha)));
       try {
         await storage.subirArchivo(BUCKET, ruta, Buffer.from(bytes), "application/pdf", { upsert: false });
       } catch (err) {
-        if (err.statusCode !== 409) throw err; // 409 = ya existe: mismo hash, mismo contenido
+        if (err.statusCode === 409) return; // ya existe: mismo hash, mismo contenido
+        if (err.statusCode === 413) {
+          throw new AppError("El PDF armado pasa el tope de 50 MB del almacenamiento. Imprimilo en dos partes.", 400);
+        }
+        throw err;
       }
     });
   }
   return { url: await storage.urlFirmada(BUCKET, ruta, 3600), paginas };
+}
+
+/**
+ * Copia de un extracto sin lo interno de Storage (sha256, archivo_path), para
+ * las respuestas JSON. manualesDeOrden los conserva porque el armado del PDF
+ * los necesita.
+ */
+function sinInternos(extracto) {
+  const { sha256: _sha256, archivo_path: _archivoPath, ...resto } = extracto;
+  return resto;
 }
 
 /** Manuales por id (Map id_manual → fila). */
@@ -163,5 +188,5 @@ async function manualesPorId(ids) {
 
 module.exports = {
   BUCKET, selectExtractos, contextoOrden, paqueteDe, manualesDeOrden,
-  congelarPaqueteEnOrden, pdfDeExtractos, manualesPorId,
+  congelarPaqueteEnOrden, pdfDeExtractos, manualesPorId, sinInternos,
 };

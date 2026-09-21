@@ -4,8 +4,11 @@ const assert = require("node:assert/strict");
 const crypto = require("crypto");
 const { PDFDocument, PDFName } = require("pdf-lib");
 const {
-  validarRango, claveExtractos, armarPdf, analizarPdf, paginasDe,
+  validarRango, claveExtractos, armarPdf, analizarPdf, paginasDe, enCola,
 } = require("../utils/pdfExtractos");
+
+/** armarPdf pide cada manual con una función; en las pruebas sale de un Map. */
+const desde = (mapa) => async (sha) => mapa.get(sha);
 
 /**
  * Manual de juguete: N páginas cuyo ANCHO dice qué página es (base+1, base+2…),
@@ -54,6 +57,14 @@ test("claveExtractos depende del contenido y del orden", () => {
   assert.notEqual(claveExtractos([a, b]), claveExtractos([b, a]));
   assert.match(claveExtractos([a]), /^[0-9a-f]{64}$/);
 });
+test("claveExtractos lleva la versión de la receta adentro", () => {
+  const a = { sha256: "a".repeat(64), pagina_desde: 1, pagina_hasta: 2 };
+  const b = { sha256: "b".repeat(64), pagina_desde: "5", pagina_hasta: "5" };
+  const esperada = crypto.createHash("sha256")
+    .update(JSON.stringify(["v1", [["a".repeat(64), 1, 2], ["b".repeat(64), 5, 5]]]))
+    .digest("hex");
+  assert.equal(claveExtractos([a, b]), esperada);
+});
 test("paginasDe suma los rangos", () => {
   assert.equal(paginasDe([{ pagina_desde: 3, pagina_hasta: 4 }, { pagina_desde: 1, pagina_hasta: 1 }]), 3);
 });
@@ -62,7 +73,7 @@ test("armarPdf saca exactamente las páginas pedidas, en el orden pedido", async
   const out = await armarPdf([
     { sha256: "m", pagina_desde: 3, pagina_hasta: 4 },
     { sha256: "m", pagina_desde: 1, pagina_hasta: 1 },
-  ], fuentes);
+  ], desde(fuentes));
   assert.deepEqual(await anchos(out), [203, 204, 201]);
 });
 test("armarPdf junta páginas de dos manuales", async () => {
@@ -70,17 +81,48 @@ test("armarPdf junta páginas de dos manuales", async () => {
   const out = await armarPdf([
     { sha256: "b", pagina_desde: 2, pagina_hasta: 2 },
     { sha256: "a", pagina_desde: 5, pagina_hasta: 5 },
-  ], fuentes);
+  ], desde(fuentes));
   assert.deepEqual(await anchos(out), [402, 205]);
+});
+test("armarPdf respeta el orden intercalado A, B, A", async () => {
+  const fuentes = new Map([["a", await manualDePrueba(5, 200)], ["b", await manualDePrueba(5, 400)]]);
+  const out = await armarPdf([
+    { sha256: "a", pagina_desde: 1, pagina_hasta: 1 },
+    { sha256: "b", pagina_desde: 2, pagina_hasta: 2 },
+    { sha256: "a", pagina_desde: 3, pagina_hasta: 3 },
+  ], desde(fuentes));
+  assert.deepEqual(await anchos(out), [201, 402, 203]);
+});
+test("armarPdf pide cada manual una sola vez, de a uno, en el orden en que aparece", async () => {
+  const fuentes = new Map([["a", await manualDePrueba(5, 200)], ["b", await manualDePrueba(5, 400)]]);
+  const pedidos = [];
+  let activos = 0;
+  let maximo = 0;
+  const obtener = async (sha) => {
+    pedidos.push(sha);
+    activos++;
+    maximo = Math.max(maximo, activos);
+    await new Promise((r) => setTimeout(r, 5));
+    activos--;
+    return fuentes.get(sha);
+  };
+  await armarPdf([
+    { sha256: "a", pagina_desde: 1, pagina_hasta: 1 },
+    { sha256: "b", pagina_desde: 2, pagina_hasta: 2 },
+    { sha256: "a", pagina_desde: 3, pagina_hasta: 4 },
+    { sha256: "b", pagina_desde: 1, pagina_hasta: 1 },
+  ], obtener);
+  assert.deepEqual(pedidos, ["a", "b"]);
+  assert.equal(maximo, 1);
 });
 test("armarPdf no arrastra la página a la que apunta un link", async () => {
   const fuentes = new Map([["m", await manualDePrueba(10)]]);
-  const out = await armarPdf([{ sha256: "m", pagina_desde: 1, pagina_hasta: 1 }], fuentes);
+  const out = await armarPdf([{ sha256: "m", pagina_desde: 1, pagina_hasta: 1 }], desde(fuentes));
   assert.ok(out.length < 50000, `pesa ${out.length} bytes: se colaron los 300 KB de la página del link`);
 });
 test("armarPdf avisa si falta el archivo de un manual", async () => {
   await assert.rejects(
-    armarPdf([{ sha256: "zz", pagina_desde: 1, pagina_hasta: 1 }], new Map()),
+    armarPdf([{ sha256: "zz", pagina_desde: 1, pagina_hasta: 1 }], async () => undefined),
     /Falta el archivo/
   );
 });
@@ -93,4 +135,32 @@ test("analizarPdf da la huella y las páginas", async () => {
 test("analizarPdf rechaza lo que no es un PDF", async () => {
   const r = await analizarPdf(Buffer.from("esto no es un pdf"));
   assert.match(r.error, /no es un PDF/);
+});
+test("analizarPdf rechaza un PDF sin páginas", async () => {
+  // addDefaultPage:false: sin eso pdf-lib le agrega una página en blanco al guardar.
+  const vacio = await (await PDFDocument.create()).save({ addDefaultPage: false });
+  const r = await analizarPdf(Buffer.from(vacio));
+  assert.equal(r.error, "El PDF no tiene páginas legibles.");
+});
+
+test("enCola corre los trabajos de a uno", async () => {
+  let activos = 0;
+  let maximo = 0;
+  const trabajo = (ms) => enCola(async () => {
+    activos++;
+    maximo = Math.max(maximo, activos);
+    await new Promise((r) => setTimeout(r, ms));
+    activos--;
+  });
+  await Promise.all([trabajo(20), trabajo(5), trabajo(10)]);
+  assert.equal(maximo, 1);
+});
+test("enCola: un trabajo que falla no traba al siguiente", async () => {
+  const fallido = enCola(async () => { throw new Error("boom"); });
+  const siguiente = enCola(async () => "sigue");
+  await assert.rejects(fallido, /boom/);
+  assert.equal(await siguiente, "sigue");
+});
+test("enCola devuelve lo que devuelve el trabajo", async () => {
+  assert.equal(await enCola(async () => 42), 42);
 });
