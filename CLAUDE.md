@@ -1585,7 +1585,26 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-09-18.**
+> **Última revisión: 2026-09-21.**
+>
+> ### 📚 Manuales (con el jefe de taller, §41)
+> Hasta que el jefe confirme, **el mecánico no ve ningún paquete**: los 10 están en borrador.
+> - **Confirmar la asignación de los 38 archivos** a cada avión (todos cargados con "por confirmar"),
+>   desde Manuales → Biblioteca.
+> - **¿Qué edición del Tomahawk es la vigente?** Hay dos (2000 y 2019) y sus páginas no coinciden. Los
+>   paquetes sugeridos van sobre la de 2019.
+> - **¿Qué service manual del Cherokee es el vigente?** El de fichas (140-200R) o la edición 2021
+>   (SM-753-586). Los paquetes sugeridos van sobre la de 2021.
+> - **Falta el manual del Cessna 310** (`YS-259-PE`): no venía en el ZIP. Sin él, ese avión no tiene paquetes.
+> - **¿De qué aviones son** los manuales de T303 Crusader, Seneca II, Azteca, Navajo y Warrior (PA-28-151)?
+>   Son 12 archivos sin asignar; probablemente de los clientes externos de la OMA o del segundo bimotor.
+> - **Revisar y confirmar los 10 paquetes sugeridos** (100 h y anual de YS-127-P, YS-155-PE, YS-270-PE,
+>   YS-333-PE y YS-334-PE).
+> - **Armar los paquetes de 25 h y 50 h**: los fabricantes no los definen, el jefe sabe qué lleva cada uno.
+> - ⚠️ **El Storage está en 597 MB de 1 GB** (plan gratuito). Si se van a subir más manuales grandes,
+>   considerar el plan pago.
+>
+> **Revisión anterior: 2026-09-18.**
 >
 > ### 🔐 Login y sesiones (§40)
 > - **Resetear la contraseña de `mayra.ventura`** (ADMINISTRACION): 12 intentos fallidos seguidos el
@@ -3188,3 +3207,132 @@ Backend: `controllers/authController.js`, `controllers/administracion/usuariosCo
   fallo de BD (ese middleware no consulta la BD antes de responder).
 - **`pg` parsea `timestamp` sin zona en la zona del proceso**, no la de la sesión: el mismo valor se lee
   distinto en tu máquina (UTC-6) y en Railway (UTC). Cualquier comparación de fechas de esas columnas, en SQL.
+
+---
+
+## 41. Sesión 2026-09-20/21 — Manuales del taller: biblioteca, paquetes por inspección y páginas por orden
+
+**Desplegado** (2026-09-21). Migración `20260921000001_manuales_taller.sql`. Spec:
+`docs/superpowers/specs/2026-09-20-manuales-taller-design.md` · Plan:
+`docs/superpowers/plans/2026-09-21-manuales-taller.md`. Carga inicial en `supabase/dump/manuales_taller/`.
+
+### A. El caso
+Daniel entregó un ZIP con los manuales de los aviones (180 archivos, 687 MB) y pidió tres cosas: que
+el taller los pueda **ver e imprimir** desde la plataforma, que el jefe **configure qué páginas
+acompañan cada inspección** (25 h / 50 h / 100 h / anual) de cada avión, y que quien tenga la orden
+abierta tenga un botón **"ver los manuales de este mantenimiento"** para imprimirlas. Más un agregado
+suyo: aunque la orden sea de una inspección programada, **si aparece algo que arreglar se le tienen
+que poder agregar más hojas**.
+
+Del ZIP salieron **35 manuales** (el Azteca venía partido en 144 pedazos y se unió; 2 duplicados
+descartados), que ocupan **38 archivos**: en el plan gratuito de Supabase (50 MiB por archivo) tres
+tuvieron que partirse en dos tomos.
+
+### B. Las decisiones de Daniel
+
+| | |
+|---|---|
+| ¿Solo paquetes fijos? | **No**: también páginas sueltas por orden, aunque sea una inspección programada |
+| ¿Quién agrega páginas a una orden? | **El jefe y el mecánico de esa orden** (quien la abrió, el asignado o el aprendiz). Los paquetes, solo el jefe |
+| ¿Cómo se imprime? | **Tal cual**: solo las páginas del manual, sin portada ni pie |
+| Revisión nueva de un manual | **Los paquetes siguen con la vieja y avisan** hasta que el jefe los actualice |
+| Enfoque | **Visor propio** (pdf.js) + **recorte de páginas en el servidor** (pdf-lib) |
+
+### C. Pantallas
+- **`/taller/manuales`** (menú Taller, después de Inventario, en `TallerSidebar` y en `AdminSidebar`):
+  pestañas **Biblioteca** (buscar, ver, subir, editar, revisiones, archivar) y **Paquetes por
+  inspección** (tabla avión × 25/50/100/anual; el editor de un paquete lleva el visor al lado).
+- **En la orden:** botón **Manuales** en el detalle de la orden (Trabajos) y "Manuales de este
+  trabajo" en la tarjeta de Mi taller → `ManualesOrdenModal`: lo que trae el paquete + lo agregado en
+  esa orden, "Agregar páginas de un manual", "Traer las páginas de un paquete" e imprimir todo en un PDF.
+- **Selección de páginas (rediseñada tras el recorrido de Daniel, spec §9.6):** una barra **arriba**
+  del visor con un campo de páginas estilo impresora (`43, 45, 47-50`) que es **la única fuente** de la
+  selección, y atajos que lo llenan: *+ Esta página*, *Desde aquí / Hasta aquí* y **+ sección** en cada
+  entrada del índice del manual (calcula dónde termina la sección resolviendo solo las páginas del
+  índice que hacen falta — el AC 43.13 trae 3,784 entradas). El parser vive en
+  `pages/Taller/manuales/paginasSeleccion.js` con sus pruebas (`cd CAA-frontend && npm test`).
+- Una **sección** = renglones consecutivos del mismo manual con el mismo título: es un concepto de
+  pantalla, sin tabla. `POST /taller/ordenes/:id/manuales` acepta `rangos: [{pagina_desde,
+  pagina_hasta}]` (1 a 50) y los inserta en una sola transacción.
+
+### D. Modelo
+Cinco tablas: `taller_manual` (una fila por archivo, con `sha256`, `paginas`, `estado`
+VIGENTE/REEMPLAZADO/ARCHIVADO e `id_reemplazado_por`), `taller_manual_aeronave`, `taller_paquete_manual`
+(avión × tipo, BORRADOR/CONFIRMADO), `taller_paquete_extracto` y `taller_orden_extracto` (origen
+`PAQUETE` o `MANUAL`). **Paquete y orden van en tablas separadas a propósito**: el reinicio del demo
+vacía las órdenes y conserva los paquetes; con una sola tabla dejaba renglones huérfanos que violaban
+el CHECK y abortaban el reinicio entero.
+
+**Qué páginas tiene una orden** (`services/manualesService.js`):
+- La inspección sale de `mantenimiento.tipo` → el nombre de la tarea del cumplimiento → el
+  `tipo_inspeccion` del reporte, traducidos con **`derivarTipoRevision`** (ahora exportada de
+  `aeronaveUtils.js`, no copiada).
+- **Abierta:** el paquete **confirmado** en vivo + lo agregado. Un paquete en borrador **no lo ve el
+  mecánico**; al jefe se le avisa que no está confirmado.
+- **Al firmar** (`firmarOrden`, misma transacción) el paquete se **congela** en la orden: borra los
+  renglones `PAQUETE` y los vuelve a copiar, así una devolución del jefe y una segunda firma no
+  duplican. Mismo criterio que los stickers (§37).
+
+**Revisiones:** subir una revisión nueva crea otro manual y marca el viejo `REEMPLAZADO`; los
+paquetes **siguen apuntando al viejo** (sus números de página son de ese archivo) y avisan. Borrar un
+manual en uso → 409 con la sugerencia de archivarlo.
+
+### E. 🚨 Almacenamiento — las reglas que lo hacen seguro
+- Bucket privado **`manuales-taller`**: `manuales/<uuid>.pdf` (el completo, una vez) y
+  `extractos/<hash>.pdf` (los recortes, reutilizables: el mismo hash es el mismo contenido).
+- **La app nunca borra ni sobreescribe un objeto** (`upsert:false` en toda subida; un "ya existe" en
+  `extractos/` cuenta como éxito). Borrar un manual quita la fila, no el archivo. **Esto es lo que
+  hace seguro compartir el bucket con la cuenta demo**, que tiene rol de jefe.
+- La clave del recorte lleva **`RECETA`** (`utils/pdfExtractos.js`, hoy `"v2"`). **Subirla cada vez
+  que cambie cómo se arma el PDF**: si no, se siguen sirviendo los PDFs viejos ya guardados.
+- ⚠️ **Plan gratuito de Supabase, verificado** (413 *EntityTooLarge*): **50 MiB por archivo y 1 GB en
+  total**. El bucket ya ocupa **597 MB**. Un manual grande más puede no entrar; lo que pase de 50 MiB
+  se parte en tomos (`subir.py --tomos`). La pantalla de subida lo dice con el límite, nunca un error
+  genérico.
+
+### F. 🚨 Trampas de esta sesión (casi todas del formato PDF)
+1. **pdf-lib sigue los links internos y arrastra el manual entero**: 20 páginas del service manual
+   del Cherokee pesaban 14.8 MB. Se quitan `/Annots`, `/Thumb`, `/B`, `/StructParents` y `/PieceInfo`
+   antes de copiar → 0.84 MB (`LLAVES_QUE_ARRASTRAN`).
+2. **V8 retiene las variables del bucle a través de un `await`**: armar con dos manuales tenía los
+   dos en memoria a la vez. Cada manual se procesa dentro de su propia función (`copiarDeUnManual`) y
+   los armados van en fila (`enCola`), uno a la vez.
+3. **Un PDF cifrado solo con contraseña de dueño da `is_encrypted = False` en PyMuPDF**: se detecta
+   con `doc.metadata.get("encryption")`. Sin descifrarlo, pdf-lib no lo abre.
+4. **Sin object streams, pdf.js baja el 98% de un tomo solo para abrirlo.** Los archivos se guardan
+   con `tobytes(garbage=1, use_objstms=1, no_new_id=True)`: un tomo de 41 MB abre con 4 pedidos de
+   ~1 MB.
+5. **Partir un manual en tomos le borra el índice**: `indice_de_tomo` + `set_toc` le dejan a cada
+   tomo su parte (`comun.py`).
+6. **Supabase contesta los Range con 206 pero no expone `Accept-Ranges`**, así que pdf.js cree que no
+   puede pedir por partes y baja todo. El visor usa un `PDFDataRangeTransport` propio, y el build
+   **legacy** de pdf.js 4.10.38.
+7. **La opción de pdf-lib es `showInWindowTitleBar`**, no `showInWindowTitle`: la mal escrita se
+   ignora sin error. La atrapó la prueba.
+8. **`npm run build` pisa `public/config.js`** con la URL de producción (prebuild): para compilar sin
+   romper la prueba contra localhost, `npx vite build --outDir <scratchpad>`.
+9. Al revisar accesibilidad: **el árbol de la herramienta de navegador nombra un campo por su
+   placeholder aunque tenga `<label for>`**. Confirmar con `input.labels` antes de "arreglar" nada.
+
+### G. Carga inicial (`supabase/dump/manuales_taller/`, ya corrida)
+`preparar.py` (lee el ZIP **en memoria**, une el Azteca, descarta duplicados, descifra) →
+`catalogo.json` (revisado a mano: categoría, aviones propuestos y los **10 paquetes sugeridos** con
+rangos verificados leyendo las páginas, con `verificar_rangos.py`) → `subir.py --tomos` →
+`cargar.js` (con `railway run`, idempotente por `sha256`, `origen = 'ZIP_2026-09-20'`). **Todo quedó
+con `necesita_confirmacion = true`**: la asignación la confirma el jefe.
+
+Paquetes sugeridos (100 h y anual, en borrador): PA-38 AMM 2019 págs. 43–57 · C152 MM 52–63 ·
+Cherokee SM-753-586 150–154 más 156–168 (PA-28: YS-270-PE y YS-155-PE) o 170–181 (Arrow: YS-127-P).
+
+### H. Cuenta de demostraciones
+Las cuatro tablas de configuración van en `CATALOGO` (`demo/catalogo.js`) y en `CONSERVAR`
+(`demo/reset.js`); `taller_orden_extracto` se vacía con las órdenes. El esquema `demo` se regeneró.
+Lo que el demo suba o edite en la biblioteca **sobrevive a "Reiniciar demo"** (anotado en el runbook).
+El título del PDF armado es neutro ("Páginas de manual") porque el mismo recorte lo reciben los dos.
+
+### I. Verificación
+Backend 55/55 (`npm test`) · parser del frontend 22/22 · **E2E 54/54** contra Supabase real con
+limpieza total (subida directa a Storage, permisos, congelación al firmar, revisiones, recortes que
+no se regeneran, 409 al borrar en uso) · recorrido en el Chrome de Daniel (paquete con "+ sección",
+páginas sueltas de dos manuales, orden con `3, 5–6` como una sección, PDF) · y a **375 px** con un
+usuario temporal (modal, visor y barra sin desborde horizontal).
