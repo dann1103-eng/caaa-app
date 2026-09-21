@@ -192,16 +192,16 @@
   "archivo_path": "manuales/dfcae537-06a2-5c93-875d-e6ffb2269786.pdf"
  },
  "p689-12-cessna-t303-parts-catalog-tomo-1": {
-  "sha256": "96e7138c5a3af75ecd65253a92ded23304c3232a232b6566a3e021ff657ebf37",
+  "sha256": "c1385148225f90ad72975789a78e074c2e5957530ad3ed3626f84318fdc9d8b9",
   "paginas": 420,
-  "tamano_bytes": 31285274,
-  "archivo_path": "manuales/c522f9c1-5007-5122-a79e-14826810b472.pdf"
+  "tamano_bytes": 31287593,
+  "archivo_path": "manuales/30d33cd4-e574-5d9f-a2c0-0b787f8c2b36.pdf"
  },
  "p689-12-cessna-t303-parts-catalog-tomo-2": {
-  "sha256": "d68e54ca4a3ee7c7917a13a111aa046b6ce42472d8e6022756e470f8e241bd51",
+  "sha256": "bb17ccf72bb19152ec09df3ff85f33e06dbe07492d20fa943d272cc9442ac306",
   "paginas": 420,
-  "tamano_bytes": 31544381,
-  "archivo_path": "manuales/bfe7311c-194f-5d15-b0a8-549d027c13b0.pdf"
+  "tamano_bytes": 31546707,
+  "archivo_path": "manuales/b7bf6e77-baee-5f01-bc5c-2299b862cd77.pdf"
  },
  "pa-23-250-azteca-mm-tomo-1": {
   "sha256": "0767fbd08ed03be6992abc39a8abcba52a226790265455cf2c1528500722fe26",
@@ -216,15 +216,15 @@
   "archivo_path": "manuales/ca431faf-1c1a-5718-90d6-c2ad0021349f.pdf"
  },
  "t303-amm-july-1996-rev-02-tomo-1": {
-  "sha256": "e1bfa00199a035d0fcdb82466505b167414bd10ceeb346084664c58b48d49888",
+  "sha256": "9e46911f1931cecaf4da72e7d92075065fb447a3d4f8e850fa8063b5f803e790",
   "paginas": 766,
-  "tamano_bytes": 32841567,
-  "archivo_path": "manuales/54d450f6-1e43-56ea-8363-51566f44562b.pdf"
+  "tamano_bytes": 32887173,
+  "archivo_path": "manuales/8a67d057-3142-589b-bc31-2939de5f696e.pdf"
  },
  "t303-amm-july-1996-rev-02-tomo-2": {
-  "sha256": "195320d45eee42ce9fa1099a009c864011bbd1a8f5e87c26c6f3c61332f9a60d",
+  "sha256": "21f7e1d458997d26fa072f6d4417c6ac334f0090bee883d0f657a9279565f8e6",
   "paginas": 767,
-  "tamano_bytes": 43391338,
-  "archivo_path": "manuales/2b3afe40-d046-55fd-aa32-482030479c4b.pdf"
+  "tamano_bytes": 43422871,
+  "archivo_path": "manuales/2c7f06b2-68b7-5e8e-b710-8113ad3112dc.pdf"
  }
 }

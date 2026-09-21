@@ -88,16 +88,46 @@ def bytes_finales(z, clave, nombres):
         return doc.tobytes(encryption=fitz.PDF_ENCRYPT_NONE, no_new_id=True)
 
 
+def indice_de_tomo(toc, desde, hasta):
+    """La parte del índice que cae en las páginas [desde, hasta] (1-based), renumerada.
+
+    Arranca con los "padres" de la primera entrada (con la primera página del
+    tomo), así el tomo 2 no empieza con un nivel 3 suelto: PyMuPDF exige que el
+    índice empiece en nivel 1 y no salte niveles, y además el jefe necesita ver
+    en qué capítulo cae cada sección.
+    """
+    salida, pila = [], {}
+    for nivel, titulo, pagina in toc:
+        if pagina < desde:
+            pila[nivel] = titulo
+            for n in [k for k in pila if k > nivel]:
+                del pila[n]
+            continue
+        if pagina > hasta:
+            break
+        if not salida:
+            salida += [[n, pila[n], 1] for n in range(1, nivel) if n in pila]
+        esperado = (salida[-1][0] + 1) if salida else 1
+        salida.append([min(nivel, esperado), titulo, pagina - desde + 1])
+    return salida
+
+
 def en_tomos(clave, datos):
     """Si pasa el tope por archivo, lo parte en dos mitades por página: [(clave, bytes)]."""
     if len(datos) <= TOPE_TOMO:
         return [(clave, datos)]
     with fitz.open(stream=datos, filetype="pdf") as doc:
         mitad = doc.page_count // 2
+        toc = doc.get_toc()
         partes = []
         for i, (desde, hasta) in enumerate([(0, mitad - 1), (mitad, doc.page_count - 1)], start=1):
             t = fitz.open()
             t.insert_pdf(doc, from_page=desde, to_page=hasta)
+            # insert_pdf NO copia el índice: sin esto el tomo llegaba al visor sin
+            # marcadores (el T303 AMM tiene 566), que es lo que usa el jefe para
+            # encontrar las secciones.
+            if toc:
+                t.set_toc(indice_de_tomo(toc, desde + 1, hasta + 1))
             # 🚨 use_objstms=1 NO es opcional: sin object streams, el árbol de
             # páginas queda desparramado por todo el archivo y el visor (pdf.js por
             # rangos) tiene que bajar el 98% del tomo solo para abrirlo. Con ellos,
