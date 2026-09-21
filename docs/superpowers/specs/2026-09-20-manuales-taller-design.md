@@ -198,10 +198,11 @@ CREATE TABLE taller_orden_extracto (
   manual de CAAA (§12). Los archivos huérfanos pesan poco y no se limpian en esta versión.
 - **Hoy el Storage está casi vacío** (medido por SQL sobre `storage.objects`: 4 objetos, ~0 MB).
 - ⚠️ **Plan de Supabase.** Si es el gratuito: **1 GB total y 50 MB por archivo**. Los manuales ocupan
-  ~630 MB (63% del total) y **dos pasan de 50 MB** (T303 AMM y T303 parts; el `pa-31` pesa
-  52,134,148 bytes y entra justo, porque el tope es 50 MiB = 52,428,800). La carga inicial lo
-  detecta al subir: si el plan limita, esos dos se parten en **dos tomos** cada uno (dos manuales,
-  "Tomo 1/2" y "Tomo 2/2"). No es para decidirlo a ciegas: se verifica.
+  ~600 MB (60% del total) y **tres pasan de 50 MB** (T303 AMM, T303 parts y el Azteca ya unido; el
+  `pa-31` descifrado pesa 52,221,405 bytes y entra justo, porque el tope es 50 MiB = 52,428,800). La carga inicial lo
+  detecta al subir: si el plan limita, esos tres se parten en **dos tomos** cada uno (dos manuales,
+  "Tomo 1/2" y "Tomo 2/2"). No es para decidirlo a ciegas: se verifica. **Verificado el
+  2026-09-21: es el plan gratuito** (413 *EntityTooLarge*); quedaron 38 archivos.
 - Si más adelante el jefe sube desde la app un archivo que pasa el tope, Storage lo rechaza y la
   pantalla lo dice con el límite en MB y la sugerencia de partirlo en tomos. Nunca un error genérico.
 
@@ -521,7 +522,7 @@ el plan del visor, así que va en la primera tarea.
 **En el navegador:** visor con un manual real (índice, búsqueda, desde/hasta), configurador completo y
 el modal de la orden a **375 px**. Contraste medido de verdad (§35).
 
-**En producción:** que los 35 manuales quedaron (37 si el plan obligó a partir los dos del T303 en tomos) (conteo y tamaño en `storage.objects` por SQL) y que
+**En producción:** que los 38 archivos quedaron (35 manuales; el plan gratuito obligó a partir tres en dos tomos) (conteo y tamaño en `storage.objects` por SQL) y que
 un PDF de paquete se genera y se abre.
 
 ---
@@ -530,7 +531,7 @@ un PDF de paquete se genera y se abre.
 
 | | |
 |---|---|
-| Plan gratuito de Supabase | se detecta al subir; tomos para los dos archivos >50 MB; 63% del GB total |
+| Plan gratuito de Supabase (confirmado) | tres archivos >50 MB van en dos tomos; ~60% del GB total |
 | Rango + CORS en Supabase | se prueba primero (§13) |
 | Memoria en Railway | ~350 MB de pico por armado; cola de uno en uno |
 | `pdf-lib` arrastra páginas por los links | quitar `/Annots` y `/Thumb` es obligatorio; la prueba acota el tamaño |

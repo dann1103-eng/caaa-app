@@ -4263,7 +4263,7 @@ Expected: 35 líneas `OK`, `35 subidos · 0 fallos`. Tarda varios minutos (630 M
 - [ ] **Step 3: Verificar en la base**
 
 Run: `node query.js "SELECT COUNT(*) n, ROUND(SUM((metadata->>'size')::bigint)/1048576.0) mb FROM storage.objects WHERE bucket_id='manuales-taller' AND name LIKE 'manuales/%'"`
-Expected: `n` = cantidad de entradas de `subidos.json` (35, o 37 con tomos); `mb` ≈ 630.
+Expected: `n` = cantidad de entradas de `subidos.json` (35 sin tomos; **38** en el plan gratuito, con los tres de más de 50 MiB partidos en dos); `mb` ≈ 600.
 
 - [ ] **Step 3b: Comprobar que el SERVIDOR puede recortar cada manual subido**
 
@@ -4422,9 +4422,9 @@ main().catch((e) => { console.error(e.message); process.exit(1); });
 - [ ] **Step 5: Probar en seco y cargar**
 
 Run (desde la raíz del worktree): `node supabase/dump/manuales_taller/cargar.js --dry-run`
-Expected: `[DRY-RUN] manuales nuevos 35 · ya estaban 0 · sin subir 0 · paquetes 10 · omitidos 0`.
+Expected: `[DRY-RUN] manuales nuevos 38 · ya estaban 0 · sin subir 0 · paquetes 10 · omitidos 0`.
 Luego: `node supabase/dump/manuales_taller/cargar.js` → mismo resumen sin `[DRY-RUN]`.
-Y otra vez `node supabase/dump/manuales_taller/cargar.js` → `manuales nuevos 0 · ya estaban 35 · … · paquetes 0 · omitidos 10` (idempotente).
+Y otra vez `node supabase/dump/manuales_taller/cargar.js` → `manuales nuevos 0 · ya estaban 38 · … · paquetes 0 · omitidos 10` (idempotente).
 
 - [ ] **Step 6: Commit**
 
@@ -4487,7 +4487,7 @@ node -e "require('dotenv').config();const db=require('./config/db');db.poolPubli
 node -e "require('dotenv').config();require('./demo/catalogo').copiarCatalogo({log:console.log}).then(()=>require('./demo/reset').reiniciar({log:console.log})).then(r=>{console.log(r);process.exit(0)})"
 ```
 
-Expected: el segundo imprime `taller_manual: 35` (o 37 con tomos) entre las copiadas, y el reinicio termina sin error.
+Expected: el segundo imprime `taller_manual: 38` (35 manuales, 3 en dos tomos) entre las copiadas, y el reinicio termina sin error.
 
 - [ ] **Step 4: Probar que una página en una orden del demo no rompe el reinicio**
 
@@ -4495,7 +4495,7 @@ Expected: el segundo imprime `taller_manual: 35` (o 37 con tomos) entre las copi
 node -e "require('dotenv').config();const db=require('./config/db');(async()=>{const o=await db.poolDemo.query('SELECT id_orden FROM taller_orden_extracto LIMIT 0');const ot=await db.poolDemo.query('SELECT id_orden FROM orden_trabajo LIMIT 1');const m=await db.poolDemo.query('SELECT id_manual FROM taller_manual LIMIT 1');await db.poolDemo.query(\"INSERT INTO taller_orden_extracto (id_orden,id_manual,pagina_desde,pagina_hasta,titulo,origen) VALUES (\$1,\$2,1,1,'prueba reinicio','MANUAL')\",[ot.rows[0].id_orden,m.rows[0].id_manual]);await require('./demo/reset').reiniciar({log:()=>{}});const r=await db.poolDemo.query(\"SELECT (SELECT COUNT(*) FROM taller_orden_extracto WHERE titulo='prueba reinicio')::int ord,(SELECT COUNT(*) FROM taller_manual)::int man,(SELECT COUNT(*) FROM taller_paquete_extracto)::int paq\");console.log(r.rows[0]);process.exit(0)})().catch(e=>{console.error(e.message);process.exit(1)})"
 ```
 
-Expected: `{ ord: 0, man: 35, paq: 10 }` — la página de la orden se fue, los manuales y paquetes quedaron. (Si `orden_trabajo` del demo está vacío porque el escenario no siembra órdenes, crear una con el mismo INSERT mínimo que usa `demo/escenarioTaller.js` antes de probar.)
+Expected: `{ ord: 0, man: 38, paq: 16 }` (16 rangos: los Cherokee y el Arrow llevan dos cada uno) — la página de la orden se fue, los manuales y paquetes quedaron. (Si `orden_trabajo` del demo está vacío porque el escenario no siembra órdenes, crear una con el mismo INSERT mínimo que usa `demo/escenarioTaller.js` antes de probar.)
 
 - [ ] **Step 5: Commit**
 

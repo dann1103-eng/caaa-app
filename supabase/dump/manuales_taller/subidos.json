@@ -1,0 +1,230 @@
+{
+ "100672612-temp-rev-5-152-service-manual-c152": {
+  "sha256": "886e4d5d0897693d92fc688e8ccbe829dbe64a82cd1788e228391902f0e7b9f1",
+  "paginas": 200,
+  "tamano_bytes": 2341587,
+  "archivo_path": "manuales/e421d754-517d-566a-b4a5-45c15d3b6428.pdf"
+ },
+ "445839407-piper-753-582-cherokee-parts-catalog-2009-part4": {
+  "sha256": "8de506a1c5186ee1535ccbace27e653c463a39be30e949d94a0da396beaba466",
+  "paginas": 56,
+  "tamano_bytes": 3213183,
+  "archivo_path": "manuales/f0320798-f46e-54c9-af32-a967df23f684.pdf"
+ },
+ "447340064-piper-parts-manual-761-589-pa44-200t": {
+  "sha256": "cfcaf7a31ce60cb85f25ac13edac6b64b584e18f725ff8afc4794c967053fab0",
+  "paginas": 471,
+  "tamano_bytes": 21186125,
+  "archivo_path": "manuales/54428c0f-fef5-5726-b08b-83fc355940e4.pdf"
+ },
+ "624658018-x30583-tsio-360-and-ltsio-360-series": {
+  "sha256": "718293aa93602f7cbe8537566d72443798002cfa76b59d550c5c2380bc7c2b63",
+  "paginas": 148,
+  "tamano_bytes": 5980096,
+  "archivo_path": "manuales/e18119ec-1655-5c1b-8735-14116e28fde2.pdf"
+ },
+ "644315110-sm-753-586-pa-28s": {
+  "sha256": "53278bf6cdb67f2f84755d3cd3a38fe23d0324021ae2287ceda3294555656fd1",
+  "paginas": 1013,
+  "tamano_bytes": 26179548,
+  "archivo_path": "manuales/f93cb989-4d49-5be9-9340-dea9842a0140.pdf"
+ },
+ "697350008-service-manual-pa-34-200t-seneca-ii": {
+  "sha256": "3c93252f66b4b44933d264601a22d9d72b3b68abb873bbce6981e8c2c7f5cf48",
+  "paginas": 860,
+  "tamano_bytes": 21709596,
+  "archivo_path": "manuales/d3a4e766-c6f9-5288-83df-a8e7d7cdc3a8.pdf"
+ },
+ "762-332-service-bulletin-letter-index-09-27-00": {
+  "sha256": "ad50df4e8045dcb6342e3e26dbb6827475c2b6d1a7bf73ea68c936b385e52050",
+  "paginas": 160,
+  "tamano_bytes": 1758416,
+  "archivo_path": "manuales/eba1ef08-1cb2-54fc-8c92-94e692f27bf5.pdf"
+ },
+ "ac-43-13-1b-w-chg1": {
+  "sha256": "8dc99dd41334381b287ae02d03dc29928d9eacb1035b67aa24c5a0525324ee73",
+  "paginas": 646,
+  "tamano_bytes": 21101662,
+  "archivo_path": "manuales/4befd4d3-f0d7-5b75-97fc-b3d35d4c50dc.pdf"
+ },
+ "c152-poh-1979": {
+  "sha256": "ff7eec2c71642c710c554e59dd60a66d50fdfa895d4d32510f657f5ff73e2397",
+  "paginas": 234,
+  "tamano_bytes": 15385661,
+  "archivo_path": "manuales/bf9a25f5-d4cd-5e70-8bb6-47f96a58033f.pdf"
+ },
+ "cessna-152-mm": {
+  "sha256": "adb318baeb82acac2b0705af9dad850740c232b806ce8e5475033edf3d43aaf3",
+  "paginas": 484,
+  "tamano_bytes": 20565476,
+  "archivo_path": "manuales/99f89e90-ac59-553b-9a89-19b0a424d06d.pdf"
+ },
+ "champion-slick-app": {
+  "sha256": "658538e257261be8d998bce8f1840bcd900bde6ed831f0a24f8d707753be0199",
+  "paginas": 170,
+  "tamano_bytes": 426253,
+  "archivo_path": "manuales/511cd546-dfaa-5cb5-9035-896540785f5d.pdf"
+ },
+ "championaerospacecatalog": {
+  "sha256": "017717838def79f4f88af75b23fbfe6707b0b43586ca0e4daaf88778133caa10",
+  "paginas": 64,
+  "tamano_bytes": 2933071,
+  "archivo_path": "manuales/53531a74-9ba1-595f-96a6-d4ffdf53f530.pdf"
+ },
+ "cherokee-parts-753-582-parts-catalog-pa28s": {
+  "sha256": "cd7e8d9cd5c1dd89c5b57cd663a35dd9db97dec072a2883517a263134f038007",
+  "paginas": 1024,
+  "tamano_bytes": 14393534,
+  "archivo_path": "manuales/45cfbdea-d8e1-5d6e-bc6e-956a944b42f1.pdf"
+ },
+ "continental-motors-publication-m-0": {
+  "sha256": "6208784735a966eaa19c9f8275d4fee30254d2fc85ffe8c4223fb8b3f160b37b",
+  "paginas": 517,
+  "tamano_bytes": 30810424,
+  "archivo_path": "manuales/1f64f549-2836-547c-bd4a-f420089e9bb9.pdf"
+ },
+ "lycoming-parts-catalog-o-235-series-engines-june-1982-revise": {
+  "sha256": "be7ef9534580c4a3d52f31b34a195ec8907388e9de2c6c4fbdd4ae19cfbb111b",
+  "paginas": 81,
+  "tamano_bytes": 2717990,
+  "archivo_path": "manuales/d4b6a89e-da36-5902-a754-a1c1fd418935.pdf"
+ },
+ "maintenance-manual-pa-38": {
+  "sha256": "1735696064b588edf112f3ea9c71d0d3783203f76696e8fa920a457bd05f0fe2",
+  "paginas": 435,
+  "tamano_bytes": 6666763,
+  "archivo_path": "manuales/fc8945e3-e977-5ee3-a010-0587dfda78a4.pdf"
+ },
+ "o-235-o-290-operator-manual-60297-9": {
+  "sha256": "3a7fb56f7ca1a1d9759065f15364cd1db8385bd9f6d933f53013ed5e8e331326",
+  "paginas": 90,
+  "tamano_bytes": 6583143,
+  "archivo_path": "manuales/68e3343c-8491-5bac-bc9d-c563e64398db.pdf"
+ },
+ "operator-s-manual-continental-ys303p": {
+  "sha256": "e3cbb546e22d214e183d499d19e73c447bd870ad431407de79d12eb80fe84956",
+  "paginas": 179,
+  "tamano_bytes": 7873822,
+  "archivo_path": "manuales/f1d2befd-0a6e-5be7-9e3a-006c25a65b03.pdf"
+ },
+ "overhaul-manual-lycoming-direct-drive-eng": {
+  "sha256": "37624c39504c45b6927587540812083851e0d07d612d5a5f9e2ed0471c2668e7",
+  "paginas": 151,
+  "tamano_bytes": 16206581,
+  "archivo_path": "manuales/9b8464de-7d34-5ee0-8094-eef1481095b4.pdf"
+ },
+ "pa-28-151-amm": {
+  "sha256": "138166e829b2794ad5733fc31703f4b1f03e4b03d0c5195b6c2cdc95372f8955",
+  "paginas": 716,
+  "tamano_bytes": 16844762,
+  "archivo_path": "manuales/7dc38e8c-7c4c-5587-9ff8-b5f59e7fc684.pdf"
+ },
+ "pa-31-pa-31-300-325-smv1994": {
+  "sha256": "7b54a31de9b109c5c9d4f5344a756e826d1c9f9734f9ce095f4b2d7697a18fe1",
+  "paginas": 1106,
+  "tamano_bytes": 52221405,
+  "archivo_path": "manuales/e0e44661-39bc-51c1-b6c6-51167081c0d9.pdf"
+ },
+ "pa-38-112-amm": {
+  "sha256": "7f762bd7e091fe2ab7389e7feb52402acc0f383e24a45b839818a212c393af26",
+  "paginas": 712,
+  "tamano_bytes": 7411005,
+  "archivo_path": "manuales/cf4d84dc-6be4-5d3c-a69e-5f96b7ea36a0.pdf"
+ },
+ "pa38-poh": {
+  "sha256": "2817e0ae39bffe047746fc3f6b9fad8600d82901875f5b4c07e8eaac459c4ec7",
+  "paginas": 246,
+  "tamano_bytes": 5721936,
+  "archivo_path": "manuales/805bdd56-3f18-59d6-9ebf-4396a44d8d02.pdf"
+ },
+ "parts-catalog-cessna-152": {
+  "sha256": "555d677ff7c07fd7851360835d5c23c8fdbd7b9eaf81057e1da938f3f964f0bf",
+  "paginas": 402,
+  "tamano_bytes": 41546710,
+  "archivo_path": "manuales/ad274358-3a7d-5e3e-b023-09d626dc277b.pdf"
+ },
+ "parts-catalog-pa-140-180r": {
+  "sha256": "3e3430deb731f010c4ed7fb5e1d3e5a79e3e9c8b7cf44580f0f3c4b2e90ac14c",
+  "paginas": 830,
+  "tamano_bytes": 22317920,
+  "archivo_path": "manuales/5c160130-1bfc-5028-82e8-2217bdd32a4f.pdf"
+ },
+ "parts-catalog-pa-38": {
+  "sha256": "b16418bbee9415c4388bfbb13a4e273f77791ff0d3effbf771217f30a4032b19",
+  "paginas": 206,
+  "tamano_bytes": 4325086,
+  "archivo_path": "manuales/5ddadfc1-4589-5fe2-a146-7e1ce61b5541.pdf"
+ },
+ "piper-pa-28-180e-poh": {
+  "sha256": "ae20fb9a8a8d88ff0638313d9dd1051519f904de54f05e50be5ec89fd318b2e9",
+  "paginas": 78,
+  "tamano_bytes": 1636342,
+  "archivo_path": "manuales/cf9b27d2-fa20-5f72-bd46-d8f75c9cab58.pdf"
+ },
+ "piper-pa-28r-180-poh": {
+  "sha256": "d9f0d76cd3231a93faec061f72af067973ef44865e937c4148c43d37e0edef7d",
+  "paginas": 70,
+  "tamano_bytes": 1530554,
+  "archivo_path": "manuales/479a9db0-7d20-530d-a775-7267fdb66fba.pdf"
+ },
+ "rapco-fuelpump-app": {
+  "sha256": "56c4604897451cbbf311c3dfcf3d53db0e101285c9acf7fb76e16eac241fb6f4",
+  "paginas": 6,
+  "tamano_bytes": 87911,
+  "archivo_path": "manuales/ff27788f-f734-5240-98e7-db7e00ec180b.pdf"
+ },
+ "rapcobrakeapp-2013": {
+  "sha256": "985a2db31902c0705d477baccaf413fdaf05aeb19904efdefb399994fa77e244",
+  "paginas": 13,
+  "tamano_bytes": 80550,
+  "archivo_path": "manuales/dc92f75d-c7b5-527b-b7ed-a9c355c9e983.pdf"
+ },
+ "service-manual-140-200r": {
+  "sha256": "7246b8446a70af269d5c128312280882730c88f2d51f0c4df45ac856bc1a55d6",
+  "paginas": 912,
+  "tamano_bytes": 41531210,
+  "archivo_path": "manuales/9bd893e8-e2ba-5638-bdeb-246f1c6854b7.pdf"
+ },
+ "slick-4300-6300-overhaul-manual-l-1363f": {
+  "sha256": "eedcdd0ce078cb5a8863aa0819b0222a1ddf7b3a2df2679f2b2494a201c52a4e",
+  "paginas": 64,
+  "tamano_bytes": 640106,
+  "archivo_path": "manuales/dfcae537-06a2-5c93-875d-e6ffb2269786.pdf"
+ },
+ "p689-12-cessna-t303-parts-catalog-tomo-1": {
+  "sha256": "3ba2130a063f5cbc215af3904f54780c1daa40c701bb3ad3fcd6e76aae611a17",
+  "paginas": 420,
+  "tamano_bytes": 31316598,
+  "archivo_path": "manuales/9d37f177-5a93-509c-8db0-bfa94cb9eb0b.pdf"
+ },
+ "p689-12-cessna-t303-parts-catalog-tomo-2": {
+  "sha256": "21e21948e3f0dc6ec4dd78bfd43c22c07ea265ab50acda0fecc28ba741c5bf98",
+  "paginas": 420,
+  "tamano_bytes": 31575949,
+  "archivo_path": "manuales/e99ea258-5416-5e9d-a41a-405357ed264c.pdf"
+ },
+ "pa-23-250-azteca-mm-tomo-1": {
+  "sha256": "c7f30ec9e03d8951f1eff1a10ab71081f2c607af72f05df3b8ec132b54c0b3ff",
+  "paginas": 716,
+  "tamano_bytes": 37580558,
+  "archivo_path": "manuales/8eabeb13-d61d-55f2-a3f9-9a4528dd9eec.pdf"
+ },
+ "pa-23-250-azteca-mm-tomo-2": {
+  "sha256": "67e1e2f2d736248c48d07f87bcd025412febde66dcfc061daa6c8b87d7115bde",
+  "paginas": 717,
+  "tamano_bytes": 25033133,
+  "archivo_path": "manuales/8edc960d-2ea0-53d9-8aaf-f18e4ab211ac.pdf"
+ },
+ "t303-amm-july-1996-rev-02-tomo-1": {
+  "sha256": "35285d855b897ec9b0f2eec7f503da4fe707b8f187ffdd52f5cc4b94da8c7923",
+  "paginas": 766,
+  "tamano_bytes": 32929972,
+  "archivo_path": "manuales/238c5132-9a7b-5ddd-8bdc-6f998f67abff.pdf"
+ },
+ "t303-amm-july-1996-rev-02-tomo-2": {
+  "sha256": "91eee6fd955f5f59412ff619e13c2594b666f218a3d3db704e07af2ddc03b0af",
+  "paginas": 767,
+  "tamano_bytes": 43504045,
+  "archivo_path": "manuales/8b379b22-8996-56a4-9653-0c502bd3844b.pdf"
+ }
+}
