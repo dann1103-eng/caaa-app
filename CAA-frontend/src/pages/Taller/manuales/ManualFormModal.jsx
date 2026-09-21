@@ -24,12 +24,22 @@ export default function ManualFormModal({ modo, manual, onClose, onGuardado }) {
     confirmar: false,
   });
   const [archivo, setArchivo] = useState(null);
-  const [aviones, setAviones] = useState([]);
+  const [aviones, setAviones] = useState(null); // null = cargando
   const [progreso, setProgreso] = useState(null); // null | 0..1 | "leyendo"
   const [guardando, setGuardando] = useState(false);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
 
-  useEffect(() => { getTablaPaquetes().then((t) => setAviones(t.aeronaves)).catch(() => {}); }, []);
+  useEffect(() => {
+    let vivo = true;
+    getTablaPaquetes()
+      .then((t) => { if (vivo) setAviones(t.aeronaves); })
+      .catch((e) => {
+        if (!vivo) return;
+        setAviones([]);
+        toast.error(mensajeError(e, "No se pudo cargar la lista de aviones"));
+      });
+    return () => { vivo = false; };
+  }, []);
 
   const toggleAvion = (id) =>
     set("aeronaves", f.aeronaves.includes(id) ? f.aeronaves.filter((x) => x !== id) : [...f.aeronaves, id]);
@@ -45,6 +55,7 @@ export default function ManualFormModal({ modo, manual, onClose, onGuardado }) {
   });
 
   const guardar = async () => {
+    if (guardando) return;
     if (!f.titulo.trim()) return toast.error("Escribí el título del manual");
     if (modo === "revision" && !f.revision.trim()) return toast.error("Escribí qué revisión es");
     if (modo !== "editar") {
@@ -74,21 +85,35 @@ export default function ManualFormModal({ modo, manual, onClose, onGuardado }) {
     }
   };
 
+  // Archivar y borrar usan el mismo candado que Guardar: un doble clic no
+  // manda dos pedidos, y el fondo no cierra el modal a mitad de camino.
   const archivar = async () => {
+    if (guardando) return;
     if (!window.confirm(`¿Archivar «${manual.titulo}»? Deja de aparecer en la biblioteca, pero los paquetes y órdenes que lo usan lo siguen viendo.`)) return;
+    setGuardando(true);
     try {
       await editarManual(manual.id_manual, { archivar: true });
       toast.success("Manual archivado");
       onGuardado();
-    } catch (e) { toast.error(mensajeError(e, "No se pudo archivar")); }
+    } catch (e) {
+      toast.error(mensajeError(e, "No se pudo archivar"));
+    } finally {
+      setGuardando(false);
+    }
   };
   const borrar = async () => {
+    if (guardando) return;
     if (!window.confirm(`¿Borrar «${manual.titulo}» de la biblioteca?`)) return;
+    setGuardando(true);
     try {
       await borrarManual(manual.id_manual);
       toast.success("Manual borrado");
       onGuardado();
-    } catch (e) { toast.error(mensajeError(e, "No se pudo borrar")); }
+    } catch (e) {
+      toast.error(mensajeError(e, "No se pudo borrar"));
+    } finally {
+      setGuardando(false);
+    }
   };
 
   const titulo = { nuevo: "Subir manual", revision: "Subir revisión nueva", editar: "Editar manual" }[modo];
@@ -164,7 +189,8 @@ export default function ManualFormModal({ modo, manual, onClose, onGuardado }) {
               <input type="checkbox" checked={f.es_general} onChange={(e) => set("es_general", e.target.checked)} />
               A toda la flota (manual general: AC 43.13, Champion, Slick…)
             </label>
-            {!f.es_general && (
+            {!f.es_general && aviones === null && <small className="man-tenue">Cargando aviones…</small>}
+            {!f.es_general && aviones !== null && (
               <div className="man-aviones">
                 {aviones.map((a) => (
                   <label key={a.id_aeronave} className="man-check">
@@ -188,11 +214,11 @@ export default function ManualFormModal({ modo, manual, onClose, onGuardado }) {
           {modo === "editar" && (
             <div className="man-peligro">
               {manual.estado === "VIGENTE" && (
-                <button type="button" className="adf-btn secondary small" onClick={archivar}>
+                <button type="button" className="adf-btn secondary small" disabled={guardando} onClick={archivar}>
                   <i className="bi bi-archive"></i> Archivar
                 </button>
               )}
-              <button type="button" className="adf-btn danger small" onClick={borrar}>
+              <button type="button" className="adf-btn danger small" disabled={guardando} onClick={borrar}>
                 <i className="bi bi-trash"></i> Borrar
               </button>
               <small>Borrar solo se puede si ningún paquete ni orden lo usa. El archivo no se elimina del almacenamiento.</small>

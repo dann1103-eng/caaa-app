@@ -192,6 +192,12 @@
 .pe-visor__elegir { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--c-line-1); }
 .pe-visor__elegir .inv-campo { flex: 1; min-width: 200px; }
 .pe-visor .vm { flex: 1; min-height: 0; }
+/* La carga del paquete falló: nada del editor se habilita hasta reintentar. */
+.pe-error {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-danger-100); border-radius: var(--radius-md);
+  background: var(--c-danger-50); color: var(--c-danger-700); font-size: 0.9rem;
+}
 @media (max-width: 1024px) {
   .pe-cuerpo { grid-template-columns: minmax(0, 1fr); }
   .pe-visor { height: 80vh; }
@@ -229,3 +235,4 @@
 }
 .mo-manual:hover { border-color: var(--c-brand-500); }
 .mo-manual small { flex-shrink: 0; color: var(--c-ink-3); }
+.mo-fila .adf-icon-btn:disabled { opacity: 0.4; cursor: default; background: transparent; }

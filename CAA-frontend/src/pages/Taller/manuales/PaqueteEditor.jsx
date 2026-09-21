@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getPaquete, guardarPaquete, getManuales, getManual } from "../../../services/manualesApi";
-import { TIPO_INSPECCION, mensajeError } from "./formatoManual";
+import { TIPO_INSPECCION, tipoEnFrase, mensajeError } from "./formatoManual";
 import VisorManual from "./VisorManual";
 
 const aFila = (e) => ({
@@ -19,15 +19,26 @@ const aFila = (e) => ({
 
 const etiquetaManual = (m) => `${m.titulo}${m.revision ? ` · ${m.revision}` : ""}`;
 
+const AVISO_MANUAL = { REEMPLAZADO: "Revisión reemplazada", ARCHIVADO: "Manual archivado" };
+
 /**
  * Editor de un paquete: a la izquierda los rangos, a la derecha el visor para
  * marcar páginas nuevas. El estado se elige explícito al guardar (spec §9.4).
+ *
+ * `onSucio(bool)` avisa hacia arriba si hay cambios sin guardar.
  */
-export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
+export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio }) {
   const [paquete, setPaquete] = useState(null);
   const [filas, setFilas] = useState([]);
   const [sucio, setSucio] = useState(false);
+  // Guardar reemplaza el set COMPLETO de rangos: con el paquete sin cargar (o
+  // con la carga fallida) se guardaría vacío y un CONFIRMADO volvería a
+  // borrador. Nada del editor se habilita hasta que la carga termina bien.
+  const [cargado, setCargado] = useState(false);
+  const [errorCarga, setErrorCarga] = useState(null);
+  const [intento, setIntento] = useState(0);
   const [manuales, setManuales] = useState([]);
+  const [cargandoManuales, setCargandoManuales] = useState(true);
   const [verTodos, setVerTodos] = useState(false);
   const [visor, setVisor] = useState(null); // { manual, pagina, marca? }
   const [guardando, setGuardando] = useState(false);
@@ -38,18 +49,40 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
   const vistas = useRef(0);
 
   useEffect(() => {
+    let vivo = true;
+    setCargado(false);
+    setErrorCarga(null);
     getPaquete(aeronave.id_aeronave, tipo)
-      .then((r) => { setPaquete(r.paquete); setFilas(r.extractos.map(aFila)); })
-      .catch((e) => toast.error(mensajeError(e, "No se pudo abrir el paquete")));
-  }, [aeronave.id_aeronave, tipo]);
+      .then((r) => {
+        if (!vivo) return;
+        setPaquete(r.paquete);
+        setFilas(r.extractos.map(aFila));
+        setSucio(false);
+        setCargado(true);
+      })
+      .catch((e) => { if (vivo) setErrorCarga(mensajeError(e, "No se pudo abrir el paquete")); });
+    return () => { vivo = false; };
+  }, [aeronave.id_aeronave, tipo, intento]);
 
   useEffect(() => {
+    onSucio?.(sucio);
+    return () => onSucio?.(false);
+  }, [sucio, onSucio]);
+
+  useEffect(() => {
+    // `vivo`: con "Ver todos" marcado y desmarcado rápido, la respuesta vieja
+    // podría llegar después de la nueva y pisarla.
+    let vivo = true;
+    setCargandoManuales(true);
     getManuales(verTodos ? {} : { aeronave: aeronave.id_aeronave })
       .then((ms) => {
+        if (!vivo) return;
         setManuales(ms);
         setVisor((v) => v || (ms.length ? { manual: ms.find((m) => m.categoria === "MANTENIMIENTO") || ms[0], pagina: 1 } : null));
       })
-      .catch(() => {});
+      .catch((e) => { if (vivo) toast.error(mensajeError(e, "No se pudo cargar la lista de manuales")); })
+      .finally(() => { if (vivo) setCargandoManuales(false); });
+    return () => { vivo = false; };
   }, [verTodos, aeronave.id_aeronave]);
 
   const codigoDe = (id) => tabla?.aeronaves.find((a) => a.id_aeronave === id)?.codigo || `#${id}`;
@@ -90,10 +123,12 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
 
   const agregar = ({ pagina_desde, pagina_hasta, titulo }) => {
     const m = visor.manual;
-    cambiar([...filas, {
+    const nueva = {
       clave: `n${++secuencia.current}`, id_manual: m.id_manual, manual_titulo: m.titulo, manual_revision: m.revision,
       manual_estado: m.estado, manual_paginas: m.paginas, pagina_desde, pagina_hasta, titulo, origen: "MANUAL",
-    }]);
+    };
+    setFilas((prev) => [...prev, nueva]);
+    setSucio(true);
     toast.success(`Págs. ${pagina_desde}–${pagina_hasta} agregadas. Falta guardar.`);
   };
 
@@ -109,6 +144,7 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
   };
 
   const guardar = async (estado) => {
+    if (!cargado) return;
     const sinTitulo = filas.findIndex((f) => !String(f.titulo).trim());
     if (sinTitulo >= 0) return toast.error(`El rango ${sinTitulo + 1} no tiene título`);
     setGuardando(true);
@@ -142,12 +178,12 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
     : [["Guardar borrador", "BORRADOR", "secondary"], ["Guardar y confirmar", "CONFIRMADO", ""]];
 
   return (
-    <div className="pe">
+    <>
       <div className="pe-head">
         <button type="button" className="adf-btn secondary small" onClick={volver}>
           <i className="bi bi-arrow-left"></i> Tabla de paquetes
         </button>
-        <h3>{aeronave.codigo} · Inspección {TIPO_INSPECCION[tipo]}</h3>
+        <h3>{aeronave.codigo} · Inspección {tipoEnFrase(tipo)}</h3>
         {estado && (
           <span className={`adf-tag ${estado === "CONFIRMADO" ? "green" : "amber"}`}>
             {estado === "CONFIRMADO" ? "Confirmado" : "Borrador"}
@@ -158,86 +194,103 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
           {sucio && <small className="man-tenue">Cambios sin guardar</small>}
           {botones.map(([l, e, cl]) => (
             <button type="button" key={l} className={`adf-btn ${cl}`}
-              disabled={guardando || (e === "CONFIRMADO" && !filas.length)} onClick={() => guardar(e)}>
+              disabled={!cargado || guardando || (e === "CONFIRMADO" && !filas.length)} onClick={() => guardar(e)}>
               {l}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="pe-cuerpo">
-        <section className="pe-lista">
-          <div className="pe-lista__tit">Páginas del paquete <small>({filas.length} rango(s) · {total} págs.)</small></div>
-          {!filas.length && (
-            <p className="man-vacio">Todavía no tiene páginas. Elegí un manual a la derecha, marcá desde y hasta, y agregalas.</p>
-          )}
-          {filas.map((f, i) => (
-            <div key={f.clave} className="pe-fila">
-              <input className="inv-campo pe-fila__titulo" value={f.titulo} maxLength={200} placeholder="Qué es"
-                aria-label={`Título del rango ${i + 1}`} onChange={(e) => editarFila(i, "titulo", e.target.value)} />
-              <div className="pe-fila__meta">
-                {f.manual_titulo}{f.manual_revision ? ` · ${f.manual_revision}` : ""}
-                {f.manual_estado !== "VIGENTE" && <span className="adf-tag red">Revisión reemplazada</span>}
+      {!cargado && (
+        errorCarga ? (
+          <div className="pe-error" role="alert">
+            <span>{errorCarga}</span>
+            <button type="button" className="adf-btn secondary small" onClick={() => setIntento((n) => n + 1)}>
+              <i className="bi bi-arrow-clockwise"></i> Reintentar
+            </button>
+          </div>
+        ) : <p className="man-vacio">Cargando el paquete…</p>
+      )}
+
+      {cargado && (
+        <div className="pe-cuerpo">
+          <section className="pe-lista">
+            <div className="pe-lista__tit">Páginas del paquete <small>({filas.length} rango(s) · {total} págs.)</small></div>
+            {!filas.length && (
+              <p className="man-vacio">Todavía no tiene páginas. Elegí un manual a la derecha, marcá desde y hasta, y agregalas.</p>
+            )}
+            {filas.map((f, i) => (
+              <div key={f.clave} className="pe-fila">
+                <input className="inv-campo pe-fila__titulo" value={f.titulo} maxLength={200} placeholder="Qué es"
+                  aria-label={`Título del rango ${i + 1}`} onChange={(e) => editarFila(i, "titulo", e.target.value)} />
+                <div className="pe-fila__meta">
+                  {f.manual_titulo}{f.manual_revision ? ` · ${f.manual_revision}` : ""}
+                  {AVISO_MANUAL[f.manual_estado] && <span className="adf-tag red">{AVISO_MANUAL[f.manual_estado]}</span>}
+                </div>
+                <div className="pe-fila__rango">
+                  págs.
+                  <input type="number" min={1} max={f.manual_paginas} value={f.pagina_desde} aria-label={`Rango ${i + 1}: desde`}
+                    onChange={(e) => editarFila(i, "pagina_desde", e.target.value)} />
+                  a
+                  <input type="number" min={1} max={f.manual_paginas} value={f.pagina_hasta} aria-label={`Rango ${i + 1}: hasta`}
+                    onChange={(e) => editarFila(i, "pagina_hasta", e.target.value)} />
+                  <span className="pe-fila__botones">
+                    <button type="button" className="adf-icon-btn" title="Ver" aria-label={`Ver el rango ${i + 1}`}
+                      onClick={() => ver(f)}><i className="bi bi-eye"></i></button>
+                    <button type="button" className="adf-icon-btn" title="Subir" aria-label={`Subir el rango ${i + 1}`}
+                      disabled={i === 0} onClick={() => mover(i, -1)}><i className="bi bi-arrow-up"></i></button>
+                    <button type="button" className="adf-icon-btn" title="Bajar" aria-label={`Bajar el rango ${i + 1}`}
+                      disabled={i === filas.length - 1} onClick={() => mover(i, 1)}><i className="bi bi-arrow-down"></i></button>
+                    <button type="button" className="adf-icon-btn danger" title="Quitar" aria-label={`Quitar el rango ${i + 1}`}
+                      onClick={() => quitar(i)}><i className="bi bi-trash"></i></button>
+                  </span>
+                </div>
               </div>
-              <div className="pe-fila__rango">
-                págs.
-                <input type="number" min={1} max={f.manual_paginas} value={f.pagina_desde} aria-label={`Rango ${i + 1}: desde`}
-                  onChange={(e) => editarFila(i, "pagina_desde", e.target.value)} />
-                a
-                <input type="number" min={1} max={f.manual_paginas} value={f.pagina_hasta} aria-label={`Rango ${i + 1}: hasta`}
-                  onChange={(e) => editarFila(i, "pagina_hasta", e.target.value)} />
-                <span className="pe-fila__botones">
-                  <button type="button" className="adf-icon-btn" title="Ver" aria-label={`Ver el rango ${i + 1}`}
-                    onClick={() => ver(f)}><i className="bi bi-eye"></i></button>
-                  <button type="button" className="adf-icon-btn" title="Subir" aria-label={`Subir el rango ${i + 1}`}
-                    disabled={i === 0} onClick={() => mover(i, -1)}><i className="bi bi-arrow-up"></i></button>
-                  <button type="button" className="adf-icon-btn" title="Bajar" aria-label={`Bajar el rango ${i + 1}`}
-                    disabled={i === filas.length - 1} onClick={() => mover(i, 1)}><i className="bi bi-arrow-down"></i></button>
-                  <button type="button" className="adf-icon-btn danger" title="Quitar" aria-label={`Quitar el rango ${i + 1}`}
-                    onClick={() => quitar(i)}><i className="bi bi-trash"></i></button>
-                </span>
+            ))}
+            {opcionesCopia.length > 0 && (
+              <div className="pe-copiar">
+                <select className="inv-campo" value={copiarDe} aria-label="Copiar de otro paquete" onChange={(e) => setCopiarDe(e.target.value)}>
+                  <option value="">Copiar de otro paquete…</option>
+                  {opcionesCopia.map((c) => (
+                    <option key={`${c.id_aeronave}|${c.tipo_mantenimiento}`} value={`${c.id_aeronave}|${c.tipo_mantenimiento}`}>
+                      {codigoDe(c.id_aeronave)} · {TIPO_INSPECCION[c.tipo_mantenimiento]} ({c.estado === "CONFIRMADO" ? "confirmado" : "borrador"})
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="adf-btn secondary small" disabled={!copiarDe} onClick={copiar}>Copiar</button>
               </div>
-            </div>
-          ))}
-          {opcionesCopia.length > 0 && (
-            <div className="pe-copiar">
-              <select className="inv-campo" value={copiarDe} aria-label="Copiar de otro paquete" onChange={(e) => setCopiarDe(e.target.value)}>
-                <option value="">Copiar de otro paquete…</option>
-                {opcionesCopia.map((c) => (
-                  <option key={`${c.id_aeronave}|${c.tipo_mantenimiento}`} value={`${c.id_aeronave}|${c.tipo_mantenimiento}`}>
-                    {codigoDe(c.id_aeronave)} · {TIPO_INSPECCION[c.tipo_mantenimiento]} ({c.estado === "CONFIRMADO" ? "confirmado" : "borrador"})
+            )}
+          </section>
+
+          <section className="pe-visor">
+            <div className="pe-visor__elegir">
+              <select className="inv-campo" aria-label="Manual" value={visor?.manual?.id_manual || ""} onChange={(e) => elegirManual(e.target.value)}>
+                {!manuales.length && !visor && (
+                  <option value="">
+                    {cargandoManuales ? "Cargando manuales…" : verTodos ? "No hay manuales en la biblioteca" : "Este avión no tiene manuales asignados"}
                   </option>
+                )}
+                {visorFueraDeLista && (
+                  <option value={visor.manual.id_manual}>
+                    {etiquetaManual(visor.manual)}{AVISO_MANUAL[visor.manual.estado] ? ` (${AVISO_MANUAL[visor.manual.estado].toLowerCase()})` : ""}
+                  </option>
+                )}
+                {manuales.map((m) => (
+                  <option key={m.id_manual} value={m.id_manual}>{etiquetaManual(m)}</option>
                 ))}
               </select>
-              <button type="button" className="adf-btn secondary small" disabled={!copiarDe} onClick={copiar}>Copiar</button>
+              <label className="man-check">
+                <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver todos los manuales
+              </label>
             </div>
-          )}
-        </section>
-
-        <section className="pe-visor">
-          <div className="pe-visor__elegir">
-            <select className="inv-campo" aria-label="Manual" value={visor?.manual?.id_manual || ""} onChange={(e) => elegirManual(e.target.value)}>
-              {!manuales.length && !visor && <option value="">Este avión no tiene manuales asignados</option>}
-              {visorFueraDeLista && (
-                <option value={visor.manual.id_manual}>
-                  {etiquetaManual(visor.manual)}{visor.manual.estado !== "VIGENTE" ? " (reemplazado)" : ""}
-                </option>
-              )}
-              {manuales.map((m) => (
-                <option key={m.id_manual} value={m.id_manual}>{etiquetaManual(m)}</option>
-              ))}
-            </select>
-            <label className="man-check">
-              <input type="checkbox" checked={verTodos} onChange={(e) => setVerTodos(e.target.checked)} /> Ver todos los manuales
-            </label>
-          </div>
-          {visor ? (
-            <VisorManual key={visor.manual.id_manual} manual={visor.manual} paginaInicial={visor.pagina}
-              irAPagina={{ pagina: visor.pagina, marca: visor.marca }}
-              accion={{ etiqueta: "Agregar al paquete", icono: "bi-plus-lg", pideTitulo: true, ejecutar: agregar }} />
-          ) : <p className="man-vacio">Elegí un manual.</p>}
-        </section>
-      </div>
-    </div>
+            {visor ? (
+              <VisorManual key={visor.manual.id_manual} manual={visor.manual} paginaInicial={visor.pagina}
+                irAPagina={{ pagina: visor.pagina, marca: visor.marca }}
+                accion={{ etiqueta: "Agregar al paquete", icono: "bi-plus-lg", pideTitulo: true, ejecutar: agregar }} />
+            ) : <p className="man-vacio">{cargandoManuales ? "Cargando…" : "Elegí un manual."}</p>}
+          </section>
+        </div>
+      )}
+    </>
   );
 }

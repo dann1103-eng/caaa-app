@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getTablaPaquetes } from "../../../services/manualesApi";
-import { TIPO_INSPECCION, mensajeError } from "./formatoManual";
+import { TIPO_INSPECCION, tipoEnFrase, mensajeError } from "./formatoManual";
 import PaqueteEditor from "./PaqueteEditor";
 
-/** Aviones × inspecciones. Solo lo abre el jefe (la pestaña se oculta al mecánico). */
-export default function Paquetes() {
+/**
+ * Aviones × inspecciones. Solo lo abre el jefe (la pestaña se oculta al mecánico).
+ * `onSucio(bool)`: el editor avisa si tiene cambios sin guardar (Manuales.jsx
+ * pide confirmación antes de desmontarlo).
+ */
+export default function Paquetes({ onSucio }) {
   const [t, setT] = useState(null);
   const [editando, setEditando] = useState(null); // { aeronave, tipo }
 
@@ -15,8 +19,8 @@ export default function Paquetes() {
 
   if (editando) {
     return (
-      <PaqueteEditor aeronave={editando.aeronave} tipo={editando.tipo} tabla={t}
-        onVolver={() => { setEditando(null); cargar(); }} />
+      <PaqueteEditor aeronave={editando.aeronave} tipo={editando.tipo} tabla={t} onSucio={onSucio}
+        onVolver={() => { setEditando(null); onSucio?.(false); cargar(); }} />
     );
   }
   if (!t) return <p className="man-vacio">Cargando…</p>;
@@ -37,7 +41,7 @@ export default function Paquetes() {
         </p>
       )}
       <div className="adf-table-wrap">
-        <table className="adf-table man-grilla">
+        <table className="adf-table">
           <thead>
             <tr><th>Avión</th>{t.tipos.map((x) => <th key={x}>{TIPO_INSPECCION[x]}</th>)}</tr>
           </thead>
@@ -51,11 +55,14 @@ export default function Paquetes() {
                 {t.tipos.map((tipo) => {
                   const c = celda(a.id_aeronave, tipo);
                   const clase = c ? c.estado.toLowerCase() : "vacia";
+                  const lectura = `${a.codigo}, inspección ${tipoEnFrase(tipo)}: ${
+                    c ? `${c.estado.toLowerCase()}, ${c.paginas} páginas` : "sin paquete"}${
+                    c?.reemplazados > 0 ? "; usa una revisión reemplazada" : ""}`;
                   return (
                     <td key={tipo}>
                       <button type="button" className={`man-celda man-celda--${clase}`}
                         onClick={() => setEditando({ aeronave: a, tipo })}
-                        aria-label={`${a.codigo} ${TIPO_INSPECCION[tipo]}: ${c ? c.estado.toLowerCase() : "sin paquete"}`}>
+                        aria-label={lectura}>
                         {!c && "—"}
                         {c && <>{c.estado === "CONFIRMADO" ? "Confirmado" : "Borrador"}<small>{c.paginas} págs.</small></>}
                         {c?.reemplazados > 0 && <i className="bi bi-exclamation-triangle" title="Usa una revisión reemplazada"></i>}

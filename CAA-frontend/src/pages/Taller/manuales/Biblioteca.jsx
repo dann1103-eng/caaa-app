@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getManuales } from "../../../services/manualesApi";
 import { esJefeTaller } from "../permisos";
@@ -18,13 +18,17 @@ export default function Biblioteca() {
   const [verReemplazados, setVerReemplazados] = useState(false);
   const [abierto, setAbierto] = useState(null);
   const [form, setForm] = useState(null);
+  // Solo cuenta la respuesta del último pedido: con la casilla de reemplazados
+  // marcada y desmarcada rápido, la vieja podía llegar después y pisarla.
+  const pedido = useRef(0);
 
   const cargar = useCallback(() => {
+    const n = ++pedido.current;
     setCargando(true);
     getManuales(verReemplazados ? { incluir_reemplazados: "true" } : {})
-      .then(setManuales)
-      .catch((e) => toast.error(mensajeError(e, "No se pudo cargar la biblioteca")))
-      .finally(() => setCargando(false));
+      .then((ms) => { if (n === pedido.current) setManuales(ms); })
+      .catch((e) => { if (n === pedido.current) toast.error(mensajeError(e, "No se pudo cargar la biblioteca")); })
+      .finally(() => { if (n === pedido.current) setCargando(false); });
   }, [verReemplazados]);
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -41,7 +45,9 @@ export default function Biblioteca() {
   const visibles = manuales.filter((m) => {
     if (activo === "generales" && !m.es_general) return false;
     if (activo === "sin" && (m.es_general || m.aeronaves.length)) return false;
-    if (!FIJAS.includes(activo) && !m.aeronaves.some((a) => a.codigo === activo)) return false;
+    // Un manual general es de todos los aviones (igual que en el backend y en
+    // el editor de paquetes): sale también bajo la ficha de cada matrícula.
+    if (!FIJAS.includes(activo) && !m.es_general && !m.aeronaves.some((a) => a.codigo === activo)) return false;
     if (texto && ![m.titulo, m.numero_parte, m.fabricante].some((x) => (x || "").toLowerCase().includes(texto))) return false;
     return true;
   });
