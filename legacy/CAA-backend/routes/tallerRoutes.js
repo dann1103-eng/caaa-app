@@ -13,6 +13,7 @@ const ot = require("../controllers/taller/ordenTrabajoController");
 const prestamo = require("../controllers/taller/prestamoController");
 const estimado = require("../controllers/taller/estimadoController");
 const sticker = require("../controllers/taller/stickerController");
+const manual = require("../controllers/taller/manualController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -183,5 +184,20 @@ router.get("/aeronaves/:id/libro/:parte", roleMiddleware(READ), sticker.getLibro
 router.put("/aeronaves/:id/partes/:parte", roleMiddleware(JEFE), sticker.guardarComponente);
 router.get("/aeronaves/:id/sticker-plantillas", roleMiddleware(READ), sticker.listPlantillas);
 router.put("/aeronaves/:id/sticker-plantillas", roleMiddleware(JEFE), sticker.guardarPlantilla);
+
+// -- Manuales del avion ------------------------------------------------------
+//
+// Ver e imprimir: todo el taller. Subir, editar y armar paquetes: el jefe.
+// OJO con el orden: /manuales/subida y /manuales/pdf van ANTES que /manuales/:id
+// (mismo cuidado que /stickers/pdf).
+router.get("/manuales", roleMiddleware(READ), manual.listar);
+router.post("/manuales/subida", roleMiddleware(JEFE), manual.reservarSubida);
+router.post("/manuales/pdf", roleMiddleware(READ), manual.pdfLibre);
+router.post("/manuales", roleMiddleware(JEFE), manual.registrar);
+router.get("/manuales/:id", roleMiddleware(READ), manual.detalle);
+router.get("/manuales/:id/url", roleMiddleware(READ), manual.url);
+router.post("/manuales/:id/revision", roleMiddleware(JEFE), manual.subirRevision);
+router.patch("/manuales/:id", roleMiddleware(JEFE), manual.editar);
+router.delete("/manuales/:id", roleMiddleware(JEFE), manual.eliminar);
 
 module.exports = router;
