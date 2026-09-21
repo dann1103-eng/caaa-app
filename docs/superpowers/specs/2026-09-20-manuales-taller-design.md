@@ -366,8 +366,9 @@ El jefe tiene además:
 
 ### 9.5 En la orden
 
-Botón **"Manuales de este trabajo (N)"** en la tarjeta del trabajo de **Mi taller** y en
-**`OrdenDetalleModal`**. Abre un modal con:
+Botón **"Manuales de este trabajo"** en la tarjeta del trabajo de **Mi taller** y en
+**`OrdenDetalleModal`** (sin contador: mostrar cuántas páginas lleva pediría una consulta extra por
+tarjeta; el total aparece dentro del modal, en "Abrir e imprimir todo (N págs.)"). Abre un modal con:
 
 - **Del paquete** (título, páginas) y **Agregadas en este trabajo** (quién y cuándo).
 - **"Abrir e imprimir todo (N págs.)"** → un solo PDF (§6). En el celular abre el visor del
