@@ -132,3 +132,57 @@
 .man-progreso { position: relative; height: 26px; margin-top: var(--sp-2); border-radius: var(--radius-sm); background: var(--c-surface-2); overflow: hidden; }
 .man-progreso > div { position: absolute; top: 0; bottom: 0; left: 0; background: var(--c-brand-100); transition: width 0.2s; }
 .man-progreso > span { position: relative; display: block; line-height: 26px; padding: 0 var(--sp-2); font-size: 0.8rem; color: var(--c-ink-1); font-variant-numeric: tabular-nums; }
+
+/* ── Tabla de paquetes ──────────────────────────────────────────────────── */
+.man-celda {
+  position: relative; width: 100%; min-width: 110px; min-height: 44px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 1px dashed var(--c-line-2); border-radius: var(--radius-sm);
+  background: var(--c-surface-0); color: var(--c-ink-3); font-size: 0.85rem;
+}
+.man-celda small { font-size: 0.72rem; color: inherit; }
+.man-celda:hover { border-color: var(--c-brand-500); }
+.man-celda--borrador { border-style: solid; border-color: var(--c-warn-500); background: var(--c-warn-50); color: var(--c-warn-700); }
+.man-celda--confirmado { border-style: solid; border-color: var(--c-success-500); background: var(--c-success-50); color: var(--c-success-700); }
+.man-celda .bi-exclamation-triangle { position: absolute; top: 4px; right: 6px; color: var(--c-danger-700); }
+
+/* ── Editor de paquete ──────────────────────────────────────────────────── */
+.pe-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.pe-head h3 { margin: 0; font-size: 1.1rem; color: var(--c-ink-1); }
+.pe-acciones { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.pe-cuerpo { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.pe-lista { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.pe-lista__tit { font-weight: 600; color: var(--c-ink-1); }
+.pe-lista__tit small { font-weight: 400; color: var(--c-ink-3); }
+.pe-fila {
+  display: flex; flex-direction: column; gap: 4px; padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--c-line-1); border-radius: var(--radius-md); background: var(--c-surface-0);
+}
+/* Compuesto: `.inv-campo` trae min-width 150px y alto 38px con la misma
+   especificidad, y ganaría según el orden de los CSS en el bundle. */
+.inv-campo.pe-fila__titulo { width: 100%; min-width: 0; height: 32px; }
+.pe-fila__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--c-ink-3); }
+.pe-fila__rango { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--c-ink-2); }
+.pe-fila__rango input {
+  width: 70px; height: 30px; padding: 0 6px; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--c-line-2); border-radius: var(--radius-sm); background: var(--c-surface-0); color: var(--c-ink-1);
+}
+.pe-fila__rango input:focus { outline: none; border-color: var(--c-brand-500); box-shadow: var(--shadow-focus); }
+.pe-fila__botones { margin-left: auto; display: flex; gap: 2px; }
+.pe-fila__botones .adf-icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+.pe-copiar { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+.pe-copiar .inv-campo { flex: 1; min-width: 0; }
+.pe-visor {
+  display: flex; flex-direction: column; overflow: hidden; height: calc(100vh - 220px); min-height: 520px;
+  border: 1px solid var(--c-line-1); border-radius: var(--radius-md); background: var(--c-surface-0);
+}
+.pe-visor__elegir { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--c-line-1); }
+.pe-visor__elegir .inv-campo { flex: 1; min-width: 200px; }
+.pe-visor .vm { flex: 1; min-height: 0; }
+@media (max-width: 1024px) {
+  .pe-cuerpo { grid-template-columns: minmax(0, 1fr); }
+  .pe-visor { height: 80vh; }
+}
+@media (max-width: 640px) {
+  .pe-visor__elegir .inv-campo { min-width: 0; flex-basis: 100%; }
+}
