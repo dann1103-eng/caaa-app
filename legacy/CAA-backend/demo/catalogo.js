@@ -36,6 +36,13 @@ const CATALOGO = [
   "medico_autorizado",
   "taller_formulario",
   "taller_sticker_plantilla",
+  // Manuales del taller (spec 2026-09-20 §12): documentos del fabricante y
+  // paquetes sin nada de CAAA. Los archivos se comparten con producción: la app
+  // nunca borra ni pisa un objeto del bucket, así que el demo no puede tocarlos.
+  "taller_manual",
+  "taller_manual_aeronave",
+  "taller_paquete_manual",
+  "taller_paquete_extracto",
 ];
 
 async function copiarCatalogo({ log = () => {} } = {}) {

@@ -122,6 +122,13 @@ conviene no hacerlo cinco minutos antes de una reunión.
 > re-ejecutarlas no las llevaría a `demo`. Regenerar es más simple y hace que la
 > deriva sea imposible por construcción.
 
+> **Manuales del taller.** La biblioteca y los paquetes son catálogo: se copian
+> de `public` y **sobreviven a "Reiniciar demo"**. Si en una demostración alguien
+> sube, edita o archiva un manual, eso queda; la biblioteca del demo solo vuelve
+> a la de producción corriendo otra vez el segundo comando de arriba. Los
+> archivos PDF son los mismos del bucket `manuales-taller`: la app nunca borra ni
+> pisa uno, así que el demo no puede dañar los de CAAA.
+
 ---
 
 ## 4. Los candados del reinicio
