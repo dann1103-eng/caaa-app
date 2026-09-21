@@ -14,6 +14,7 @@ const prestamo = require("../controllers/taller/prestamoController");
 const estimado = require("../controllers/taller/estimadoController");
 const sticker = require("../controllers/taller/stickerController");
 const manual = require("../controllers/taller/manualController");
+const paqueteManual = require("../controllers/taller/paqueteManualController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -199,5 +200,9 @@ router.get("/manuales/:id/url", roleMiddleware(READ), manual.url);
 router.post("/manuales/:id/revision", roleMiddleware(JEFE), manual.subirRevision);
 router.patch("/manuales/:id", roleMiddleware(JEFE), manual.editar);
 router.delete("/manuales/:id", roleMiddleware(JEFE), manual.eliminar);
+
+router.get("/paquetes-manuales", roleMiddleware(READ), paqueteManual.tabla);
+router.get("/paquetes-manuales/:id_aeronave/:tipo", roleMiddleware(READ), paqueteManual.detalle);
+router.put("/paquetes-manuales/:id_aeronave/:tipo", roleMiddleware(JEFE), paqueteManual.guardar);
 
 module.exports = router;
