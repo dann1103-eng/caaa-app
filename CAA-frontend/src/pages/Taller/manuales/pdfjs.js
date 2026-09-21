@@ -25,6 +25,20 @@ export function cargarPdfjs() {
   return cargando;
 }
 
+const REINTENTO_MS = 800;
+
+// Un error de red (fetch rechaza sin status) o un 5xx vale un segundo intento;
+// un 4xx no se arregla solo, y lo abortado es porque se cerró el visor.
+const esReintentable = (e) => e?.name !== "AbortError" && (e?.status === undefined || e.status >= 500);
+
+const esperar = (ms, signal) => new Promise((resolve, reject) => {
+  const t = setTimeout(resolve, ms);
+  signal.addEventListener("abort", () => {
+    clearTimeout(t);
+    reject(new DOMException("Visor cerrado", "AbortError"));
+  }, { once: true });
+});
+
 /**
  * Abre un manual pidiendo SOLO los bytes que hacen falta.
  *
@@ -35,36 +49,86 @@ export function cargarPdfjs() {
  * que ya está en la base. (Medido el 2026-09-21.)
  *
  * `obtenerUrl` se vuelve a llamar una vez si la URL firmada venció (dura 1 h).
- * Devuelve la tarea de pdf.js: `.promise` da el documento, `.destroy()` lo cierra.
+ * Un corte de red o un 5xx se reintenta una vez antes de avisar por `onError`.
+ * Devuelve la tarea de pdf.js: `.promise` da el documento, `.destroy()` lo
+ * cierra y corta las descargas que estén en curso.
  */
 export async function abrirPorRangos({ obtenerUrl, largo, onError }) {
   const pdfjs = await cargarPdfjs();
   let url = await obtenerUrl();
+  const control = new AbortController();
   const transporte = new pdfjs.PDFDataRangeTransport(largo, null);
 
-  const pedir = async (desde, hasta, reintento = false) => {
-    const r = await fetch(url, { headers: { Range: `bytes=${desde}-${hasta - 1}` } });
-    if ((r.status === 400 || r.status === 403) && !reintento) {
-      url = await obtenerUrl();
-      return pedir(desde, hasta, true);
+  // Si el almacenamiento ignora el Range y contesta 200 con el archivo entero,
+  // se guarda esa respuesta y los pedazos siguientes salen de ahí: volver a
+  // pedir cada pedazo bajaría el archivo completo una vez por pedazo.
+  let completo = null; // Promise<Uint8Array>
+
+  const desdeCompleto = async (desde, hasta) => {
+    const p = completo;
+    try {
+      return (await p).subarray(desde, hasta);
+    } catch (e) {
+      if (completo === p) completo = null; // falló a medias: el próximo lo vuelve a bajar
+      throw e;
     }
-    if (r.status !== 206 && r.status !== 200) throw new Error(`HTTP ${r.status}`);
-    const datos = new Uint8Array(await r.arrayBuffer());
-    // Si el servidor ignoró el rango (200), se recorta: pdf.js espera [desde, hasta).
-    return r.status === 200 ? datos.subarray(desde, hasta) : datos;
+  };
+
+  const pedirUnaVez = async (desde, hasta, renovada = false) => {
+    if (completo) return desdeCompleto(desde, hasta);
+    const r = await fetch(url, {
+      headers: { Range: `bytes=${desde}-${hasta - 1}` },
+      signal: control.signal,
+    });
+    if ((r.status === 400 || r.status === 403) && !renovada) {
+      url = await obtenerUrl();
+      return pedirUnaVez(desde, hasta, true);
+    }
+    if (r.status === 200) {
+      if (completo) r.body?.cancel().catch(() => {}); // otro pedazo ya lo está bajando
+      else completo = r.arrayBuffer().then((b) => new Uint8Array(b));
+      return desdeCompleto(desde, hasta);
+    }
+    if (r.status !== 206) {
+      const e = new Error(`HTTP ${r.status}`);
+      e.status = r.status;
+      throw e;
+    }
+    return new Uint8Array(await r.arrayBuffer());
+  };
+
+  const pedir = async (desde, hasta) => {
+    try {
+      return await pedirUnaVez(desde, hasta);
+    } catch (e) {
+      if (control.signal.aborted || !esReintentable(e)) throw e;
+      await esperar(REINTENTO_MS, control.signal);
+      return pedirUnaVez(desde, hasta);
+    }
   };
 
   transporte.requestDataRange = (desde, hasta) => {
+    if (control.signal.aborted) return;
     pedir(desde, hasta)
-      .then((datos) => transporte.onDataRange(desde, datos))
-      .catch((e) => onError?.(e));
+      .then((datos) => { if (!control.signal.aborted) transporte.onDataRange(desde, datos); })
+      .catch((e) => { if (!control.signal.aborted) onError?.(e); });
   };
+  // pdf.js llama a abort() al destruir el documento.
+  transporte.abort = () => control.abort();
 
-  return pdfjs.getDocument({
+  const tarea = pdfjs.getDocument({
     range: transporte,
     length: largo,
     rangeChunkSize: 262144,
     disableAutoFetch: true,
     disableStream: true,
   });
+  // pdf.js solo llama a transporte.abort() cuando el worker terminó de cerrar
+  // (y nunca si se destruye antes de que arranque): se corta ya, al destruir.
+  const destruir = tarea.destroy.bind(tarea);
+  tarea.destroy = () => {
+    control.abort();
+    return destruir();
+  };
+  return tarea;
 }

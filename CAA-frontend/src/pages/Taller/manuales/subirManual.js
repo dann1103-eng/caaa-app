@@ -16,8 +16,10 @@ export function subirAStorage(signedUrl, archivo, onProgreso) {
     x.onload = () => {
       if (x.status >= 200 && x.status < 300) return resolve();
       const texto = x.responseText || "";
-      if (x.status === 413 || /maximum allowed size|too large|exceeded/i.test(texto)) {
-        const mb = Math.round(archivo.size / 1048576);
+      // Solo el tope POR ARCHIVO. Un "exceeded" suelto también sale de otros
+      // límites (cuota, peticiones) y el consejo de partir el tomo no aplicaría.
+      if (x.status === 413 || /maximum allowed size|payload too large/i.test(texto)) {
+        const mb = (archivo.size / 1048576).toFixed(1);
         return reject(new Error(
           `El archivo pesa ${mb} MB y pasa el tope por archivo del almacenamiento (50 MB en el plan gratuito de Supabase). Partilo en dos tomos y subí cada uno.`
         ));

@@ -69,14 +69,27 @@
 .vm-rango .vm-rango__titulo { flex: 1; min-width: 200px; height: 36px; }
 .man-tenue { color: var(--c-ink-3); }
 @media (max-width: 900px) {
-  .adf-modal-card.vm-modal { width: 100vw; height: 100dvh; border-radius: 0; }
+  /* En el celular el visor es la pantalla entera. El padding del fondo le
+     ganaba al 100vw y dejaba un marco; por eso la clase propia del fondo. */
+  .adf-modal-backdrop.vm-fondo { padding: 0; }
+  .adf-modal-card.vm-modal { width: 100vw; height: 100vh; height: 100dvh; border: 0; border-radius: 0; }
+  .vm-modal .adf-edit-head { padding: var(--sp-2) var(--sp-3); }
   .vm-indice {
     position: absolute; top: 0; bottom: 0; left: 0; z-index: 2; width: min(300px, 85vw);
     box-shadow: 2px 0 8px oklch(20% 0.02 262 / 0.2);
   }
-  .vm-buscar { margin-left: 0; width: 100%; }
-  .vm-buscar .inv-campo { flex: 1; min-width: 0; }
-  .vm-rango .vm-rango__titulo { min-width: 0; flex-basis: 100%; }
+  /* Barra compacta, dos filas a 375 px: índice + páginas + zoom en la primera,
+     la búsqueda en la segunda. Lo que se ahorra es hoja. */
+  .vm-barra { gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); }
+  .vm-nav, .vm-zoom { gap: 2px; }
+  .vm-zoom__pct { display: none; }
+  .vm-pag { width: 52px; height: 30px; }
+  .vm-buscar { margin-left: 0; width: 100%; gap: var(--sp-1); }
+  .vm-buscar .inv-campo { flex: 1; min-width: 0; height: 30px; }
+  .vm-hoja { padding: var(--sp-2); }
+  .vm-rango { gap: var(--sp-2); padding: var(--sp-2); }
+  .vm-rango .vm-rango__titulo { min-width: 0; flex-basis: 100%; height: 34px; }
+  .vm-rango .vm-rango__accion { flex: 1 1 auto; justify-content: center; }
 }
 
 /* ── Biblioteca ─────────────────────────────────────────────────────────── */

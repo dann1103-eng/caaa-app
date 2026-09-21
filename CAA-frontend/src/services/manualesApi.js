@@ -37,15 +37,22 @@ export const pdfDeOrden = async (idOrden) => (await axios.post(`${T()}/ordenes/$
  * La pestaña se abre YA, dentro del clic, y recién después se le pone la
  * dirección: si se abre después del `await`, Safari y Chrome en el celular la
  * bloquean como popup. La URL es firmada: se abre sin token.
+ *
+ * Si el navegador bloqueó la ventana NO se navega la app hacia el PDF (se
+ * perdería lo que el usuario tenía abierto): se lanza un error para el toast,
+ * y ni se pide el PDF.
  */
 export async function abrirPdfCuandoEste(obtener) {
   const pestana = window.open("", "_blank");
+  if (!pestana) {
+    throw new Error("El navegador bloqueó la ventana del PDF. Permití las ventanas emergentes para este sitio y volvé a intentar.");
+  }
   try {
     const { url } = await obtener();
-    if (pestana) pestana.location.href = url;
-    else window.location.assign(url);
+    pestana.opener = null; // la pestaña del PDF no puede tocar la app
+    pestana.location.href = url;
   } catch (e) {
-    pestana?.close();
+    pestana.close();
     throw e;
   }
 }

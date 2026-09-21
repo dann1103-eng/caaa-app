@@ -7,7 +7,7 @@ import VisorManual from "./VisorManual";
  */
 export default function VisorManualModal({ manual, paginaInicial, accion, onClose }) {
   return (
-    <div className="adf-modal-backdrop" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+    <div className="adf-modal-backdrop vm-fondo" onClick={(e) => { e.stopPropagation(); onClose(); }}>
       <div className="adf-card adf-modal-card vm-modal" onClick={(e) => e.stopPropagation()}>
         <div className="adf-edit-head">
           <span className="adf-edit-head__title vm-modal__titulo" title={manual.titulo}>

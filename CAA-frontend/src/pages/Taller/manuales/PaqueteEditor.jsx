@@ -29,10 +29,13 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
   const [sucio, setSucio] = useState(false);
   const [manuales, setManuales] = useState([]);
   const [verTodos, setVerTodos] = useState(false);
-  const [visor, setVisor] = useState(null); // { manual, pagina }
+  const [visor, setVisor] = useState(null); // { manual, pagina, marca? }
   const [guardando, setGuardando] = useState(false);
   const [copiarDe, setCopiarDe] = useState("");
   const secuencia = useRef(0); // clave de React de los rangos todavía sin guardar
+  // Una marca nueva por cada "Ver": el visor salta aunque ya estuviera abierto
+  // en ese manual y esa página de arranque (el usuario pudo haber hojeado).
+  const vistas = useRef(0);
 
   useEffect(() => {
     getPaquete(aeronave.id_aeronave, tipo)
@@ -78,9 +81,9 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
   const ver = (f) => {
     const enLista = manuales.find((m) => m.id_manual === f.id_manual);
     if (enLista) {
-      setVisor({ manual: enLista, pagina: f.pagina_desde });
+      setVisor({ manual: enLista, pagina: f.pagina_desde, marca: ++vistas.current });
     } else {
-      getManual(f.id_manual).then((m) => setVisor({ manual: m, pagina: f.pagina_desde }))
+      getManual(f.id_manual).then((m) => setVisor({ manual: m, pagina: f.pagina_desde, marca: ++vistas.current }))
         .catch((e) => toast.error(mensajeError(e, "No se pudo abrir el manual")));
     }
   };
@@ -230,6 +233,7 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver }) {
           </div>
           {visor ? (
             <VisorManual key={visor.manual.id_manual} manual={visor.manual} paginaInicial={visor.pagina}
+              irAPagina={{ pagina: visor.pagina, marca: visor.marca }}
               accion={{ etiqueta: "Agregar al paquete", icono: "bi-plus-lg", pideTitulo: true, ejecutar: agregar }} />
           ) : <p className="man-vacio">Elegí un manual.</p>}
         </section>
