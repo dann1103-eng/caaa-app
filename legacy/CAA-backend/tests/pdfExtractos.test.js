@@ -115,6 +115,72 @@ test("armarPdf pide cada manual una sola vez, de a uno, en el orden en que apare
   assert.deepEqual(pedidos, ["a", "b"]);
   assert.equal(maximo, 1);
 });
+/**
+ * Espía de PDFDocument.load: anota cada carga en `eventos` y guarda una WeakRef
+ * al documento cargado (sin retenerlo). Devuelve la función que lo desarma.
+ */
+function espiarCargas(eventos, cargados) {
+  const original = PDFDocument.load;
+  PDFDocument.load = async function (...args) {
+    const doc = await original.apply(this, args);
+    eventos.push("cargado");
+    cargados.push(new WeakRef(doc));
+    return doc;
+  };
+  return () => { PDFDocument.load = original; };
+}
+
+test("armarPdf termina de cargar cada manual antes de pedir el siguiente", async () => {
+  const fuentes = new Map([
+    ["a", await manualDePrueba(5, 200)], ["b", await manualDePrueba(5, 400)], ["c", await manualDePrueba(5, 600)],
+  ]);
+  const eventos = [];
+  const desarmar = espiarCargas(eventos, []);
+  try {
+    await armarPdf([
+      { sha256: "a", pagina_desde: 1, pagina_hasta: 1 },
+      { sha256: "b", pagina_desde: 1, pagina_hasta: 1 },
+      { sha256: "c", pagina_desde: 1, pagina_hasta: 1 },
+      { sha256: "a", pagina_desde: 2, pagina_hasta: 2 },
+    ], async (sha) => { eventos.push(`pide ${sha}`); return fuentes.get(sha); });
+  } finally {
+    desarmar();
+  }
+  assert.deepEqual(eventos, ["pide a", "cargado", "pide b", "cargado", "pide c", "cargado"]);
+});
+
+test("armarPdf suelta el manual anterior antes de bajar el siguiente", async () => {
+  // gc() a mano: se habilita en caliente y se toma de un contexto nuevo.
+  require("v8").setFlagsFromString("--expose-gc");
+  const gc = require("vm").runInNewContext("gc");
+
+  const fuentes = new Map([
+    ["a", await manualDePrueba(5, 200)], ["b", await manualDePrueba(5, 400)], ["c", await manualDePrueba(5, 600)],
+  ]);
+  const cargados = [];
+  const desarmar = espiarCargas([], cargados);
+  const vivoElAnterior = [];
+  try {
+    await armarPdf([
+      { sha256: "a", pagina_desde: 1, pagina_hasta: 2 },
+      { sha256: "b", pagina_desde: 3, pagina_hasta: 3 },
+      { sha256: "c", pagina_desde: 4, pagina_hasta: 4 },
+    ], async (sha) => {
+      if (cargados.length) {
+        // Otra vuelta del event loop: la WeakRef ya no está protegida por el
+        // trabajo en que se creó, y el gc puede soltar lo que nadie retiene.
+        await new Promise((r) => setImmediate(r));
+        gc();
+        vivoElAnterior.push(cargados[cargados.length - 1].deref() !== undefined);
+      }
+      return fuentes.get(sha);
+    });
+  } finally {
+    desarmar();
+  }
+  assert.deepEqual(vivoElAnterior, [false, false], "el manual anterior seguía en memoria mientras se bajaba el siguiente");
+});
+
 test("armarPdf no arrastra la página a la que apunta un link", async () => {
   const fuentes = new Map([["m", await manualDePrueba(10)]]);
   const out = await armarPdf([{ sha256: "m", pagina_desde: 1, pagina_hasta: 1 }], desde(fuentes));
@@ -135,6 +201,14 @@ test("analizarPdf da la huella y las páginas", async () => {
 test("analizarPdf rechaza lo que no es un PDF", async () => {
   const r = await analizarPdf(Buffer.from("esto no es un pdf"));
   assert.match(r.error, /no es un PDF/);
+});
+test("analizarPdf rechaza un PDF con el árbol de páginas roto (abre, pero no se pueden contar)", async () => {
+  const roto = await PDFDocument.create();
+  roto.addPage([200, 300]);
+  roto.catalog.delete(PDFName.of("Pages"));
+  const bytes = await roto.save({ addDefaultPage: false });
+  const r = await analizarPdf(Buffer.from(bytes));
+  assert.equal(r.error, "El archivo no es un PDF que se pueda leer.");
 });
 test("analizarPdf rechaza un PDF sin páginas", async () => {
   // addDefaultPage:false: sin eso pdf-lib le agrega una página en blanco al guardar.

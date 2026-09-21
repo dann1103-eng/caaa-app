@@ -2,6 +2,10 @@
 /**
  * Errores de Storage que tienen que salir legibles y con su status, contra un
  * Storage de mentira local (tests/storageFalso.js) y el cliente de verdad.
+ *
+ * El status de Storage va en `storageStatus`, NUNCA en `statusCode`: el
+ * middleware de errores usa `statusCode` como status de la respuesta, y un 403
+ * o un 404 de Storage no es la respuesta correcta de la API (es un 500 nuestro).
  */
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -22,6 +26,13 @@ test.beforeEach(() => {
   falso.objetos.clear();
 });
 
+/** El error trae el status de Storage donde va, no donde lo leería el middleware, y su causa. */
+function statusDeStorage(e, esperado) {
+  assert.equal(e.storageStatus, esperado);
+  assert.equal(e.statusCode, undefined, "statusCode lo usaría el middleware como status de la API");
+  assert.ok(e.cause, "falta la causa original");
+}
+
 test("existeArchivo: true si está, false si Storage dice que no existe", async () => {
   falso.objetos.set("b/a.pdf", Buffer.from("x"));
   assert.equal(await storage.existeArchivo("b", "a.pdf"), true);
@@ -32,7 +43,7 @@ test("existeArchivo no se traga un 403: tira con el status", async () => {
   falso.fallas.push({ metodo: "HEAD", prefijo: "b/", status: 403 });
   await assert.rejects(storage.existeArchivo("b", "a.pdf"), (e) => {
     assert.match(e.message, /Storage respondió 403 al consultar el archivo/);
-    assert.equal(e.statusCode, 403);
+    statusDeStorage(e, 403);
     return true;
   });
 });
@@ -46,7 +57,7 @@ test("existeArchivo con la conexión cortada: error de red, no 'no existe'", asy
   falso.fallas.push({ metodo: "HEAD", prefijo: "b/", status: "cortar" });
   await assert.rejects(storage.existeArchivo("b", "a.pdf"), (e) => {
     assert.match(e.message, /Storage respondió con un error de red al consultar el archivo/);
-    assert.equal(e.statusCode, null);
+    statusDeStorage(e, null);
     return true;
   });
 });
@@ -61,20 +72,25 @@ test("descargarArchivo devuelve los bytes", async () => {
 test("descargarArchivo con error: mensaje legible con el status (antes decía '{}')", async () => {
   await assert.rejects(storage.descargarArchivo("b", "no-esta.pdf"), (e) => {
     assert.match(e.message, /Storage respondió 404 al bajar el archivo/);
-    assert.equal(e.statusCode, 404);
+    statusDeStorage(e, 404);
     return true;
   });
 });
 
-test("subirArchivo sin upsert sobre algo que existe: statusCode 409 y la causa", async () => {
+test("descargarArchivo cortado en plena transferencia: error legible, no 'TypeError: terminated'", async () => {
+  falso.fallas.push({ metodo: "GET", prefijo: "b/", status: "cortar-a-medias" });
+  await assert.rejects(storage.descargarArchivo("b", "grande.pdf"), (e) => {
+    assert.equal(e.message, "No se pudo bajar el archivo de Storage (conexión cortada)");
+    statusDeStorage(e, null);
+    return true;
+  });
+});
+
+test("subirArchivo sin upsert sobre algo que existe: 409 y la causa", async () => {
   falso.objetos.set("b/a.pdf", Buffer.from("viejo"));
   await assert.rejects(
     storage.subirArchivo("b", "a.pdf", Buffer.from("nuevo"), "application/pdf", { upsert: false }),
-    (e) => {
-      assert.equal(e.statusCode, 409);
-      assert.ok(e.cause, "falta la causa original");
-      return true;
-    }
+    (e) => { statusDeStorage(e, 409); return true; }
   );
   assert.equal(falso.objetos.get("b/a.pdf").toString(), "viejo");
 });
@@ -86,6 +102,6 @@ test("subirArchivo: si el cuerpo trae un código no numérico, manda el status H
   });
   await assert.rejects(
     storage.subirArchivo("b", "grande.pdf", Buffer.from("x"), "application/pdf", { upsert: false }),
-    (e) => { assert.equal(e.statusCode, 413); return true; }
+    (e) => { statusDeStorage(e, 413); return true; }
   );
 });

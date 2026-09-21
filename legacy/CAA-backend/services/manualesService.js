@@ -134,6 +134,13 @@ async function congelarPaqueteEnOrden(client, idOrden) {
 }
 
 /**
+ * Tope de un objeto en Storage (el global del plan de Supabase; el bucket no
+ * tiene uno propio). Un PDF armado más grande no se puede guardar.
+ */
+const TOPE_STORAGE_BYTES = 50 * 1024 * 1024;
+const MSG_TOPE_STORAGE = "El PDF armado pasa el tope de 50 MB del almacenamiento. Imprimilo en dos partes.";
+
+/**
  * URL firmada (1 h) de un PDF con esas páginas. Si ya se armó antes con el mismo
  * contenido se reutiliza sin bajar nada.
  * @param extractos [{sha256, archivo_path, pagina_desde, pagina_hasta}] en orden
@@ -155,13 +162,15 @@ async function pdfDeExtractos(extractos) {
       // Cada manual se baja recién cuando armarPdf lo pide, de a uno: nunca hay
       // dos manuales enteros en memoria a la vez.
       const bytes = await armarPdf(extractos, (sha) => storage.descargarArchivo(BUCKET, caminoPorSha.get(sha)));
+      // Se mira antes de subir: mandar 50 MB para que Storage los rechace es
+      // tiempo y tráfico tirados.
+      if (bytes.length > TOPE_STORAGE_BYTES) throw new AppError(MSG_TOPE_STORAGE, 400);
       try {
         await storage.subirArchivo(BUCKET, ruta, Buffer.from(bytes), "application/pdf", { upsert: false });
       } catch (err) {
-        if (err.statusCode === 409) return; // ya existe: mismo hash, mismo contenido
-        if (err.statusCode === 413) {
-          throw new AppError("El PDF armado pasa el tope de 50 MB del almacenamiento. Imprimilo en dos partes.", 400);
-        }
+        if (err.storageStatus === 409) return; // ya existe: mismo hash, mismo contenido
+        // Red de seguridad por si el tope real de Storage es menor que el nuestro.
+        if (err.storageStatus === 413) throw new AppError(MSG_TOPE_STORAGE, 400);
         throw err;
       }
     });

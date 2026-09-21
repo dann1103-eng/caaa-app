@@ -6,7 +6,7 @@
  */
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { PDFDocument } = require("pdf-lib");
+const { PDFDocument, PDFName } = require("pdf-lib");
 const { levantarStorageFalso } = require("./storageFalso");
 const AppError = require("../utils/appError");
 
@@ -82,6 +82,26 @@ test("pdfDeExtractos: si Storage rechaza el PDF armado por tamaño (413) → 400
     assert.equal(e.message, "El PDF armado pasa el tope de 50 MB del almacenamiento. Imprimilo en dos partes.");
     return true;
   });
+});
+
+test("pdfDeExtractos: un PDF armado de más de 50 MB → 400, sin intentar subirlo", async () => {
+  // Una página que carga 51 MB sin comprimir (ceros: baratos de generar, y
+  // pdf-lib no comprime un stream crudo al guardar).
+  const doc = await PDFDocument.create();
+  const pagina = doc.addPage([200, 300]);
+  pagina.node.setXObject(PDFName.of("Pesado"), doc.context.register(doc.context.stream(Buffer.alloc(51 * 1024 * 1024))));
+  falso.objetos.set("manuales-taller/manuales/gordo.pdf", Buffer.from(await doc.save()));
+  try {
+    await assert.rejects(servicio.pdfDeExtractos([extracto("gordo", 1, 1)]), (e) => {
+      assert.ok(e instanceof AppError);
+      assert.equal(e.statusCode, 400);
+      assert.equal(e.message, "El PDF armado pasa el tope de 50 MB del almacenamiento. Imprimilo en dos partes.");
+      return true;
+    });
+    assert.deepEqual(falso.peticiones.filter((p) => p.startsWith("POST manuales-taller/extractos/")), []);
+  } finally {
+    falso.objetos.delete("manuales-taller/manuales/gordo.pdf");
+  }
 });
 
 test("sinInternos quita sha256 y archivo_path sin tocar el original", () => {

@@ -82,18 +82,62 @@ function claveExtractos(extractos) {
  */
 async function analizarPdf(bytes) {
   const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
-  let doc;
+  let paginas;
   try {
-    doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+    const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+    if (doc.isEncrypted) {
+      return { error: "El PDF está protegido o cifrado. Guardalo de nuevo sin protección y volvé a subirlo." };
+    }
+    // Contar va adentro del try: un árbol de páginas roto abre sin quejarse y
+    // revienta recién al contar.
+    paginas = doc.getPageCount();
   } catch {
     return { error: "El archivo no es un PDF que se pueda leer." };
   }
-  if (doc.isEncrypted) {
-    return { error: "El PDF está protegido o cifrado. Guardalo de nuevo sin protección y volvé a subirlo." };
-  }
-  const paginas = doc.getPageCount();
   if (paginas === 0) return { error: "El PDF no tiene páginas legibles." };
   return { sha256, paginas };
+}
+
+/**
+ * Baja UN manual, lo abre y copia a `salida` todas las páginas que le piden sus
+ * extractos (los de `posiciones`). Devuelve las copias, una lista por posición
+ * (alineada con `posiciones`); ya pertenecen a `salida`, no al manual.
+ *
+ * 🚨 Es una función aparte A PROPÓSITO, no el cuerpo del bucle de armarPdf. En
+ * una función async, V8 guarda las variables locales que cruzan un `await` en el
+ * marco de la función, y no las limpia al pasar a la vuelta siguiente del bucle:
+ * con `bytes` y `src` en el bucle, el manual anterior seguía vivo mientras se
+ * bajaba y se abría el siguiente (medido con WeakRef + gc). Acá el marco muere
+ * al volver, y con él el manual.
+ */
+async function copiarDeUnManual(salida, extractos, sha256, posiciones, obtenerFuente) {
+  const bytes = await obtenerFuente(sha256);
+  if (!bytes) throw new Error(`Falta el archivo del manual ${String(sha256).slice(0, 12)}`);
+  const src = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+  if (src.isEncrypted) throw new Error("Un manual está cifrado: hay que volver a subirlo sin protección");
+
+  const indices = [];
+  for (const pos of posiciones) {
+    const e = extractos[pos];
+    for (let p = Number(e.pagina_desde); p <= Number(e.pagina_hasta); p++) indices.push(p - 1);
+  }
+  for (const i of new Set(indices)) {
+    const nodo = src.getPage(i).node;
+    for (const k of LLAVES_QUE_ARRASTRAN) nodo.delete(PDFName.of(k));
+  }
+
+  // Una sola copia por manual: los recursos compartidos (fuentes, imágenes)
+  // entran una vez aunque el manual aparezca en varios extractos.
+  const copias = await salida.copyPages(src, indices);
+  const porPosicion = [];
+  let desde = 0;
+  for (const pos of posiciones) {
+    const e = extractos[pos];
+    const n = Number(e.pagina_hasta) - Number(e.pagina_desde) + 1;
+    porPosicion.push(copias.slice(desde, desde + n));
+    desde += n;
+  }
+  return porPosicion;
 }
 
 /**
@@ -102,9 +146,12 @@ async function analizarPdf(bytes) {
  *
  * Por eso no recorre los extractos en orden: los agrupa por manual (en el orden
  * en que cada uno aparece por primera vez), copia de cada manual todas las
- * páginas que se le piden, guarda las copias en el lugar de su extracto, y
- * suelta el manual antes de pedir el siguiente. Al final pega las páginas en el
- * orden original, así un pedido A, B, A sale A, B, A.
+ * páginas que se le piden (copiarDeUnManual), guarda las copias en el lugar de
+ * su extracto, y recién entonces pide el siguiente. Al final pega las páginas en
+ * el orden original, así un pedido A, B, A sale A, B, A.
+ *
+ * Este marco nunca tiene en la mano los bytes ni el documento de un manual: solo
+ * las copias, que son de `salida`.
  *
  * @param {Array<{sha256:string, pagina_desde:number, pagina_hasta:number}>} extractos en el orden a imprimir
  * @param {(sha256:string) => Promise<Uint8Array|Buffer|undefined>} obtenerFuente bytes de un manual;
@@ -126,34 +173,8 @@ async function armarPdf(extractos, obtenerFuente) {
   const lugares = new Array(extractos.length); // páginas ya copiadas, por extracto
 
   for (const [sha256, posiciones] of porManual) {
-    // `bytes` y `src` viven solo en esta vuelta: al pasar a la siguiente quedan
-    // sin referencias y el recolector puede soltar este manual antes de que se
-    // cargue el próximo. Las copias ya pertenecen a `salida`, no a `src`.
-    const bytes = await obtenerFuente(sha256);
-    if (!bytes) throw new Error(`Falta el archivo del manual ${String(sha256).slice(0, 12)}`);
-    const src = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
-    if (src.isEncrypted) throw new Error("Un manual está cifrado: hay que volver a subirlo sin protección");
-
-    const indices = [];
-    for (const pos of posiciones) {
-      const e = extractos[pos];
-      for (let p = Number(e.pagina_desde); p <= Number(e.pagina_hasta); p++) indices.push(p - 1);
-    }
-    for (const i of new Set(indices)) {
-      const nodo = src.getPage(i).node;
-      for (const k of LLAVES_QUE_ARRASTRAN) nodo.delete(PDFName.of(k));
-    }
-
-    // Una sola copia por manual: los recursos compartidos (fuentes, imágenes)
-    // entran una vez aunque el manual aparezca en varios extractos.
-    const copias = await salida.copyPages(src, indices);
-    let desde = 0;
-    for (const pos of posiciones) {
-      const e = extractos[pos];
-      const n = Number(e.pagina_hasta) - Number(e.pagina_desde) + 1;
-      lugares[pos] = copias.slice(desde, desde + n);
-      desde += n;
-    }
+    const copias = await copiarDeUnManual(salida, extractos, sha256, posiciones, obtenerFuente);
+    posiciones.forEach((pos, i) => { lugares[pos] = copias[i]; });
   }
 
   for (const copias of lugares) copias.forEach((pg) => salida.addPage(pg));

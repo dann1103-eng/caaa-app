@@ -37,24 +37,36 @@ function storageDisponible() {
 const statusDe = (error) => error?.originalError?.status || Number(error?.statusCode) || null;
 
 /**
+ * Error legible de Storage, con la causa original en `cause`.
+ *
+ * El status de Storage va en `storageStatus`, NO en `statusCode`: el middleware
+ * de errores usa `statusCode` como status de la respuesta, y un 403 o un 404 de
+ * Storage no es lo que la API tiene que contestar (para el cliente es un error
+ * nuestro: 500).
+ */
+function errorDeStorage(mensaje, storageStatus, cause) {
+  const e = new Error(mensaje, { cause });
+  e.storageStatus = storageStatus;
+  return e;
+}
+
+/**
  * Sube un buffer a un bucket. Devuelve la ruta del objeto (lo que se guarda en
  * la columna archivo_path).
  *
  * `upsert` sigue en true por defecto para no cambiarle nada a quien ya la usa.
  * Los manuales la llaman con `upsert: false`: la app NUNCA pisa un manual
- * (spec 2026-09-20 §5). Un "ya existe" sale con `statusCode = 409`.
+ * (spec 2026-09-20 §5). Un "ya existe" sale con `storageStatus = 409`.
  */
 async function subirArchivo(bucket, ruta, buffer, contentType, { upsert = true } = {}) {
   const { error } = await getClient()
     .storage.from(bucket)
     .upload(ruta, buffer, { contentType: contentType || "application/octet-stream", upsert });
   if (error) {
-    const e = new Error(`Error subiendo a storage: ${error.message}`);
     // statusCode es el código del cuerpo ("409", pero a veces texto como
     // "EntityTooLarge"); status es el HTTP. Manda el primero que sea número.
-    e.statusCode = Number(error.statusCode) || Number(error.status) || null;
-    e.cause = error;
-    throw e;
+    const status = Number(error.statusCode) || Number(error.status) || null;
+    throw errorDeStorage(`Error subiendo a storage: ${error.message}`, status, error);
   }
   return ruta;
 }
@@ -82,15 +94,25 @@ async function borrarArchivo(bucket, ruta) {
 
 /** Baja un objeto entero a memoria (Buffer). */
 async function descargarArchivo(bucket, ruta) {
-  const { data, error } = await getClient().storage.from(bucket).download(ruta);
-  if (error) {
-    const status = statusDe(error);
-    const e = new Error(`Storage respondió ${status || "con un error"} al bajar el archivo`);
-    e.statusCode = status;
-    e.cause = error;
-    throw e;
+  // Fuera del try: "Storage no configurado" tiene que salir tal cual.
+  const archivos = getClient().storage.from(bucket);
+  let causa;
+  try {
+    // La transferencia entera va adentro del try: storage-js lee el cuerpo
+    // dentro de download(), y un corte a mitad de camino ("TypeError:
+    // terminated") no vuelve como `error`: se tira.
+    const { data, error } = await archivos.download(ruta);
+    if (!error) return Buffer.from(await data.arrayBuffer());
+    causa = error;
+  } catch (err) {
+    causa = err;
   }
-  return Buffer.from(await data.arrayBuffer());
+  const status = statusDe(causa);
+  throw errorDeStorage(
+    status ? `Storage respondió ${status} al bajar el archivo` : "No se pudo bajar el archivo de Storage (conexión cortada)",
+    status,
+    causa
+  );
 }
 
 /**
@@ -107,10 +129,7 @@ async function existeArchivo(bucket, ruta) {
     r = await archivos.exists(ruta);
   } catch (error) {
     const status = statusDe(error);
-    const e = new Error(`Storage respondió ${status || "con un error de red"} al consultar el archivo`);
-    e.statusCode = status;
-    e.cause = error;
-    throw e;
+    throw errorDeStorage(`Storage respondió ${status || "con un error de red"} al consultar el archivo`, status, error);
   }
   return !r.error && !!r.data;
 }

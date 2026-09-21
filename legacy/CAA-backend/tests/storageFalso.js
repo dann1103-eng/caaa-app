@@ -9,7 +9,9 @@
  *
  * `fallas` fuerza respuestas, la primera que calce gana:
  *   { metodo: "HEAD" | "GET" | "POST" | "POST sign", prefijo, status, body? }
- *   status "cortar" corta la conexión (error de red).
+ *   status "cortar" corta la conexión antes de contestar (error de red);
+ *   status "cortar-a-medias" manda los encabezados de un 200 y un pedazo del
+ *   cuerpo, y corta en plena transferencia.
  */
 const http = require("http");
 
@@ -36,6 +38,11 @@ async function levantarStorageFalso() {
       const falla = fallas.find((f) => f.metodo === metodo && clave.startsWith(f.prefijo));
       if (falla) {
         if (falla.status === "cortar") return req.socket.destroy();
+        if (falla.status === "cortar-a-medias") {
+          res.writeHead(200, { "content-type": "application/pdf", "content-length": "100000" });
+          res.write(Buffer.alloc(1000));
+          return setTimeout(() => req.socket.destroy(), 20);
+        }
         return json(falla.status, falla.body || {
           statusCode: String(falla.status), error: "falla", message: "falla forzada",
         });
