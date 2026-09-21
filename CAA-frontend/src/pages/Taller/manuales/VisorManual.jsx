@@ -276,6 +276,9 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
         return;
       }
       setSeleccion((t) => sumarAlTexto(t, r.desde, r.hasta, n));
+      // Se lleva el visor al inicio de la sección: se ve qué se agregó y la
+      // marca «en la selección» lo confirma sobre la hoja.
+      ir(r.desde);
       const nombre = String(item.title || "").trim().slice(0, 200);
       if (nombre) setTitulo((t) => (t.trim() ? t : nombre));
       toast.success(`Sección agregada a la selección: ${etiquetaPaginas(r)}`);

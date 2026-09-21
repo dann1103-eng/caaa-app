@@ -95,7 +95,7 @@ test("claveExtractos lleva la versión de la receta adentro", () => {
   const a = { sha256: "a".repeat(64), pagina_desde: 1, pagina_hasta: 2 };
   const b = { sha256: "b".repeat(64), pagina_desde: "5", pagina_hasta: "5" };
   const esperada = crypto.createHash("sha256")
-    .update(JSON.stringify(["v1", [["a".repeat(64), 1, 2], ["b".repeat(64), 5, 5]]]))
+    .update(JSON.stringify(["v2", [["a".repeat(64), 1, 2], ["b".repeat(64), 5, 5]]]))
     .digest("hex");
   assert.equal(claveExtractos([a, b]), esperada);
 });
@@ -109,6 +109,14 @@ test("armarPdf saca exactamente las páginas pedidas, en el orden pedido", async
     { sha256: "m", pagina_desde: 1, pagina_hasta: 1 },
   ], desde(fuentes));
   assert.deepEqual(await anchos(out), [203, 204, 201]);
+});
+test("armarPdf le pone un título neutro, que el visor muestra en la pestaña", async () => {
+  // Sin título la pestaña mostraba el nombre del archivo guardado: un hash.
+  // Neutro, sin marca: el mismo PDF guardado lo reciben CAAA y el demo.
+  const fuentes = new Map([["m", await manualDePrueba(3)]]);
+  const out = await PDFDocument.load(await armarPdf([{ sha256: "m", pagina_desde: 1, pagina_hasta: 1 }], desde(fuentes)));
+  assert.equal(out.getTitle(), "Páginas de manual");
+  assert.equal(out.catalog.lookup(PDFName.of("ViewerPreferences"))?.lookup(PDFName.of("DisplayDocTitle"))?.asBoolean(), true);
 });
 test("armarPdf junta páginas de dos manuales", async () => {
   const fuentes = new Map([["a", await manualDePrueba(5, 200)], ["b", await manualDePrueba(5, 400)]]);

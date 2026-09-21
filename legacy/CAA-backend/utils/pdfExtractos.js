@@ -18,7 +18,15 @@ const { PDFDocument, PDFName } = require("pdf-lib");
  * cómo se arma (las llaves que se quitan, la versión de pdf-lib, cómo se
  * guarda): si no, se seguirían sirviendo los PDFs viejos ya guardados.
  */
-const RECETA = "v1";
+const RECETA = "v2"; // v2: título neutro en el PDF (v1 no traía ninguno)
+
+/**
+ * Título del PDF armado, el que el navegador muestra en la pestaña (sin él,
+ * mostraba el nombre del archivo guardado: un hash). NEUTRO a propósito, sin
+ * marca: el mismo PDF guardado se le sirve a CAAA y a la cuenta demo, porque la
+ * clave sale solo de las páginas.
+ */
+const TITULO_PDF = "Páginas de manual";
 
 /**
  * 🚨 Llaves que se le quitan a cada página ANTES de copiarla.
@@ -203,6 +211,7 @@ async function armarPdf(extractos, obtenerFuente) {
   });
 
   const salida = await PDFDocument.create();
+  salida.setTitle(TITULO_PDF, { showInWindowTitleBar: true });
   const lugares = new Array(extractos.length); // páginas ya copiadas, por extracto
 
   for (const [sha256, posiciones] of porManual) {

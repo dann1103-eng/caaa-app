@@ -223,9 +223,10 @@
 .inv-campo.pe-fila__titulo { width: 100%; min-width: 0; height: 32px; }
 .pe-fila__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--c-ink-3); }
 .pe-fila__rango { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--c-ink-2); }
-.pe-fila__rango label { margin: 0; }
+.pe-fila__campo { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--c-ink-2); }
+.pe-fila__campo label { margin: 0; white-space: nowrap; }
 .pe-fila__paginas {
-  flex: 1 1 120px; min-width: 90px; height: 30px; padding: 0 var(--sp-2); font-variant-numeric: tabular-nums;
+  flex: 1 1 auto; min-width: 0; height: 30px; padding: 0 var(--sp-2); font-variant-numeric: tabular-nums;
   border: 1px solid var(--c-line-2); border-radius: var(--radius-sm); background: var(--c-surface-0); color: var(--c-ink-1);
 }
 .pe-fila__paginas:focus { outline: none; border-color: var(--c-brand-500); box-shadow: var(--shadow-focus); }

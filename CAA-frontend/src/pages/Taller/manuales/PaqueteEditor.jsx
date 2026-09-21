@@ -413,8 +413,10 @@ function SeccionPaquete({ s, n, esPrimera, esUltima, onTitulo, onPaginas, onVer,
     <div className="pe-fila">
       <input className="inv-campo pe-fila__titulo" value={s.titulo} maxLength={200} placeholder="Qué es"
         aria-label={`Título de la sección ${n}`} onChange={(e) => onTitulo(e.target.value)} />
-      <div className="pe-fila__rango">
-        <label htmlFor={`${id}-pag`}>págs.</label>
+      {/* Las páginas van en su propia línea, a lo ancho: una lista como
+          «43, 45, 47-50, 52» no cabe al lado de los botones y quedaba cortada. */}
+      <div className="pe-fila__campo">
+        <label htmlFor={`${id}-pag`}>Págs.</label>
         <input id={`${id}-pag`} className="pe-fila__paginas" value={texto} autoComplete="off" spellCheck={false}
           aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined}
           onChange={(e) => {
@@ -427,6 +429,8 @@ function SeccionPaquete({ s, n, esPrimera, esUltima, onTitulo, onPaginas, onVer,
             if (e.key === "Enter") { e.preventDefault(); aplicar(); }
             if (e.key === "Escape") { e.preventDefault(); volverAComoEstaba(); }
           }} />
+      </div>
+      <div className="pe-fila__rango">
         <span className="pe-fila__cuenta">{s.paginas} {s.paginas === 1 ? "pág." : "págs."}</span>
         <span className="pe-fila__botones">
           <button type="button" className="adf-icon-btn" title="Ver" aria-label={`Ver ${nombre}`}
