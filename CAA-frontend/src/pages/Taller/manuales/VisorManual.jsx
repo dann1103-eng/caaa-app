@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { abrirPorRangos } from "./pdfjs";
 import { getManualUrl, pdfDeManual, abrirPdfCuandoEste } from "../../../services/manualesApi";
 import { mensajeError } from "./formatoManual";
+import { parsearPaginas, sumarAlTexto, contiene, resolverRangoDeSeccion } from "./paginasSeleccion";
 import "../inventario/inventario.css";
 import "./manuales.css";
 
@@ -12,21 +13,53 @@ import "./manuales.css";
 // tamaño en pantalla.
 const MAX_PIXELES_LIENZO = 16_000_000;
 
+// Tramos por selección: el mismo tope que el backend pone a un "agregar" y a
+// un PDF de la biblioteca (50 rangos por pedido).
+const MAX_TRAMOS = 50;
+
 const BUSQUEDA_QUIETA = { activa: false, progreso: 0, sinResultado: false, encontrada: null };
+
+/** El índice de pdf.js (un árbol) aplanado en orden de documento, con su nivel (1 = capítulo). */
+function aplanarIndice(items, nivel = 1, salida = []) {
+  for (const item of items || []) {
+    salida.push({ item, nivel });
+    if (item.items?.length) aplanarIndice(item.items, nivel + 1, salida);
+  }
+  return salida;
+}
+
+/** Página (1-based) a la que apunta una entrada del índice, o null si no apunta a ninguna. */
+async function paginaDeEntrada(d, item) {
+  try {
+    const dest = typeof item.dest === "string" ? await d.getDestination(item.dest) : item.dest;
+    if (!Array.isArray(dest) || !dest.length) return null;
+    const idx = typeof dest[0] === "number" ? dest[0] : await d.getPageIndex(dest[0]);
+    return Number.isInteger(idx) ? idx + 1 : null;
+  } catch {
+    return null;
+  }
+}
+
+const etiquetaPaginas = ({ desde, hasta }) => (desde === hasta ? `pág. ${desde}` : `págs. ${desde}–${hasta}`);
 
 /**
  * Visor de manuales. Uno solo para la biblioteca, el configurador de paquetes y
- * la orden de trabajo: solo cambia lo que hace el botón de abajo (spec §9.2).
+ * la orden de trabajo: solo cambia lo que hace el botón de la barra de
+ * selección (spec §9.2 y §9.6).
  *
  * Se trabaja SIEMPRE con la página del PDF (la del contador), no con la
- * numeración impresa del manual (2-15, fichas 1A11): el título del rango dice qué es.
+ * numeración impresa del manual (2-15, fichas 1A11): el título dice qué es.
+ *
+ * La selección es UN texto, como el campo de imprimir («43, 45, 47-50»): es la
+ * única fuente. «+ Esta página», «Desde aquí / Hasta aquí» y «+ sección» del
+ * índice lo editan con sumarAlTexto; lo que se agrega es lo que dice el texto.
  *
  * @param paginaInicial  página con la que abre (y a la que va si cambia).
  * @param irAPagina      { pagina, marca }: salta a `pagina` cada vez que cambia
  *                       `marca`, aunque la página sea la misma que la última vez
- *                       (el "Ver" de un rango, después de que el usuario hojeó).
- * @param accion  { etiqueta, icono, pideTitulo, ejecutar({pagina_desde, pagina_hasta, titulo}) }
- *                Sin `accion`, el botón imprime las páginas marcadas.
+ *                       (el "Ver" de una sección, después de que el usuario hojeó).
+ * @param accion  { etiqueta, icono, pideTitulo, ejecutar({ rangos: [{pagina_desde, pagina_hasta}], titulo }) }
+ *                Sin `accion`, el botón imprime las páginas elegidas.
  */
 export default function VisorManual({ manual, paginaInicial = 1, irAPagina, accion }) {
   const [doc, setDoc] = useState(null);
@@ -36,24 +69,34 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
   const [pagina, setPagina] = useState(() => Math.max(1, Math.round(Number(paginaInicial)) || 1));
   const [irA, setIrA] = useState(() => String(pagina));
   const [zoom, setZoom] = useState(1);
-  const [indice, setIndice] = useState([]);
+  const [indice, setIndice] = useState(null); // null: todavía no respondió getOutline
   const [verIndice, setVerIndice] = useState(() => window.innerWidth > 900);
   const [ultimaEntrada, setUltimaEntrada] = useState("");
-  const [desde, setDesde] = useState(null);
-  const [hasta, setHasta] = useState(null);
+  const [seleccion, setSeleccion] = useState("");
+  const [inicio, setInicio] = useState(null); // la página de «Desde aquí»
   const [titulo, setTitulo] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // El candado de la acción va también en un ref: el "Reintentar" del toast
+  // llama a ejecutar con el estado de cuando se creó el toast.
+  const enviandoRef = useRef(false);
+  const [resolviendo, setResolviendo] = useState(null); // la entrada del índice cuya sección se está calculando
   const [busqueda, setBusqueda] = useState({ texto: "", ...BUSQUEDA_QUIETA });
   const [ancho, setAncho] = useState(0);
   const lienzo = useRef(null);
   const marco = useRef(null);
   const tareaRender = useRef(null);
   const textos = useRef(new Map());
+  // Página de cada entrada del índice ya resuelta (entrada → Promise<número|null>).
+  // Se resuelve recién cuando hace falta: un manual grande trae miles.
+  const paginasIndice = useRef(new Map());
   // Generación de la búsqueda: subirla (Cancelar, reabrir, cerrar) deja sin voz
   // a la búsqueda en curso. No alcanza con un flag leído entre página y página:
   // pdf.js NUNCA resuelve un getTextContent pendiente si su worker se destruyó
   // (pasa con un corte de conexión), y el bucle se queda colgado en ese await.
   const idBusqueda = useRef(0);
+  // Lo mismo para el «+ sección» del índice.
+  const idSeccion = useRef(0);
+  const idCampo = useId();
 
   // Antes de abrir, el tope es el de la base; ya abierto, el del PDF real.
   const total = doc?.numPages || manual.paginas;
@@ -86,22 +129,26 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
   useEffect(() => {
     let vivo = true;
     let tarea = null;
-    const cortarBusqueda = () => {
+    // Lo que estaba esperando bytes de este documento ya no va a llegar.
+    const cortarPendientes = () => {
       idBusqueda.current += 1;
       setBusqueda((b) => ({ ...b, ...BUSQUEDA_QUIETA }));
+      idSeccion.current += 1;
+      setResolviendo(null);
     };
-    cortarBusqueda();
+    cortarPendientes();
     setDoc(null);
     setError(null);
-    setIndice([]);
+    setIndice(null);
     textos.current = new Map();
+    paginasIndice.current = new Map();
     abrirPorRangos({
       obtenerUrl: async () => (await getManualUrl(manual.id_manual)).url,
       largo: Number(manual.tamano_bytes),
       onError: () => {
         if (!vivo) return;
         setError("Se cortó la conexión leyendo el manual.");
-        cortarBusqueda(); // lo que estaba esperando esos bytes ya no va a llegar
+        cortarPendientes();
       },
     })
       .then((t) => {
@@ -115,11 +162,12 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
         // Sin índice no es un error: el manual se lee igual.
         return d.getOutline().catch(() => null);
       })
-      .then((o) => { if (vivo && o) setIndice(o); })
+      .then((o) => { if (vivo) setIndice(o || []); })
       .catch(() => vivo && setError("No se pudo abrir el manual."));
     return () => {
       vivo = false;
       idBusqueda.current += 1;
+      idSeccion.current += 1;
       tarea?.destroy();
     };
   }, [manual.id_manual, manual.tamano_bytes, intento]);
@@ -180,16 +228,61 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
     else ir(n);
   };
 
+  // El índice aplanado: lo que necesita rangoDeSeccion para saber dónde termina una sección.
+  const planas = useMemo(() => aplanarIndice(indice), [indice]);
+  const posiciones = useMemo(() => new Map(planas.map((p, k) => [p.item, k])), [planas]);
+
+  /** Página de una entrada, resuelta una sola vez por documento. */
+  const paginaDeItem = (d, cache, item) => {
+    if (!cache.has(item)) cache.set(item, paginaDeEntrada(d, item));
+    return cache.get(item);
+  };
+
   const irAEntrada = async (item) => {
-    try {
-      const dest = typeof item.dest === "string" ? await doc.getDestination(item.dest) : item.dest;
-      if (!dest) return;
-      const idx = typeof dest[0] === "number" ? dest[0] : await doc.getPageIndex(dest[0]);
-      ir(idx + 1);
-      setUltimaEntrada(String(item.title || "").trim());
-      if (window.innerWidth <= 900) setVerIndice(false);
-    } catch {
+    if (!doc) return;
+    const p = await paginaDeItem(doc, paginasIndice.current, item);
+    if (p == null) {
       toast.error("Esa entrada del índice no apunta a ninguna página");
+      return;
+    }
+    ir(p);
+    setUltimaEntrada(String(item.title || "").trim());
+    if (window.innerWidth <= 900) setVerIndice(false);
+  };
+
+  // «+ sección»: desde la página de la entrada hasta antes de la próxima de su
+  // nivel o superior. Se resuelven solo las páginas que hacen falta para saber
+  // dónde termina (resolverRangoDeSeccion), no las miles de un índice grande.
+  const agregarSeccion = async (item) => {
+    const i = posiciones.get(item);
+    if (i === undefined || !doc || resolviendo) return;
+    // Locales: si se reabre el manual a mitad de camino, esto sigue mirando el
+    // documento y el caché VIEJOS, y su resultado no se usa.
+    const d = doc;
+    const cache = paginasIndice.current;
+    const n = d.numPages;
+    idSeccion.current += 1;
+    const id = idSeccion.current;
+    const vigente = () => idSeccion.current === id;
+    setResolviendo(item);
+    try {
+      const r = await resolverRangoDeSeccion(planas, i, n, (k) => {
+        if (!vigente()) throw new Error("cortado");
+        return paginaDeItem(d, cache, planas[k].item);
+      });
+      if (!vigente()) return;
+      if (!r) {
+        toast.error("Esa entrada del índice no apunta a ninguna página");
+        return;
+      }
+      setSeleccion((t) => sumarAlTexto(t, r.desde, r.hasta, n));
+      const nombre = String(item.title || "").trim().slice(0, 200);
+      if (nombre) setTitulo((t) => (t.trim() ? t : nombre));
+      toast.success(`Sección agregada a la selección: ${etiquetaPaginas(r)}`);
+    } catch {
+      if (vigente()) toast.error("No se pudo leer esa parte del índice");
+    } finally {
+      if (vigente()) setResolviendo(null);
     }
   };
 
@@ -245,41 +338,64 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
         ? `«${busqueda.texto}» aparece en la página ${busqueda.encontrada}`
         : "";
 
+  // ── Selección: el texto manda ────────────────────────────────────────────
+  const sel = useMemo(() => parsearPaginas(seleccion, total), [seleccion, total]);
+  const errorSel = sel.error
+    || (sel.rangos.length > MAX_TRAMOS
+      ? `Son ${sel.rangos.length} tramos sueltos: el máximo por vez es ${MAX_TRAMOS}. Agregá en dos veces.`
+      : null);
+  const enSeleccion = !errorSel && contiene(sel.rangos, pagina);
+
+  // Las páginas que se eligen después de ir a una entrada del índice suelen ser
+  // de esa entrada: su nombre es un buen título de arranque.
+  const tituloDeLaEntrada = () => {
+    if (!titulo.trim() && ultimaEntrada) setTitulo(ultimaEntrada.slice(0, 200));
+  };
+  const sumarEsta = () => {
+    setSeleccion((t) => sumarAlTexto(t, pagina, pagina, total));
+    tituloDeLaEntrada();
+  };
   const marcarDesde = () => {
-    setDesde(pagina);
-    if (hasta !== null && hasta < pagina) setHasta(pagina);
-    if (!titulo && ultimaEntrada) setTitulo(ultimaEntrada);
+    setInicio(pagina);
+    tituloDeLaEntrada();
   };
+  // Sin «Desde aquí» antes, suma solo esta página.
   const marcarHasta = () => {
-    setHasta(pagina);
-    if (desde === null || desde > pagina) setDesde(pagina);
+    const a = inicio ?? pagina;
+    setSeleccion((t) => sumarAlTexto(t, a, pagina, total));
+    setInicio(null);
   };
-  const rango = desde !== null && hasta !== null ? { pagina_desde: desde, pagina_hasta: hasta } : null;
 
   const efectiva = accion || {
     etiqueta: "Imprimir estas páginas",
     icono: "bi-printer",
     pideTitulo: false,
-    ejecutar: (r) => abrirPdfCuandoEste(() => pdfDeManual([{ id_manual: manual.id_manual, ...r }])),
+    ejecutar: ({ rangos }) =>
+      abrirPdfCuandoEste(() => pdfDeManual(rangos.map((r) => ({ id_manual: manual.id_manual, ...r })))),
   };
 
   const ejecutar = async () => {
-    if (!rango) return toast.error("Marcá desde qué página y hasta cuál");
+    if (enviandoRef.current) return;
+    if (errorSel) return toast.error(errorSel);
+    if (!sel.rangos.length) return toast.error("Escribí o marcá qué páginas (ej. 43, 45, 47-50)");
     if (efectiva.pideTitulo && !titulo.trim()) {
-      return toast.error("Poné qué es ese rango (ej. «Inspección 100 h», «Lubricación»)");
+      return toast.error("Poné qué es esa sección (ej. «Inspección 100 h», «Lubricación»)");
     }
+    enviandoRef.current = true;
     setEnviando(true);
+    const rangos = sel.rangos.map((r) => ({ pagina_desde: r.desde, pagina_hasta: r.hasta }));
     try {
       // Sin await antes de esto: si la acción abre una pestaña, tiene que ser dentro del clic.
-      await efectiva.ejecutar({ ...rango, titulo: titulo.trim() });
-      setDesde(null);
-      setHasta(null);
+      await efectiva.ejecutar({ rangos, titulo: titulo.trim() });
+      setSeleccion("");
+      setInicio(null);
       setTitulo("");
     } catch (e) {
       toast.error(mensajeError(e, "No se pudo"), {
         action: { label: "Reintentar", onClick: () => ejecutar() },
       });
     } finally {
+      enviandoRef.current = false;
       setEnviando(false);
     }
   };
@@ -330,6 +446,52 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
           )}
         </form>
       </div>
+
+      {/* Barra de selección: ARRIBA y siempre a la vista (spec §9.6). Abajo del
+          visor quedaba fuera de la pantalla en el editor de paquetes. */}
+      <form className="vm-seleccion" aria-label="Páginas elegidas"
+        onSubmit={(e) => { e.preventDefault(); ejecutar(); }}>
+        <div className="vm-seleccion__fila">
+          <label className="vm-rotulo" htmlFor={`${idCampo}-paginas`}>Páginas</label>
+          <input id={`${idCampo}-paginas`} className="inv-campo vm-seleccion__paginas" value={seleccion}
+            placeholder="43, 45, 47-50" autoComplete="off" spellCheck={false}
+            aria-invalid={errorSel ? true : undefined} aria-describedby={`${idCampo}-estado`}
+            onChange={(e) => setSeleccion(e.target.value)} />
+          {errorSel ? (
+            <span id={`${idCampo}-estado`} className="vm-seleccion__estado vm-seleccion__error" role="alert">{errorSel}</span>
+          ) : (
+            <span id={`${idCampo}-estado`} className="vm-seleccion__estado" aria-live="polite">
+              {sel.paginas} {sel.paginas === 1 ? "pág." : "págs."}
+            </span>
+          )}
+          <div className="vm-seleccion__marcas">
+            <button type="button" className="adf-btn secondary small" onClick={sumarEsta}>
+              <i className="bi bi-plus-lg"></i> Esta página ({pagina})
+            </button>
+            <button type="button" className="adf-btn secondary small" aria-pressed={inicio !== null} onClick={marcarDesde}>
+              <i className="bi bi-arrow-bar-right"></i> Desde aquí
+            </button>
+            <button type="button" className="adf-btn secondary small" onClick={marcarHasta}>
+              <i className="bi bi-arrow-bar-left"></i> Hasta aquí{inicio !== null ? ` (desde ${inicio})` : ""}
+            </button>
+          </div>
+        </div>
+        <div className="vm-seleccion__fila">
+          {efectiva.pideTitulo && (
+            <>
+              <label className="vm-rotulo" htmlFor={`${idCampo}-titulo`}>Título</label>
+              <input id={`${idCampo}-titulo`} className="inv-campo vm-seleccion__titulo" maxLength={200} value={titulo}
+                placeholder="Qué es: «5-20-00 Scheduled Maintenance»"
+                onChange={(e) => setTitulo(e.target.value)} />
+            </>
+          )}
+          <button type="submit" className="adf-btn vm-seleccion__accion"
+            disabled={!sel.rangos.length || Boolean(errorSel) || enviando}>
+            <i className={`bi ${efectiva.icono}`}></i> {enviando ? "Un momento…" : efectiva.etiqueta}
+          </button>
+        </div>
+      </form>
+
       <p className="visually-hidden" aria-live="polite">{anuncioBusqueda}</p>
 
       {busqueda.sinResultado && (
@@ -341,9 +503,14 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
       <div className="vm-cuerpo">
         {verIndice && (
           <nav className="vm-indice" aria-label="Índice del manual">
-            {indice.length
-              ? <ListaIndice items={indice} onElegir={irAEntrada} nivel={0} />
-              : <p className="vm-vacio">Este manual no trae índice. Usá la búsqueda o el número de página.</p>}
+            {indice === null ? (
+              <p className="vm-vacio">{error ? "No se pudo leer el índice." : "Cargando índice…"}</p>
+            ) : indice.length ? (
+              <ListaIndice items={indice} onElegir={irAEntrada} onSeccion={agregarSeccion}
+                resolviendo={resolviendo} nivel={0} />
+            ) : (
+              <p className="vm-vacio">Este manual no trae índice. Usá la búsqueda o el número de página.</p>
+            )}
           </nav>
         )}
         <div className="vm-hoja" ref={marco}>
@@ -356,50 +523,33 @@ export default function VisorManual({ manual, paginaInicial = 1, irAPagina, acci
             </div>
           )}
           {!error && !doc && <div className="vm-cargando">Abriendo el manual…</div>}
-          <canvas ref={lienzo} className="vm-lienzo" role="img" aria-label={`Página ${pagina} de ${total}`}
+          <canvas ref={lienzo} className="vm-lienzo" role="img"
+            aria-label={`Página ${pagina} de ${total}${enSeleccion ? ", en la selección" : ""}`}
             style={{ display: doc && !error ? "block" : "none" }} />
         </div>
-      </div>
-
-      <div className="vm-rango">
-        <div className="vm-rango__marcas">
-          <button type="button" className="adf-btn secondary small" onClick={marcarDesde}>
-            <i className="bi bi-arrow-bar-right"></i> Desde aquí
-          </button>
-          <button type="button" className="adf-btn secondary small" onClick={marcarHasta}>
-            <i className="bi bi-arrow-bar-left"></i> Hasta aquí
-          </button>
-          <span className="vm-rango__txt">
-            {rango
-              ? `Págs. ${desde}–${hasta} (${hasta - desde + 1})`
-              : desde !== null ? `Desde la ${desde}…` : "Marcá un rango de páginas"}
+        {doc && !error && enSeleccion && (
+          <span className="adf-tag green vm-en-seleccion" aria-hidden="true">
+            <i className="bi bi-check2"></i> En la selección
           </span>
-        </div>
-        {efectiva.pideTitulo && (
-          <input className="inv-campo vm-rango__titulo" maxLength={200} value={titulo}
-            aria-label="Qué es este rango"
-            placeholder="Qué es: «5-20-00 Scheduled Maintenance»"
-            onChange={(e) => setTitulo(e.target.value)} />
         )}
-        <button type="button" className="adf-btn vm-rango__accion" disabled={!rango || enviando} onClick={ejecutar}>
-          <i className={`bi ${efectiva.icono}`}></i> {enviando ? "Un momento…" : efectiva.etiqueta}
-        </button>
       </div>
     </div>
   );
 }
 
-function ListaIndice({ items, onElegir, nivel }) {
+function ListaIndice({ items, nivel, ...resto }) {
   return (
     <ul className="vm-indice__lista">
-      {items.map((it, i) => <EntradaIndice key={`${nivel}-${i}`} item={it} onElegir={onElegir} nivel={nivel} />)}
+      {items.map((it, i) => <EntradaIndice key={`${nivel}-${i}`} item={it} nivel={nivel} {...resto} />)}
     </ul>
   );
 }
 
-function EntradaIndice({ item, onElegir, nivel }) {
+function EntradaIndice({ item, onElegir, onSeccion, resolviendo, nivel }) {
   const [abierta, setAbierta] = useState(false);
   const hijos = item.items?.length > 0;
+  const nombre = String(item.title || "").trim();
+  const calculando = resolviendo === item;
   return (
     <li>
       <div className="vm-indice__fila" style={{ paddingLeft: 6 + nivel * 12 }}>
@@ -412,8 +562,15 @@ function EntradaIndice({ item, onElegir, nivel }) {
         <button type="button" className="vm-indice__titulo" title={item.title} onClick={() => onElegir(item)}>
           {item.title}
         </button>
+        <button type="button" className="vm-indice__seccion" aria-label={`Agregar la sección ${nombre}`}
+          title="Agregar esta sección a la selección" aria-busy={calculando || undefined}
+          disabled={Boolean(resolviendo)} onClick={() => onSeccion(item)}>
+          {calculando ? <i className="bi bi-hourglass-split"></i> : <i className="bi bi-plus-lg"></i>} sección
+        </button>
       </div>
-      {hijos && abierta && <ListaIndice items={item.items} onElegir={onElegir} nivel={nivel + 1} />}
+      {hijos && abierta && (
+        <ListaIndice items={item.items} onElegir={onElegir} onSeccion={onSeccion} resolviendo={resolviendo} nivel={nivel + 1} />
+      )}
     </li>
   );
 }

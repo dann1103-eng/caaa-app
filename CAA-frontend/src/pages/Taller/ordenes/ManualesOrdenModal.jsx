@@ -5,6 +5,7 @@ import {
   getManuales, getManual, abrirPdfCuandoEste,
 } from "../../../services/manualesApi";
 import { TIPO_INSPECCION, TIPOS, tipoEnFrase, mensajeError } from "../manuales/formatoManual";
+import { agruparSecciones, mostrarPaginas } from "../manuales/paginasSeleccion";
 import VisorManualModal from "../manuales/VisorManualModal";
 import "../inventario/inventario.css";
 import "../manuales/manuales.css";
@@ -71,20 +72,26 @@ export default function ManualesOrdenModal({ orden, onClose }) {
       });
   };
 
-  const ver = (e) =>
-    getManual(e.id_manual).then((m) => setVisor({ manual: m, pagina: e.pagina_desde, agregar: false }))
+  // Una sección se abre en su primera página.
+  const ver = (s) =>
+    getManual(s.id_manual)
+      .then((m) => setVisor({ manual: m, pagina: Math.min(...s.rangos.map((r) => r.desde)), agregar: false }))
       .catch((err) => toast.error(mensajeError(err, "No se pudo abrir el manual")));
 
-  const quitar = async (e) => {
+  // Quitar una sección = quitar todas sus filas, de a una (el backend borra por
+  // id), y recargar al final pase lo que pase: si una falla a mitad de camino,
+  // la lista muestra lo que de verdad quedó.
+  const quitar = async (s) => {
     if (quitando) return;
-    if (!window.confirm(`¿Quitar «${e.titulo || e.manual_titulo}» de esta orden?`)) return;
+    const nombre = s.titulo || s.manual_titulo;
+    if (!window.confirm(`¿Quitar «${nombre}» (${s.paginas} págs.) de esta orden?`)) return;
     setQuitando(true);
     try {
-      await quitarManualOrden(orden.id_orden, e.id_extracto);
-      await cargar();
+      for (const f of s.filas) await quitarManualOrden(orden.id_orden, f.id_extracto);
     } catch (err) {
       toast.error(mensajeError(err, "No se pudo quitar"));
     } finally {
+      await cargar();
       setQuitando(false);
     }
   };
@@ -106,9 +113,11 @@ export default function ManualesOrdenModal({ orden, onClose }) {
   };
 
   // Los errores los muestra el visor (con "Reintentar"): por eso no se atrapan acá.
-  const agregar = async (r) => {
-    await agregarManualOrden(orden.id_orden, { id_manual: visor.manual.id_manual, ...r });
-    toast.success(`Págs. ${r.pagina_desde}–${r.pagina_hasta} agregadas a la orden`);
+  // Una sección con páginas sueltas entra entera en una sola llamada (`rangos`).
+  const agregar = async ({ rangos, titulo }) => {
+    await agregarManualOrden(orden.id_orden, { id_manual: visor.manual.id_manual, rangos, titulo });
+    const paginas = mostrarPaginas(rangos.map((r) => ({ desde: r.pagina_desde, hasta: r.pagina_hasta })));
+    toast.success(`Págs. ${paginas} agregadas a la orden`);
     setVisor(null);
     cargar();
   };
@@ -117,6 +126,8 @@ export default function ManualesOrdenModal({ orden, onClose }) {
   const insp = d?.inspeccion ? `inspección ${tipoEnFrase(d.inspeccion)}` : null;
   const hayPaginas = d && (d.del_paquete.length > 0 || d.agregadas.length > 0);
 
+  // Se muestran SECCIONES (§9.6): filas consecutivas del mismo manual, el mismo
+  // título y el mismo origen, como «Lubricación · págs. 170, 172, 174–175».
   // `prefijo` separa las claves de React: los id_extracto del paquete
   // (taller_paquete_extracto) y los de la orden (taller_orden_extracto) salen de
   // tablas distintas y pueden repetirse. Solo lo agregado ("a") se puede quitar.
@@ -125,25 +136,29 @@ export default function ManualesOrdenModal({ orden, onClose }) {
     return (
       <section className="mo-seccion">
         <h4>{titulo}</h4>
-        {items.map((e) => (
-          <div key={`${prefijo}-${e.id_extracto}`} className="mo-fila">
-            <button type="button" className="mo-fila__abrir" onClick={() => ver(e)}>
-              <span className="mo-fila__titulo">{e.titulo || e.manual_titulo}</span>
-              <span className="mo-fila__meta">
-                {e.manual_titulo} · págs. {e.pagina_desde}–{e.pagina_hasta} ({e.paginas})
-                {quitable && e.agregado_por_nombre ? ` · ${e.agregado_por_nombre}` : ""}
-                {quitable && e.creado_txt ? ` · ${e.creado_txt}` : ""}
-              </span>
-              {AVISO_MANUAL[e.manual_estado] && <span className="adf-tag amber">{AVISO_MANUAL[e.manual_estado]}</span>}
-            </button>
-            {quitable && d.puede_agregar && (
-              <button type="button" className="adf-icon-btn danger" title="Quitar" disabled={quitando}
-                aria-label={`Quitar ${e.titulo || e.manual_titulo}`} onClick={() => quitar(e)}>
-                <i className="bi bi-trash"></i>
+        {agruparSecciones(items, "origen").map((s) => {
+          const nombre = s.titulo || s.manual_titulo;
+          const primera = s.filas[0];
+          return (
+            <div key={`${prefijo}-${s.clave}`} className="mo-fila">
+              <button type="button" className="mo-fila__abrir" onClick={() => ver(s)}>
+                <span className="mo-fila__titulo">{nombre}</span>
+                <span className="mo-fila__meta">
+                  {s.manual_titulo} · págs. {mostrarPaginas(s.rangos)} ({s.paginas})
+                  {quitable && primera.agregado_por_nombre ? ` · ${primera.agregado_por_nombre}` : ""}
+                  {quitable && primera.creado_txt ? ` · ${primera.creado_txt}` : ""}
+                </span>
+                {AVISO_MANUAL[s.manual_estado] && <span className="adf-tag amber">{AVISO_MANUAL[s.manual_estado]}</span>}
               </button>
-            )}
-          </div>
-        ))}
+              {quitable && d.puede_agregar && (
+                <button type="button" className="adf-icon-btn danger" title="Quitar" disabled={quitando}
+                  aria-label={`Quitar ${nombre}`} onClick={() => quitar(s)}>
+                  <i className="bi bi-trash"></i>
+                </button>
+              )}
+            </div>
+          );
+        })}
       </section>
     );
   };

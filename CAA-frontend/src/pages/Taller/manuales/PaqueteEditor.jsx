@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getPaquete, guardarPaquete, getManuales, getManual } from "../../../services/manualesApi";
 import { TIPO_INSPECCION, tipoEnFrase, mensajeError } from "./formatoManual";
+import { agruparSecciones, parsearPaginas, formatearPaginas, mostrarPaginas } from "./paginasSeleccion";
 import VisorManual from "./VisorManual";
 
 const aFila = (e) => ({
@@ -17,13 +18,27 @@ const aFila = (e) => ({
   origen: e.origen,
 });
 
+/**
+ * Cada fila del editor lleva su `grupo`: la sección a la que pertenece. Las del
+ * servidor se agrupan por manual y título (agruparSecciones); de ahí en más la
+ * sección se identifica por el grupo, así editar un título no la funde con la
+ * vecina que se llama igual mientras se escribe.
+ */
+const conGrupos = (filas) => agruparSecciones(filas).flatMap((s) => s.filas.map((f) => ({ ...f, grupo: s.clave })));
+
 const etiquetaManual = (m) => `${m.titulo}${m.revision ? ` · ${m.revision}` : ""}`;
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
 
 const AVISO_MANUAL = { REEMPLAZADO: "Revisión reemplazada", ARCHIVADO: "Manual archivado" };
 
 /**
- * Editor de un paquete: a la izquierda los rangos, a la derecha el visor para
- * marcar páginas nuevas. El estado se elige explícito al guardar (spec §9.4).
+ * Editor de un paquete: a la izquierda las secciones agrupadas por manual, a la
+ * derecha el visor para elegir páginas nuevas. El estado se elige explícito al
+ * guardar (spec §9.4).
+ *
+ * Una SECCIÓN = filas consecutivas del mismo manual con el mismo título (§9.6):
+ * «Lubricación, págs. 170, 172, 174-175» son tres filas. El estado sigue siendo
+ * `filas`, plano, que es lo que se guarda; las secciones se derivan.
  *
  * `onSucio(bool)` avisa hacia arriba si hay cambios sin guardar.
  */
@@ -43,10 +58,18 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
   const [visor, setVisor] = useState(null); // { manual, pagina, marca? }
   const [guardando, setGuardando] = useState(false);
   const [copiarDe, setCopiarDe] = useState("");
-  const secuencia = useRef(0); // clave de React de los rangos todavía sin guardar
+  // Secciones con el campo de páginas mal escrito (sin aplicar): guardar
+  // mandaría las páginas viejas mientras la pantalla muestra un error.
+  const [paginasMal, setPaginasMal] = useState(() => new Set());
+  const [resaltar, setResaltar] = useState(false);
+  const secuencia = useRef(0); // claves de React y grupos de lo todavía sin guardar
   // Una marca nueva por cada "Ver": el visor salta aunque ya estuviera abierto
   // en ese manual y esa página de arranque (el usuario pudo haber hojeado).
   const vistas = useRef(0);
+  const elegirRef = useRef(null);
+  const selectorRef = useRef(null);
+  const timerResaltar = useRef(null);
+  const idSelector = useId();
 
   useEffect(() => {
     let vivo = true;
@@ -56,7 +79,7 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
       .then((r) => {
         if (!vivo) return;
         setPaquete(r.paquete);
-        setFilas(r.extractos.map(aFila));
+        setFilas(conGrupos(r.extractos.map(aFila)));
         setSucio(false);
         setCargado(true);
       })
@@ -85,51 +108,102 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
     return () => { vivo = false; };
   }, [verTodos, aeronave.id_aeronave]);
 
+  useEffect(() => () => clearTimeout(timerResaltar.current), []);
+
+  const secciones = useMemo(() => agruparSecciones(filas, "grupo"), [filas]);
   const codigoDe = (id) => tabla?.aeronaves.find((a) => a.id_aeronave === id)?.codigo || `#${id}`;
   const opcionesCopia = useMemo(
     () => (tabla?.celdas || []).filter((c) => c.extractos > 0 && !(c.id_aeronave === aeronave.id_aeronave && c.tipo_mantenimiento === tipo)),
     [tabla, aeronave.id_aeronave, tipo]
   );
-  const total = filas.reduce((s, f) => s + Math.max(0, Number(f.pagina_hasta) - Number(f.pagina_desde) + 1 || 0), 0);
+  const total = secciones.reduce((s, x) => s + x.paginas, 0);
   // El visor puede estar mostrando un manual que no está en la lista (el
-  // "Ver" de un rango que apunta a una revisión reemplazada): sin su opción,
-  // el selector mostraría otro título.
+  // "Ver" de una sección que apunta a una revisión reemplazada): sin su
+  // opción, el selector mostraría otro título.
   const visorFueraDeLista = visor && !manuales.some((m) => m.id_manual === visor.manual.id_manual);
 
   const cambiar = (nuevas) => { setFilas(nuevas); setSucio(true); };
-  const mover = (i, d) => {
+  const deSecciones = (lista) => lista.flatMap((s) => s.filas);
+
+  // Mueve la sección entera por encima o por debajo de la vecina.
+  const moverSeccion = (i, d) => {
     const j = i + d;
-    if (j < 0 || j >= filas.length) return;
-    const n = [...filas];
+    if (j < 0 || j >= secciones.length) return;
+    const n = [...secciones];
     [n[i], n[j]] = [n[j], n[i]];
-    cambiar(n);
+    cambiar(deSecciones(n));
   };
-  const editarFila = (i, k, v) => cambiar(filas.map((f, x) => (x === i ? { ...f, [k]: v, origen: "MANUAL" } : f)));
-  const quitar = (i) => cambiar(filas.filter((_, x) => x !== i));
+  const quitarSeccion = (i) => cambiar(deSecciones(secciones.filter((_, x) => x !== i)));
+  const tituloSeccion = (i, titulo) => cambiar(secciones.flatMap((s, x) => (
+    x === i ? s.filas.map((f) => ({ ...f, titulo, origen: "MANUAL" })) : s.filas
+  )));
+  /** Filas de una sección para estos rangos. La primera conserva su clave: el campo no pierde el foco. */
+  const filasDe = (base, rangos) => rangos.map((r, k) => ({
+    ...base,
+    clave: k === 0 ? base.clave : `n${++secuencia.current}`,
+    pagina_desde: r.desde,
+    pagina_hasta: r.hasta,
+    origen: "MANUAL",
+  }));
+  // Reemplaza las filas de la sección i por las de los rangos nuevos, en su lugar.
+  const paginasSeccion = (i, rangos) => cambiar(secciones.flatMap((s, x) => (
+    x === i ? filasDe(s.filas[0], rangos) : s.filas
+  )));
+
+  const marcarPaginasMal = useCallback((clave, mal) => {
+    setPaginasMal((prev) => {
+      if (prev.has(clave) === mal) return prev;
+      const n = new Set(prev);
+      if (mal) n.add(clave);
+      else n.delete(clave);
+      return n;
+    });
+  }, []);
 
   const elegirManual = (id) => {
     const m = manuales.find((x) => String(x.id_manual) === String(id));
     if (m) setVisor({ manual: m, pagina: 1 });
   };
-  const ver = (f) => {
-    const enLista = manuales.find((m) => m.id_manual === f.id_manual);
+  const ver = (idManual, pagina) => {
+    const enLista = manuales.find((m) => m.id_manual === idManual);
     if (enLista) {
-      setVisor({ manual: enLista, pagina: f.pagina_desde, marca: ++vistas.current });
+      setVisor({ manual: enLista, pagina, marca: ++vistas.current });
     } else {
-      getManual(f.id_manual).then((m) => setVisor({ manual: m, pagina: f.pagina_desde, marca: ++vistas.current }))
+      getManual(idManual).then((m) => setVisor({ manual: m, pagina, marca: ++vistas.current }))
         .catch((e) => toast.error(mensajeError(e, "No se pudo abrir el manual")));
     }
   };
 
-  const agregar = ({ pagina_desde, pagina_hasta, titulo }) => {
+  // «Agregar páginas de otro manual»: lleva al selector del visor, le da el
+  // foco y lo resalta un momento para que se vea que ese es el paso.
+  const irAlSelector = () => {
+    const quieto = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    elegirRef.current?.scrollIntoView({ behavior: quieto ? "auto" : "smooth", block: "start" });
+    selectorRef.current?.focus({ preventScroll: true });
+    setResaltar(true);
+    clearTimeout(timerResaltar.current);
+    timerResaltar.current = setTimeout(() => setResaltar(false), 1800);
+  };
+
+  // Desde el visor: una fila por rango, todas con el mismo título. Si la última
+  // sección es del mismo manual y tiene ese mismo título, es la misma sección:
+  // se le suman las páginas.
+  const agregar = ({ rangos, titulo }) => {
     const m = visor.manual;
-    const nueva = {
-      clave: `n${++secuencia.current}`, id_manual: m.id_manual, manual_titulo: m.titulo, manual_revision: m.revision,
-      manual_estado: m.estado, manual_paginas: m.paginas, pagina_desde, pagina_hasta, titulo, origen: "MANUAL",
-    };
-    setFilas((prev) => [...prev, nueva]);
-    setSucio(true);
-    toast.success(`Págs. ${pagina_desde}–${pagina_hasta} agregadas. Falta guardar.`);
+    const nuevos = rangos.map((r) => ({ desde: Number(r.pagina_desde), hasta: Number(r.pagina_hasta) }));
+    const ultima = secciones[secciones.length - 1];
+    if (ultima && ultima.id_manual === m.id_manual && String(ultima.titulo).trim() === titulo.trim()) {
+      const junto = parsearPaginas(formatearPaginas([...ultima.rangos, ...nuevos]), m.paginas);
+      const rs = junto.error ? [...ultima.rangos, ...nuevos] : junto.rangos;
+      cambiar([...deSecciones(secciones.slice(0, -1)), ...filasDe(ultima.filas[0], rs)]);
+    } else {
+      const base = {
+        id_manual: m.id_manual, manual_titulo: m.titulo, manual_revision: m.revision,
+        manual_estado: m.estado, manual_paginas: m.paginas, titulo, grupo: `g${++secuencia.current}`,
+      };
+      cambiar([...filas, ...filasDe({ ...base, clave: `n${++secuencia.current}` }, nuevos)]);
+    }
+    toast.success(`Págs. ${mostrarPaginas(nuevos)} agregadas. Falta guardar.`);
   };
 
   const copiar = async () => {
@@ -137,16 +211,22 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
     const [idA, tp] = copiarDe.split("|");
     try {
       const r = await getPaquete(idA, tp);
-      if (filas.length && !window.confirm(`¿Reemplazar los ${filas.length} rango(s) actuales por los ${r.extractos.length} del otro paquete?`)) return;
-      cambiar(r.extractos.map((e) => ({ ...aFila(e), clave: `c${e.id_extracto}`, origen: "MANUAL" })));
-      toast.success("Copiado. Revisá los rangos y guardá.");
+      const otras = agruparSecciones(r.extractos).length;
+      if (secciones.length && !window.confirm(
+        `¿Reemplazar las ${plural(secciones.length, "sección", "secciones")} actuales por las ${plural(otras, "sección", "secciones")} del otro paquete?`
+      )) return;
+      cambiar(conGrupos(r.extractos.map((e) => ({ ...aFila(e), clave: `c${e.id_extracto}`, origen: "MANUAL" }))));
+      toast.success("Copiado. Revisá las secciones y guardá.");
     } catch (e) { toast.error(mensajeError(e, "No se pudo copiar")); }
   };
 
   const guardar = async (estado) => {
     if (!cargado) return;
-    const sinTitulo = filas.findIndex((f) => !String(f.titulo).trim());
-    if (sinTitulo >= 0) return toast.error(`El rango ${sinTitulo + 1} no tiene título`);
+    if (paginasMal.size) {
+      return toast.error("Hay una sección con las páginas mal escritas: corregila (o Esc para volver a como estaba) antes de guardar.");
+    }
+    const sinTitulo = secciones.findIndex((s) => !String(s.titulo).trim());
+    if (sinTitulo >= 0) return toast.error(`La sección ${sinTitulo + 1} no tiene título`);
     setGuardando(true);
     try {
       const r = await guardarPaquete(aeronave.id_aeronave, tipo, {
@@ -158,7 +238,7 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
       });
       const { extractos, ...p } = r;
       setPaquete(p);
-      setFilas(extractos.map(aFila));
+      setFilas(conGrupos(extractos.map(aFila)));
       setSucio(false);
       toast.success(estado === "CONFIRMADO" ? "Paquete confirmado: el mecánico ya lo ve" : "Guardado como borrador: el mecánico no lo ve");
     } catch (e) {
@@ -215,38 +295,33 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
       {cargado && (
         <div className="pe-cuerpo">
           <section className="pe-lista">
-            <div className="pe-lista__tit">Páginas del paquete <small>({filas.length} rango(s) · {total} págs.)</small></div>
-            {!filas.length && (
-              <p className="man-vacio">Todavía no tiene páginas. Elegí un manual a la derecha, marcá desde y hasta, y agregalas.</p>
+            <div className="pe-lista__tit">
+              Páginas del paquete{" "}
+              <small>({plural(secciones.length, "sección", "secciones")} · {plural(total, "pág.", "págs.")})</small>
+            </div>
+            {!secciones.length && (
+              <p className="man-vacio">
+                Todavía no tiene páginas. Elegí un manual a la derecha, escribí o marcá las páginas, ponele título y agregalas.
+              </p>
             )}
-            {filas.map((f, i) => (
-              <div key={f.clave} className="pe-fila">
-                <input className="inv-campo pe-fila__titulo" value={f.titulo} maxLength={200} placeholder="Qué es"
-                  aria-label={`Título del rango ${i + 1}`} onChange={(e) => editarFila(i, "titulo", e.target.value)} />
-                <div className="pe-fila__meta">
-                  {f.manual_titulo}{f.manual_revision ? ` · ${f.manual_revision}` : ""}
-                  {AVISO_MANUAL[f.manual_estado] && <span className="adf-tag red">{AVISO_MANUAL[f.manual_estado]}</span>}
-                </div>
-                <div className="pe-fila__rango">
-                  págs.
-                  <input type="number" min={1} max={f.manual_paginas} value={f.pagina_desde} aria-label={`Rango ${i + 1}: desde`}
-                    onChange={(e) => editarFila(i, "pagina_desde", e.target.value)} />
-                  a
-                  <input type="number" min={1} max={f.manual_paginas} value={f.pagina_hasta} aria-label={`Rango ${i + 1}: hasta`}
-                    onChange={(e) => editarFila(i, "pagina_hasta", e.target.value)} />
-                  <span className="pe-fila__botones">
-                    <button type="button" className="adf-icon-btn" title="Ver" aria-label={`Ver el rango ${i + 1}`}
-                      onClick={() => ver(f)}><i className="bi bi-eye"></i></button>
-                    <button type="button" className="adf-icon-btn" title="Subir" aria-label={`Subir el rango ${i + 1}`}
-                      disabled={i === 0} onClick={() => mover(i, -1)}><i className="bi bi-arrow-up"></i></button>
-                    <button type="button" className="adf-icon-btn" title="Bajar" aria-label={`Bajar el rango ${i + 1}`}
-                      disabled={i === filas.length - 1} onClick={() => mover(i, 1)}><i className="bi bi-arrow-down"></i></button>
-                    <button type="button" className="adf-icon-btn danger" title="Quitar" aria-label={`Quitar el rango ${i + 1}`}
-                      onClick={() => quitar(i)}><i className="bi bi-trash"></i></button>
-                  </span>
-                </div>
-              </div>
+            {secciones.map((s, i) => (
+              <Fragment key={s.clave}>
+                {(i === 0 || secciones[i - 1].id_manual !== s.id_manual) && (
+                  <h4 className="pe-manual">
+                    <i className="bi bi-book"></i>
+                    <span>{s.manual_titulo}{s.manual_revision ? <small> · {s.manual_revision}</small> : null}</span>
+                  </h4>
+                )}
+                <SeccionPaquete s={s} n={i + 1} esPrimera={i === 0} esUltima={i === secciones.length - 1}
+                  onTitulo={(v) => tituloSeccion(i, v)} onPaginas={(rs) => paginasSeccion(i, rs)}
+                  onVer={() => ver(s.id_manual, Math.min(...s.rangos.map((r) => r.desde)))}
+                  onMover={(d) => moverSeccion(i, d)} onQuitar={() => quitarSeccion(i)}
+                  onPaginasMal={marcarPaginasMal} />
+              </Fragment>
             ))}
+            <button type="button" className="adf-btn secondary pe-otro" onClick={irAlSelector}>
+              <i className="bi bi-plus-lg"></i> Agregar páginas de otro manual
+            </button>
             {opcionesCopia.length > 0 && (
               <div className="pe-copiar">
                 <select className="inv-campo" value={copiarDe} aria-label="Copiar de otro paquete" onChange={(e) => setCopiarDe(e.target.value)}>
@@ -263,8 +338,10 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
           </section>
 
           <section className="pe-visor">
-            <div className="pe-visor__elegir">
-              <select className="inv-campo" aria-label="Manual" value={visor?.manual?.id_manual || ""} onChange={(e) => elegirManual(e.target.value)}>
+            <div ref={elegirRef} className={`pe-visor__elegir${resaltar ? " pe-visor__elegir--resaltado" : ""}`}>
+              <label className="vm-rotulo" htmlFor={idSelector}>Manual</label>
+              <select id={idSelector} ref={selectorRef} className="inv-campo" value={visor?.manual?.id_manual || ""}
+                onChange={(e) => elegirManual(e.target.value)}>
                 {!manuales.length && !visor && (
                   <option value="">
                     {cargandoManuales ? "Cargando manuales…" : verTodos ? "No hay manuales en la biblioteca" : "Este avión no tiene manuales asignados"}
@@ -292,5 +369,80 @@ export default function PaqueteEditor({ aeronave, tipo, tabla, onVolver, onSucio
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Una sección de la lista: título y páginas editables en bloque. El campo de
+ * páginas se aplica al confirmar (Enter o salir del campo); con error queda en
+ * rojo y NO se aplica. Esc vuelve a como estaba.
+ */
+function SeccionPaquete({ s, n, esPrimera, esUltima, onTitulo, onPaginas, onVer, onMover, onQuitar, onPaginasMal }) {
+  const formateado = formatearPaginas(s.rangos);
+  const [texto, setTexto] = useState(formateado);
+  const [error, setError] = useState(null);
+  const id = useId();
+
+  // Si las páginas cambian desde afuera (guardar, copiar, agregar a esta
+  // sección desde el visor), el campo las sigue.
+  useEffect(() => {
+    setTexto(formateado);
+    setError(null);
+  }, [formateado]);
+  useEffect(() => { onPaginasMal(s.clave, Boolean(error)); }, [s.clave, error, onPaginasMal]);
+  useEffect(() => () => onPaginasMal(s.clave, false), [s.clave, onPaginasMal]);
+
+  const revisar = (v) => {
+    const p = parsearPaginas(v, s.manual_paginas);
+    if (p.error) return { error: p.error };
+    if (!p.rangos.length) return { error: "Escribí al menos una página. Para sacar la sección usá Quitar." };
+    return { rangos: p.rangos };
+  };
+  const aplicar = () => {
+    if (texto === formateado) { setError(null); return; }
+    const r = revisar(texto);
+    if (r.error) { setError(r.error); return; }
+    setError(null);
+    if (formatearPaginas(r.rangos) === formateado) setTexto(formateado);
+    else onPaginas(r.rangos);
+  };
+  const volverAComoEstaba = () => { setTexto(formateado); setError(null); };
+
+  const nombre = String(s.titulo).trim() || `sección ${n}`;
+  return (
+    <div className="pe-fila">
+      <input className="inv-campo pe-fila__titulo" value={s.titulo} maxLength={200} placeholder="Qué es"
+        aria-label={`Título de la sección ${n}`} onChange={(e) => onTitulo(e.target.value)} />
+      <div className="pe-fila__rango">
+        <label htmlFor={`${id}-pag`}>págs.</label>
+        <input id={`${id}-pag`} className="pe-fila__paginas" value={texto} autoComplete="off" spellCheck={false}
+          aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined}
+          onChange={(e) => {
+            setTexto(e.target.value);
+            // Con un error a la vista, se vuelve a revisar al escribir: se va apenas se corrige.
+            if (error) setError(e.target.value === formateado ? null : revisar(e.target.value).error || null);
+          }}
+          onBlur={aplicar}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); aplicar(); }
+            if (e.key === "Escape") { e.preventDefault(); volverAComoEstaba(); }
+          }} />
+        <span className="pe-fila__cuenta">{s.paginas} {s.paginas === 1 ? "pág." : "págs."}</span>
+        <span className="pe-fila__botones">
+          <button type="button" className="adf-icon-btn" title="Ver" aria-label={`Ver ${nombre}`}
+            onClick={onVer}><i className="bi bi-eye"></i></button>
+          <button type="button" className="adf-icon-btn" title="Subir" aria-label={`Subir ${nombre}`}
+            disabled={esPrimera} onClick={() => onMover(-1)}><i className="bi bi-arrow-up"></i></button>
+          <button type="button" className="adf-icon-btn" title="Bajar" aria-label={`Bajar ${nombre}`}
+            disabled={esUltima} onClick={() => onMover(1)}><i className="bi bi-arrow-down"></i></button>
+          <button type="button" className="adf-icon-btn danger" title="Quitar" aria-label={`Quitar ${nombre}`}
+            onClick={onQuitar}><i className="bi bi-trash"></i></button>
+        </span>
+      </div>
+      {error && <div id={`${id}-error`} className="pe-fila__error" role="alert">{error}</div>}
+      {AVISO_MANUAL[s.manual_estado] && (
+        <div className="pe-fila__meta"><span className="adf-tag red">{AVISO_MANUAL[s.manual_estado]}</span></div>
+      )}
+    </div>
   );
 }

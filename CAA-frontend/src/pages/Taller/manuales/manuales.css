@@ -37,7 +37,27 @@
   border-right: 1px solid var(--c-line-1); font-size: 0.82rem; background: var(--c-surface-0);
 }
 .vm-indice__lista { list-style: none; margin: 0; padding: 0; }
-.vm-indice__fila { display: flex; align-items: flex-start; }
+.vm-indice__fila { position: relative; display: flex; align-items: flex-start; }
+/* «+ sección»: encima del final del título, visible al pasar el mouse o al
+   llegar con el teclado. Flotando no le roba ancho al título mientras no se ve.
+   En pantallas táctiles (sin hover) va siempre, en su lugar (más abajo). */
+.vm-indice__seccion {
+  position: absolute; top: 1px; right: var(--sp-1);
+  display: inline-flex; align-items: center; gap: 2px; height: 22px; padding: 0 var(--sp-2);
+  font-size: 0.72rem; font-weight: 600; white-space: nowrap; cursor: pointer;
+  color: var(--c-brand-700); background: var(--c-surface-0);
+  border: 1px solid var(--c-line-2); border-radius: var(--radius-pill);
+  opacity: 0; transition: opacity 0.12s;
+}
+.vm-indice__fila:hover .vm-indice__seccion,
+.vm-indice__fila:focus-within .vm-indice__seccion,
+.vm-indice__seccion[aria-busy="true"] { opacity: 1; }
+.vm-indice__seccion:hover { border-color: var(--c-brand-500); background: var(--c-brand-50); }
+.vm-indice__seccion:focus-visible { outline: none; box-shadow: var(--shadow-focus); }
+.vm-indice__seccion:disabled { cursor: default; color: var(--c-ink-3); }
+@media (hover: none) {
+  .vm-indice__seccion { position: static; flex-shrink: 0; margin: 1px var(--sp-1) 0 0; opacity: 1; }
+}
 .vm-indice__toggle { width: 22px; flex-shrink: 0; background: none; border: 0; padding: 3px 0; color: var(--c-ink-3); cursor: pointer; }
 .vm-indice__titulo {
   flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 3px 6px;
@@ -60,13 +80,32 @@
   color: var(--c-danger-700); font-size: 0.9rem; padding: var(--sp-6);
   display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
 }
-.vm-rango {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-3); border-top: 1px solid var(--c-line-1); background: var(--c-surface-0);
+/* Barra de selección, arriba del visor (spec §9.6): Páginas → Título → acción. */
+.vm-seleccion {
+  display: flex; flex-direction: column; gap: var(--sp-2); margin: 0;
+  padding: var(--sp-2) var(--sp-3); background: var(--c-surface-1); border-bottom: 1px solid var(--c-line-1);
 }
-.vm-rango__marcas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-.vm-rango__txt { font-size: 0.85rem; color: var(--c-ink-2); font-variant-numeric: tabular-nums; }
-.vm-rango .vm-rango__titulo { flex: 1; min-width: 200px; height: 36px; }
+.vm-seleccion__fila { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+/* Rótulo de cada paso de la selección. También lo usa el «Manual» del editor de paquetes. */
+.vm-rotulo {
+  flex-shrink: 0; min-width: 58px; margin: 0;
+  font-size: var(--text-xs); font-weight: 600; color: var(--c-ink-3);
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
+}
+/* Compuestos: `.inv-campo` trae min-width 150px y alto 38px con la misma especificidad. */
+.inv-campo.vm-seleccion__paginas { flex: 1 1 170px; min-width: 120px; max-width: 320px; height: 32px; font-variant-numeric: tabular-nums; }
+.inv-campo.vm-seleccion__paginas[aria-invalid="true"] { border-color: var(--c-danger-500); }
+.vm-seleccion__estado { font-size: 0.82rem; color: var(--c-ink-2); font-variant-numeric: tabular-nums; min-width: 0; }
+.vm-seleccion__error { color: var(--c-danger-700); font-weight: 600; }
+.vm-seleccion__marcas { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin-left: auto; }
+.vm-seleccion__marcas .adf-btn[aria-pressed="true"] { border-color: var(--c-brand-500); background: var(--c-brand-50); color: var(--c-brand-700); }
+.inv-campo.vm-seleccion__titulo { flex: 1 1 220px; min-width: 0; height: 34px; }
+.vm-seleccion__accion { margin-left: auto; }
+/* La página que se ve está entre las elegidas: marca en la esquina de la hoja. */
+.vm-en-seleccion {
+  position: absolute; top: var(--sp-2); right: var(--sp-6); z-index: 1; pointer-events: none;
+  box-shadow: 0 1px 3px oklch(20% 0.02 262 / 0.15);
+}
 .man-tenue { color: var(--c-ink-3); }
 @media (max-width: 900px) {
   /* En el celular el visor es la pantalla entera. El padding del fondo le
@@ -87,9 +126,17 @@
   .vm-buscar { margin-left: 0; width: 100%; gap: var(--sp-1); }
   .vm-buscar .inv-campo { flex: 1; min-width: 0; height: 30px; }
   .vm-hoja { padding: var(--sp-2); }
-  .vm-rango { gap: var(--sp-2); padding: var(--sp-2); }
-  .vm-rango .vm-rango__titulo { min-width: 0; flex-basis: 100%; height: 34px; }
-  .vm-rango .vm-rango__accion { flex: 1 1 auto; justify-content: center; }
+  /* Selección compacta, una columna: el campo con su cuenta, los tres botones
+     repartidos a lo ancho, y el título y la acción debajo, a lo ancho. */
+  .vm-seleccion { gap: var(--sp-1); padding: var(--sp-2); }
+  .vm-seleccion__fila { gap: var(--sp-1) var(--sp-2); }
+  .vm-rotulo { min-width: 0; }
+  .inv-campo.vm-seleccion__paginas { max-width: none; }
+  .vm-seleccion__marcas { flex-basis: 100%; margin-left: 0; }
+  .vm-seleccion__marcas .adf-btn { flex: 1 1 auto; justify-content: center; }
+  .inv-campo.vm-seleccion__titulo { flex-basis: 160px; }
+  .vm-seleccion__accion { flex: 1 1 100%; margin-left: 0; justify-content: center; min-height: 40px; }
+  .vm-en-seleccion { right: var(--sp-3); }
 }
 
 /* ── Biblioteca ─────────────────────────────────────────────────────────── */
@@ -176,21 +223,50 @@
 .inv-campo.pe-fila__titulo { width: 100%; min-width: 0; height: 32px; }
 .pe-fila__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--c-ink-3); }
 .pe-fila__rango { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--c-ink-2); }
-.pe-fila__rango input {
-  width: 70px; height: 30px; padding: 0 6px; font-variant-numeric: tabular-nums;
+.pe-fila__rango label { margin: 0; }
+.pe-fila__paginas {
+  flex: 1 1 120px; min-width: 90px; height: 30px; padding: 0 var(--sp-2); font-variant-numeric: tabular-nums;
   border: 1px solid var(--c-line-2); border-radius: var(--radius-sm); background: var(--c-surface-0); color: var(--c-ink-1);
 }
-.pe-fila__rango input:focus { outline: none; border-color: var(--c-brand-500); box-shadow: var(--shadow-focus); }
+.pe-fila__paginas:focus { outline: none; border-color: var(--c-brand-500); box-shadow: var(--shadow-focus); }
+.pe-fila__paginas[aria-invalid="true"] { border-color: var(--c-danger-500); }
+.pe-fila__cuenta { color: var(--c-ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pe-fila__error { font-size: 0.78rem; font-weight: 600; color: var(--c-danger-700); }
 .pe-fila__botones { margin-left: auto; display: flex; gap: 2px; }
 .pe-fila__botones .adf-icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+/* Encabezado de cada manual en la lista: aparece cada vez que cambia de manual. */
+.pe-manual {
+  display: flex; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0 0;
+  font-size: 0.85rem; font-weight: 600; color: var(--c-ink-1);
+}
+.pe-manual small { font-weight: 400; color: var(--c-ink-3); }
+.pe-manual .bi { color: var(--c-brand-700); }
+.adf-btn.pe-otro { align-self: flex-start; margin-top: var(--sp-1); }
 .pe-copiar { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
 .pe-copiar .inv-campo { flex: 1; min-width: 0; }
+/* El visor ocupa el alto de la pantalla (menos la barra de arriba) y se queda
+   pegado mientras se baja por una lista larga. Su parte de arriba (manual,
+   navegación y selección: ~210 px) arranca a ~290 px del borde de la ventana,
+   así que se ve sin bajar la página también en 1366×768; bajando unos 220 px
+   entra el visor entero. */
 .pe-visor {
-  display: flex; flex-direction: column; overflow: hidden; height: calc(100vh - 220px); min-height: 520px;
+  position: sticky; top: calc(var(--topbar-h) + var(--sp-3));
+  display: flex; flex-direction: column; overflow: hidden;
+  height: calc(100vh - var(--topbar-h) - 2 * var(--sp-3)); min-height: 460px;
   border: 1px solid var(--c-line-1); border-radius: var(--radius-md); background: var(--c-surface-0);
 }
-.pe-visor__elegir { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--c-line-1); }
-.pe-visor__elegir .inv-campo { flex: 1; min-width: 200px; }
+.pe-visor__elegir {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3);
+  background: var(--c-surface-1); border-bottom: 1px solid var(--c-line-1);
+  scroll-margin-top: calc(var(--topbar-h) + var(--sp-3));
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+.pe-visor__elegir .inv-campo { flex: 1; min-width: 200px; height: 34px; }
+/* «Agregar páginas de otro manual» resalta un momento el selector. */
+.pe-visor__elegir--resaltado { background: var(--c-brand-50); box-shadow: inset 0 0 0 2px var(--c-brand-500); }
+@media (prefers-reduced-motion: reduce) {
+  .pe-visor__elegir { transition: none; }
+}
 .pe-visor .vm { flex: 1; min-height: 0; }
 /* La carga del paquete falló: nada del editor se habilita hasta reintentar. */
 .pe-error {
@@ -199,8 +275,9 @@
   background: var(--c-danger-50); color: var(--c-danger-700); font-size: 0.9rem;
 }
 @media (max-width: 1024px) {
+  /* En una columna el visor va debajo de la lista: pegado no tiene sentido. */
   .pe-cuerpo { grid-template-columns: minmax(0, 1fr); }
-  .pe-visor { height: 80vh; }
+  .pe-visor { position: static; height: 80vh; }
 }
 @media (max-width: 640px) {
   .pe-visor__elegir .inv-campo { min-width: 0; flex-basis: 100%; }

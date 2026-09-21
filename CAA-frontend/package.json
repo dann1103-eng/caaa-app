@@ -9,6 +9,7 @@
     "prebuild": "node scripts/generate-config.mjs && node scripts/generate-marca.mjs",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --test src/pages/Taller/manuales/paginasSeleccion.test.js",
     "preview": "vite preview",
     "start": "vite preview --host --port 3000"
   },
