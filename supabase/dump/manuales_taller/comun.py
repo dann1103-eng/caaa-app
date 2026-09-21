@@ -71,7 +71,8 @@ def bytes_finales(z, clave, nombres):
             with fitz.open(stream=z.read(n), filetype="pdf") as parte:
                 salida.insert_pdf(parte)
         # garbage=1 y sin deflate: rápido y determinista. garbage=3 + deflate tardaba minutos.
-        datos = salida.tobytes(garbage=1, no_new_id=True)
+        # use_objstms: ver en_tomos (sin esto el visor baja el archivo entero al abrirlo).
+        datos = salida.tobytes(garbage=1, use_objstms=1, no_new_id=True)
         salida.close()
     else:
         datos = z.read(nombres[0])
@@ -97,6 +98,10 @@ def en_tomos(clave, datos):
         for i, (desde, hasta) in enumerate([(0, mitad - 1), (mitad, doc.page_count - 1)], start=1):
             t = fitz.open()
             t.insert_pdf(doc, from_page=desde, to_page=hasta)
-            partes.append((f"{clave}-tomo-{i}", t.tobytes(garbage=1, no_new_id=True)))
+            # 🚨 use_objstms=1 NO es opcional: sin object streams, el árbol de
+            # páginas queda desparramado por todo el archivo y el visor (pdf.js por
+            # rangos) tiene que bajar el 98% del tomo solo para abrirlo. Con ellos,
+            # el 3%. Medido el 2026-09-21 sobre el tomo 1 del T303 (31 MB).
+            partes.append((f"{clave}-tomo-{i}", t.tobytes(garbage=1, use_objstms=1, no_new_id=True)))
             t.close()
     return partes

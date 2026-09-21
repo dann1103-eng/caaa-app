@@ -192,39 +192,39 @@
   "archivo_path": "manuales/dfcae537-06a2-5c93-875d-e6ffb2269786.pdf"
  },
  "p689-12-cessna-t303-parts-catalog-tomo-1": {
-  "sha256": "3ba2130a063f5cbc215af3904f54780c1daa40c701bb3ad3fcd6e76aae611a17",
+  "sha256": "96e7138c5a3af75ecd65253a92ded23304c3232a232b6566a3e021ff657ebf37",
   "paginas": 420,
-  "tamano_bytes": 31316598,
-  "archivo_path": "manuales/9d37f177-5a93-509c-8db0-bfa94cb9eb0b.pdf"
+  "tamano_bytes": 31285274,
+  "archivo_path": "manuales/c522f9c1-5007-5122-a79e-14826810b472.pdf"
  },
  "p689-12-cessna-t303-parts-catalog-tomo-2": {
-  "sha256": "21e21948e3f0dc6ec4dd78bfd43c22c07ea265ab50acda0fecc28ba741c5bf98",
+  "sha256": "d68e54ca4a3ee7c7917a13a111aa046b6ce42472d8e6022756e470f8e241bd51",
   "paginas": 420,
-  "tamano_bytes": 31575949,
-  "archivo_path": "manuales/e99ea258-5416-5e9d-a41a-405357ed264c.pdf"
+  "tamano_bytes": 31544381,
+  "archivo_path": "manuales/bfe7311c-194f-5d15-b0a8-549d027c13b0.pdf"
  },
  "pa-23-250-azteca-mm-tomo-1": {
-  "sha256": "c7f30ec9e03d8951f1eff1a10ab71081f2c607af72f05df3b8ec132b54c0b3ff",
+  "sha256": "0767fbd08ed03be6992abc39a8abcba52a226790265455cf2c1528500722fe26",
   "paginas": 716,
-  "tamano_bytes": 37580558,
-  "archivo_path": "manuales/8eabeb13-d61d-55f2-a3f9-9a4528dd9eec.pdf"
+  "tamano_bytes": 37486876,
+  "archivo_path": "manuales/300b82d4-90ae-5e83-91fe-f8c9dec2e519.pdf"
  },
  "pa-23-250-azteca-mm-tomo-2": {
-  "sha256": "67e1e2f2d736248c48d07f87bcd025412febde66dcfc061daa6c8b87d7115bde",
+  "sha256": "76f01d4c87c3db5b277bdeb37ff19eeb9dff739c541068180fbae3f23e6fe58e",
   "paginas": 717,
-  "tamano_bytes": 25033133,
-  "archivo_path": "manuales/8edc960d-2ea0-53d9-8aaf-f18e4ab211ac.pdf"
+  "tamano_bytes": 24935836,
+  "archivo_path": "manuales/ca431faf-1c1a-5718-90d6-c2ad0021349f.pdf"
  },
  "t303-amm-july-1996-rev-02-tomo-1": {
-  "sha256": "35285d855b897ec9b0f2eec7f503da4fe707b8f187ffdd52f5cc4b94da8c7923",
+  "sha256": "e1bfa00199a035d0fcdb82466505b167414bd10ceeb346084664c58b48d49888",
   "paginas": 766,
-  "tamano_bytes": 32929972,
-  "archivo_path": "manuales/238c5132-9a7b-5ddd-8bdc-6f998f67abff.pdf"
+  "tamano_bytes": 32841567,
+  "archivo_path": "manuales/54d450f6-1e43-56ea-8363-51566f44562b.pdf"
  },
  "t303-amm-july-1996-rev-02-tomo-2": {
-  "sha256": "91eee6fd955f5f59412ff619e13c2594b666f218a3d3db704e07af2ddc03b0af",
+  "sha256": "195320d45eee42ce9fa1099a009c864011bbd1a8f5e87c26c6f3c61332f9a60d",
   "paginas": 767,
-  "tamano_bytes": 43504045,
-  "archivo_path": "manuales/8b379b22-8996-56a4-9653-0c502bd3844b.pdf"
+  "tamano_bytes": 43391338,
+  "archivo_path": "manuales/2b3afe40-d046-55fd-aa32-482030479c4b.pdf"
  }
 }
