@@ -237,4 +237,7 @@ async function syncProximaRevisionAeronave(client, id_aeronave) {
 module.exports = {
   actualizarHorasAeronave,
   syncProximaRevisionAeronave,
+  // Lo usan los manuales del taller para saber qué inspección es una orden
+  // (spec 2026-09-20 §7). Se exporta en vez de copiar el mapa.
+  derivarTipoRevision,
 };

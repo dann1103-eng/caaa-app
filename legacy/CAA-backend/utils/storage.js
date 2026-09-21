@@ -31,12 +31,20 @@ function storageDisponible() {
 /**
  * Sube un buffer a un bucket. Devuelve la ruta del objeto (lo que se guarda en
  * la columna archivo_path).
+ *
+ * `upsert` sigue en true por defecto para no cambiarle nada a quien ya la usa.
+ * Los manuales la llaman con `upsert: false`: la app NUNCA pisa un manual
+ * (spec 2026-09-20 §5). Un "ya existe" sale con `statusCode = 409`.
  */
-async function subirArchivo(bucket, ruta, buffer, contentType) {
+async function subirArchivo(bucket, ruta, buffer, contentType, { upsert = true } = {}) {
   const { error } = await getClient()
     .storage.from(bucket)
-    .upload(ruta, buffer, { contentType: contentType || "application/octet-stream", upsert: true });
-  if (error) throw new Error(`Error subiendo a storage: ${error.message}`);
+    .upload(ruta, buffer, { contentType: contentType || "application/octet-stream", upsert });
+  if (error) {
+    const e = new Error(`Error subiendo a storage: ${error.message}`);
+    e.statusCode = Number(error.statusCode || error.status) || null;
+    throw e;
+  }
   return ruta;
 }
 
@@ -61,9 +69,36 @@ async function borrarArchivo(bucket, ruta) {
   }
 }
 
+/** Baja un objeto entero a memoria (Buffer). */
+async function descargarArchivo(bucket, ruta) {
+  const { data, error } = await getClient().storage.from(bucket).download(ruta);
+  if (error) throw new Error(`Error bajando de storage: ${error.message}`);
+  return Buffer.from(await data.arrayBuffer());
+}
+
+/** ¿Existe el objeto? Cualquier error cuenta como "no". */
+async function existeArchivo(bucket, ruta) {
+  const { data, error } = await getClient().storage.from(bucket).exists(ruta);
+  return !error && !!data;
+}
+
+/**
+ * Permiso temporal (2 h) para que el NAVEGADOR suba directo a Storage, sin pasar
+ * el archivo por el backend. Sin upsert: no puede pisar nada.
+ */
+async function urlSubidaFirmada(bucket, ruta) {
+  const { data, error } = await getClient().storage.from(bucket).createSignedUploadUrl(ruta, { upsert: false });
+  if (error) throw new Error(`Error preparando la subida: ${error.message}`);
+  return data; // { signedUrl, token, path }
+}
+
 const BUCKETS = {
   DOCUMENTOS: "documentos-alumno",
   ARCHIVOS: "caaa-archivos",
+  MANUALES: "manuales-taller",
 };
 
-module.exports = { getClient, storageDisponible, subirArchivo, urlFirmada, borrarArchivo, BUCKETS };
+module.exports = {
+  getClient, storageDisponible, subirArchivo, urlFirmada, borrarArchivo,
+  descargarArchivo, existeArchivo, urlSubidaFirmada, BUCKETS,
+};
