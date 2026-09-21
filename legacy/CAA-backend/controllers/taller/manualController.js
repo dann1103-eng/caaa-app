@@ -21,7 +21,7 @@ const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const AppError = require("../../utils/appError");
 const storage = require("../../utils/storage");
-const { CATEGORIAS } = require("../../utils/manualesReglas");
+const { CATEGORIAS, esArchivoFaltante } = require("../../utils/manualesReglas");
 const { validarRango, analizarPdf, enCola } = require("../../utils/pdfExtractos");
 const { pdfDeExtractos, manualesPorId, BUCKET } = require("../../services/manualesService");
 
@@ -112,13 +112,15 @@ function leerDatos(body, { exigirRuta }) {
     fabricante: txt(body.fabricante),
     numero_parte: txt(body.numero_parte),
     revision: txt(body.revision),
-    es_general: body.es_general === undefined ? undefined : !!body.es_general,
-    aeronaves: Array.isArray(body.aeronaves)
-      ? [...new Set(body.aeronaves.map(Number).filter(idValido))]
-      : undefined,
+    // Solo true (o "true") es true: !!"false" daría true.
+    es_general: body.es_general === undefined ? undefined : body.es_general === true || body.es_general === "true",
+    aeronaves: Array.isArray(body.aeronaves) ? [...new Set(body.aeronaves.map(Number))] : undefined,
     ruta: body.ruta,
   };
   if (exigirRuta && !RUTA_VALIDA.test(String(body.ruta || ""))) return { error: "Falta el archivo subido" };
+  // Un id mal armado es un error, no se descarta: en editar, descartarlo en
+  // silencio le sacaría al manual los aviones que tenía.
+  if (d.aeronaves && !d.aeronaves.every(idValido)) return { error: "Uno de los aviones elegidos no existe" };
   if (d.titulo && d.titulo.length > 200) return { error: "El título es demasiado largo (máximo 200)" };
   if (d.categoria && !CATEGORIAS.includes(d.categoria)) return { error: "Tipo de manual inválido" };
   for (const k of ["fabricante", "numero_parte", "revision"]) {
@@ -129,17 +131,32 @@ function leerDatos(body, { exigirRuta }) {
 }
 
 /**
+ * 400 si alguno de los aviones no existe. Sin esto el FK daría un 500 con el
+ * detalle de Postgres. `ids` ya viene sin repetidos (leerDatos).
+ */
+async function validarAeronaves(ids) {
+  if (!ids?.length) return;
+  const r = await db.query("SELECT id_aeronave FROM aeronave WHERE id_aeronave = ANY($1::int[])", [ids]);
+  if (r.rows.length < ids.length) throw new AppError("Uno de los aviones elegidos no existe", 400);
+}
+
+/**
  * Baja lo recién subido y saca huella y páginas. La bajada va DENTRO de la
  * cola: si fuera antes, N subidas simultáneas retendrían el PDF entero cada una
  * mientras esperan su turno.
+ *
+ * Solo un "no está" de Storage (400/404) se le devuelve al usuario como "volvé
+ * a subirlo". Una caída o un corte de red sale como error nuestro (500): pedir
+ * que vuelva a subir 70 MB no arreglaría nada.
  */
 async function analizarSubida(ruta) {
   const a = await enCola(async () => {
     let bytes;
     try {
       bytes = await storage.descargarArchivo(BUCKET, ruta);
-    } catch {
-      return { error: "El archivo no llegó al almacenamiento. Volvé a subirlo." };
+    } catch (err) {
+      if (esArchivoFaltante(err)) return { error: "El archivo no llegó al almacenamiento. Volvé a subirlo." };
+      throw err;
     }
     const r = await analizarPdf(bytes);
     return r.error ? r : { ...r, tamano_bytes: bytes.length };
@@ -157,10 +174,12 @@ async function insertarManual(client, d, uid) {
   try {
     r = await client.query(
       `INSERT INTO taller_manual (titulo, categoria, fabricante, numero_parte, revision, paginas,
-                                  tamano_bytes, sha256, archivo_path, es_general, origen, subido_por)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'SUBIDA',$11) RETURNING *`,
+                                  tamano_bytes, sha256, archivo_path, es_general, origen, subido_por,
+                                  necesita_confirmacion, nota_confirmacion)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'SUBIDA',$11,$12,$13) RETURNING *`,
       [d.titulo, d.categoria, d.fabricante, d.numero_parte, d.revision, d.paginas,
-       d.tamano_bytes, d.sha256, d.ruta, !!d.es_general, uid]
+       d.tamano_bytes, d.sha256, d.ruta, !!d.es_general, uid,
+       !!d.necesita_confirmacion, d.nota_confirmacion ?? null]
     );
   } catch (e) {
     // Dos registros del mismo archivo a la vez (doble clic): el segundo choca
@@ -184,6 +203,7 @@ exports.registrar = catchAsync(async (req, res) => {
   if (error) return res.status(400).json({ message: error });
   if (!datos.titulo) return res.status(400).json({ message: "Escribí el título del manual" });
   if (!datos.categoria) return res.status(400).json({ message: "Elegí el tipo de manual" });
+  await validarAeronaves(datos.aeronaves);
 
   const a = await analizarSubida(datos.ruta); // antes de abrir la transacción: puede tardar
   const client = await db.connect();
@@ -207,19 +227,28 @@ exports.subirRevision = catchAsync(async (req, res) => {
   if (!datos.revision) {
     return res.status(400).json({ message: "Escribí qué revisión es (ej. «Rev. 12, marzo 2026»)" });
   }
+  const id = Number(req.params.id);
+  const noVigente = (estado) =>
+    new AppError(`Solo se le sube revisión a un manual vigente: este está ${estado.toLowerCase()}.`, 409);
+
+  // Chequeo barato ANTES de bajar y analizar el archivo (puede tardar). El que
+  // manda es el de adentro de la transacción, con la fila bloqueada.
+  const pre = await db.query("SELECT estado FROM taller_manual WHERE id_manual = $1", [id]);
+  if (!pre.rows.length) return res.status(404).json({ message: "Manual no encontrado" });
+  if (pre.rows[0].estado !== "VIGENTE") throw noVigente(pre.rows[0].estado);
+  await validarAeronaves(datos.aeronaves);
 
   const a = await analizarSubida(datos.ruta);
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const v = await client.query(
-      "SELECT * FROM taller_manual WHERE id_manual = $1 FOR UPDATE", [Number(req.params.id)]
-    );
+    const v = await client.query("SELECT * FROM taller_manual WHERE id_manual = $1 FOR UPDATE", [id]);
     if (!v.rows.length) throw new AppError("Manual no encontrado", 404);
     const viejo = v.rows[0];
-    if (viejo.estado !== "VIGENTE") {
-      throw new AppError(`Solo se le sube revisión a un manual vigente: este está ${viejo.estado.toLowerCase()}.`, 409);
-    }
+    if (viejo.estado !== "VIGENTE") throw noVigente(viejo.estado);
+    // Una asignación sin confirmar sigue sin confirmar: subir una revisión no la
+    // confirma sola. Solo el jefe, marcándolo en el mismo pedido, la da por buena.
+    const confirma = req.body.confirmar_asignacion === true;
     // La revisión nueva HEREDA lo que el formulario no mande (spec §8).
     const aviones = datos.aeronaves ?? (await client.query(
       "SELECT id_aeronave FROM taller_manual_aeronave WHERE id_manual = $1", [viejo.id_manual]
@@ -232,6 +261,8 @@ exports.subirRevision = catchAsync(async (req, res) => {
       revision: datos.revision,
       es_general: datos.es_general ?? viejo.es_general,
       aeronaves: aviones,
+      necesita_confirmacion: confirma ? false : viejo.necesita_confirmacion,
+      nota_confirmacion: confirma ? null : viejo.nota_confirmacion,
       ruta: datos.ruta,
       ...a,
     }, req.user.id_usuario);
@@ -269,6 +300,7 @@ exports.editar = catchAsync(async (req, res) => {
   }
   if ("es_general" in req.body) sets.push(`es_general = ${p(datos.es_general)}`);
   if (req.body.confirmar_asignacion === true) sets.push("necesita_confirmacion = false");
+  await validarAeronaves(datos.aeronaves);
 
   const client = await db.connect();
   try {
@@ -347,12 +379,15 @@ exports.eliminar = catchAsync(async (req, res) => {
 
 /** Imprimir páginas sueltas desde la biblioteca. */
 exports.pdfLibre = catchAsync(async (req, res) => {
-  const pedidos = Array.isArray(req.body.extractos)
-    ? req.body.extractos.filter((e) => e && typeof e === "object")
-    : [];
+  const pedidos = Array.isArray(req.body.extractos) ? req.body.extractos : [];
   if (!pedidos.length) return res.status(400).json({ message: "Elegí qué páginas imprimir" });
   if (pedidos.length > 50) return res.status(400).json({ message: "Demasiados rangos para un solo PDF" });
-  const manuales = await manualesPorId([...new Set(pedidos.map((e) => Number(e.id_manual)).filter(idValido))]);
+  // Un id que no es un número es un pedido mal armado (400), no un manual que
+  // se borró (404).
+  if (!pedidos.every((e) => e && typeof e === "object" && idValido(e.id_manual))) {
+    return res.status(400).json({ message: "Manual inválido" });
+  }
+  const manuales = await manualesPorId([...new Set(pedidos.map((e) => Number(e.id_manual)))]);
   const extractos = [];
   for (const e of pedidos) {
     const m = manuales.get(Number(e.id_manual));

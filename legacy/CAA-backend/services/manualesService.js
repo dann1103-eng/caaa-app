@@ -10,7 +10,9 @@ const AppError = require("../utils/appError");
 const {
   armarPdf, claveExtractos, enCola, paginasDe, MAX_PAGINAS, MAX_MANUALES,
 } = require("../utils/pdfExtractos");
-const { resolverInspeccion, esMecanicoDeOrden, esJefe } = require("../utils/manualesReglas");
+const {
+  resolverInspeccion, esMecanicoDeOrden, esJefe, sinRangosRepetidos,
+} = require("../utils/manualesReglas");
 
 const BUCKET = storage.BUCKETS.MANUALES;
 
@@ -77,7 +79,9 @@ async function paqueteDe(q, idAeronave, tipo) {
  * Lo que se muestra e imprime de una orden (spec §7).
  * - ABIERTA: el paquete CONFIRMADO en vivo + lo agregado a mano. Las copias
  *   'PAQUETE' de una firma anterior (antes de una devolución) no se muestran:
- *   la próxima firma las reemplaza.
+ *   la próxima firma las reemplaza. Del paquete en vivo se sacan los rangos que
+ *   ya están entre los agregados a mano (una orden que trajo el paquete y
+ *   después ganó una inspección reconocida): si no, salen dos veces.
  * - Cualquier otro estado: solo lo guardado en la orden.
  */
 async function manualesDeOrden(idOrden, usuario) {
@@ -90,10 +94,10 @@ async function manualesDeOrden(idOrden, usuario) {
   const abierta = o.estado === "ABIERTA";
   const paquete = o.inspeccion ? await paqueteDe(db, o.id_aeronave, o.inspeccion) : null;
 
-  const delPaquete = abierta
-    ? (paquete?.estado === "CONFIRMADO" ? paquete.extractos : [])
-    : propias.filter((e) => e.origen === "PAQUETE");
   const agregadas = propias.filter((e) => e.origen === "MANUAL");
+  const delPaquete = abierta
+    ? (paquete?.estado === "CONFIRMADO" ? sinRangosRepetidos(paquete.extractos, agregadas) : [])
+    : propias.filter((e) => e.origen === "PAQUETE");
 
   return {
     orden: {
@@ -114,7 +118,8 @@ async function manualesDeOrden(idOrden, usuario) {
 /**
  * Copia el paquete confirmado a la orden, dentro de la transacción de
  * firmarOrden. Borrar antes de copiar hace que devolver y volver a firmar no
- * duplique las páginas.
+ * duplique las páginas. Los rangos que la orden ya tiene agregados a mano
+ * (mismo manual y mismas páginas) no se copian: ya están.
  */
 async function congelarPaqueteEnOrden(client, idOrden) {
   await client.query(
@@ -127,7 +132,12 @@ async function congelarPaqueteEnOrden(client, idOrden) {
      SELECT $1, e.id_manual, e.pagina_desde, e.pagina_hasta, e.titulo, e.orden, 'PAQUETE'
        FROM taller_paquete_extracto e
        JOIN taller_paquete_manual p ON p.id_paquete = e.id_paquete
-      WHERE p.id_aeronave = $2 AND p.tipo_mantenimiento = $3 AND p.estado = 'CONFIRMADO'`,
+      WHERE p.id_aeronave = $2 AND p.tipo_mantenimiento = $3 AND p.estado = 'CONFIRMADO'
+        AND NOT EXISTS (SELECT 1 FROM taller_orden_extracto x
+                         WHERE x.id_orden = $1 AND x.origen = 'MANUAL'
+                           AND x.id_manual = e.id_manual
+                           AND x.pagina_desde = e.pagina_desde
+                           AND x.pagina_hasta = e.pagina_hasta)`,
     [idOrden, o.id_aeronave, o.inspeccion]
   );
   return r.rowCount;

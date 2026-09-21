@@ -49,7 +49,30 @@ function esMecanicoDeOrden(orden, idUsuario) {
 
 const esJefe = (rol) => JEFE.includes(rol);
 
+/** Lo que identifica un rango de páginas: el manual y sus dos puntas. */
+const claveRango = (e) => `${Number(e.id_manual)}:${Number(e.pagina_desde)}:${Number(e.pagina_hasta)}`;
+
+/**
+ * `lista` sin los rangos que ya están en `existentes` (mismo manual, mismas
+ * páginas). Una orden que trajo el paquete a mano y después ganó una inspección
+ * reconocida tendría las mismas páginas dos veces: las copias MANUAL y el
+ * paquete en vivo. Mismo criterio que los NOT EXISTS de traerPaquete y de
+ * congelarPaqueteEnOrden.
+ */
+function sinRangosRepetidos(lista, existentes) {
+  const ya = new Set(existentes.map(claveRango));
+  return lista.filter((e) => !ya.has(claveRango(e)));
+}
+
+/**
+ * ¿El error de bajar un archivo recién subido quiere decir "no está"? Solo un
+ * 400 o 404 de Storage. Cualquier otra cosa (caída, 403, corte de red) no es
+ * culpa del archivo: pedirle al usuario que vuelva a subir 70 MB no arregla nada.
+ */
+const esArchivoFaltante = (err) => err?.storageStatus === 400 || err?.storageStatus === 404;
+
 module.exports = {
   TIPOS_PAQUETE, ETIQUETA_TIPO, CATEGORIAS,
   aTipoPaquete, resolverInspeccion, esMecanicoDeOrden, esJefe,
+  claveRango, sinRangosRepetidos, esArchivoFaltante,
 };

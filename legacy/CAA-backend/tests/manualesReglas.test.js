@@ -3,6 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   aTipoPaquete, resolverInspeccion, esMecanicoDeOrden, esJefe, TIPOS_PAQUETE,
+  claveRango, sinRangosRepetidos, esArchivoFaltante,
 } = require("../utils/manualesReglas");
 
 test("los cuatro tipos de paquete", () => {
@@ -49,4 +50,32 @@ test("esJefe: TALLER y ADMIN", () => {
   assert.equal(esJefe("TALLER"), true);
   assert.equal(esJefe("ADMIN"), true);
   assert.equal(esJefe("TECNICO"), false);
+});
+test("claveRango: manual y las dos puntas, sin importar si llegan como texto", () => {
+  assert.equal(claveRango({ id_manual: 3, pagina_desde: 10, pagina_hasta: 12 }), "3:10:12");
+  assert.equal(claveRango({ id_manual: "3", pagina_desde: "10", pagina_hasta: "12" }), "3:10:12");
+});
+test("sinRangosRepetidos: quita del paquete lo que ya está copiado a mano, y nada más", () => {
+  const paquete = [
+    { id_extracto: 1, id_manual: 3, pagina_desde: 10, pagina_hasta: 12 },
+    { id_extracto: 2, id_manual: 3, pagina_desde: 20, pagina_hasta: 20 },
+    { id_extracto: 3, id_manual: 4, pagina_desde: 10, pagina_hasta: 12 },
+  ];
+  const manuales = [
+    { id_extracto: 9, id_manual: 3, pagina_desde: 10, pagina_hasta: 12 }, // el mismo rango
+    { id_extracto: 8, id_manual: 3, pagina_desde: 20, pagina_hasta: 21 }, // se superpone, pero no es el mismo
+  ];
+  assert.deepEqual(sinRangosRepetidos(paquete, manuales).map((e) => e.id_extracto), [2, 3]);
+  assert.deepEqual(sinRangosRepetidos(paquete, []).map((e) => e.id_extracto), [1, 2, 3]);
+  assert.deepEqual(sinRangosRepetidos([], manuales), []);
+});
+test("esArchivoFaltante: solo el 400 o 404 de Storage, no una caída ni un error cualquiera", () => {
+  assert.equal(esArchivoFaltante({ storageStatus: 400 }), true);
+  assert.equal(esArchivoFaltante({ storageStatus: 404 }), true);
+  assert.equal(esArchivoFaltante({ storageStatus: 403 }), false);
+  assert.equal(esArchivoFaltante({ storageStatus: 503 }), false);
+  assert.equal(esArchivoFaltante({ storageStatus: null }), false); // corte de red
+  assert.equal(esArchivoFaltante({ statusCode: 404 }), false); // el status de la API no cuenta
+  assert.equal(esArchivoFaltante(new Error("Storage no configurado")), false);
+  assert.equal(esArchivoFaltante(undefined), false);
 });

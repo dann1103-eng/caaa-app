@@ -15,7 +15,7 @@ const catchAsync = require("../../utils/catchAsync");
 const { TIPOS_PAQUETE, ETIQUETA_TIPO, esJefe, esMecanicoDeOrden } = require("../../utils/manualesReglas");
 const { validarRango } = require("../../utils/pdfExtractos");
 const {
-  contextoOrden, manualesDeOrden, pdfDeExtractos, paqueteDe, sinInternos,
+  contextoOrden, manualesDeOrden, pdfDeExtractos, paqueteDe, selectExtractos, sinInternos,
 } = require("../../services/manualesService");
 
 // Tope de INTEGER de Postgres: un id más grande daría un 500 en vez de un 400.
@@ -24,6 +24,10 @@ const idValido = (v) => Number.isInteger(Number(v)) && Number(v) > 0 && Number(v
 /**
  * Corre `fn(client, orden)` en una transacción con la orden bloqueada, si el
  * usuario puede cambiarle las páginas. Si no, responde el error y no corre nada.
+ *
+ * `fn` devuelve `{error: [status, mensaje]}` (se deshace todo) o
+ * `{body, status?}` (se confirma). Cualquier otra cosa es un error de
+ * programación: se deshace y se tira ANTES del COMMIT.
  */
 async function conOrdenEditable(req, res, fn) {
   if (!idValido(req.params.id)) return res.status(400).json({ message: "Orden inválida" });
@@ -45,7 +49,10 @@ async function conOrdenEditable(req, res, fn) {
       return res.status(rechazo[0]).json({ message: rechazo[1] });
     }
     const salida = await fn(client, o);
-    if (salida?.error) {
+    const valida = salida && typeof salida === "object"
+      && (Array.isArray(salida.error) || (!salida.error && "body" in salida));
+    if (!valida) throw new Error("conOrdenEditable: la función tiene que devolver {error} o {body}");
+    if (salida.error) {
       await client.query("ROLLBACK");
       return res.status(salida.error[0]).json({ message: salida.error[1] });
     }
@@ -83,10 +90,15 @@ exports.agregar = catchAsync(async (req, res) => {
        VALUES ($1, $2, $3, $4, $5,
                (SELECT COALESCE(MAX(orden), 0) + 1 FROM taller_orden_extracto WHERE id_orden = $1),
                'MANUAL', $6)
-       RETURNING *`,
+       RETURNING id_extracto`,
       [o.id_orden, m.rows[0].id_manual, Number(pagina_desde), Number(pagina_hasta), titulo, req.user.id_usuario]
     );
-    return { status: 201, body: r.rows[0] };
+    // Con la misma forma que listar (creado_txt, datos del manual, quién lo
+    // agregó), no la fila cruda: creado_en crudo saldría corrido 6 h (§40).
+    const nuevo = await client.query(
+      `${selectExtractos("taller_orden_extracto")} WHERE e.id_extracto = $1`, [r.rows[0].id_extracto]
+    );
+    return { status: 201, body: sinInternos(nuevo.rows[0]) };
   });
 });
 
@@ -107,6 +119,10 @@ exports.traerPaquete = catchAsync(async (req, res) => {
       return { error: [404, `${o.aeronave_codigo} no tiene un paquete de ${ETIQUETA_TIPO[tipo]} confirmado.`] };
     }
     // Se copian como MANUAL: quedan editables y la congelación de la firma no los toca.
+    // Lo que ya está agregado a mano (mismo manual y mismas páginas) no se vuelve
+    // a copiar: traer el paquete dos veces no duplica. Si no queda nada nuevo,
+    // responde {agregadas: 0} ("ya estaban"). Solo cuentan las MANUAL: las copias
+    // PAQUETE de una firma anterior no se muestran y la próxima firma las borra.
     const r = await client.query(
       `INSERT INTO taller_orden_extracto
          (id_orden, id_manual, pagina_desde, pagina_hasta, titulo, orden, origen, agregado_por)
@@ -114,7 +130,12 @@ exports.traerPaquete = catchAsync(async (req, res) => {
               (SELECT COALESCE(MAX(orden), 0) FROM taller_orden_extracto WHERE id_orden = $1) + e.orden + 1,
               'MANUAL', $3
          FROM taller_paquete_extracto e
-        WHERE e.id_paquete = $2`,
+        WHERE e.id_paquete = $2
+          AND NOT EXISTS (SELECT 1 FROM taller_orden_extracto x
+                           WHERE x.id_orden = $1 AND x.origen = 'MANUAL'
+                             AND x.id_manual = e.id_manual
+                             AND x.pagina_desde = e.pagina_desde
+                             AND x.pagina_hasta = e.pagina_hasta)`,
       [o.id_orden, p.id_paquete, req.user.id_usuario]
     );
     return { body: { agregadas: r.rowCount } };

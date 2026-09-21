@@ -95,11 +95,15 @@ exports.guardar = catchAsync(async (req, res) => {
   if (filas.some((f) => !f || typeof f !== "object")) {
     return res.status(400).json({ message: "Hay un rango de páginas mal armado" });
   }
+  // Un id que no es un número es un pedido mal armado (400), no un manual que
+  // se borró (404).
+  const malo = filas.findIndex((f) => !idValido(Number(f.id_manual)));
+  if (malo >= 0) return res.status(400).json({ message: `Manual inválido (rango ${malo + 1})` });
 
   const av = await db.query("SELECT 1 FROM aeronave WHERE id_aeronave = $1", [k.idAeronave]);
   if (!av.rows.length) return res.status(404).json({ message: "Avión no encontrado" });
 
-  const manuales = await manualesPorId([...new Set(filas.map((f) => Number(f.id_manual)).filter(idValido))]);
+  const manuales = await manualesPorId([...new Set(filas.map((f) => Number(f.id_manual)))]);
   const limpias = [];
   for (const [i, f] of filas.entries()) {
     const m = manuales.get(Number(f.id_manual));
