@@ -190,6 +190,9 @@ CREATE TABLE taller_orden_extracto (
   - `extractos/<hash>.pdf` — los PDF recortados, reutilizables (§6). Demo y producción los comparten
     sin riesgo: el mismo hash es exactamente el mismo contenido.
 - 🚨 **La app nunca borra ni sobreescribe un objeto del bucket** (`upsert: false` en toda subida).
+  `storage.subirArchivo` tiene hoy `upsert: true` fijo: se le agrega el parámetro, no se reutiliza
+  tal cual. Al escribir `extractos/<hash>.pdf`, un error de "ya existe" **cuenta como éxito**: el
+  mismo hash es el mismo contenido.
   Borrar un manual quita la fila, no el archivo; una revisión nueva es otro archivo. Esto es lo que
   impide que la cuenta de demostraciones —que tiene rol de jefe y comparte el bucket— pueda tocar un
   manual de CAAA (§12). Los archivos huérfanos pesan poco y no se limpian en esta versión.
@@ -254,7 +257,9 @@ completa ronda 1 MB) y no se limpian en esta versión.
 
 En 2 y 3 el texto es libre (`"Inspección 100 horas"`, `"Anual"`, a veces el nombre de un AD). **Se
 traduce con `derivarTipoRevision` de `utils/aeronaveUtils.js`**, el mapa nombre → código que ya existe;
-no se compara texto a mano ni se duplica el mapa. Lo que no traduce da `OTRO` y no cuenta.
+no se compara texto a mano ni se duplica el mapa. Lo que no traduce da `OTRO` y no cuenta. Hoy la
+función **no se exporta** (`module.exports` solo tiene `actualizarHorasAeronave` y
+`syncProximaRevisionAeronave`): se agrega al export, no se copia.
 
 Si no sale ninguna inspección, **no hay paquete automático**. Para las órdenes de inspección que se
 abrieron sin enlazar el mantenimiento, el modal ofrece **"Traer las páginas de un paquete"**: se elige
@@ -475,6 +480,9 @@ En `nota_confirmacion` de cada manual, y en el reporte de la carga:
 - **El bucket se comparte** y el demo tiene rol de jefe: lo que lo hace seguro es la regla de §5 (la
   app nunca borra ni sobreescribe un objeto) más las rutas con UUID. Lo que suba el demo queda como un
   archivo más en el bucket, sin tocar los de CAAA.
+- Como la configuración se conserva, **lo que un usuario del demo suba, edite o archive en la biblioteca
+  sobrevive a "Reiniciar demo"** (igual que las plantillas de sticker y los formularios). La biblioteca
+  del demo solo vuelve al original regenerando el catálogo. Se anota en `docs/demo/RUNBOOK.md`.
 
 ---
 
@@ -510,7 +518,7 @@ el plan del visor, así que va en la primera tarea.
 **En el navegador:** visor con un manual real (índice, búsqueda, desde/hasta), configurador completo y
 el modal de la orden a **375 px**. Contraste medido de verdad (§35).
 
-**En producción:** que los 35 manuales quedaron (conteo y tamaño en `storage.objects` por SQL) y que
+**En producción:** que los 35 manuales quedaron (37 si el plan obligó a partir los dos del T303 en tomos) (conteo y tamaño en `storage.objects` por SQL) y que
 un PDF de paquete se genera y se abre.
 
 ---
