@@ -84,7 +84,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
     },
     {
       titulo: "Taller",
-      // 🚨 Estos cinco primeros son EXACTAMENTE los del jefe de taller
+      // 🚨 Estos seis primeros son EXACTAMENTE los del jefe de taller
       // (TallerSidebar.jsx), en el mismo orden y con las mismas etiquetas.
       //
       // No es una preferencia estética: al ADMIN le faltaban "Mi taller" —que
@@ -101,6 +101,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
         { label: "Trabajos", path: "/taller/ordenes", icon: "bi-clipboard2-check" },
         { label: "Aeronavegabilidad", path: "/taller/aeronavegabilidad", icon: "bi-clipboard2-pulse" },
         { label: "Inventario", path: "/taller/inventario", icon: "bi-box-seam" },
+        { label: "Manuales", path: "/taller/manuales", icon: "bi-book" },
         // Lo que sigue es SOLO del ADMIN: dar de alta y baja aviones y mandar
         // uno a mantenimiento son decisiones de la escuela, no del taller.
         { label: "Aeronaves", path: "/admin/aeronaves", icon: "bi-airplane" },
