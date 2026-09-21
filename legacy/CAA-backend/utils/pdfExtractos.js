@@ -62,6 +62,39 @@ function validarRango(desde, hasta, paginas) {
   return null;
 }
 
+/** Tope de rangos en un solo "agregar": una sección con páginas sueltas (spec §9.6). */
+const MAX_RANGOS_POR_PEDIDO = 50;
+
+/**
+ * Los rangos que pide un "agregar páginas" para un manual de `paginas` páginas:
+ * la lista `rangos` ([{pagina_desde, pagina_hasta}], de 1 a 50) o, si no viene,
+ * el par suelto pagina_desde/pagina_hasta de siempre. Se validan TODOS antes de
+ * insertar nada.
+ *
+ * Devuelve {lista, rangos} o {error}. `lista` dice si se pidió como lista: la
+ * respuesta conserva la forma del pedido (un objeto para el par suelto).
+ */
+function leerRangos(body, paginas) {
+  const b = body || {};
+  if (b.rangos === undefined || b.rangos === null) {
+    const error = validarRango(b.pagina_desde, b.pagina_hasta, paginas);
+    if (error) return { error };
+    return { lista: false, rangos: [{ pagina_desde: Number(b.pagina_desde), pagina_hasta: Number(b.pagina_hasta) }] };
+  }
+  if (!Array.isArray(b.rangos)) return { error: "Los rangos tienen que venir en una lista" };
+  if (!b.rangos.length) return { error: "Elegí al menos un rango de páginas" };
+  if (b.rangos.length > MAX_RANGOS_POR_PEDIDO) {
+    return { error: `Son ${b.rangos.length} rangos: el máximo por vez es ${MAX_RANGOS_POR_PEDIDO}` };
+  }
+  const rangos = [];
+  for (const [i, r] of b.rangos.entries()) {
+    const error = r && typeof r === "object" ? validarRango(r.pagina_desde, r.pagina_hasta, paginas) : "está mal armado";
+    if (error) return { error: `Rango ${i + 1}: ${error}` };
+    rangos.push({ pagina_desde: Number(r.pagina_desde), pagina_hasta: Number(r.pagina_hasta) });
+  }
+  return { lista: true, rangos };
+}
+
 const paginasDe = (extractos) =>
   extractos.reduce((s, e) => s + (Number(e.pagina_hasta) - Number(e.pagina_desde) + 1), 0);
 
@@ -194,6 +227,6 @@ function enCola(fn) {
 }
 
 module.exports = {
-  validarRango, claveExtractos, analizarPdf, armarPdf, enCola, paginasDe,
-  MAX_PAGINAS, MAX_MANUALES, LLAVES_QUE_ARRASTRAN, RECETA,
+  validarRango, leerRangos, claveExtractos, analizarPdf, armarPdf, enCola, paginasDe,
+  MAX_PAGINAS, MAX_MANUALES, MAX_RANGOS_POR_PEDIDO, LLAVES_QUE_ARRASTRAN, RECETA,
 };

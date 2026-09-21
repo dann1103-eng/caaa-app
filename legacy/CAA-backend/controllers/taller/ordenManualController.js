@@ -13,7 +13,7 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
 const { TIPOS_PAQUETE, ETIQUETA_TIPO, esJefe, esMecanicoDeOrden } = require("../../utils/manualesReglas");
-const { validarRango } = require("../../utils/pdfExtractos");
+const { leerRangos } = require("../../utils/pdfExtractos");
 const {
   contextoOrden, manualesDeOrden, pdfDeExtractos, paqueteDe, selectExtractos, sinInternos,
 } = require("../../services/manualesService");
@@ -73,8 +73,17 @@ exports.listar = catchAsync(async (req, res) => {
   res.json({ ...r, del_paquete: r.del_paquete.map(sinInternos), agregadas: r.agregadas.map(sinInternos) });
 });
 
+/**
+ * Agrega páginas de un manual. Una sección con páginas sueltas (43, 45, 47-50)
+ * llega como `rangos` y entra entera en la misma transacción, con el mismo
+ * título y `orden` consecutivo (spec §9.6); sin `rangos`, el par suelto
+ * pagina_desde/pagina_hasta de siempre.
+ *
+ * Responde 201 con la misma forma que listar: una lista si se pidió `rangos`,
+ * un objeto si se pidió el par suelto (lo que ya esperan los clientes viejos).
+ */
 exports.agregar = catchAsync(async (req, res) => {
-  const { id_manual, pagina_desde, pagina_hasta } = req.body;
+  const { id_manual } = req.body;
   const titulo = req.body.titulo ? String(req.body.titulo).trim().slice(0, 200) || null : null;
   await conOrdenEditable(req, res, async (client, o) => {
     const m = await client.query(
@@ -82,23 +91,35 @@ exports.agregar = catchAsync(async (req, res) => {
       [idValido(id_manual) ? Number(id_manual) : 0]
     );
     if (!m.rows.length) return { error: [404, "Manual no encontrado"] };
-    const err = validarRango(pagina_desde, pagina_hasta, m.rows[0].paginas);
-    if (err) return { error: [400, err] };
+    const pedido = leerRangos(req.body, m.rows[0].paginas);
+    if (pedido.error) return { error: [400, pedido.error] };
+    // El `orden` sale del MAX de la orden, bloqueada FOR UPDATE por
+    // conOrdenEditable: nadie inserta en medio. WITH ORDINALITY numera los
+    // rangos en el orden pedido (1, 2, …).
     const r = await client.query(
       `INSERT INTO taller_orden_extracto
          (id_orden, id_manual, pagina_desde, pagina_hasta, titulo, orden, origen, agregado_por)
-       VALUES ($1, $2, $3, $4, $5,
-               (SELECT COALESCE(MAX(orden), 0) + 1 FROM taller_orden_extracto WHERE id_orden = $1),
-               'MANUAL', $6)
+       SELECT $1::int, $2::int, t.desde, t.hasta, $5::varchar, base.maximo + t.n, 'MANUAL', $6::int
+         FROM unnest($3::int[], $4::int[]) WITH ORDINALITY AS t(desde, hasta, n)
+        CROSS JOIN (SELECT COALESCE(MAX(orden), 0) AS maximo
+                      FROM taller_orden_extracto WHERE id_orden = $1::int) base
        RETURNING id_extracto`,
-      [o.id_orden, m.rows[0].id_manual, Number(pagina_desde), Number(pagina_hasta), titulo, req.user.id_usuario]
+      [
+        o.id_orden, m.rows[0].id_manual,
+        pedido.rangos.map((x) => x.pagina_desde), pedido.rangos.map((x) => x.pagina_hasta),
+        titulo, req.user.id_usuario,
+      ]
     );
     // Con la misma forma que listar (creado_txt, datos del manual, quién lo
     // agregó), no la fila cruda: creado_en crudo saldría corrido 6 h (§40).
-    const nuevo = await client.query(
-      `${selectExtractos("taller_orden_extracto")} WHERE e.id_extracto = $1`, [r.rows[0].id_extracto]
+    // Se relee ordenado por `orden`: el orden del RETURNING de un INSERT de
+    // varias filas no está garantizado.
+    const nuevos = await client.query(
+      `${selectExtractos("taller_orden_extracto")} WHERE e.id_extracto = ANY($1::int[]) ORDER BY e.orden, e.id_extracto`,
+      [r.rows.map((x) => x.id_extracto)]
     );
-    return { status: 201, body: sinInternos(nuevo.rows[0]) };
+    const filas = nuevos.rows.map(sinInternos);
+    return { status: 201, body: pedido.lista ? filas : filas[0] };
   });
 });
 

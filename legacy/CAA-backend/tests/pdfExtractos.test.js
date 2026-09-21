@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const crypto = require("crypto");
 const { PDFDocument, PDFName } = require("pdf-lib");
 const {
-  validarRango, claveExtractos, armarPdf, analizarPdf, paginasDe, enCola,
+  validarRango, leerRangos, claveExtractos, armarPdf, analizarPdf, paginasDe, enCola,
 } = require("../utils/pdfExtractos");
 
 /** armarPdf pide cada manual con una función; en las pruebas sale de un Map. */
@@ -49,6 +49,40 @@ test("validarRango rechaza página 0, vacíos y no-enteros", () => {
   assert.match(validarRango(1.5, 2, 10), /enteros/);
   assert.match(validarRango("", 2, 10), /enteros/);
   assert.match(validarRango(null, 2, 10), /enteros/);
+});
+
+// leerRangos: lo que pide "agregar páginas" a una orden (una sección = varios rangos).
+test("leerRangos sin `rangos`: el par suelto de siempre, sin prefijo en el error", () => {
+  assert.deepEqual(leerRangos({ pagina_desde: "3", pagina_hasta: 5 }, 10), {
+    lista: false, rangos: [{ pagina_desde: 3, pagina_hasta: 5 }],
+  });
+  assert.deepEqual(leerRangos({ pagina_desde: 1, pagina_hasta: 11 }, 10), {
+    error: "El manual tiene 10 páginas: no existe la 11",
+  });
+  assert.match(leerRangos(undefined, 10).error, /enteros/);
+});
+test("leerRangos con `rangos`: todos, en orden, y los sueltos se ignoran", () => {
+  const r = leerRangos({
+    pagina_desde: 99, pagina_hasta: 99,
+    rangos: [{ pagina_desde: 43, pagina_hasta: 43 }, { pagina_desde: "47", pagina_hasta: "50" }],
+  }, 100);
+  assert.deepEqual(r, {
+    lista: true, rangos: [{ pagina_desde: 43, pagina_hasta: 43 }, { pagina_desde: 47, pagina_hasta: 50 }],
+  });
+});
+test("leerRangos: un rango malo frena todo y dice cuál es", () => {
+  const r = leerRangos({ rangos: [{ pagina_desde: 1, pagina_hasta: 2 }, { pagina_desde: 5, pagina_hasta: 3 }] }, 10);
+  assert.equal(r.error, "Rango 2: La página final (3) no puede ser menor que la inicial (5)");
+  assert.equal(leerRangos({ rangos: [{ pagina_desde: 1, pagina_hasta: 2 }, null] }, 10).error, "Rango 2: está mal armado");
+  assert.equal(leerRangos({ rangos: [{ pagina_desde: 1, pagina_hasta: 20 }] }, 10).error,
+    "Rango 1: El manual tiene 10 páginas: no existe la 20");
+});
+test("leerRangos: lista vacía, que no es lista, o de más de 50 → error", () => {
+  assert.equal(leerRangos({ rangos: [] }, 10).error, "Elegí al menos un rango de páginas");
+  assert.equal(leerRangos({ rangos: "1-3" }, 10).error, "Los rangos tienen que venir en una lista");
+  const muchos = Array.from({ length: 51 }, (_, i) => ({ pagina_desde: i + 1, pagina_hasta: i + 1 }));
+  assert.equal(leerRangos({ rangos: muchos }, 100).error, "Son 51 rangos: el máximo por vez es 50");
+  assert.equal(leerRangos({ rangos: muchos.slice(0, 50) }, 100).rangos.length, 50);
 });
 test("claveExtractos depende del contenido y del orden", () => {
   const a = { sha256: "a".repeat(64), pagina_desde: 1, pagina_hasta: 2 };
