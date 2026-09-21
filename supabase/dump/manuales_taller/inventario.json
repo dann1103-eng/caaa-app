@@ -1,0 +1,2399 @@
+{
+ "zip": "OneDrive_1_20-9-2026.zip",
+ "manuales": [
+  {
+   "clave": "100672612-temp-rev-5-152-service-manual-c152",
+   "archivos": [
+    "100672612-Temp-Rev-5-152-Service-Manual C152.pdf"
+   ],
+   "sha256": "886e4d5d0897693d92fc688e8ccbe829dbe64a82cd1788e228391902f0e7b9f1",
+   "paginas": 200,
+   "tamano_bytes": 2341587,
+   "venia_cifrado": false,
+   "portada": "TEMPORARY REVISION NUMBER 5 DATED 1 DECEMBER 2011 MANUAL TITLE Model 152 Series 1978 Thru 1985 Service Manual MANUAL NUMBER - PAPER COPY D2064-1-13 TEMPORARY REVISION NUMBER D2064-1TR5 MANUAL DATE 7 February 1985 REVISION NUMBER 1 DATE 2 October 1995 This Temporary Revision consists of the following pages, which add to existing pages in the paper copy manual. SECTION PAGE SECTION PAGE 2A-10-00 1 T",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "445839407-piper-753-582-cherokee-parts-catalog-2009-part4",
+   "archivos": [
+    "445839407-Piper-753-582-Cherokee-Parts-Catalog-2009-Part4.pdf"
+   ],
+   "sha256": "8de506a1c5186ee1535ccbace27e653c463a39be30e949d94a0da396beaba466",
+   "paginas": 56,
+   "tamano_bytes": 3213183,
+   "venia_cifrado": false,
+   "portada": "CHEROKEE PARTS CATALOG PA-28-140 PA-28-180 PA-28-150 PA-28-235 PA 28-160 PA-28R-180 PA-28R-200 PIPER AIRCRAFT CORPORATION (PART NUMBER 753 582) 1A1 REVISED: JUNE 10, 2009 Part 4",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "447340064-piper-parts-manual-761-589-pa44-200t",
+   "archivos": [
+    "447340064-Piper-Parts-Manual-761-589 PA44-200T.pdf"
+   ],
+   "sha256": "cfcaf7a31ce60cb85f25ac13edac6b64b584e18f725ff8afc4794c967053fab0",
+   "paginas": 471,
+   "tamano_bytes": 21186125,
+   "venia_cifrado": true,
+   "portada": "SENECA II PARTS CATALOG CARD 1 OF 2 PA-34-200T SENECA II PIPER AIRCRAFT CORPORATIO 1 A1 (PART NUMBER 761 589) Island Enterprises",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "624658018-x30583-tsio-360-and-ltsio-360-series",
+   "archivos": [
+    "624658018-x30583-Tsio-360-and-Ltsio-360-Series.pdf"
+   ],
+   "sha256": "718293aa93602f7cbe8537566d72443798002cfa76b59d550c5c2380bc7c2b63",
+   "paginas": 148,
+   "tamano_bytes": 5980096,
+   "venia_cifrado": false,
+   "portada": "Publication X30583 ©CONTINENTAL MOTORS, INC. AUGUST 2011 TSIO-360-A, B, C, D, E, F, H TSIO-360-AB, BB, CB, DB, EB, FB, GB, HB, JB, KB AND LTSIO-360-E, EB, & KB CONTINENTAL® AIRCRAFT ENGINE OPERATOR’S MANUAL FAA APPROVED",
+   "indice_inspeccion": [
+    [
+     1,
+     "VIII. Servicing and Inspection",
+     115
+    ]
+   ]
+  },
+  {
+   "clave": "644315110-sm-753-586-pa-28s",
+   "archivos": [
+    "644315110-SM-753-586 PA-28S.pdf"
+   ],
+   "sha256": "53278bf6cdb67f2f84755d3cd3a38fe23d0324021ae2287ceda3294555656fd1",
+   "paginas": 1013,
+   "tamano_bytes": 26179548,
+   "venia_cifrado": false,
+   "portada": "PART NUMBER 753-586 SEPTEMBER 18, 2021 SERVICE MANUAL PA-28-140 PA-28-150 PA-28-160 PA-28-180 PA-28-235 PA-28R-180 PA-28R-200 PIPER AIRCRAFT CORPORATION",
+   "indice_inspeccion": [
+    [
+     3,
+     "2-6. ACCESS AND INSPECTION PROVISIONS",
+     42
+    ],
+    [
+     4,
+     "2-56. SERVICE INSTRUCTION. (CLEANING AND INSPECTION.)",
+     118
+    ],
+    [
+     2,
+     "SECTION III -  INSPECTION",
+     142
+    ],
+    [
+     3,
+     "2. TIME LIMITS",
+     148
+    ],
+    [
+     3,
+     "3. SCHEDULED MAINTENANCE",
+     150
+    ],
+    [
+     4,
+     "6. INSPECTION REQUIREMENTS",
+     153
+    ],
+    [
+     4,
+     "7. ANNUAL / 100 HOUR INSPECTION PROCEDURE",
+     154
+    ],
+    [
+     3,
+     "8. SPECIAL INSPECTIONS",
+     182
+    ],
+    [
+     3,
+     "9. UNSCHEDULED MAINTENANCE CHECKS",
+     242
+    ],
+    [
+     4,
+     "4-77. FLAP INSPECTION AND MODIFICATION",
+     326
+    ],
+    [
+     3,
+     "4-79. BAGGAGE COMPARTMENT INSPECTION HOLE AND COVER PLATE",
+     328
+    ],
+    [
+     4,
+     "6-7. CLEANING, INSPECTION AND REPAIRS OF HYDRAULIC PUMP",
+     410
+    ],
+    [
+     4,
+     "6-21. CLEANING, INSPECTION, AND REPAIR",
+     430
+    ],
+    [
+     4,
+     "6-27. CLEANING, INSPECTION AND REPAIR",
+     432
+    ],
+    [
+     4,
+     "7-7. CLEANING, INSPECTION AND REPAIR OF NOSE GEAR OLEO",
+     452
+    ],
+    [
+     4,
+     "7-11. CLEANING, INSPECTION AND REPAIR OF NOSE LANDING GEAR",
+     454
+    ],
+    [
+     4,
+     "7-16. CLEANING, INSPECTION AND REPAIR OF MAIN GEAR OLEO",
+     460
+    ],
+    [
+     4,
+     "7-19. CLEANING, INSPECTION AND REPAIR OF MAIN LANDING GEAR",
+     467
+    ],
+    [
+     4,
+     "7-23. INSPECTION OF NOSE WHEEL ASS EMBLY",
+     471
+    ],
+    [
+     4,
+     "7-32. CLEANING, INSPECTION AND REPAIR OF WHEEL BRAKE ASSEMBLIES",
+     477
+    ],
+    [
+     4,
+     "7-37. CLEANING, INSPECTION AND REPAIR OF BRAKE MASTER CYLINDER. (All.)",
+     480
+    ],
+    [
+     4,
+     "7-43. CLEANING, INSPECTION AND REPAIR OF PARKING VALVE",
+     484
+    ],
+    [
+     4,
+     "7-49. CLEANING, INSPECTION AND REPAIR OF BRAKE CYLINDER",
+     487
+    ],
+    [
+     4,
+     "7A-7. CLEANING, INSPECTION AND REPAIR OF NOSE GEAR OLEO",
+     504
+    ],
+    [
+     4,
+     "7A-10. CLEANING, INSPECTION AND REPAIR OF NOSE LANDING GEAR",
+     510
+    ],
+    [
+     4,
+     "7A-16. CLEANING, INSPECTION AND REPAIR OF NOSE GEAR DOOR ASSEMBLY",
+     518
+    ],
+    [
+     4,
+     "7A-21. CLEANING, INSPECTION AND REPAIR OF MAIN GEAR OLEO",
+     519
+    ],
+    [
+     4,
+     "7A-24. CLEANING, INSPECTION AND REPAIR OF MAIN LANDING GEAR",
+     526
+    ],
+    [
+     4,
+     "7A-29. CLEANING, INSPECTION AND REPAIR OF MAIN GEAR DOOR ASSEMBLY",
+     534
+    ],
+    [
+     4,
+     "7A-50. INSPECTION OF NOSE WHEEL ASSEMBLY",
+     542
+    ],
+    [
+     4,
+     "7A-53. INSPECTION OF MAIN WHEEL ASSEMBLY",
+     545
+    ],
+    [
+     4,
+     "7A-59. CLEANING, INSPECTION AND REPAIR OF WHEEL BRAKE ASSEMBLIES",
+     547
+    ],
+    [
+     4,
+     "7A-64. CLEANING, INSPECTION AND REPAIR OF BRAKE MASTER CYLINDER",
+     549
+    ],
+    [
+     4,
+     "7A-70. CLEANING, INSPECTION AND REPAIR OF BRAKE CYLINDER",
+     553
+    ],
+    [
+     4,
+     "8-7. CLEANING, INSPECTION AND REPAIR OF PROPELLER",
+     576
+    ],
+    [
+     4,
+     "8-10. CLEANING, INSPECTION AND REPAIR OF PROPELLER",
+     579
+    ],
+    [
+     4,
+     "8-32. INSPECTION OF MAGNETOS",
+     597
+    ],
+    [
+     4,
+     "8-38. INSPECTION OF HARNESS",
+     604
+    ],
+    [
+     4,
+     "8-43. INSPECTION AND CLEANING OF SPARK PLUG",
+     607
+    ],
+    [
+     4,
+     "8A-6. CLEANING, INSPECTION AND REPAIR OF PROPELLER",
+     623
+    ]
+   ]
+  },
+  {
+   "clave": "697350008-service-manual-pa-34-200t-seneca-ii",
+   "archivos": [
+    "697350008-Service-Manual-PA-34-200T-Seneca-II.pdf"
+   ],
+   "sha256": "3c93252f66b4b44933d264601a22d9d72b3b68abb873bbce6981e8c2c7f5cf48",
+   "paginas": 860,
+   "tamano_bytes": 21709596,
+   "venia_cifrado": false,
+   "portada": "1A1 PART NUMBER 761-590 OCTOBER 31, 2019 1A1 SERVICE MANUAL PA-34-200T PIPER AIRCRAFT CORPORATION PIPER seneca II",
+   "indice_inspeccion": [
+    [
+     3,
+     "2. INSPECTIONS.",
+     33
+    ],
+    [
+     3,
+     "2-6. ACCESS AND INSPECTION PROVISIONS.",
+     39
+    ],
+    [
+     2,
+     "SECTION III - INSPECTION",
+     111
+    ],
+    [
+     3,
+     "2. TIME LIMITS",
+     117
+    ],
+    [
+     3,
+     "3. SCHEDULED MAINTENANCE",
+     119
+    ],
+    [
+     3,
+     "6. INSPECTION REQUIREMENTS",
+     122
+    ],
+    [
+     3,
+     "7. ANNUAL / 100 HOUR INSPECTION PROCEDURE",
+     123
+    ],
+    [
+     3,
+     "8. SPECIAL INSPECTIONS",
+     139
+    ],
+    [
+     3,
+     "9. UNSCHEDULED MAINTENANCE CHECKS",
+     155
+    ],
+    [
+     3,
+     "4-16A. RIB ASSEMBLY INSPECTION AND MODIFICATION - AFT WING, WS 49.25",
+     191
+    ],
+    [
+     3,
+     "4-16B. WING AFT SPAR-TO-FUSELAGE ATTACHMENT HARDWARE 100 HOUR INSPECTION",
+     194
+    ],
+    [
+     3,
+     "4-18A. STABILATOR ATTACH BRACKETS CORROSION CONTROL INSPECTION",
+     195
+    ],
+    [
+     3,
+     "4-33A. AFT WING ATTACH FITTINGS 100 HOUR INSPECTION",
+     204
+    ],
+    [
+     3,
+     "4-56A. FORWARD BAGGAGE DOOR LATCHING AND LOCKING MECHANISM PRE- / POST-FLIGHT INSPECTION.",
+     218
+    ],
+    [
+     3,
+     "4-56B. FORWARD BAGGAGE DOOR 25 HOUR INSPECTION AND RIGGING.",
+     218
+    ],
+    [
+     3,
+     "4-61A. RESTRAINT SYSTEM INSPECTION.",
+     228
+    ],
+    [
+     3,
+     "5-35A. FLAP HANDLE CONTROL CABLE ATTACHMENT BOLT 100 HOUR INSPECTION.",
+     294
+    ],
+    [
+     3,
+     "5-39. FLAP TORQUE TUBE/PUSH ROD DISTORTION INSPECTION.",
+     300
+    ],
+    [
+     3,
+     "6-7. CLEANING, INSPECTION AND REPAIR.",
+     327
+    ],
+    [
+     3,
+     "6-12. INSPECTION AND REPAIR.",
+     339
+    ],
+    [
+     3,
+     "6-19. CLEANING, INSPECTION AND REPAIR OF GEAR ACTUATING CYLINDER.",
+     343
+    ],
+    [
+     3,
+     "7-6. INSPECTION.",
+     360
+    ],
+    [
+     3,
+     "7-9B. INSPECTION.",
+     367
+    ],
+    [
+     3,
+     "7-13A. CLEANING, INSPECTION AND REPAIR.",
+     378
+    ],
+    [
+     3,
+     "7-18. INSPECTION.",
+     379
+    ],
+    [
+     3,
+     "7-21A. INSPECTION.",
+     386
+    ],
+    [
+     3,
+     "7-24A. MAIN LANDING GEAR TRUNNION ATTACH FITTINGS HARDWARE 100 HOUR INSPECTION.",
+     395
+    ],
+    [
+     3,
+     "7-27. CLEANING, INSPECTION AND REPAIR.",
+     399
+    ],
+    [
+     3,
+     "7-43. INSPECTION OF NOSE WHEEL ASSEMBLY.",
+     408
+    ],
+    [
+     3,
+     "7-47. INSPECTION OF MAIN WHEEL ASSEMBLY.",
+     410
+    ],
+    [
+     3,
+     "7-52. CLEANING, INSPECTION AND REPAIR.",
+     414
+    ],
+    [
+     3,
+     "7-57. CLEANING, INSPECTION AND REPAIR.",
+     417
+    ],
+    [
+     3,
+     "7-63. CLEANING, INSPECTION AND REPAIR.",
+     418
+    ],
+    [
+     3,
+     "8-6. CLEANING, INSPECTION AND REPAIR OF ENGINE COWLING.",
+     434
+    ],
+    [
+     3,
+     "8-12. CLEANING, INSPECTION AND REPAIR OF PROPELLER.",
+     437
+    ],
+    [
+     3,
+     "8-23A. ENGINE MOUNT CORROSION INSPECTION, IMMERSION IN WATER",
+     449
+    ],
+    [
+     3,
+     "8-27A. V-BAND COUPLING 100-HOUR INSPECTION",
+     454
+    ],
+    [
+     3,
+     "8-35. INSPECTION OF MAGNETOS.",
+     456
+    ],
+    [
+     3,
+     "8-40. INSPECTION OF HARNESS.",
+     465
+    ],
+    [
+     3,
+     "8-46. INSPECTION AND CLEANING OF SPARK PLUG.",
+     475
+    ]
+   ]
+  },
+  {
+   "clave": "762-332-service-bulletin-letter-index-09-27-00",
+   "archivos": [
+    "762-332   Service Bulletin - Letter Index (09-27-00).pdf"
+   ],
+   "sha256": "ad50df4e8045dcb6342e3e26dbb6827475c2b6d1a7bf73ea68c936b385e52050",
+   "paginas": 160,
+   "tamano_bytes": 1758416,
+   "venia_cifrado": false,
+   "portada": "THE NEW PIPER AIRCRAFT, INC. SERVICE BULLETIN / SERVICE LETTER INDEX TM PART NUMBER 762-332 SEPTEMBER 27, 2000 1A1",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "ac-43-13-1b-w-chg1",
+   "archivos": [
+    "AC_43.13-1B_w-chg1.pdf"
+   ],
+   "sha256": "8dc99dd41334381b287ae02d03dc29928d9eacb1035b67aa24c5a0525324ee73",
+   "paginas": 646,
+   "tamano_bytes": 21101662,
+   "venia_cifrado": false,
+   "portada": "Advisory Circular TITLE 14 OF THE CODE OF FEDERAL REGULATIONS (14 CFR) GUIDANCE MATERIAL Subject: ACCEPTABLE METHODS, Date: 9/8/98 AC No: 43.13-1B TECHNIQUES, AND PRACTICESAIRCRAFT Initiated by: AFS-640 Change: 1 INSPECTION AND REPAIR 1. PURPOSE. This advisory circular (AC) contains methods, techniques, and practices acceptable to the Administrator for the inspection and repair of nonpressurized ",
+   "indice_inspeccion": [
+    [
+     5,
+     "Quality of Wood.  All wood and plywood used in the repair of aircraft structures should be of aircraft quality (reference Army Navy Commerce Department Bulletin ANC˚19, Wood Aircraft Inspection and Fabrication).  Table€1˚1 lists some permissible variatio",
+     35
+    ],
+    [
+     3,
+     "SECTION 3.  INSPECTION",
+     44
+    ],
+    [
+     4,
+     "GENERAL.  Inspection of wooden structure includes some methods, equipment, and awareness of failure modes which are unique to wooden aircraft.",
+     44
+    ],
+    [
+     4,
+     "INSPECTION METHODS.  Whenever possible, the aircraft should be kept in a dry, well-ventilated hangar, with all inspection covers, access panels, etc., removed for as long as possible before final inspection.  The aircraft should be given a preliminary in",
+     44
+    ],
+    [
+     5,
+     "Tapping the wood structure with a light plastic hammer or screwdriver handle should produce a sharp solid report.  If the suspect area sounds hollow and soft, further inspection is warranted by the following methods.",
+     45
+    ],
+    [
+     5,
+     "Odor is an important indicator of possible deterioration.  During the initial inspection, as the access panels are being removed from the structure, the mechanic should be aware of any areas that smell musty or moldy.  \u000eThese odors are indicative of the",
+     45
+    ],
+    [
+     5,
+     "Visual inspection requires looking at the wood structure both externally and internally for visual signs of decay or physical damage.  Any accumulations of dirt, bird nests, or rodent nests are likely places to hold moisture and promote decay.",
+     45
+    ],
+    [
+     6,
+     "The mechanic should remove any such accumulations that are found and inspect the area for signs of decay.  Decay will appear as a dark discoloration or gray stains running along the grain and often a swelling of the wood member if still wet.  Fittings wi",
+     45
+    ],
+    [
+     7,
+     "Also check for any cracks that indicate a bond line failure or structural failure of the wood member.  Any evidence of movement of fittings, bushings, or fasteners should be cause for concern, and further inspection is warranted.  Splits in fabric coveri",
+     46
+    ],
+    [
+     7,
+     "The two areas where it is possible to identify a compression crack are on the face and top surface of the spar.  Using a borescope through existing inspection holes is one method of inspection.  An alternate method is to cut inspection holes in the skin.",
+     47
+    ],
+    [
+     5,
+     "Exposed end grain includes such surfaces as spar butts, skin edges, areas around vent holes, inspection holes, fittings, and exposed scarfed or tapered surfaces.",
+     77
+    ],
+    [
+     4,
+     "PREPARATION OF THE STRUCTURE FOR COVERING.  One of the most important items when covering aircraft is the proper preparation of the structure.  Before covering, the airframe must be inspected and approved by a FAA˚certified mechanic or repair station.",
+     80
+    ],
+    [
+     5,
+     "Holes in Fabric.  Never cut any holes in the fabric for inspection panels, spar fittings, or drain grommets; or attach the fabric to the airframe with rib lacing screws, rivets, clips, or rib stitch cord until the fabric has been semi-tauted and stabiliz",
+     88
+    ],
+    [
+     4,
+     "INSPECTION RINGS AND DRAIN GROMMETS.",
+     100
+    ],
+    [
+     5,
+     "Inspection Rings.  Inspection access is provided adjacent to or over every control bellcrank, drag-wire junction, cable guide, pulley, wing fitting, or any other component throughout the aircraft which will be inspected or serviced annually.  They are in",
+     101
+    ],
+    [
+     6,
+     "The 3˚9/16€inch inside diameter cellulose acetate butyrate (CAB) plastic inspection access rings have become popular and bond satisfactorily with Nitrate Dope or Fabric Cement.  Any metal inspection hole reinforcements of a particular shape or special de",
+     101
+    ],
+    [
+     5,
+     "Step 2.  Depending upon the quality of the dope and the ratio of thinning, the fabric should start to become taut after the first brushed coat of dope has dried approximately 1€hour at 70€?F.  A second, heavier coat is applied by cross brushing at€90?F?t",
+     104
+    ],
+    [
+     5,
+     "NOTE:  “Dressing out” means applying all the finishing tapes, reinforcing patches, inspection access ports, and drain grommets, etc.",
+     104
+    ],
+    [
+     5,
+     "Step 5.  After drying at least 2€hours at 70€?F, a third heavy coat of clear dope is applied over the entire surface, preferably with a paint spray gun if brush marks are to be avoided.  After the third coat of dope has dried at least 2€hours at 70€?F, t",
+     104
+    ],
+    [
+     5,
+     "Step 7.  After two coats of aluminum-pigmented dope have dried at least 4€hours at 70€?F, the surface may be wet sanded with #€280€grit (or finer) waterproof sandpaper.  The aluminum-pigmented dope should be sanded only to develop a smooth surface, not s",
+     105
+    ],
+    [
+     5,
+     "After the first dope coat has dried at least 1€hour at 70€?F, a second heavy coat of clear dope is applied by brush to fill the fabric weave and prevent pinholes.  The installation of finish tape around the perimeter of the plywood surfaces, leading edge",
+     106
+    ],
+    [
+     3,
+     "SECTION 3.  INSPECTION AND TESTING",
+     109
+    ],
+    [
+     4,
+     "GENERAL.  All components of the covering should be inspected for general condition.  Loose finishing tape and reinforcing patches; chafing under fairings; brittle, cracking, peeling, or deteriorated coatings; fabric tears and rock damage; broken or missi",
+     109
+    ],
+    [
+     5,
+     "If the fabric type is determined to be polyester, coating identification should start by reviewing the aircraft records and inspecting the inside of the wings and the fuselage for the required fabric source identification stamps for covering materials au",
+     111
+    ],
+    [
+     5,
+     "The condition of the fabric covering must be determined on every 100˚hour and annual inspection, because the strength of the fabric is a definite factor in the airworthiness of an airplane.  Fabric is considered to be airworthy until it deteriorates to a",
+     111
+    ],
+    [
+     5,
+     "Finishing tapes should be well saturated with dope and smoothed out with no voids or wrinkles during installation.  After drying for 1€hour at 70€?F, additional coats of clear dope followed with pigmented dope are applied as detailed in paragraph€2˚21.",
+     114
+    ],
+    [
+     5,
+     "Steel Fittings.  Inspect for the following defects.",
+     181
+    ],
+    [
+     6,
+     "Fittings are to be free from scratches, vise and nibbler marks, and sharp bends or edges.  A careful examination of the fitting with a medium power (at least 10€power) magnifying glass is acceptable as an inspection.",
+     181
+    ],
+    [
+     6,
+     "When repairing aircraft after an accident or in the course of a major overhaul, inspect all highly-stressed main fittings, as set forth in the manufacturer’s instruction manual.",
+     181
+    ],
+    [
+     6,
+     "An ampere˚hour meter should be readable to 0.001€ampere˚hour and have an accuracy of ±0.01€ampere˚hour.",
+     189
+    ],
+    [
+     5,
+     "Required Ampere˚Hour Calculation.  The selected plating solution has a factor which is equal to the ampere˚hours required to deposit 0.0001€inch on 1€square inch of surface.  Determine the thickness of plating desired on a certain area, and multiply the",
+     189
+    ],
+    [
+     6,
+     "Bake the part for 4€hours at 375€?F \u000b( 25€?F.",
+     191
+    ],
+    [
+     5,
+     "Finally, after the weld is completed, the weld must be inspected for defects.  All these things are necessary in order to make an airworthy weld repair.",
+     193
+    ],
+    [
+     4,
+     "INSPECTION OF A COMPLETED WELD.  Visually inspect the completed weld for the following:",
+     194
+    ],
+    [
+     7,
+     "The weld has a smooth seam and uniform thickness.  Visual inspection shall be made of the completed weld to check for undercut and/or smooth blending of the weld contour into the base metal.",
+     194
+    ],
+    [
+     5,
+     "Inspection.  Prior to repairing tubular members, carefully examine the structure surrounding any visible damage to insure that no secondary damage remains undetected.  Secondary damage may be produced in some structure, remote from the location of the pr",
+     202
+    ],
+    [
+     5,
+     "Inspect oxy-fuel apparatus for oil, grease, or damaged parts.  DO NOT use the oxy-fuel apparatus if oil or grease is present or if damage is evident.  Have the oxy-fuel apparatus cleaned and/or repaired by a qualified repair technician before it is used.",
+     221
+    ],
+    [
+     5,
+     "Have a fire extinguisher of the proper class (ABC) and size in the work area.  Inspect it regularly to ensure that it is in proper working order.  Know how it is used.",
+     221
+    ],
+    [
+     5,
+     "When work is complete, inspect the area for possible fires or smoldering materials.",
+     221
+    ],
+    [
+     2,
+     "CHAPTER 5.  NONDESTRUCTIVE INSPECTION (NDI)",
+     222
+    ]
+   ]
+  },
+  {
+   "clave": "c152-poh-1979",
+   "archivos": [
+    "C152-POH 1979.pdf"
+   ],
+   "sha256": "ff7eec2c71642c710c554e59dd60a66d50fdfa895d4d32510f657f5ff73e2397",
+   "paginas": 234,
+   "tamano_bytes": 15385661,
+   "venia_cifrado": false,
+   "portada": "~ Cessna,. 152 CESSNA MODEL 152 INFORMATION MANUAL .....___~",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "cessna-152-mm",
+   "archivos": [
+    "Cessna_152 MM.pdf"
+   ],
+   "sha256": "adb318baeb82acac2b0705af9dad850740c232b806ce8e5475033edf3d43aaf3",
+   "paginas": 484,
+   "tamano_bytes": 20565476,
+   "venia_cifrado": true,
+   "portada": "Cessna A Textron Company SERVICE MANUAL 1978 thru 1985 MODEL 152 SERIES Member of GAMA FAA APPROVAL HAS BEEN OBTAINED ON TECHNICAL DATA IN THIS PUBLICATION THAT AFFECTS AIRPLANE DESIGN. REVISION 1 INCORPORATES TEMPORARY REVISION 1. DATED 3 OCTOBER 1994. COPYRIGHT 1995 WICHITA. KANSAS. USA 7 FEBRUARY 1985 (RGI-100-4/02) REVISION 1 2 OCTOBER 1995 (RGI-100-4/02)",
+   "indice_inspeccion": [
+    [
+     2,
+     "SECTION 2 - GROUND HANDLING, SERVICING, CLEANING, LUBRICATION, AND INSPECTION",
+     15
+    ],
+    [
+     5,
+     "INSPECTION DURING STORAGE",
+     22
+    ],
+    [
+     5,
+     "INSPECTION DURING STORAGE",
+     24
+    ],
+    [
+     5,
+     "CARBURETOR DRIAN PLUG INSPECTION",
+     29
+    ],
+    [
+     5,
+     "CARBURETOR HEAT BUTTERFLY SCREW INSPECTION",
+     30
+    ],
+    [
+     3,
+     "INSPECTION REQUIREMENTS",
+     52
+    ],
+    [
+     4,
+     "100 HOUR/ANNUAL",
+     52
+    ],
+    [
+     4,
+     "SEAT RAIL INSPECTION",
+     87
+    ],
+    [
+     5,
+     "ATTACHMENT INSPECTION AND NUTPLATE REPLACEMENT",
+     95
+    ],
+    [
+     5,
+     "INSPECTION AND REPAIR (MCCAULEY)",
+     111
+    ],
+    [
+     5,
+     "INSPECTION AND REPAIR (CLEVELAND)",
+     117
+    ],
+    [
+     5,
+     "INSPECTION AND REPAIR (MCCAULEY)",
+     128
+    ],
+    [
+     5,
+     "INSPECTION AND REPAIR (CLEVELAND)",
+     129
+    ],
+    [
+     5,
+     "STRUT INSPECTION AND REPAIR",
+     133
+    ],
+    [
+     6,
+     "INSPECTION",
+     134
+    ],
+    [
+     6,
+     "INSPECTION, REPAIR, AND OVERHAUL (THRU 1978)",
+     138
+    ],
+    [
+     6,
+     "INSPECTION AND REPAIR (BEGINNING WITH 1979)",
+     142
+    ],
+    [
+     6,
+     "INSPECTION AND REPAIR",
+     143
+    ],
+    [
+     6,
+     "INSPECTION AND REPAIR",
+     146
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION, AND REPAIR",
+     185
+    ],
+    [
+     4,
+     "TRIM TAB FREE-PLAY INSPECTION",
+     192
+    ],
+    [
+     4,
+     "CLEANING/INSPECTION",
+     206
+    ],
+    [
+     4,
+     "INSPECTION",
+     217
+    ],
+    [
+     5,
+     "CLEANING/INSPECTION",
+     223
+    ],
+    [
+     5,
+     "DISASSEMBLY, INSPECTION, AND REASSEMBLY",
+     228
+    ],
+    [
+     5,
+     "CLEANING/INSPECTION",
+     239
+    ],
+    [
+     4,
+     "INSPECTION",
+     247
+    ],
+    [
+     5,
+     "INSPECTION",
+     265
+    ],
+    [
+     5,
+     "INSPECTION, CLEANING, AND REPAIR",
+     267
+    ],
+    [
+     5,
+     "STATIC SYSTEM INSPECTION AND LEAKAGE TEST",
+     280
+    ],
+    [
+     5,
+     "PITOT SYSTEM INSPECTION AND LEAKAGE TEST",
+     281
+    ],
+    [
+     5,
+     "MOUNTING PAD INSPECTION",
+     295
+    ],
+    [
+     5,
+     "HOURMETER",
+     307
+    ],
+    [
+     4,
+     "HOURMETER",
+     460
+    ],
+    [
+     4,
+     "HOURMETER",
+     461
+    ]
+   ]
+  },
+  {
+   "clave": "champion-slick-app",
+   "archivos": [
+    "champion-slick-app.pdf"
+   ],
+   "sha256": "658538e257261be8d998bce8f1840bcd900bde6ed831f0a24f8d707753be0199",
+   "paginas": 170,
+   "tamano_bytes": 426253,
+   "venia_cifrado": false,
+   "portada": "L-1318H Consolidated Application Data SCOPE This reference manual provides complete application data for Slick Magnetos and Ignition Harnesses, Champion® Aviation Spark Plugs, SlickSTART™, Slick Ignition Upgrade Kits, and technical information on all Slick Piston Engine Ignition Products. Champion Aerospace LLC 1230 Old Norris Road Liberty, South Carolina, U.S.A. 29657 ©2009 Champion Aerospace LLC",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "championaerospacecatalog",
+   "archivos": [
+    "ChampionAerospaceCatalog.pdf"
+   ],
+   "sha256": "017717838def79f4f88af75b23fbfe6707b0b43586ca0e4daaf88778133caa10",
+   "paginas": 64,
+   "tamano_bytes": 2933071,
+   "venia_cifrado": false,
+   "portada": "CHAMPION AEROSPACE, INC. AVIATION CATALOG AV-14 Spark Plugs Oil Filters Harnesses Exciters Leads Igniters REVISED JANUARY 2007 ® Click in Table of Contents to go directly to each section.",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "cherokee-parts-753-582-parts-catalog-pa28s",
+   "archivos": [
+    "Cherokee Parts 753-582 PARTS CATALOG PA28S.pdf"
+   ],
+   "sha256": "cd7e8d9cd5c1dd89c5b57cd663a35dd9db97dec072a2883517a263134f038007",
+   "paginas": 1024,
+   "tamano_bytes": 14393534,
+   "venia_cifrado": false,
+   "portada": "PA-28 AND PA-28R CHEROKEE AIRPLANE PARTS CATALOG PA-28-140 PA-28-180 PA-28-150 PA-28-235 PA-28-160 PA-28R-180 PA-28R-200 PIPER AIRCRAFT CORPORATION Part Number: 753-582 Reissued: April 10, 2013",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "continental-motors-publication-m-0",
+   "archivos": [
+    "Continental Motors Publication M-0.pdf"
+   ],
+   "sha256": "6208784735a966eaa19c9f8275d4fee30254d2fc85ffe8c4223fb8b3f160b37b",
+   "paginas": 517,
+   "tamano_bytes": 30810424,
+   "venia_cifrado": false,
+   "portada": "Publication M-0, Revision 1 ©2019 CONTINENTAL MOTORS, INC. SEP 2019 STANDARD PRACTICE MAINTENANCE MANUAL SPARK IGNITED ENGINES Technical Portions Accepted by the Federal Aviation Administration .",
+   "indice_inspeccion": [
+    [
+     2,
+     "Chapter 6. Engine Inspection and Service",
+     97
+    ],
+    [
+     3,
+     "6-1. Engine Inspection Introduction",
+     97
+    ],
+    [
+     3,
+     "6-2. Inspection and Maintenance Schedule",
+     97
+    ],
+    [
+     3,
+     "6-4. Scheduled Inspections",
+     101
+    ],
+    [
+     3,
+     "6-5. Unscheduled Maintenance",
+     254
+    ],
+    [
+     3,
+     "6-6. Inspection Checklists",
+     262
+    ],
+    [
+     2,
+     "Chapter 11. Non-Destructive Inspection",
+     449
+    ],
+    [
+     3,
+     "11-1. Visual Inspection",
+     449
+    ],
+    [
+     3,
+     "11-2. Fluorescent Penetrant Inspection",
+     451
+    ],
+    [
+     3,
+     "11-3. Magnetic Particle Inspection",
+     452
+    ],
+    [
+     3,
+     "11-4. Ultrasonic Inspection",
+     455
+    ]
+   ]
+  },
+  {
+   "clave": "lycoming-parts-catalog-o-235-series-engines-june-1982-revise",
+   "archivos": [
+    "Lycoming Parts Catalog O-235 Series Engines, June 1982, Revised January 1987, Part Number PC-302B.pdf"
+   ],
+   "sha256": "be7ef9534580c4a3d52f31b34a195ec8907388e9de2c6c4fbdd4ae19cfbb111b",
+   "paginas": 81,
+   "tamano_bytes": 2717990,
+   "venia_cifrado": true,
+   "portada": "TEXTRON Lycoming Textron Lycoming/Subsidiary of Textron Inc. 652 Oliver Street Williamsport, PA 17701 U.S.A. 717/323-6181 TECHNICAL PUBLICATION REVISION REVISION No. PC-302B ENGINE MODEL 0-235 Series PUBLICATION No. PC-302 IPUBLIC DATE 1 June, 1982 The page(s) furnished herewith are intended to replace the corresponding page(s) of the publication indicated above. Remove Insert June, 1982 January, ",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "maintenance-manual-pa-38",
+   "archivos": [
+    "Maintenance manual PA-38.PDF"
+   ],
+   "sha256": "1735696064b588edf112f3ea9c71d0d3783203f76696e8fa920a457bd05f0fe2",
+   "paginas": 435,
+   "tamano_bytes": 6666763,
+   "venia_cifrado": true,
+   "portada": "1A1 AIRPLANE MAINTENANCE MANUAL CARD 1 OF 2 PA-38-112 TOMAHAWK PIPER AIRCRAFT CORPORATION PART NUMBER 761 660 INTERIM REVISION: FEBRUARY 25, 2000",
+   "indice_inspeccion": [
+    [
+     3,
+     "CHAPTER 5 - TIME LIMITS/MAINT CHECKS",
+     16
+    ],
+    [
+     5,
+     "TIME LIMITS.",
+     18
+    ],
+    [
+     6,
+     "INSPECTION REQUIREMENTS",
+     18
+    ],
+    [
+     6,
+     "OVERLIMITS INSPECTION.",
+     18
+    ],
+    [
+     6,
+     "PERIODIC INSPECTIONS.",
+     20
+    ],
+    [
+     6,
+     "CONTINUOUS INSPECTION.",
+     29
+    ],
+    [
+     5,
+     "UNSCHEDULED MAINTENANCE CHECKS.",
+     29
+    ],
+    [
+     6,
+     "SPECIAL INSPECTIONS AS REQUIRED UPON CONDITION.",
+     29
+    ],
+    [
+     5,
+     "ACCESS AND INSPECTION PROVISIONS.",
+     36
+    ],
+    [
+     5,
+     "SCHEDULED SERVICING.",
+     60
+    ],
+    [
+     6,
+     "CLEANING AND INSPECTION OF AIR FILTER.",
+     64
+    ],
+    [
+     6,
+     "INSPECTION AND TESTING OF COMPONENTS.",
+     112
+    ],
+    [
+     6,
+     "SHOULDER HARNESS INSPECTION.",
+     132
+    ],
+    [
+     6,
+     "LAP BELT INSPECTION",
+     132
+    ],
+    [
+     6,
+     "ELEVATOR TRIM INSPECTION.",
+     160
+    ],
+    [
+     6,
+     "INSPECTION OF FUEL TANKS.",
+     170
+    ],
+    [
+     6,
+     "INSPECTION OF FUEL SELECTOR VALVE.",
+     174
+    ],
+    [
+     6,
+     "CLEANING AND INSPECTION OF FILTER BOWL SCREEN.",
+     175
+    ],
+    [
+     6,
+     "CLEANING, INSPECTION AND REPAIR OF FUEL PUMP.",
+     176
+    ],
+    [
+     6,
+     "INSPECTION OF MAIN GEAR ASSEMBLY.",
+     190
+    ],
+    [
+     6,
+     "CLEANING, INSPECTION AND REPAIR OF NOSE GEAR OLEO.",
+     195
+    ],
+    [
+     6,
+     "INSPECTION OF MAIN WHEEL ASSEMBLY.",
+     200
+    ],
+    [
+     6,
+     "INSPECTION OF NOSE WHEEL ASSEMBLY.",
+     202
+    ],
+    [
+     6,
+     "CLEANSING, INSPECTION AND REPAIR OF WHEEL BRAKE ASSEMBLIES",
+     203
+    ],
+    [
+     6,
+     "CLEANING, INSPECTION AND REPAIR OF BRAKE MASTER CYLINDER.",
+     209
+    ],
+    [
+     6,
+     "CLEANING, INSPECTION AND REPAIR OF TOE BRAKE CYLINDER.",
+     210
+    ],
+    [
+     6,
+     "CLEANING, INSPECTION AND REPAIR OF PROPELLER.",
+     312
+    ],
+    [
+     6,
+     "CLEANING, INSPECTION AND REPAIR OF COWLING.",
+     328
+    ],
+    [
+     6,
+     "INSPECTION OF MAGNETOS. (4100 and 4200 series)",
+     342
+    ],
+    [
+     6,
+     "CLEANING AND INSPECTION OF MAGNETO S .",
+     348
+    ],
+    [
+     6,
+     "INSPECTION OF HARNESS.",
+     353
+    ],
+    [
+     6,
+     "INSPECTION AND CLEANING OF SPARK PLUGS.",
+     359
+    ],
+    [
+     6,
+     "INSPECTION OF MAGNETOS.",
+     362
+    ],
+    [
+     6,
+     "INSPECTION OF HARNESS.",
+     367
+    ],
+    [
+     6,
+     "INSPECTION AND CLEANING OF SPARK PLUGS.",
+     376
+    ],
+    [
+     6,
+     "Hour Meter and Clock",
+     431
+    ]
+   ]
+  },
+  {
+   "clave": "o-235-o-290-operator-manual-60297-9",
+   "archivos": [
+    "O-235&O-290 Operator Manual 60297-9.pdf"
+   ],
+   "sha256": "3a7fb56f7ca1a1d9759065f15364cd1db8385bd9f6d933f53013ed5e8e331326",
+   "paginas": 90,
+   "tamano_bytes": 6583143,
+   "venia_cifrado": false,
+   "portada": "Operator’s Manual Lycoming O-235 and O-290 Series Approved by FAA 5th Edition Part No. 60297-9 652 Oliver Street January 2007 Williamsport, PA. 17701 U.S.A. 570/323-6181",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "operator-s-manual-continental-ys303p",
+   "archivos": [
+    "OPerator's Manual Continental YS303P.pdf"
+   ],
+   "sha256": "e3cbb546e22d214e183d499d19e73c447bd870ad431407de79d12eb80fe84956",
+   "paginas": 179,
+   "tamano_bytes": 7873822,
+   "venia_cifrado": false,
+   "portada": "Publication X30044 ©CONTINENTAL MOTORS, INC. AUGUST 2011 LTSIO-520-AE TSIO-520 Series except L, LB, WB & BE CONTINENTAL® AIRCRAFT ENGINE OPERATOR’S MANUAL FAA APPROVED",
+   "indice_inspeccion": [
+    [
+     2,
+     "VIII. Servicing and Inspection",
+     150
+    ]
+   ]
+  },
+  {
+   "clave": "overhaul-manual-lycoming-direct-drive-eng",
+   "archivos": [
+    "overhaul_manual__lycoming_direct_drive_eng._.pdf"
+   ],
+   "sha256": "37624c39504c45b6927587540812083851e0d07d612d5a5f9e2ed0471c2668e7",
+   "paginas": 151,
+   "tamano_bytes": 16206581,
+   "venia_cifrado": true,
+   "portada": "Overhaul Manual Direct Drive Engine A Approved by F.A.A. Sixth Printing December 1974 Part No. 60294-7 652 Oliver Street Williamsport, PA 17701 USA",
+   "indice_inspeccion": [
+    [
+     3,
+     "INSPECTION",
+     18
+    ],
+    [
+     3,
+     "INSPECTION",
+     24
+    ],
+    [
+     3,
+     "INSPECTION",
+     34
+    ],
+    [
+     3,
+     "INSPECTION",
+     47
+    ],
+    [
+     3,
+     "INSPECTION",
+     68
+    ],
+    [
+     5,
+     "DIMENSIONAL INSPECTION",
+     69
+    ],
+    [
+     3,
+     "INSPECTION",
+     93
+    ]
+   ]
+  },
+  {
+   "clave": "p689-12-cessna-t303-parts-catalog",
+   "archivos": [
+    "P689-12 CESSNA T303 PARTS CATALOG.pdf"
+   ],
+   "sha256": "315e0055688c9799fa799bf1ef5fabe29c03dba9244756d9bf2d8c866b89ac7c",
+   "paginas": 840,
+   "tamano_bytes": 62808488,
+   "venia_cifrado": false,
+   "portada": "",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "pa-23-250-azteca-mm",
+   "archivos": [
+    "PA 23-250 AZTECA MM/* (144 pedazos)"
+   ],
+   "sha256": "c89251dbc7dd348a67e14f1204f1dcd02b2b4a961b104ab2e6b5c03b2e538b5f",
+   "paginas": 1433,
+   "tamano_bytes": 62612695,
+   "venia_cifrado": false,
+   "portada": "PART NUMBER 753-564 January 1, 2009 1A1 SERVICE MANUAL PA-23-235 APACHE PA-23-250 AZTEC PA-23-250 (SIX PLACE) AZTEC PIPER AIRCRAFT CORPORATION",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "pa-28-151-amm",
+   "archivos": [
+    "PA-28-151 AMM.pdf"
+   ],
+   "sha256": "138166e829b2794ad5733fc31703f4b1f03e4b03d0c5195b6c2cdc95372f8955",
+   "paginas": 716,
+   "tamano_bytes": 16844762,
+   "venia_cifrado": false,
+   "portada": "PART NUMBER 761-539 JULY 11, 2019 SERVICE MANUAL PA-28-151 PA-28-161 (S/N’S THRU 2816119) PIPER AIRCRAFT CORPORATION PIPER cherol-1ee 'Af ARRI OR",
+   "indice_inspeccion": [
+    [
+     3,
+     "2-6. ACCESS AND INSPECTION PROVISIONS",
+     43
+    ],
+    [
+     3,
+     "2-48. SERVICE INSTRUCTIONS (INSPECTION AND REPLACEMENT)",
+     76
+    ],
+    [
+     3,
+     "2-77. INSPECTION",
+     108
+    ],
+    [
+     2,
+     "SECTION III - INSPECTION",
+     117
+    ],
+    [
+     3,
+     "INSPECTION",
+     123
+    ],
+    [
+     4,
+     "2. TIME LIMITS",
+     125
+    ],
+    [
+     4,
+     "3. SCHEDULED MAINTENANCE",
+     127
+    ],
+    [
+     4,
+     "4. SPECIAL INSPECTIONS",
+     145
+    ],
+    [
+     4,
+     "5. UNSCHEDULED  MAINTENANCE CHECKS",
+     179
+    ],
+    [
+     3,
+     "4-56. BAGGAGE COMPARTMENT INSPECTION HOLES FABRICATION PROCEDURE",
+     235
+    ],
+    [
+     3,
+     "5-4. CONTROL CABLE INSPECTION",
+     264
+    ],
+    [
+     3,
+     "7-7. CLEANING, INSPECTION AND REPAIR OF NOSE GEAR OLEO",
+     324
+    ],
+    [
+     3,
+     "7-10. CLEANING, INSPECTION AND REPAIR OF NOSE LANDING GEAR",
+     327
+    ],
+    [
+     3,
+     "7-15. CLEANING, INSPECTION AND REPAIR OF MAIN GEAR OLEO",
+     332
+    ],
+    [
+     3,
+     "7-18. CLEANING, INSPECTION AND REPAIR OF MAIN LANDING GEAR",
+     334
+    ],
+    [
+     3,
+     "7-22. INSPECTION OF NOSE WHEEL ASSEMBLY",
+     335
+    ],
+    [
+     3,
+     "7-25. INSPECTION OF MAIN WHEEL ASSEMBLY",
+     336
+    ],
+    [
+     3,
+     "7-31. CLEANING, INSPECTION AND REPAIR OF WHEEL BRAKE ASSEMBLIES",
+     339
+    ],
+    [
+     3,
+     "7-36. CLEANING, INSPECTION AND REPAIR OF BRAKE MASTER CYLINDER",
+     342
+    ],
+    [
+     3,
+     "7-42. CLEANING, INSPECTION AND REPAIR OF TOE BRAKE CYLINDER",
+     344
+    ],
+    [
+     3,
+     "8-6. CLEANING, INSPECTION AND REPAIR OF PROPELLER",
+     359
+    ],
+    [
+     3,
+     "8-21. INSPECTION OF SLICK 4000, 4200, AND 4300 MAGNETOS",
+     369
+    ],
+    [
+     3,
+     "8-25. CLEANING AND INSPECTION OF 4200/4300 SERIES MAGNETOS.",
+     372
+    ],
+    [
+     3,
+     "8-30. INSPECTION OF BENDIX MAGNETOS",
+     380
+    ],
+    [
+     3,
+     "8-35. INSPECTION OF HARNESS",
+     386
+    ],
+    [
+     3,
+     "8-42. INSPECTION AND CLEANING OF SPARK PLUG",
+     392
+    ],
+    [
+     3,
+     "9-6. INSPECTION AND REPAIR OF FUEL TANK",
+     417
+    ],
+    [
+     3,
+     "9-9. INSPECTION AND TIGHTENING OF FUEL LINE UNION FITTINGS",
+     421
+    ],
+    [
+     3,
+     "9-25. CLEANING AND INSPECTION OF FILTER BOWL AND SCREEN",
+     433
+    ],
+    [
+     3,
+     "9-30. CLEANING, INSPECTION AND REPAIR OF ELECTRIC FUEL PUMP",
+     434
+    ],
+    [
+     3,
+     "10-17c. INSPECTION",
+     457
+    ],
+    [
+     3,
+     "10-79. CLEANING AND INSPECTION OF EGT",
+     483
+    ],
+    [
+     3,
+     "11-11 INSPECTION AND TESTING OF PRESTOLITE AND ELECTROSYSTEMS ALTERNATOR COMPONENTS",
+     516
+    ],
+    [
+     3,
+     "11-22. INSPECTION OF CHRYSLER ALTERNATOR",
+     527
+    ],
+    [
+     4,
+     "Figure 11-93. Optional Hour Meter (PA-28-161, S/N's 28-8216060 thru 28-8216226)",
+     618
+    ],
+    [
+     4,
+     "Figure 11-94. Optional Hour Meter (PA-28-161, S/N's 28-8216001 thru 2816109)",
+     618
+    ],
+    [
+     4,
+     "Figure 11-95. Clock and Hour Meter (PA-28-161, S/N’s 2816110 and up)",
+     619
+    ]
+   ]
+  },
+  {
+   "clave": "pa-31-pa-31-300-325-smv1994",
+   "archivos": [
+    "pa-31_pa-31-300-325_smv1994.pdf"
+   ],
+   "sha256": "7b54a31de9b109c5c9d4f5344a756e826d1c9f9734f9ce095f4b2d7697a18fe1",
+   "paginas": 1106,
+   "tamano_bytes": 52221405,
+   "venia_cifrado": true,
+   "portada": "PIPER AIRPLANE SERVICE MANUAL CARD 1 OF 5 PA-31 PA-31-300 PA-31-325 PIPER AIRCRAFT CORPORATION (PART NUMBER 753 704) lAl Courtesy of Bomar Flying Service www.bomar.biz",
+   "indice_inspeccion": [
+    [
+     3,
+     "2-5. ACCESS AND INSPECTION PROVISIONS",
+     22
+    ],
+    [
+     2,
+     "SECTION III - INSPECTION",
+     81
+    ],
+    [
+     3,
+     "3-3. INSPECTION PERIODS",
+     82
+    ],
+    [
+     4,
+     "3-4. INSPECTION REQUIREMENTS",
+     82
+    ],
+    [
+     4,
+     "3-6. OVERLIMITS INSPECTION",
+     83
+    ],
+    [
+     4,
+     "3-7 PROGRESSIVE INSPECTION",
+     83
+    ],
+    [
+     3,
+     "3-8. INSPECTION OF WING FLAP TRANSMISSION (DUKES SYSTEM)",
+     83
+    ],
+    [
+     3,
+     "3-8A. INSPECTION OF WING FLAP TRANSMISSION (CALCO)",
+     83
+    ],
+    [
+     3,
+     "3-9 INSPECTION OF WING FLAP TRANSMISSION ACTUATOR CABLE (DUKES SYSTEM)",
+     84
+    ],
+    [
+     3,
+     "3-9A. 500 HOUR INSPECTION OF WING FLAP TRANSMISSION ACTUATOR CABLE (DUKES SYSTEM)",
+     85
+    ],
+    [
+     3,
+     "3-12. INSPECTION OF FUEL SELECTOR AND CROSSFEED VALVE CONTROL CABLES",
+     92
+    ],
+    [
+     3,
+     "3-13. INSPECTION OF AILERON SPROCKET AND CHAIN",
+     92
+    ],
+    [
+     4,
+     "4-110. INSPECTION OF RADOME BOOT",
+     182
+    ],
+    [
+     4,
+     "5-68. INSPECTION OF TIME DELAY SWITCH OPERATION",
+     241
+    ],
+    [
+     4,
+     "6-32. CLEANING, INSPECTION AND REPAIR OF POWER PACK",
+     324
+    ],
+    [
+     4,
+     "6-70. CLEANING, INSPECTION AND REPAIR OF POWER PACK",
+     341
+    ],
+    [
+     4,
+     "6-100. INSPECTION OF LANDING GEAR SELECTOR HANDLE MECHANISM",
+     352
+    ],
+    [
+     4,
+     "6-104. INSPECTION OF LANDING GEAR SELECTOR HANDLE MECHANISM",
+     353
+    ],
+    [
+     4,
+     "6-111. CLEANING, INSPECTION AND REPAIR OF HAND PUMP",
+     357
+    ],
+    [
+     4,
+     "6-119. CLEANING, INSPECTION AND REPAIR OF HAND PUMP",
+     358
+    ],
+    [
+     4,
+     "6-127. CLEANING, INSPECTION AND REPAIR OF GEAR ACTUATING CYLINDER",
+     363
+    ],
+    [
+     4,
+     "6-133. CLEANING, INSPECTION AND REPAIR OF GEAR ACTUATING CYLINDER",
+     365
+    ],
+    [
+     4,
+     "6-139. CLEANING, INSPECTION AND REPAIR OF GEAR DOOR ACTUATING CYLINDERS",
+     367
+    ],
+    [
+     4,
+     "6-145. CLEANING, INSPECTION AND REPAIR OF GEAR DOOR ACTUATING CYLINDERS",
+     368
+    ],
+    [
+     4,
+     "6-158. CLEANING, INSPECTION AND REPAIR OF HYDRAULIC PUMP",
+     375
+    ],
+    [
+     4,
+     "7-6. CLEANING, INSPECTION AND REPAIR OF NOSE GEAR OLEO",
+     389
+    ],
+    [
+     4,
+     "7-9. CLEANING, INSPECTION AND REPAIR OF NOSE LANDING GEAR",
+     392
+    ],
+    [
+     4,
+     "7-12B. CLEANING, INSPECTION, AND REPAINTING SHIMMY DAMPER",
+     401
+    ],
+    [
+     4,
+     "7-14. CLEANING, INSPECTION AND REPAIR OF NOSE GEAR DOOR ASSEMBLY",
+     402
+    ],
+    [
+     4,
+     "7-19. CLEANING, INSPECTION AND REPAIR OF THE MAIN GEAR OLEO",
+     405
+    ],
+    [
+     4,
+     "7-22. CLEANING, INSPECTION AND REPAIR OF MAIN LANDING GEAR",
+     407
+    ],
+    [
+     4,
+     "7-27. CLEANING, INSPECTION AND REPAIR OF MAIN GEAR DOOR ASSEMBLY",
+     415
+    ],
+    [
+     4,
+     "7-42. INSPECTION OF NOSE WHEEL ASSEMBLY",
+     424
+    ],
+    [
+     4,
+     "7-45. INSPECTION OF MAIN WHEEL ASSEMBLY",
+     426
+    ],
+    [
+     4,
+     "7-51. CLEANING, INSPECTION AND REPAIR OF WHEEL BRAKE ASSEMBLY",
+     432
+    ],
+    [
+     4,
+     "7-56. CLEANING, INSPECTION AND REPAIR OF BRAKE MASTER CYLINDER",
+     434
+    ],
+    [
+     4,
+     "7-62. CLEANING, INSPECTION AND REPAIR OF PARKING BRAKE VALVE",
+     435
+    ],
+    [
+     4,
+     "8-5. CLEANING, INSPECTION AND REPAIR",
+     461
+    ],
+    [
+     4,
+     "8-9. CLEANING, INSPECTION AND REPAIR OF COWL FLAP TRANSMISSION",
+     462
+    ],
+    [
+     4,
+     "8-17. CLEANING, INSPECTION AND REPAIR OF PROPELLER",
+     466
+    ]
+   ]
+  },
+  {
+   "clave": "pa-38-112-amm",
+   "archivos": [
+    "PA-38-112 AMM.pdf"
+   ],
+   "sha256": "7f762bd7e091fe2ab7389e7feb52402acc0f383e24a45b839818a212c393af26",
+   "paginas": 712,
+   "tamano_bytes": 7411005,
+   "venia_cifrado": false,
+   "portada": "PART NUMBER 761-660 OCTOBER 31, 2019 AIRPLANE MAINTENANCE MANUAL PA-38-112 PIPER AIRCRAFT CORPORATION",
+   "indice_inspeccion": [
+    [
+     4,
+     "2. Approved Mandatory Structural Inspection Intervals",
+     31
+    ],
+    [
+     4,
+     "3. Inspection Procedures for those Approved Mandatory Structural Inspection Items",
+     31
+    ],
+    [
+     2,
+     "Chapter 5 - Time Limits / Maintenance Checks",
+     33
+    ],
+    [
+     3,
+     "5-10-00 Time Limits",
+     41
+    ],
+    [
+     3,
+     "5-20-00 Scheduled Maintenance",
+     43
+    ],
+    [
+     4,
+     "3. Inspection Requirements",
+     45
+    ],
+    [
+     4,
+     "4. Annual / 100 Hour Inspection Procedure",
+     46
+    ],
+    [
+     4,
+     "5. Scheduled Maintenance - PA-38-112",
+     47
+    ],
+    [
+     3,
+     "5-30-00 Special Inspections",
+     59
+    ],
+    [
+     4,
+     "1. Per Flight Hour",
+     59
+    ],
+    [
+     3,
+     "5-50-00 Unscheduled Maintenance Checks",
+     67
+    ],
+    [
+     4,
+     "3. Access and Inspection Provisions",
+     85
+    ],
+    [
+     3,
+     "12-20-00 Scheduled Servicing",
+     157
+    ],
+    [
+     2,
+     "Special Inspecti",
+     59
+    ],
+    [
+     4,
+     "6. Inspection of Flexible Hoses",
+     182
+    ],
+    [
+     4,
+     "9. Dye Penetrant Inspections",
+     186
+    ],
+    [
+     4,
+     "5. Control Cable Inspection",
+     283
+    ],
+    [
+     4,
+     "3. Inspections",
+     316
+    ],
+    [
+     4,
+     "2. Inspections",
+     467
+    ],
+    [
+     4,
+     "3. Rudder Clearance 25 Hour Inspection",
+     504
+    ],
+    [
+     4,
+     "2. Rivet Inspection - Wing Skin to Spar, Top Inboard",
+     529
+    ],
+    [
+     4,
+     "Engine Mount Inspections",
+     561
+    ],
+    [
+     3,
+     "91-31-20 Hour Meter and Clock",
+     703
+    ],
+    [
+     1,
+     "Scheduled Maintenance",
+     46
+    ]
+   ]
+  },
+  {
+   "clave": "pa38-poh",
+   "archivos": [
+    "PA38-POH.pdf"
+   ],
+   "sha256": "2817e0ae39bffe047746fc3f6b9fad8600d82901875f5b4c07e8eaac459c4ec7",
+   "paginas": 246,
+   "tamano_bytes": 5721936,
+   "venia_cifrado": false,
+   "portada": "",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "parts-catalog-cessna-152",
+   "archivos": [
+    "parts catalog cessna 152.pdf"
+   ],
+   "sha256": "555d677ff7c07fd7851360835d5c23c8fdbd7b9eaf81057e1da938f3f964f0bf",
+   "paginas": 402,
+   "tamano_bytes": 41546710,
+   "venia_cifrado": false,
+   "portada": "",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "parts-catalog-pa-140-180r",
+   "archivos": [
+    "parts catalog pa-140-180R.PDF"
+   ],
+   "sha256": "3e3430deb731f010c4ed7fb5e1d3e5a79e3e9c8b7cf44580f0f3c4b2e90ac14c",
+   "paginas": 830,
+   "tamano_bytes": 22317920,
+   "venia_cifrado": true,
+   "portada": "PA-28 AND PA-28R CHEROKEE PARTS CATALOG CARD 1 OF 4 PA-28-140 PA-28-180 PA-28-150 PA-28-235 PA 28-160 PA-28R-180 PA-28R-200 PIPER AIRCRAFT CORPORATION (PART NUMBER 753 582) 1A1",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "parts-catalog-pa-38",
+   "archivos": [
+    "parts catalog PA-38.PDF"
+   ],
+   "sha256": "b16418bbee9415c4388bfbb13a4e273f77791ff0d3effbf771217f30a4032b19",
+   "paginas": 206,
+   "tamano_bytes": 4325086,
+   "venia_cifrado": true,
+   "portada": "AIRPLANE PARTS CATALOG TOMAHAWK PA-38-112 CARD 1 OF 1 PIPER AIRCRAFT CORPORATION [PART NUMBER 761 659] INTERIM REVISION: JUNE 26, 1998 1A1",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "piper-pa-28-180e-poh",
+   "archivos": [
+    "Piper_PA-28-180E POH.pdf"
+   ],
+   "sha256": "ae20fb9a8a8d88ff0638313d9dd1051519f904de54f05e50be5ec89fd318b2e9",
+   "paginas": 78,
+   "tamano_bytes": 1636342,
+   "venia_cifrado": false,
+   "portada": "CHEROKEE 180 E OWNER'S HANDBOOK",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "piper-pa-28r-180-poh",
+   "archivos": [
+    "Piper_PA-28R-180 POH.pdf"
+   ],
+   "sha256": "d9f0d76cd3231a93faec061f72af067973ef44865e937c4148c43d37e0edef7d",
+   "paginas": 70,
+   "tamano_bytes": 1530554,
+   "venia_cifrado": false,
+   "portada": "PIPER CHEROKEE ARROW OWNER'S HANDBOOK",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "rapco-fuelpump-app",
+   "archivos": [
+    "RAPCO-FUELPUMP-APP.pdf"
+   ],
+   "sha256": "56c4604897451cbbf311c3dfcf3d53db0e101285c9acf7fb76e16eac241fb6f4",
+   "paginas": 6,
+   "tamano_bytes": 87911,
+   "venia_cifrado": false,
+   "portada": "RAPCO INC. FUEL PUMP APPLICATION GUIDE For Electric Fuel Pumps Overhauled - FAA Approved Fuel Pumps with Warranty and FAA Form 8130-3 New - FAA-PMA Approved Fuel Pumps with Warranty This Application Guide is to be used for reference only. When selecting a part for installation consult the appropriate aircraft maintenace manual, parts catalogue, or equipment list. To convert an original equipment p",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "rapcobrakeapp-2013",
+   "archivos": [
+    "RapcoBrakeApp-2013.pdf"
+   ],
+   "sha256": "985a2db31902c0705d477baccaf413fdaf05aeb19904efdefb399994fa77e244",
+   "paginas": 13,
+   "tamano_bytes": 80550,
+   "venia_cifrado": false,
+   "portada": "RAPCO INC. BRAKE APPLICATION GUIDE FAA-PMA Approved Brake Disc, Lining, Rivet and Mounting Pin Replacements for Cleveland and McCauley Wheel and Brake Assemblies Section 1: Manufactured Aircraft Section 2: Kit Planes Section 3: Experimental Aircraft Section 4: McCauley Brake Disc Comparison Guide For reference only. For installation eligibility refer to the FAA-PMA Supplement. Some aircraft models",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "service-manual-140-200r",
+   "archivos": [
+    "service manual 140-200R.pdf"
+   ],
+   "sha256": "7246b8446a70af269d5c128312280882730c88f2d51f0c4df45ac856bc1a55d6",
+   "paginas": 912,
+   "tamano_bytes": 41531210,
+   "venia_cifrado": true,
+   "portada": "CHEROKEE SERVICE MANUAL CARD 1 OF 4 PA-28-140 PA-28-150 PA-28-160 PA-28-180 PA-28-235 PA-28R-180 PA-28R-200 PIPER AIRCRAFT CORPORATION lA1 (PART NUMBER 753 586)",
+   "indice_inspeccion": [
+    [
+     5,
+     "ACCESS AND INSPECTION PROVISIONS.",
+     68
+    ],
+    [
+     6,
+     "SERVICE INSTRUCTION. (CLEANING AND INSPECTION.)",
+     102
+    ],
+    [
+     3,
+     "SECTION III INSPECTION",
+     126
+    ],
+    [
+     5,
+     "INSPECTION PERIODS.",
+     127
+    ],
+    [
+     6,
+     "INSPECTION REQUIREMENTS.",
+     127
+    ],
+    [
+     6,
+     "OVERLIMITS INSPECTION.",
+     129
+    ],
+    [
+     6,
+     "SPECIAL INSPECTIONS.",
+     129
+    ],
+    [
+     6,
+     "INSPECTION OF EXHAUST SYSTEM.",
+     129
+    ],
+    [
+     6,
+     "INSPECTION OF CONTROL WHEELS.",
+     135
+    ],
+    [
+     6,
+     "ELEVATOR CONTROL CABLE INSPECTION.",
+     136
+    ],
+    [
+     6,
+     "INSPECTION OF FLAP CONTROL CABLE ATTACHMENT BOLT.",
+     136
+    ],
+    [
+     6,
+     "INSPECTION OF INDUCTION AIR INLET DUCT AND ALTERNATE HEAT DUCT.",
+     137
+    ],
+    [
+     6,
+     "INSPECTION OF SEALS AT LANDING LIGHT ON AIR FILTER RETAINING PLATE.",
+     137
+    ],
+    [
+     6,
+     "INSPECTION OF MAIN LANDING GEAR TORQUE LINKS.",
+     137
+    ],
+    [
+     5,
+     "BAGGAGE COMPARTMENT INSPECTION HOLE AND COVER PLATE.",
+     195
+    ],
+    [
+     6,
+     "FLAP INSPECTION AND MODIFICATION.",
+     217
+    ],
+    [
+     5,
+     "BAGGAGE COMPARTMENT INSPECTION HOLE AND COVER PLATE.",
+     219
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIRS OF HYDRAULIC PUMP.",
+     304
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION, AND REPAIR OF NOSE GEAR ACTUATING CYLINDER.",
+     320
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF MAIN GEAR ACTUATING CYLINDER.",
+     324
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF NOSE GEAR OLEO.",
+     344
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF NOSE LANDING GEAR.",
+     346
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF MAIN GEAR OLEO.",
+     352
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF MAIN LANDING GEAR.",
+     359
+    ],
+    [
+     5,
+     "INSPECTION OF NOSE WHEEL ASSEMBLY.",
+     363
+    ],
+    [
+     5,
+     "INSPECTION OF MAIN WHEEL ASSEMBLY.",
+     364
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF WHEEL BRAKE ASSEMBLIES.",
+     369
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF BRAKE MASTER CYLINDER. (All.)",
+     372
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF PARKING VALVE.",
+     376
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF BRAKE CYLINDER.",
+     379
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF NOSE GEAR OLEO.",
+     396
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF NOSE LANDING GEAR",
+     402
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF NOSE GEAR DOOR ASSEMBLY.",
+     410
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF MAIN GEAR OLEO.",
+     412
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF MAIN LANDING GEAR.",
+     419
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF MAIN GEAR DOOR ASSEMBLY.",
+     426
+    ],
+    [
+     5,
+     "INSPECTION OF NOSE WHEEL ASSEMBLY.",
+     434
+    ],
+    [
+     5,
+     "INSPECTION OF MAIN WHEELASSEMBLY.",
+     437
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF WHEEL BRAKE ASSEMBLIES.",
+     439
+    ],
+    [
+     5,
+     "CLEANING, INSPECTION AND REPAIR OF BRAKE MASTER CYLINDER.",
+     441
+    ]
+   ]
+  },
+  {
+   "clave": "slick-4300-6300-overhaul-manual-l-1363f",
+   "archivos": [
+    "Slick-4300_6300-Overhaul-Manual-L-1363F.pdf"
+   ],
+   "sha256": "eedcdd0ce078cb5a8863aa0819b0222a1ddf7b3a2df2679f2b2494a201c52a4e",
+   "paginas": 64,
+   "tamano_bytes": 640106,
+   "venia_cifrado": true,
+   "portada": "L-1363F 4300/6300 Series Magneto Maintenance and Overhaul Manual Technical Aspects FAA APPROVED SCOPE This Maintenance and Overhaul Manual provides Detailed maintenance, assembly, disassembly and Troubleshooting instructions and technical Information about the design and operation of Slick Magnetos. Champion Aerospace LLC 1230 Old Norris Road Liberty, South Carolina, U.S.A. 29657 ©2011 Champion Ae",
+   "indice_inspeccion": []
+  },
+  {
+   "clave": "t303-amm-july-1996-rev-02",
+   "archivos": [
+    "T303 AMM JULY 1996 REV 02.pdf"
+   ],
+   "sha256": "f530bc1b99ee912ca23eb4bca567893c0a39564e885109ca83db43512b3e798f",
+   "paginas": 1533,
+   "tamano_bytes": 75909773,
+   "venia_cifrado": false,
+   "portada": "~ CeSSria A Tectron Comoanv Maintenance Manual 1982 thru 1984 MODEL T303 CRUSADER SERIES f) Member of GAMA FAA APPROVAL HAS BEEN OBTAINED ON TECHNICAL DATA IN THIS PUBUCAnON THAT AFFECTS AIRPlANE TYPE DESIGN REVISION 2 TO THE BASIC MANUAL IS BEING SUPPLIED TO PROVIDE ADDITIONAL INFORMATION NECESSARY TO MAINTAIN THE . AIRPLANE AND INCORPORATES TEMPORARY REVISION NUMBER 1. DATED 18 OCTOBER 1991. TEM",
+   "indice_inspeccion": [
+    [
+     3,
+     "Inspection Time Limits",
+     22
+    ],
+    [
+     2,
+     "Chapter 5 -\rTime Limits/Maintenance Checks",
+     23
+    ],
+    [
+     3,
+     "Inspection",
+     23
+    ],
+    [
+     3,
+     "Inspection Time Limits",
+     29
+    ],
+    [
+     3,
+     "Component Time Limits",
+     58
+    ],
+    [
+     3,
+     "Inspection Operation 1",
+     62
+    ],
+    [
+     3,
+     "Inspection Operation 2",
+     64
+    ],
+    [
+     3,
+     "Inspection Operation 3",
+     71
+    ],
+    [
+     3,
+     "Inspection Operation 4",
+     75
+    ],
+    [
+     3,
+     "Inspection Operation 5",
+     76
+    ],
+    [
+     3,
+     "Inspection Operation 6",
+     77
+    ],
+    [
+     3,
+     "Inspection Operation 7",
+     78
+    ],
+    [
+     3,
+     "Inspection Operation 8",
+     80
+    ],
+    [
+     3,
+     "Inspection Operation 9",
+     81
+    ],
+    [
+     3,
+     "Inspection Operation 10",
+     82
+    ],
+    [
+     3,
+     "Inspection Operation 11",
+     83
+    ],
+    [
+     3,
+     "Inspection Operation 12",
+     84
+    ],
+    [
+     3,
+     "Inspection Operation 13",
+     85
+    ],
+    [
+     3,
+     "Inspection Operation 14",
+     86
+    ],
+    [
+     3,
+     "Inspection Operation 15",
+     88
+    ],
+    [
+     3,
+     "Inspection Operation 16",
+     89
+    ],
+    [
+     3,
+     "Inspection Operation 17",
+     90
+    ],
+    [
+     3,
+     "Inspection Operation 18",
+     91
+    ],
+    [
+     3,
+     "Inspection Operation 19",
+     92
+    ],
+    [
+     3,
+     "Inspection Operation 20",
+     93
+    ],
+    [
+     3,
+     "Inspection Operation 21",
+     94
+    ],
+    [
+     3,
+     "Inspection Operation 22",
+     95
+    ],
+    [
+     3,
+     "Inspection Operation 23",
+     96
+    ],
+    [
+     3,
+     "Inspection Operation 24",
+     97
+    ],
+    [
+     3,
+     "Inspection Operation 25",
+     99
+    ],
+    [
+     3,
+     "Inspection Operation 26",
+     101
+    ],
+    [
+     3,
+     "Inspection Operation 27",
+     103
+    ],
+    [
+     3,
+     "Inspection Operation MA",
+     105
+    ],
+    [
+     3,
+     "Inspection Operation MB",
+     106
+    ],
+    [
+     3,
+     "Inspection Operation MC",
+     107
+    ],
+    [
+     3,
+     "Inspection Operation MD",
+     108
+    ],
+    [
+     3,
+     "Inspection Operation ME",
+     109
+    ],
+    [
+     3,
+     "Inspection Operation MF",
+     110
+    ],
+    [
+     3,
+     "Inspection Operation MG",
+     111
+    ],
+    [
+     3,
+     "Supplemental Inspection Document",
+     112
+    ]
+   ]
+  }
+ ]
+}

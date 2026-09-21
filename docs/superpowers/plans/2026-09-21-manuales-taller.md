@@ -3852,6 +3852,13 @@ from pathlib import Path
 
 import fitz  # PyMuPDF
 
+# La consola de Windows usa cp1252 y no imprime «→» ni «·»: sin esto, un print
+# tira UnicodeEncodeError DESPUÉS de haber hecho el trabajo.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except (AttributeError, ValueError):
+    pass
+
 ZIP_POR_DEFECTO = Path(r"C:\Users\Daniel\Downloads\OneDrive_1_20-9-2026.zip")
 AZTECA_DIR = "PA 23-250 AZTECA MM/"
 AZTECA_CLAVE = "pa-23-250-azteca-mm"
@@ -4250,7 +4257,7 @@ if __name__ == "__main__":
 
 Run (desde `legacy/CAA-backend`): `railway run python ../../supabase/dump/manuales_taller/subir.py`
 Expected: 35 líneas `OK`, `35 subidos · 0 fallos`. Tarda varios minutos (630 MB).
-- Si **solo** fallan `t303-amm-july-1996-rev-02` y/o `p689-12-cessna-t303-parts-catalog` con un mensaje de tamaño máximo: el plan es el gratuito. Volver a correr con `--tomos` (los ya subidos salen como `YA`). Anotarlo para el reporte a Daniel.
+- Si **solo** fallan los que pasan de 50 MiB —`t303-amm-july-1996-rev-02` (72 MB), `p689-12-cessna-t303-parts-catalog` (60 MB) y `pa-23-250-azteca-mm` (60 MB ya unido)— con un mensaje de tamaño máximo: el plan es el gratuito. Volver a correr con `--tomos` (los ya subidos salen como `YA`). Anotarlo para el reporte a Daniel.
 - Cualquier otro fallo: diagnosticar antes de seguir.
 
 - [ ] **Step 3: Verificar en la base**
