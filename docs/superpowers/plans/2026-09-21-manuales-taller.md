@@ -1,5 +1,9 @@
 # Manuales del taller — Implementation Plan
 
+> ✅ **COMPLETADO Y DESPLEGADO el 2026-09-21** (`master` = `1418034`). Las casillas de abajo no se
+> fueron marcando: el estado real está en CLAUDE.md §41 y lo que falta (trabajo del jefe de taller)
+> en §24 → "📚 Manuales". Este plan queda como registro de cómo se construyó.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Que el taller vea e imprima los manuales de los aviones desde la plataforma, que el jefe arme qué páginas acompañan cada inspección (25/50/100/anual), y que cualquier orden de trabajo pueda sumar páginas propias.

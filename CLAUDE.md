@@ -3212,7 +3212,7 @@ Backend: `controllers/authController.js`, `controllers/administracion/usuariosCo
 
 ## 41. Sesión 2026-09-20/21 — Manuales del taller: biblioteca, paquetes por inspección y páginas por orden
 
-**Desplegado** (2026-09-21). Migración `20260921000001_manuales_taller.sql`. Spec:
+**Desplegado y verificado en producción** (2026-09-21, `master` = `1418034`). Migración `20260921000001_manuales_taller.sql`. Spec:
 `docs/superpowers/specs/2026-09-20-manuales-taller-design.md` · Plan:
 `docs/superpowers/plans/2026-09-21-manuales-taller.md`. Carga inicial en `supabase/dump/manuales_taller/`.
 
@@ -3336,3 +3336,33 @@ limpieza total (subida directa a Storage, permisos, congelación al firmar, revi
 no se regeneran, 409 al borrar en uso) · recorrido en el Chrome de Daniel (paquete con "+ sección",
 páginas sueltas de dos manuales, orden con `3, 5–6` como una sección, PDF) · y a **375 px** con un
 usuario temporal (modal, visor y barra sin desborde horizontal).
+
+**En producción** (después del push, con un usuario TALLER temporal ya borrado): 6/6 con
+`_verificar_prod_manuales.js` — `GET /taller/manuales` trae los 38, la tabla de paquetes responde, y
+un recorte real de 2 páginas se arma en Railway con el título nuevo (o sea, `RECETA v2` viva). El
+worker de pdf.js lo sirve Vercel como `application/javascript`, y un tomo de 31 MB del T303 abre y
+dibuja la primera página con **4 pedidos por rango** a Supabase.
+
+### J. Cómo retomar
+- **No queda código pendiente.** La rama `claude/maintenance-manuals-config-eb31a7` está entera en
+  `master` (`1418034`). Lo que falta es trabajo del jefe de taller: está en **§24 → "📚 Manuales"**.
+  Cuando el jefe confirme paquetes o asignaciones desde la app, **no hay nada que desplegar**.
+- **Scripts de prueba** (gitignored por `_*.js`, viven en `legacy/CAA-backend/` del repo principal):
+  - `_e2e_manuales.js` — E2E completo contra Supabase real. Necesita un backend local en 5099 con las
+    llaves de Storage, que **solo llegan por Railway**: `railway run bash -c "PORT=5099 node server.js"`
+    y en otra terminal `railway run node _e2e_manuales.js`. **Confirmar en el log del server que es
+    ESE proceso el que escucha en 5099** (§35.A y §37: dos veces contestó un backend viejo). Sin
+    `railway run`, la subida falla con `ERR_INVALID_URL` (no hay URL firmada).
+  - `_verificar_prod_manuales.js` — la verificación contra producción de arriba. Crea y borra su
+    propio usuario temporal.
+  - `_verificar_manuales.js` — baja cada archivo del bucket y le recorta la primera página (tarda:
+    son 597 MB).
+  - Loguear por script a `u_taller` **le cierra la sesión** a quien lo esté usando (sesión única). Los
+    tres scripts usan usuarios temporales `e2e.*` que se borran solos; si uno quedara, se borra con
+    `DELETE FROM usuario WHERE username LIKE 'e2e.%'`.
+- **Si se cambia cómo se arma el PDF**: subir `RECETA` en `utils/pdfExtractos.js` (hoy `"v2"`) y su
+  prueba en `tests/pdfExtractos.test.js`.
+- **Si se agrega una migración**: regenerar el esquema `demo` (§39, `docs/demo/RUNBOOK.md` §3). Las
+  tablas de manuales ya están en `CATALOGO` y `CONSERVAR`.
+- Si el jefe sube desde la app un manual de más de 50 MiB, Storage lo rechaza y la pantalla lo dice;
+  para cargarlo hay que partirlo en tomos con `supabase/dump/manuales_taller/subir.py --tomos`.
