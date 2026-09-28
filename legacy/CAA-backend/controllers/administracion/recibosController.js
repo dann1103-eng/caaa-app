@@ -1,5 +1,6 @@
 const db = require("../../config/db");
 const { generarReciboPDF } = require("../../utils/pdfGenerator");
+const { normalizarItemsRecibo } = require("../../utils/reciboItems");
 
 exports.list = async (req, res) => {
   try {
@@ -34,18 +35,8 @@ exports.create = async (req, res) => {
     // Detalle por ítems (opcional): si viene, el TOTAL del recibo se calcula
     // acá (cantidad × precio unitario por línea) — el monto del cliente se
     // ignora para que nunca difiera de la suma del detalle.
-    let detalle = [];
-    if (Array.isArray(items) && items.length > 0) {
-      for (const it of items) {
-        const desc = String(it?.descripcion ?? "").trim();
-        const cant = Number(it?.cantidad);
-        const precio = Number(it?.precio_unitario);
-        if (!desc) return res.status(400).json({ ok: false, message: "Cada ítem necesita una descripción" });
-        if (!isFinite(cant) || cant <= 0) return res.status(400).json({ ok: false, message: `Cantidad inválida en "${desc}"` });
-        if (!isFinite(precio) || precio < 0) return res.status(400).json({ ok: false, message: `Precio unitario inválido en "${desc}"` });
-        detalle.push({ descripcion: desc.slice(0, 300), cantidad: cant, precio_unitario: precio, subtotal: Math.round(cant * precio * 100) / 100 });
-      }
-    }
+    const { detalle, error } = normalizarItemsRecibo(items);
+    if (error) return res.status(400).json({ ok: false, message: error });
     const montoFinal = detalle.length
       ? Math.round(detalle.reduce((s, d) => s + d.subtotal, 0) * 100) / 100
       : Number(monto_usd);

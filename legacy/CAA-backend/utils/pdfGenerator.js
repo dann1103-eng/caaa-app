@@ -2,6 +2,7 @@ const PDFDocument = require("pdfkit");
 const path = require("path");
 const fs = require("fs");
 const { marca, imagen } = require("./marca");
+const { formatCantidad } = require("./reciboItems");
 
 const CAAA_BLUE = "#1B365D";
 const CAAA_GREEN = "#157347";
@@ -243,7 +244,7 @@ function generarReciboPDF({ recibo, alumno, items = [] }) {
       if (i % 2 === 0) doc.rect(50, y, 495, rowH).fillColor("#f0f9f3").fill();
       doc.fillColor("#222")
         .text(it.descripcion || "", 55, y + 6, { width: 250 })
-        .text(Number(it.cantidad).toFixed(2), 310, y + 6, { width: 50, align: "right" })
+        .text(formatCantidad(it.cantidad), 310, y + 6, { width: 50, align: "right" })
         .text(`$${Number(it.precio_unitario).toFixed(2)}`, 365, y + 6, { width: 70, align: "right" })
         .text(`$${Number(it.subtotal).toFixed(2)}`, 440, y + 6, { width: 100, align: "right" });
       y += rowH;

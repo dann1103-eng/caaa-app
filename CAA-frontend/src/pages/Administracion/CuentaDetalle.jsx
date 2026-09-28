@@ -9,6 +9,7 @@ import {
 } from "../../services/administracionApi";
 import SaldoBadge from "../../components/SaldoBadge/SaldoBadge";
 import MovimientoCuentaTable from "../../components/MovimientoCuentaTable/MovimientoCuentaTable";
+import { formatCantidad } from "../../utils/cantidad";
 
 const MOCK_CUENTA = { id_alumno: 1, username: "JUAN CARLOS OPORTO MARTINEZ", correo: "juan.oporto@caaa-sv.com", saldo_actual_usd: 4471.00 };
 const MOCK_MOV = [
@@ -324,7 +325,9 @@ export default function CuentaDetalle() {
                     <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 110px 100px 34px", gap: 8, marginBottom: 6, alignItems: "center" }}>
                       <input required placeholder="Ej: 10 horas de vuelo Cessna 152" value={it.descripcion}
                         onChange={(e) => setRecItems(recItems.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
-                      <input required type="number" step="0.01" min="0.01" value={it.cantidad}
+                      {/* step="any": la cantidad admite los decimales que haga falta para
+                          que el subtotal dé el monto depositado (utils/cantidad.js). */}
+                      <input required type="number" step="any" min="0.000001" value={it.cantidad}
                         onChange={(e) => setRecItems(recItems.map((x, j) => j === i ? { ...x, cantidad: e.target.value } : x))} />
                       <input required type="number" step="0.01" min="0" placeholder="0.00" value={it.precio_unitario}
                         onChange={(e) => setRecItems(recItems.map((x, j) => j === i ? { ...x, precio_unitario: e.target.value } : x))} />
@@ -587,7 +590,7 @@ export default function CuentaDetalle() {
                 {verRecibo.items.map((it, i) => (
                   <tr key={i}>
                     <td>{it.descripcion}</td>
-                    <td style={{ textAlign: "right" }}>{Number(it.cantidad).toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }}>{formatCantidad(it.cantidad)}</td>
                     <td style={{ textAlign: "right" }}>${Number(it.precio_unitario).toFixed(2)}</td>
                     <td style={{ textAlign: "right" }}>${Number(it.subtotal).toFixed(2)}</td>
                   </tr>

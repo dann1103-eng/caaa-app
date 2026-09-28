@@ -1585,7 +1585,16 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-09-21.**
+> **Última revisión: 2026-09-28.**
+>
+> ### 🧾 La cuenta de demostraciones no puede emitir recibos ni facturas (§42)
+> El esquema `demo` no tiene `recibo_correlativo_seq` ni `factura_correlativo_seq`
+> (verificado: `to_regclass` da NULL y `nextval` falla con *relation does not exist*,
+> también después de regenerarlo). Con `search_path=demo` a secas, "Registrar abono"
+> y la factura manual fallan delante del prospecto. Hay que llevar esas dos secuencias
+> sueltas al clon (`clonar_demo()`).
+>
+> **Revisión anterior: 2026-09-21.**
 >
 > ### 📚 Manuales (con el jefe de taller, §41)
 > Hasta que el jefe confirme, **el mecánico no ve ningún paquete**: los 10 están en borrador.
@@ -3366,3 +3375,44 @@ dibuja la primera página con **4 pedidos por rango** a Supabase.
   tablas de manuales ya están en `CATALOGO` y `CONSERVAR`.
 - Si el jefe sube desde la app un manual de más de 50 MiB, Storage lo rechaza y la pantalla lo dice;
   para cargarlo hay que partirlo en tomos con `supabase/dump/manuales_taller/subir.py --tomos`.
+
+---
+
+## 42. Sesión 2026-09-28 — La cantidad de un abono admite decimales
+
+**Desplegado.** Migración `20260928000001` (aplicada; esquema `demo` regenerado).
+
+**Reporte de administración:** al registrar un depósito de **$1,976.25** de Héctor Figueroa con
+detalle "14.6 horas × $135", el navegador rechazaba la cantidad `14.63888` ("los valores válidos
+más cercanos son 14.63 y 14.64"). La gente parte del **monto depositado** y despeja las horas, y
+con 2 decimales **no existe** cantidad que dé ese total al centavo (14.63 → $1,975.05,
+14.64 → $1,976.40).
+
+**Eran dos capas, no una:**
+1. **Navegador:** el campo Cantidad tenía `step="0.01"` y bloqueaba el envío. Ahora `step="any"`.
+2. **Base:** `recibo_detalle.cantidad` era `NUMERIC(10,2)`. Aun con el navegador arreglado se
+   habría guardado **14.64** y el recibo habría dicho "14.64 × $135.00 = $1,976.25", que **no
+   multiplica**. El monto salía bien (el subtotal se calcula en el backend con la cantidad
+   completa); lo que mentía era el documento. Ahora `NUMERIC(14,6)`: para acertar cualquier
+   centavo el paso de la cantidad debe valer menos de un centavo, y 6 decimales alcanzan hasta
+   $10,000 por unidad. Solo ensancha: los 25 renglones previos no cambiaron.
+
+- `utils/reciboItems.js` (backend): `normalizarItemsRecibo` redondea la cantidad a 6 decimales
+  **antes** de calcular el subtotal, para que el subtotal salga de la cantidad que de verdad se
+  guarda. `formatCantidad`: 2 decimales como mínimo (los recibos de siempre se ven igual) y sin
+  ceros de cola. La misma regla está en `CAA-frontend/src/utils/cantidad.js` para el modal
+  "Ver detalle"; el PDF usa la del backend.
+- La factura manual no tiene el problema: ese formulario deja escribir el subtotal directo.
+
+**Verificado:** prueba contra Supabase que **falló antes** de la migración (guardaba 14.64) y pasa
+después (14.638880, dentro de una transacción con ROLLBACK: no consume el correlativo de recibos);
+backend 60/60 y frontend 23/23; PDF renderizado ("14.63888" y un renglón viejo "1.00"); y el
+formulario real en el navegador con el caso de Héctor: `checkValidity()` verdadero y el POST sale
+con `"cantidad": 14.63888`. Héctor no tenía ningún recibo a medias (su saldo seguía en −$40.25).
+
+⚠️ **Los `node_modules` de un worktree viejo pueden estar atrasados** respecto a `package.json`:
+el de este worktree era de julio y no tenía `pdf-lib` ni `pdfjs-dist` (de §41). Síntomas: dos
+suites del backend fallan con *Cannot find module* y la app en Vite queda **en blanco** con
+`Failed to resolve import`. No es el cambio: `npm install` en ESE worktree (comprobar antes que
+`node_modules` no sea un enlace compartido) y revertir el `package-lock.json` si solo cambió
+los finales de línea.
