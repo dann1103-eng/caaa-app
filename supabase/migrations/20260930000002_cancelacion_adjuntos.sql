@@ -20,3 +20,9 @@ CREATE TABLE IF NOT EXISTS public.solicitud_cancelacion_adjunto (
 
 CREATE INDEX IF NOT EXISTS idx_cancelacion_adjunto_solicitud
   ON public.solicitud_cancelacion_adjunto (id_solicitud_cancelacion);
+
+-- RLS sin políticas: a esta tabla nadie llega con anon/authenticated (el
+-- frontend solo habla con el backend Express). El backend conecta como
+-- `postgres`, que tiene rolbypassrls = true, así que activarlo no lo afecta.
+-- Se verificó en prod antes de decidir: 51 de 93 tablas de public ya tienen RLS.
+ALTER TABLE public.solicitud_cancelacion_adjunto ENABLE ROW LEVEL SECURITY;
