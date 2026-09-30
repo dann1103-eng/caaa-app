@@ -45,7 +45,8 @@ exports.getCalendario = async (req, res) => {
         lic_al.nombre AS alumno_licencia_nombre,
         -- Cuándo entró la solicitud (misma lógica y mismo to_char que
         -- adminVueloController.getCalendario — ver el comentario de allá).
-        to_char(ss.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+        to_char(COALESCE(sv.creado_en, ss.fecha_creacion), 'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+        (sv.creado_en IS NOT NULL) AS solicitud_creada_exacta,
         to_char(ss.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
         u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
         i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,

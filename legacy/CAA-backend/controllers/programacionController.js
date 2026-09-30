@@ -140,7 +140,8 @@ exports.getCalendario = async (req, res) => {
           lic_al.nombre AS alumno_licencia_nombre,
           -- Cuándo entró la solicitud. Mismo criterio y mismo to_char que
           -- adminVueloController.getCalendario (ver el comentario de allá).
-          to_char(ss2.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+          to_char(COALESCE(sv2.creado_en, ss2.fecha_creacion), 'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+          (sv2.creado_en IS NOT NULL) AS solicitud_creada_exacta,
           to_char(ss2.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
           u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
 
@@ -183,6 +184,7 @@ exports.getCalendario = async (req, res) => {
         -- alcanza por (semana, alumno) y no por id_solicitud. Sin backticks: en
         -- un comentario dentro de un template string cortan la cadena.
         LEFT JOIN solicitud_semana ss2 ON ss2.id_semana = v.id_semana AND ss2.id_alumno = v.id_alumno
+        LEFT JOIN solicitud_vuelo sv2 ON sv2.id_detalle = v.id_detalle
         LEFT JOIN usuario u_env ON u_env.id_usuario = ss2.enviada_por
         LEFT JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
 
@@ -238,7 +240,8 @@ exports.getCalendario = async (req, res) => {
         COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
         LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
         lic_al.nombre AS alumno_licencia_nombre,
-        to_char(ss.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+        to_char(COALESCE(sv.creado_en, ss.fecha_creacion), 'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+        (sv.creado_en IS NOT NULL) AS solicitud_creada_exacta,
         to_char(ss.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
         u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
 

@@ -291,7 +291,11 @@ exports.getCalendario = catchAsync(async (req, res) => {
       -- el driver les cuelga una "Z" espuria que corre todo 6 horas.
       -- ⚠️ fecha_actualizacion NO se usa: publicarSemana la sobreescribe en
       -- TODAS las canastas de la semana, así que no dice nada del alumno.
-      to_char(ss.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+      -- sv.creado_en es la marca de ESTA hora de vuelo; ss.fecha_creacion es la
+      -- de la canasta, y queda de respaldo para las solicitudes anteriores a la
+      -- columna (que son NULL a propósito: no se sabe cuándo se pidió cada una).
+      to_char(COALESCE(sv.creado_en, ss.fecha_creacion), 'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+      (sv.creado_en IS NOT NULL) AS solicitud_creada_exacta,
       to_char(ss.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
       u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
       sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,

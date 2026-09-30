@@ -137,10 +137,15 @@ export function solicitudInfo(v) {
   const [fecha, hora] = String(ref).split(" ");
   const [Y, M, D] = fecha.split("-").map(Number);
   const dow = new Date(Y, M - 1, D).getDay();
+  // solicitud_creada_exacta distingue la marca de ESTA hora de vuelo de la de
+  // la canasta de la semana. Las solicitudes anteriores a que existiera la
+  // columna caen al dato de la canasta, y el tooltip lo dice en vez de dar una
+  // precisión que no hay.
+  const exacta = v?.solicitud_creada_exacta === true;
   const partes = [
-    creada ? `Solicitud creada: ${creada}` : null,
+    creada ? `${exacta ? "Esta hora se pidió" : "Solicitud creada"}: ${creada}` : null,
     enviada ? `Enviada a programación: ${enviada}${v.solicitud_enviada_por ? ` por ${v.solicitud_enviada_por}` : ""}` : "Todavía no enviada a programación",
-    "(fecha de la canasta del alumno para esa semana, no de este vuelo en particular)",
+    exacta ? null : "(fecha de la canasta del alumno para esa semana — esta solicitud es anterior al registro por hora)",
   ].filter(Boolean);
   return {
     corto: `${DIAS_CORTOS[dow]} ${String(D).padStart(2, "0")}/${String(M).padStart(2, "0")} ${hora}`,

@@ -440,6 +440,22 @@ exports.guardarSolicitud = async (req, res) => {
       });
     }
 
+    // Este guardado BORRA todos los slots del alumno y los reinserta, así que
+    // sin esto la marca de cada hora se reescribiría en cada guardado: pedir una
+    // tercera hora a las 2pm haría que las dos de las 11am también dijeran 2pm.
+    // Se guarda la marca original por (día, bloque, aeronave) y se reusa para
+    // los slots que reaparecen; los nuevos de verdad caen en el DEFAULT now().
+    const marcasPrevias = new Map();
+    const previasRes = await client.query(
+      `SELECT dia_semana, id_bloque, id_aeronave, MIN(creado_en) AS creado_en
+         FROM solicitud_vuelo WHERE id_solicitud = $1
+        GROUP BY dia_semana, id_bloque, id_aeronave`,
+      [id_solicitud]
+    );
+    for (const r of previasRes.rows) {
+      marcasPrevias.set(`${r.dia_semana}-${r.id_bloque}-${r.id_aeronave}`, r.creado_en);
+    }
+
     await client.query("DELETE FROM solicitud_vuelo WHERE id_solicitud = $1", [id_solicitud]);
 
     // Mantenimiento ya NO bloquea el guardado (pedido explícito): cada choque
@@ -516,8 +532,12 @@ exports.guardarSolicitud = async (req, res) => {
       const conParada = v.tipo_vuelo === "RUTA" && v.con_parada === true;
       const paradas = conParada ? normalizarParadas(v.tramos_ruta) : null;
       await client.query(
-        `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, es_extracurricular, con_parada, tramos_ruta) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque, v.es_extracurricular === true, conParada, paradas ? JSON.stringify(paradas) : null]
+        // COALESCE y no el DEFAULT: pasar el parámetro en NULL PISA el default,
+        // así que la hora de un slot nuevo se resuelve acá con now().
+        `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, es_extracurricular, con_parada, tramos_ruta, creado_en)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, COALESCE($11::timestamp, now()))`,
+        [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque, v.es_extracurricular === true, conParada, paradas ? JSON.stringify(paradas) : null,
+         marcasPrevias.get(`${v.dia_semana}-${v.id_bloque}-${v.id_aeronave}`) ?? null]
       );
     }
 
