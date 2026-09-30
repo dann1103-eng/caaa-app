@@ -45,6 +45,7 @@ router.get("/calendario", adminAccess, adminVuelo.getCalendario);
 router.get("/bloques-horario", adminAccess, adminVuelo.getBloquesHorario);
 router.put("/guardar-cambios", adminAccess, adminVuelo.guardarCambios);
 router.get("/bloques-bloqueados", adminAccess, adminVuelo.getBloquesBloqueados);
+router.get("/envios-solicitudes", adminAccess, adminVuelo.getEnviosSolicitudes);
 router.get("/instructores-activos", adminAccess, adminVuelo.getInstructoresActivos);
 router.patch("/solicitudes/:id_detalle/cambiar-instructor", adminAccess, adminVuelo.cambiarInstructorVuelo);
 router.patch("/solicitudes/:id_detalle/rechazar", adminAccess, adminVuelo.rechazarSolicitudIndividual);

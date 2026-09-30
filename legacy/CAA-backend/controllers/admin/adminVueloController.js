@@ -636,6 +636,48 @@ exports.configurarParadaRuta = catchAsync(async (req, res) => {
   }
 });
 
+// Trazabilidad de ENVÍOS de solicitudes a programación, para auditar el corte
+// del viernes. Contexto (Samuel, 2026-09-30): programación arregla el programa
+// el sábado/domingo justo antes de publicar, y siguen entrando solicitudes que
+// vuelven a romper días ya resueltos; hacía falta saber quién envía y cuándo.
+//
+// ⚠️ solicitud_vuelo NO tiene columna de fecha, así que no se puede saber
+// cuándo se agregó cada slot: lo más fino que existe es a nivel de CANASTA
+// (solicitud_semana) — enviada_instructor_en / fecha_actualizacion.
+//
+// Las marcas son `timestamp without time zone` y el backend fija la sesión en
+// America/El_Salvador, o sea guardan hora LOCAL. Se devuelven con to_char a
+// propósito: si se dejan como Date, el driver les cuelga una "Z" espuria y
+// cualquier lector las corre 6 horas (la trampa que ya mordió varias veces).
+exports.getEnviosSolicitudes = catchAsync(async (req, res) => {
+  const { desde, hasta } = req.query;
+  const r = await db.query(
+    `SELECT ss.id_solicitud, ss.id_semana, ss.estado,
+            to_char(sw.fecha_inicio, 'YYYY-MM-DD')                      AS semana_inicio,
+            to_char(ss.fecha_creacion,        'YYYY-MM-DD HH24:MI:SS')  AS creada_en,
+            to_char(ss.fecha_actualizacion,   'YYYY-MM-DD HH24:MI:SS')  AS actualizada_en,
+            to_char(ss.enviada_instructor_en, 'YYYY-MM-DD HH24:MI:SS')  AS enviada_en,
+            ss.id_alumno,
+            u_al.nombre || ' ' || u_al.apellido    AS alumno,
+            u_env.nombre || ' ' || u_env.apellido  AS enviada_por_nombre,
+            u_env.rol                              AS enviada_por_rol,
+            u_ins.nombre || ' ' || u_ins.apellido  AS instructor_asignado,
+            (SELECT COUNT(*) FROM solicitud_vuelo sv WHERE sv.id_solicitud = ss.id_solicitud) AS vuelos
+       FROM solicitud_semana ss
+       JOIN semana_vuelo sw ON sw.id_semana = ss.id_semana
+       JOIN alumno al       ON al.id_alumno = ss.id_alumno
+       JOIN usuario u_al    ON u_al.id_usuario = al.id_usuario
+       LEFT JOIN usuario u_env ON u_env.id_usuario = ss.enviada_por
+       LEFT JOIN instructor i  ON i.id_instructor = al.id_instructor
+       LEFT JOIN usuario u_ins ON u_ins.id_usuario = i.id_usuario
+      WHERE ($1::date IS NULL OR ss.fecha_actualizacion >= $1::date)
+        AND ($2::date IS NULL OR ss.fecha_actualizacion < ($2::date + 1))
+      ORDER BY ss.fecha_actualizacion DESC`,
+    [desde || null, hasta || null]
+  );
+  res.json(r.rows);
+});
+
 exports.getBloquesBloqueados = catchAsync(async (req, res) => {
   const result = await db.query(`
     SELECT id_bloque, dia_semana, motivo
