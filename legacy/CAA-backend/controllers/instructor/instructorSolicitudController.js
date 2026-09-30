@@ -43,6 +43,11 @@ exports.getCalendario = async (req, res) => {
         ss.id_alumno, u_al.nombre || ' ' || u_al.apellido AS alumno_nombre,
         LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
         lic_al.nombre AS alumno_licencia_nombre,
+        -- Cuándo entró la solicitud (misma lógica y mismo to_char que
+        -- adminVueloController.getCalendario — ver el comentario de allá).
+        to_char(ss.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+        to_char(ss.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
+        u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
         i.id_instructor, u_ins.nombre || ' ' || u_ins.apellido AS instructor_nombre,
         LEFT(u_ins.nombre,1) || '.' || split_part(u_ins.apellido,' ',1) AS instructor_nombre_corto,
         COALESCE(v.es_extracurricular, sv.es_extracurricular) AS es_extracurricular,
@@ -58,6 +63,7 @@ exports.getCalendario = async (req, res) => {
       JOIN alumno al ON al.id_alumno = ss.id_alumno
       JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
       LEFT JOIN licencia lic_al ON lic_al.id_licencia = al.id_licencia
+      LEFT JOIN usuario u_env ON u_env.id_usuario = ss.enviada_por
       -- Rutas con parada: los N tramos comparten id_detalle, así que sin este
       -- filtro una sola solicitud produciría N filas en el calendario.
       LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle AND v.id_semana = sv.id_semana

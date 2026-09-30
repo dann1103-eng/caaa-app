@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
-import { siglaLicencia } from "../../utils/vueloVisual";
+import { siglaLicencia, solicitudInfo } from "../../utils/vueloVisual";
 import "./AdminCalendar.css";
 
 const DIAS = [
@@ -32,6 +32,28 @@ const abbrevNombre = (corto, full) => {
 // Píldora con la sigla de la licencia del alumno (PPL/CPL/IR/ME/CFI) en la
 // tarjeta. Sirve para saber de un vistazo qué está volando cada quien sin
 // abrir el popover; usa la misma tabla de siglas que Proyección.
+// Cuándo entró la solicitud, en la tarjeta. Se resalta en ámbar cuando cayó en
+// sábado o domingo: es justo el caso que descuadra el programa ya ordenado.
+const SolicitudPill = ({ item }) => {
+  const info = solicitudInfo(item);
+  if (!info) return null;
+  return (
+    <div
+      title={info.title}
+      style={{
+        fontSize: '0.62rem',
+        fontWeight: info.finDeSemana ? 700 : 500,
+        color: info.finDeSemana ? 'var(--c-warning-700, #92400e)' : 'var(--neutral-dark)',
+        display: 'flex', alignItems: 'center', gap: 3, marginTop: 1,
+      }}
+    >
+      <i className={`bi ${info.esEnvio ? 'bi-send' : 'bi-pencil'}`} />
+      {info.corto}
+      {info.finDeSemana && <span title="Entró en fin de semana">⚠</span>}
+    </div>
+  );
+};
+
 const LicenciaPill = ({ nombre }) => {
   const sigla = siglaLicencia(nombre);
   if (!sigla) return null;
@@ -803,6 +825,7 @@ export default function AdminCalendar({
                             {item.aeronave_codigo}
                             {item.instructor_nombre && ` • Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                           </div>
+                          <SolicitudPill item={item} />
                           {resumenPorAlumno[item.id_alumno] && (
                             <div className="flight-horas-semana" title={resumenTooltip(item)}>
                               <i className="bi bi-clock-history"></i> {resumenLabel(item)}
@@ -914,6 +937,7 @@ export default function AdminCalendar({
                           {item.instructor_nombre && <br/>}
                           {item.instructor_nombre && `Inst: ${abbrevNombre(item.instructor_nombre_corto, item.instructor_nombre)}`}
                         </div>
+                        <SolicitudPill item={item} />
                         {resumenPorAlumno[item.id_alumno] && (
                           <div className="flight-horas-semana" title={resumenTooltip(item)}>
                             <i className="bi bi-clock-history"></i> {resumenLabel(item)}
@@ -1257,6 +1281,31 @@ function PopoverContent({
             </select>
           </div>
         )}
+
+        {/* Trazabilidad de la solicitud: cuándo entró y quién la envió. Es la
+            marca de la canasta de la semana, no de este slot — solicitud_vuelo
+            no tiene columna de fecha. */}
+        {(() => {
+          const info = solicitudInfo(activePopover.item);
+          if (!info) return null;
+          return (
+            <div className="pop-row" style={{ display: 'block', fontSize: '0.72rem', color: 'var(--c-ink-3, #6b7280)' }}>
+              <div>
+                <strong style={{ color: info.finDeSemana ? 'var(--c-warning-700, #92400e)' : 'inherit' }}>
+                  <i className={`bi ${info.esEnvio ? 'bi-send' : 'bi-pencil'}`} />{' '}
+                  {info.esEnvio ? 'Enviada' : 'Creada'}: {info.corto}
+                  {info.finDeSemana && ' · fin de semana'}
+                </strong>
+              </div>
+              {activePopover.item.solicitud_enviada_por && (
+                <div>por {activePopover.item.solicitud_enviada_por}</div>
+              )}
+              {activePopover.item.alumno_licencia_nombre && (
+                <div>Licencia del alumno: <strong>{activePopover.item.alumno_licencia_nombre}</strong></div>
+              )}
+            </div>
+          );
+        })()}
 
         {activePopover.item.tipo_vuelo === 'RUTA' && (
           <>

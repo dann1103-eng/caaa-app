@@ -286,6 +286,14 @@ exports.getCalendario = catchAsync(async (req, res) => {
       ss.comentario_alumno, sv.remarks_instructor,
       v.id_vuelo, v.estado AS estado_vuelo, COALESCE(v.estado, ss.estado) AS estado_mostrar,
       v.grupo_ruta, v.orden_tramo, v.total_tramos, v.icao_origen, v.icao_destino,
+      -- Cuándo entró la solicitud. Va con to_char a propósito: son timestamp
+      -- sin zona con la sesión en America/El_Salvador (hora local), y como Date
+      -- el driver les cuelga una "Z" espuria que corre todo 6 horas.
+      -- ⚠️ fecha_actualizacion NO se usa: publicarSemana la sobreescribe en
+      -- TODAS las canastas de la semana, así que no dice nada del alumno.
+      to_char(ss.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+      to_char(ss.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
+      u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
       sv.id_semana, sv.dia_semana, sv.id_bloque, sv.tipo_vuelo, sv.id_bloque_fin, b.hora_inicio, b.hora_fin,
       sv.id_aeronave, ae.modelo AS aeronave_modelo, ae.codigo AS aeronave_codigo,
       ss.id_alumno, u_al.nombre || ' ' || u_al.apellido AS alumno_nombre,
@@ -328,6 +336,7 @@ exports.getCalendario = catchAsync(async (req, res) => {
     JOIN alumno al ON al.id_alumno = ss.id_alumno
     JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
     LEFT JOIN licencia lic_al ON lic_al.id_licencia = al.id_licencia
+    LEFT JOIN usuario u_env ON u_env.id_usuario = ss.enviada_por
     LEFT JOIN vuelo v ON v.id_detalle = sv.id_detalle AND v.id_semana = sv.id_semana
       AND (v.grupo_ruta IS NULL OR v.orden_tramo = 1)
     JOIN instructor i ON i.id_instructor = COALESCE(v.id_instructor, sv.id_instructor, al.id_instructor)

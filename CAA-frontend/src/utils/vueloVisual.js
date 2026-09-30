@@ -120,3 +120,32 @@ export function estadoVueloMeta(v) {
   }
   return base;
 }
+
+// Cuándo entró la solicitud del alumno. El backend manda las marcas ya
+// formateadas ("YYYY-MM-DD HH:MM", hora de El Salvador) justamente para que acá
+// no haya que parsear zonas.
+//
+// ⚠️ Es la marca de la CANASTA de la semana (solicitud_semana), no de este slot:
+// solicitud_vuelo no tiene columna de fecha, así que no existe el dato por hora
+// de vuelo. El tooltip lo dice para no dar una precisión que no hay.
+const DIAS_CORTOS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+export function solicitudInfo(v) {
+  const enviada = v?.solicitud_enviada_en || null;
+  const creada = v?.solicitud_creada_en || null;
+  const ref = enviada || creada;
+  if (!ref) return null;
+  const [fecha, hora] = String(ref).split(" ");
+  const [Y, M, D] = fecha.split("-").map(Number);
+  const dow = new Date(Y, M - 1, D).getDay();
+  const partes = [
+    creada ? `Solicitud creada: ${creada}` : null,
+    enviada ? `Enviada a programación: ${enviada}${v.solicitud_enviada_por ? ` por ${v.solicitud_enviada_por}` : ""}` : "Todavía no enviada a programación",
+    "(fecha de la canasta del alumno para esa semana, no de este vuelo en particular)",
+  ].filter(Boolean);
+  return {
+    corto: `${DIAS_CORTOS[dow]} ${String(D).padStart(2, "0")}/${String(M).padStart(2, "0")} ${hora}`,
+    esEnvio: !!enviada,
+    finDeSemana: dow === 0 || dow === 6,
+    title: partes.join("\n"),
+  };
+}
