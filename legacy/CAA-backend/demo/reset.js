@@ -40,6 +40,10 @@ const CONSERVAR = new Set([
   // quedaría con existencias que ningún documento explica — que es exactamente el
   // defecto del Excel que este módulo vino a corregir.
   "taller_formulario", "taller_sticker_plantilla",
+  // Manuales: configuración, sobrevive al reinicio. Las páginas agregadas a
+  // una ORDEN (taller_orden_extracto) NO están acá: son operación y se vacían
+  // con las órdenes. Por eso son dos tablas y no una (spec 2026-09-20 §12).
+  "taller_manual", "taller_manual_aeronave", "taller_paquete_manual", "taller_paquete_extracto",
   // Infraestructura
   "push_notificacion_config", "webhook_endpoint",
   // Vive solo en public, pero por si el clon la arrastró

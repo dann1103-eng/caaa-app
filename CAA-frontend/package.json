@@ -9,6 +9,7 @@
     "prebuild": "node scripts/generate-config.mjs && node scripts/generate-marca.mjs",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "node --test src/pages/Taller/manuales/paginasSeleccion.test.js src/utils/cantidad.test.js",
     "preview": "vite preview",
     "start": "vite preview --host --port 3000"
   },
@@ -18,6 +19,7 @@
     "bootstrap-icons": "^1.13.1",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
+    "pdfjs-dist": "4.10.38",
     "pdfmake": "^0.2.10",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

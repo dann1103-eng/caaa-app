@@ -7,6 +7,7 @@ import {
 import { fecha, fmt, META_TIPO } from "../inventario/formato";
 import FirmarOrdenModal from "./FirmarOrdenModal";
 import RevisarOrdenModal from "./RevisarOrdenModal";
+import ManualesOrdenModal from "./ManualesOrdenModal";
 import { esJefeTaller } from "../permisos";
 
 /**
@@ -23,6 +24,7 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
   const [stickers, setStickers] = useState(false);
   const [revisando, setRevisando] = useState(false);
+  const [manuales, setManuales] = useState(false);
   const jefe = esJefeTaller();
 
   const cargar = () => getOrden(id).then(setD).catch((e) =>
@@ -56,6 +58,11 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
             {o && (
               <button className="adf-btn secondary" onClick={() => pdf(abrirOrdenPDF, id)}>
                 <i className="bi bi-printer"></i> Imprimir
+              </button>
+            )}
+            {o && (
+              <button className="adf-btn secondary" onClick={() => setManuales(true)}>
+                <i className="bi bi-book"></i> Manuales
               </button>
             )}
             {o?.estado === "ABIERTA" && (
@@ -222,6 +229,9 @@ export default function OrdenDetalleModal({ id, onClose, onCambio }) {
           onClose={() => setStickers(false)}
           onEmitidos={() => { cargar(); onCambio?.(); }}
         />
+      )}
+      {manuales && o && (
+        <ManualesOrdenModal orden={o} onClose={() => setManuales(false)} />
       )}
     </div>
   );

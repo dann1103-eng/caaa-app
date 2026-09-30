@@ -220,8 +220,11 @@
 }
 .tec-acciones .tec-btn:hover:not(:disabled):not(.tec-btn--principal) { border-color: var(--c-brand-500); }
 
+/* Una sola fila de columnas iguales, sean 3 o 4 botones ("¿Cuándo está listo?"
+   aparece solo si el avión está en la cola). Con repeat(3, 1fr) el cuarto quedaba
+   solo en una segunda fila, y justo era "Terminé", el botón principal. */
 @media (min-width: 700px) {
-  .tec-acciones { grid-template-columns: repeat(3, 1fr); }
+  .tec-acciones { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 }
 
 /* ── Trabajos en curso (pantalla del jefe) ─────────────────────────────

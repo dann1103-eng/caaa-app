@@ -99,6 +99,14 @@ async function continuar(req, res, next, decoded) {
 
     next();
   } catch (err) {
-    return res.status(401).json({ message: "Token inválido o expirado" });
+    // El token YA se verificó arriba (jwt.verify) y este catch cubre lo que viene
+    // después: la consulta de sesión única a la BD. Si esa consulta falla, es la
+    // infraestructura (el pooler de Supabase corta conexiones de vez en cuando:
+    // 57P01, ECONNRESET), NO una sesión inválida. Antes esto respondía 401 y el
+    // interceptor del frontend lo tomaba por sesión vencida: borraba el token y
+    // mandaba al usuario al login, sin dejar rastro en el log.
+    console.error("authMiddleware: falló la validación de sesión:", err.message);
+    if (res.headersSent) return;
+    return res.status(503).json({ message: "El servidor está ocupado. Esperá unos segundos e intentá de nuevo." });
   }
 }

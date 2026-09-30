@@ -29,11 +29,23 @@ exports.login = async (req, res) => {
     // La tabla no existe (instalacion sin demo): todo el mundo va a public.
   }
 
-  return db.enEsquema(esquema, () => loginEn(req, res, u, password, esquema));
+  try {
+    return await db.enEsquema(esquema, () => loginEn(req, res, u, password, esquema));
+  } catch (error) {
+    // Sin este catch, un fallo al conseguir conexion (el pooler de Supabase corta
+    // conexiones de vez en cuando: 57P01, ECONNRESET) dejaba la peticion SIN
+    // RESPUESTA -- Express 4 ignora la promesa rechazada -- y el usuario esperaba
+    // hasta que su navegador se rendia con un "tiempo de espera agotado".
+    console.error("Error login (sin conexion a la BD):", error.message);
+    if (!res.headersSent) {
+      return res.status(503).json({ message: "El servidor está ocupado. Esperá unos segundos e intentá de nuevo." });
+    }
+  }
 };
 
 async function loginEn(req, res, u, password, esquema) {
   const client = await db.connect();
+  let conexionRota = false;
   try {
     await client.query("BEGIN");
 
@@ -52,6 +64,15 @@ async function loginEn(req, res, u, password, esquema) {
         u.datos_confirmados,
         u.failed_login_count,
         u.locked_until,
+        -- Minutos que le faltan al bloqueo, calculados EN LA BASE con la zona fijada
+        -- a mano. locked_until es timestamp SIN zona: compararlo en JS lo interpreta
+        -- en la zona del proceso de Node (UTC en Railway) mientras se escribio en
+        -- hora de El Salvador, y el bloqueo de 3 minutos nunca se aplicaba.
+        -- Es NULL cuando la cuenta no esta bloqueada.
+        CASE
+          WHEN u.locked_until > (now() AT TIME ZONE 'America/El_Salvador')
+          THEN CEIL(EXTRACT(EPOCH FROM (u.locked_until - (now() AT TIME ZONE 'America/El_Salvador'))) / 60.0)::int
+        END AS bloqueo_minutos_restantes,
         a.numero_licencia,
         a.certificado_medico,
         a.seguro_vida,
@@ -91,11 +112,12 @@ async function loginEn(req, res, u, password, esquema) {
     const mustConfirmData = (user.rol === 'ALUMNO' || user.rol === 'INSTRUCTOR') && !user.datos_confirmados;
     const mustCompleteProfile = user.must_change_password || user.must_set_email || mustConfirmData;
 
-    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    if (user.bloqueo_minutos_restantes) {
       await client.query("ROLLBACK");
+      const min = user.bloqueo_minutos_restantes;
       return res.status(403).json({
-        message: "Cuenta bloqueada por intentos fallidos. Intentá de nuevo en unos minutos.",
-        locked_until: user.locked_until,
+        message: `Cuenta bloqueada por intentos fallidos. Intentá de nuevo en ${min} minuto${min === 1 ? "" : "s"}.`,
+        minutos_restantes: min,
       });
     }
 
@@ -127,7 +149,7 @@ async function loginEn(req, res, u, password, esquema) {
           `
           UPDATE usuario
           SET failed_login_count = 0,
-              locked_until = now() + ($1 || ' minutes')::interval
+              locked_until = (now() AT TIME ZONE 'America/El_Salvador') + ($1 || ' minutes')::interval
           WHERE id_usuario = $2
           `,
           [LOCK_MINUTES, user.id_usuario]
@@ -225,11 +247,18 @@ async function loginEn(req, res, u, password, esquema) {
       },
     });
   } catch (error) {
-    await client.query("ROLLBACK");
     console.error("Error login:", error);
+    // Si la conexion murio a media transaccion, el ROLLBACK tambien falla; sin este
+    // try ese segundo error escapaba y la peticion quedaba sin respuesta.
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      conexionRota = true;
+    }
     return res.status(500).json({ message: "Error en el servidor" });
   } finally {
-    client.release();
+    // release(true) descarta la conexion rota en vez de devolverla al pool.
+    client.release(conexionRota || undefined);
   }
 }
 

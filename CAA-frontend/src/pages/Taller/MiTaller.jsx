@@ -14,6 +14,7 @@ import RevisarOrdenModal from "./ordenes/RevisarOrdenModal";
 import { esJefeTaller } from "./permisos";
 import OrdenDetalleModal from "./ordenes/OrdenDetalleModal";
 import FirmarEntregaModal from "./inventario/FirmarEntregaModal";
+import ManualesOrdenModal from "./ordenes/ManualesOrdenModal";
 import "./inventario/inventario.css";
 import "./ordenes/taller-tecnico.css";
 import "./aeronavegabilidad/seguimiento.css";
@@ -49,7 +50,7 @@ export default function MiTaller() {
   const [desdeCola, setDesdeCola] = useState(null);   // avión elegido de la cola
   const [cargando, setCargando] = useState(true);
   const [activa, setActiva] = useState(null);   // el trabajo en curso elegido
-  const [accion, setAccion] = useState(null);   // 'abrir' | 'material' | 'aceite' | 'firmar'
+  const [accion, setAccion] = useState(null);   // 'abrir' | 'material' | 'aceite' | 'firmar' | 'manuales'
   const [aceites, setAceites] = useState([]);
   const jefe = esJefeTaller();
   const [personal, setPersonal] = useState([]);
@@ -257,6 +258,12 @@ export default function MiTaller() {
               <small>para {activa.aeronave_codigo}</small>
             </button>
 
+            <button className="tec-btn" onClick={() => setAccion("manuales")}>
+              <i className="bi bi-book"></i>
+              <span>Manuales de este trabajo</span>
+              <small>ver e imprimir las páginas</small>
+            </button>
+
             {mantDeActiva && (
               <button className="tec-btn" onClick={() => setEstimando(mantDeActiva)}>
                 <i className="bi bi-calendar-event"></i>
@@ -401,6 +408,10 @@ export default function MiTaller() {
           onClose={() => setAccion(null)}
           onGuardado={() => { setAccion(null); cargar(); }}
         />
+      )}
+
+      {accion === "manuales" && activa && (
+        <ManualesOrdenModal orden={activa} onClose={() => setAccion(null)} />
       )}
 
       {accion === "aceite" && (

@@ -14,8 +14,9 @@ const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || "");
  */
 export default function ConfirmDataModal({ user, onDone }) {
   const [perfil, setPerfil] = useState(null);
-  const [f, setF] = useState({ nombre: "", apellido: "", correo: "", telefono: "", dui: "", direccion: "", password: "", es_extranjero: false, pasaporte: "", nacionalidad: "" });
+  const [f, setF] = useState({ nombre: "", apellido: "", correo: "", telefono: "", dui: "", direccion: "", password: "", password2: "", es_extranjero: false, pasaporte: "", nacionalidad: "" });
   const [saving, setSaving] = useState(false);
+  const [verPass, setVerPass] = useState(false);
 
   const requierePass   = user?.must_change_password === true;
   const requiereCorreo = user?.must_set_email === true;
@@ -52,6 +53,12 @@ export default function ConfirmDataModal({ user, onDone }) {
     if (requierePass) {
       if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(f.password)) {
         return toast.error("La nueva contraseña debe tener 8+ caracteres, una mayúscula y un número.");
+      }
+      // Se pide dos veces porque acá nace la contraseña real del usuario: con un
+      // solo campo y sin verla, un error de tecleo la dejaba guardada distinta de
+      // lo que él creía haber escrito, y nunca más podía entrar.
+      if (f.password !== f.password2) {
+        return toast.error("Las dos contraseñas no coinciden. Revisalas.");
       }
     }
     setSaving(true);
@@ -121,11 +128,33 @@ export default function ConfirmDataModal({ user, onDone }) {
             </label>
             </>}
             {requierePass && (
-              <div className="cdm-field cdm-field--full">
-                <label>Nueva contraseña <span className="cdm-req">(obligatorio)</span></label>
-                <input type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })}
-                  placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número" />
-              </div>
+              <>
+                {/* Usuario oculto: le dice al administrador de contraseñas del navegador
+                    a qué cuenta pertenece la contraseña nueva, para que ACTUALICE la
+                    guardada (la inicial) en vez de seguir ofreciéndola en el login. */}
+                <input type="text" name="username" autoComplete="username" value={user?.username || ""}
+                  readOnly tabIndex={-1} aria-hidden="true" className="cdm-hidden" />
+                <div className="cdm-field cdm-field--full">
+                  <label htmlFor="cdm-pass">Nueva contraseña <span className="cdm-req">(obligatorio)</span></label>
+                  <div className="cdm-passwrap">
+                    <input id="cdm-pass" type={verPass ? "text" : "password"} value={f.password}
+                      onChange={(e) => setF({ ...f, password: e.target.value })}
+                      placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número"
+                      autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+                    <button type="button" className="cdm-eye" onClick={() => setVerPass((v) => !v)}
+                      aria-label={verPass ? "Ocultar contraseña" : "Mostrar contraseña"}>
+                      <i className={`bi ${verPass ? "bi-eye-slash" : "bi-eye"}`} />
+                    </button>
+                  </div>
+                </div>
+                <div className="cdm-field cdm-field--full">
+                  <label htmlFor="cdm-pass2">Repetí la nueva contraseña</label>
+                  <input id="cdm-pass2" type={verPass ? "text" : "password"} value={f.password2}
+                    onChange={(e) => setF({ ...f, password2: e.target.value })}
+                    placeholder="Escribila otra vez"
+                    autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} />
+                </div>
+              </>
             )}
           </div>
 

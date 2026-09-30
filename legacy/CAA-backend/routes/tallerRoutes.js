@@ -13,6 +13,9 @@ const ot = require("../controllers/taller/ordenTrabajoController");
 const prestamo = require("../controllers/taller/prestamoController");
 const estimado = require("../controllers/taller/estimadoController");
 const sticker = require("../controllers/taller/stickerController");
+const manual = require("../controllers/taller/manualController");
+const paqueteManual = require("../controllers/taller/paqueteManualController");
+const ordenManual = require("../controllers/taller/ordenManualController");
 const adminAeronave = require("../controllers/admin/adminAeronaveController");
 
 // Auth para todas las rutas del módulo.
@@ -183,5 +186,32 @@ router.get("/aeronaves/:id/libro/:parte", roleMiddleware(READ), sticker.getLibro
 router.put("/aeronaves/:id/partes/:parte", roleMiddleware(JEFE), sticker.guardarComponente);
 router.get("/aeronaves/:id/sticker-plantillas", roleMiddleware(READ), sticker.listPlantillas);
 router.put("/aeronaves/:id/sticker-plantillas", roleMiddleware(JEFE), sticker.guardarPlantilla);
+
+// -- Manuales del avion ------------------------------------------------------
+//
+// Ver e imprimir: todo el taller. Subir, editar y armar paquetes: el jefe.
+// OJO con el orden: /manuales/subida y /manuales/pdf van ANTES que /manuales/:id
+// (mismo cuidado que /stickers/pdf).
+router.get("/manuales", roleMiddleware(READ), manual.listar);
+router.post("/manuales/subida", roleMiddleware(JEFE), manual.reservarSubida);
+router.post("/manuales/pdf", roleMiddleware(READ), manual.pdfLibre);
+router.post("/manuales", roleMiddleware(JEFE), manual.registrar);
+router.get("/manuales/:id", roleMiddleware(READ), manual.detalle);
+router.get("/manuales/:id/url", roleMiddleware(READ), manual.url);
+router.post("/manuales/:id/revision", roleMiddleware(JEFE), manual.subirRevision);
+router.patch("/manuales/:id", roleMiddleware(JEFE), manual.editar);
+router.delete("/manuales/:id", roleMiddleware(JEFE), manual.eliminar);
+
+router.get("/paquetes-manuales", roleMiddleware(READ), paqueteManual.tabla);
+router.get("/paquetes-manuales/:id_aeronave/:tipo", roleMiddleware(READ), paqueteManual.detalle);
+router.put("/paquetes-manuales/:id_aeronave/:tipo", roleMiddleware(JEFE), paqueteManual.guardar);
+
+// Las páginas de manual de una orden. WRITE deja pasar al mecánico; el
+// controller decide si es el de ESA orden.
+router.get("/ordenes/:id/manuales", roleMiddleware(READ), ordenManual.listar);
+router.post("/ordenes/:id/manuales", roleMiddleware(WRITE), ordenManual.agregar);
+router.post("/ordenes/:id/manuales/paquete", roleMiddleware(WRITE), ordenManual.traerPaquete);
+router.post("/ordenes/:id/manuales/pdf", roleMiddleware(READ), ordenManual.pdf);
+router.delete("/ordenes/:id/manuales/:id_extracto", roleMiddleware(WRITE), ordenManual.quitar);
 
 module.exports = router;

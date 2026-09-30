@@ -1,0 +1,576 @@
+# Manuales del taller: biblioteca, paquetes por inspección y páginas por orden
+
+**Fecha:** 2026-09-20
+**Estado:** diseño aprobado, pendiente de plan de implementación
+**Alcance:** ver e imprimir los manuales desde la plataforma; que el jefe de taller configure qué
+páginas acompañan cada inspección programada; que a cualquier orden se le puedan agregar páginas.
+
+---
+
+## 1. El caso
+
+La escuela entregó en un ZIP todos los manuales de los aviones (`OneDrive_1_20-9-2026.zip`,
+687 MB). Hoy viven en carpetas sueltas.
+
+Las inspecciones de **25, 50 y 100 horas y la anual** usan **siempre las mismas páginas**, porque
+están estandarizadas. Pero **esa lista no existe todavía**: nadie la ha escrito, y Daniel no la
+conoce. Por eso no se puede sembrar a mano: hace falta que el **jefe de taller** la arme desde la
+plataforma.
+
+### Lo que se busca
+
+1. Que desde la plataforma se puedan **ver** los manuales y **mandar a imprimir** páginas.
+2. Un **configurador** para el jefe de taller: por avión y por inspección, qué manuales y qué
+   páginas le salen al mecánico.
+3. Que el mecánico con el trabajo abierto toque **"Manuales de este trabajo"** y obtenga esas
+   páginas listas para imprimir.
+4. Que **a cualquier orden** —incluida una programada, cuando aparece algo que arreglar— se le puedan
+   agregar más páginas de las que trae el paquete.
+
+---
+
+## 2. Lo que trae el ZIP (medido, no supuesto)
+
+Inventario hecho leyendo cada PDF desde el ZIP, sin descomprimirlo.
+
+| | |
+|---|---|
+| Archivos | **180**, 687 MB |
+| Manuales reales | **37**: 36 archivos sueltos más el Azteca, que viene partido en **144 pedazos** (1,433 págs.) |
+| Duplicados | 2: `service manual 140-200R.pdf` = `pa28-service.pdf` (mismas 912 págs. e índice, bytes distintos); `overhaul_manual__lycoming…(Autosaved).pdf` = el mismo sin "(Autosaved)" |
+| Después de limpiar | **35 manuales, ~630 MB** |
+| Más pesados | `T303 AMM` 72 MB (1,533 págs.) · `P689-12 T303 Parts Catalog` 60 MB · `pa-31` 50 MB |
+| Con texto buscable | casi todos. **Sin texto** (escaneos): catálogo de partes del T303, catálogo de partes del C152, POH del PA-38 |
+| Con índice (marcadores) | casi todos, y ricos: el PA-38 AMM trae 545 entradas, el AC 43.13 trae 3,784 |
+
+**Recomprimir no sirve**: son escaneos de 1 bit ya comprimidos en CCITT/JBIG2. El T303 pasa de 72.4 a
+70.7 MB y el C152 de 19.7 a 18.9. Se guardan tal cual.
+
+### Hallazgos que el jefe tiene que resolver
+
+- **Falta el manual del Cessna 310 (`YS-259-PE`).** No viene en el ZIP.
+- **Vienen manuales de aviones que no están en la flota**: T303 Crusader (y su motor TSIO-520),
+  Seneca II (y su motor TSIO-360), Azteca (PA-23-250) y Navajo (PA-31). Probablemente de los clientes
+  externos de la OMA (`YS-361-PE`, `YS-243-P`, `YS-22-C`, todos con `modelo = 'EXTERNA'`) o del segundo
+  bimotor.
+- **Un archivo mal nombrado**: `447340064-Piper-Parts-Manual-761-589 PA44-200T.pdf` es el catálogo de
+  partes del **Seneca II (PA-34-200T)**, no de un PA-44.
+- **Dos ediciones del manual del Tomahawk**: `Maintenance manual PA-38.PDF` (revisión interina 2000,
+  435 págs.) y `PA-38-112 AMM.pdf` (edición 2019, 712 págs.). **Sus páginas no coinciden.**
+- **Dos service manuals del Cherokee**: el de fichas (`service manual 140-200R`, 912 págs.) y la
+  edición 2021 (`SM-753-586`, 1,013 págs.).
+- `PA-28-151 AMM` (Warrior) no corresponde a ningún avión de la flota por modelo.
+
+### Dónde están las inspecciones (según los marcadores)
+
+| Manual | Sección | Pág. del PDF |
+|---|---|---|
+| PA-38-112 AMM (2019) | `5-20-00 Scheduled Maintenance` → `Annual / 100 Hour Inspection Procedure` | 43 / 46 |
+| Maintenance manual PA-38 (2000) | `Periodic inspections` | 20 |
+| Cessna 152 MM | `Inspection requirements` → `100 hour/annual` | 52 |
+| SM-753-586 PA-28 (2021) | `7. Annual / 100 hour inspection procedure` | 154 |
+| service manual 140-200R | `Section III Inspection` | 126 |
+
+Los rangos exactos se verifican leyendo las páginas en la implementación, no solo el índice.
+
+---
+
+## 3. Las decisiones de Daniel
+
+| | |
+|---|---|
+| ¿Solo paquetes fijos? | **No: también páginas por orden puntual.** Y aunque la orden sea de un mantenimiento programado, se le pueden agregar más hojas si aparece algo que arreglar |
+| ¿Quién agrega páginas a una orden? | **El jefe y el mecánico de esa orden.** Queda constancia de qué datos técnicos se usaron. Los paquetes fijos siguen siendo solo del jefe |
+| ¿Cómo se imprime? | **Tal cual**: solo las páginas del manual, sin portada ni pie |
+| Revisión nueva de un manual | **Los paquetes siguen con la revisión vieja y avisan** hasta que el jefe los actualice. El mecánico los sigue viendo, con aviso |
+| Enfoque | **Visor propio dentro de la app + recorte de páginas en el servidor** |
+
+---
+
+## 4. Modelo de datos
+
+Migración aditiva. Todo `creado_en` lleva **la zona fijada en el DEFAULT**
+(`DEFAULT (NOW() AT TIME ZONE 'America/El_Salvador')`), por la lección de §35.A.
+
+```sql
+CREATE TABLE taller_manual (
+  id_manual             SERIAL PRIMARY KEY,
+  titulo                VARCHAR(200) NOT NULL,
+  categoria             VARCHAR(20)  NOT NULL CHECK (categoria IN
+                          ('MANTENIMIENTO','PARTES','OVERHAUL','OPERACION','BOLETINES','NORMATIVA','CATALOGO')),
+  fabricante            VARCHAR(80),
+  numero_parte          VARCHAR(40),              -- '761-660'
+  revision              VARCHAR(80),              -- texto libre: 'Oct 31, 2019'
+  paginas               INTEGER NOT NULL CHECK (paginas > 0),
+  tamano_bytes          BIGINT  NOT NULL,
+  sha256                CHAR(64) NOT NULL UNIQUE,
+  archivo_path          TEXT NOT NULL,            -- ruta dentro del bucket
+  es_general            BOOLEAN NOT NULL DEFAULT false,   -- aplica a toda la flota
+  estado                VARCHAR(12) NOT NULL DEFAULT 'VIGENTE'
+                          CHECK (estado IN ('VIGENTE','REEMPLAZADO','ARCHIVADO')),
+  id_reemplazado_por    INTEGER NULL REFERENCES taller_manual(id_manual),
+  necesita_confirmacion BOOLEAN NOT NULL DEFAULT false,   -- asignación deducida por el sistema
+  nota_confirmacion     TEXT,
+  origen                VARCHAR(40),              -- 'ZIP_2026-09-20' | 'SUBIDA'
+  subido_por            INTEGER NULL REFERENCES usuario(id_usuario),
+  creado_en             TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'America/El_Salvador')
+);
+
+-- Un manual sirve a varios aviones (el service manual del Cherokee aplica al 270, al 155 y al 127).
+CREATE TABLE taller_manual_aeronave (
+  id_manual   INTEGER NOT NULL REFERENCES taller_manual(id_manual) ON DELETE CASCADE,
+  id_aeronave INTEGER NOT NULL REFERENCES aeronave(id_aeronave),
+  PRIMARY KEY (id_manual, id_aeronave)
+);
+
+CREATE TABLE taller_paquete_manual (
+  id_paquete         SERIAL PRIMARY KEY,
+  id_aeronave        INTEGER NOT NULL REFERENCES aeronave(id_aeronave),
+  tipo_mantenimiento VARCHAR(10) NOT NULL CHECK (tipo_mantenimiento IN ('25HR','50HR','100HR','ANUAL')),
+  estado             VARCHAR(12) NOT NULL DEFAULT 'BORRADOR' CHECK (estado IN ('BORRADOR','CONFIRMADO')),
+  confirmado_por     INTEGER NULL REFERENCES usuario(id_usuario),
+  confirmado_en      TIMESTAMP,
+  actualizado_por    INTEGER NULL REFERENCES usuario(id_usuario),
+  actualizado_en     TIMESTAMP,
+  UNIQUE (id_aeronave, tipo_mantenimiento)
+);
+
+-- Un renglón = manual + rango de páginas. Son DOS tablas con la misma forma y no una con
+-- "paquete O orden": los renglones de un paquete son configuración (sobreviven al reinicio del
+-- demo) y los de una orden son operación (se borran). Una sola tabla con un CHECK de "uno u otro"
+-- rompía el reinicio del demo (§12). El armado del PDF no mira tablas: recibe una lista.
+CREATE TABLE taller_paquete_extracto (
+  id_extracto  SERIAL PRIMARY KEY,
+  id_paquete   INTEGER NOT NULL REFERENCES taller_paquete_manual(id_paquete) ON DELETE CASCADE,
+  id_manual    INTEGER NOT NULL REFERENCES taller_manual(id_manual),   -- sin cascade: bloquea el borrado
+  pagina_desde INTEGER NOT NULL CHECK (pagina_desde >= 1),
+  pagina_hasta INTEGER NOT NULL,
+  titulo       VARCHAR(200),                 -- '5-20-00 Scheduled Maintenance'
+  orden        SMALLINT NOT NULL DEFAULT 0,
+  origen       VARCHAR(10) NOT NULL CHECK (origen IN ('MANUAL','SUGERIDO')),
+  agregado_por INTEGER NULL REFERENCES usuario(id_usuario),
+  creado_en    TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'America/El_Salvador'),
+  CHECK (pagina_hasta >= pagina_desde)
+);
+
+CREATE TABLE taller_orden_extracto (
+  id_extracto  SERIAL PRIMARY KEY,
+  id_orden     INTEGER NOT NULL REFERENCES orden_trabajo(id_orden),
+  id_manual    INTEGER NOT NULL REFERENCES taller_manual(id_manual),
+  pagina_desde INTEGER NOT NULL CHECK (pagina_desde >= 1),
+  pagina_hasta INTEGER NOT NULL,
+  titulo       VARCHAR(200),
+  orden        SMALLINT NOT NULL DEFAULT 0,
+  origen       VARCHAR(10) NOT NULL CHECK (origen IN ('MANUAL','PAQUETE')),
+  agregado_por INTEGER NULL REFERENCES usuario(id_usuario),
+  creado_en    TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'America/El_Salvador'),
+  CHECK (pagina_hasta >= pagina_desde)
+);
+```
+
+`origen`:
+
+| | |
+|---|---|
+| `MANUAL` | lo agregó una persona (en un paquete o en una orden) |
+| `SUGERIDO` | lo propuso la carga inicial; vive en un paquete `BORRADOR` |
+| `PAQUETE` | copia **congelada** del paquete, hecha al firmar la orden (§7) |
+
+`pagina_hasta <= taller_manual.paginas` cruza tablas: lo valida el controller.
+
+---
+
+## 5. Almacenamiento
+
+- **Bucket privado nuevo `manuales-taller`** en Supabase Storage, sin tope propio por archivo ni lista
+  de tipos (el global del plan manda). Rutas:
+  - `manuales/<uuid>.pdf` — el manual completo, una sola vez. **UUID y no `id_manual`**: la ruta se
+    reserva en `POST /manuales/subida`, *antes* de que exista la fila; y el esquema `demo` arranca su
+    secuencia en el mismo número que producción, así que un id chocaría.
+  - `extractos/<hash>.pdf` — los PDF recortados, reutilizables (§6). Demo y producción los comparten
+    sin riesgo: el mismo hash es exactamente el mismo contenido.
+- 🚨 **La app nunca borra ni sobreescribe un objeto del bucket** (`upsert: false` en toda subida).
+  `storage.subirArchivo` tiene hoy `upsert: true` fijo: se le agrega el parámetro, no se reutiliza
+  tal cual. Al escribir `extractos/<hash>.pdf`, un error de "ya existe" **cuenta como éxito**: el
+  mismo hash es el mismo contenido.
+  Borrar un manual quita la fila, no el archivo; una revisión nueva es otro archivo. Esto es lo que
+  impide que la cuenta de demostraciones —que tiene rol de jefe y comparte el bucket— pueda tocar un
+  manual de CAAA (§12). Los archivos huérfanos pesan poco y no se limpian en esta versión.
+- **Hoy el Storage está casi vacío** (medido por SQL sobre `storage.objects`: 4 objetos, ~0 MB).
+- ⚠️ **Plan de Supabase.** Si es el gratuito: **1 GB total y 50 MB por archivo**. Los manuales ocupan
+  ~600 MB (60% del total) y **tres pasan de 50 MB** (T303 AMM, T303 parts y el Azteca ya unido; el
+  `pa-31` descifrado pesa 52,221,405 bytes y entra justo, porque el tope es 50 MiB = 52,428,800). La carga inicial lo
+  detecta al subir: si el plan limita, esos tres se parten en **dos tomos** cada uno (dos manuales,
+  "Tomo 1/2" y "Tomo 2/2"). No es para decidirlo a ciegas: se verifica. **Verificado el
+  2026-09-21: es el plan gratuito** (413 *EntityTooLarge*); quedaron 38 archivos.
+- Si más adelante el jefe sube desde la app un archivo que pasa el tope, Storage lo rechaza y la
+  pantalla lo dice con el límite en MB y la sugerencia de partirlo en tomos. Nunca un error genérico.
+
+---
+
+## 6. Armado del PDF
+
+**Entrada:** una lista ordenada de `(id_manual, desde, hasta)`.
+**Salida:** una URL firmada (1 h) de un PDF con **solo esas páginas, en ese orden, tal cual**.
+
+1. **Llave del resultado:** `sha256` del JSON `[(manual.sha256, desde, hasta), …]`. Si
+   `extractos/<hash>.pdf` ya existe, se devuelve su URL y listo. Mientras nadie cambie el paquete,
+   nunca se regenera.
+2. Si no existe: por cada manual distinto se baja **una vez** de Storage, se cargan las páginas con
+   **`pdf-lib`** (MIT, sin binarios nuevos en Railway) y se copian al documento de salida.
+3. Se sube a `extractos/<hash>.pdf` y se devuelve la URL.
+
+🚨 **Antes de copiar, a cada página se le quitan `/Annots` y `/Thumb`.** Medido: los links internos
+de los manuales apuntan a otras páginas, y `pdf-lib` los sigue y **arrastra el manual entero**. 20
+páginas del service manual del Cherokee pesaban **14.8 MB**; quitando las anotaciones, **0.84 MB**
+(PyMuPDF da 0.88 MB con las mismas páginas, así que ese es el tamaño real). En un PDF para imprimir
+los links no sirven de nada.
+
+**Medido en la máquina local** (20 páginas):
+
+| Manual | Carga | Memoria |
+|---|---|---|
+| T303 AMM, 72 MB, 1,533 págs. | 1.9 s | 236 MB |
+| service manual 140-200R, 40 MB | 6.9 s | 341 MB |
+| T303 parts, 60 MB | 0.7 s | 194 MB |
+
+Para no apilar picos de memoria, **se arma un PDF a la vez** (cola en el proceso). Si dos personas
+piden el mismo a la vez, el segundo espera y recibe el mismo archivo.
+
+**Si falla la bajada o el armado**, el endpoint responde con un error claro y la pantalla ofrece
+"Reintentar". Nunca se entrega un PDF vacío.
+
+**Caché que nadie usa:** los `extractos/*.pdf` viejos quedan en Storage. Pesan poco (una inspección
+completa ronda 1 MB) y no se limpian en esta versión.
+
+---
+
+## 7. Qué páginas tiene una orden
+
+**Inspección de la orden.** Se toma lo primero que exista, en este orden, y solo cuenta si da
+`25HR/50HR/100HR/ANUAL`:
+
+1. `mantenimiento_aeronave.tipo` del mantenimiento enlazado (`orden_trabajo.id_mantenimiento`). Es
+   el caso normal: toda orden abierta desde la cola del taller lo tiene.
+2. El nombre de la tarea programada del cumplimiento enlazado (`id_cumplimiento` →
+   `taller_tarea_programada.nombre`).
+3. `reporte_inspeccion.tipo_inspeccion` del reporte enlazado. Si ya es un código, se usa tal cual.
+
+En 2 y 3 el texto es libre (`"Inspección 100 horas"`, `"Anual"`, a veces el nombre de un AD). **Se
+traduce con `derivarTipoRevision` de `utils/aeronaveUtils.js`**, el mapa nombre → código que ya existe;
+no se compara texto a mano ni se duplica el mapa. Lo que no traduce da `OTRO` y no cuenta. Hoy la
+función **no se exporta** (`module.exports` solo tiene `actualizarHorasAeronave` y
+`syncProximaRevisionAeronave`): se agrega al export, no se copia.
+
+Si no sale ninguna inspección, **no hay paquete automático**. Para las órdenes de inspección que se
+abrieron sin enlazar el mantenimiento, el modal ofrece **"Traer las páginas de un paquete"**: se elige
+25 h, 50 h, 100 h o anual, y se copian a la orden los extractos del paquete **confirmado** de ese avión
+como `origen = 'MANUAL'` (quedan editables; la congelación del paso de abajo no los toca).
+
+| Estado de la orden | Lo que se muestra y se imprime |
+|---|---|
+| `ABIERTA` | paquete **confirmado** de (avión, inspección), en vivo · **más** los extractos de la orden (`origen='MANUAL'`) |
+| `FIRMADA`, `APROBADA`, `CERRADA` | solo los extractos de la orden: los `PAQUETE` congelados + los `MANUAL` |
+| `ANULADA` | solo los extractos de la orden, solo lectura. Una orden anulada estando abierta **nunca congeló el paquete**, así que no muestra sus páginas. Es aceptado: la orden no se hizo |
+
+**Congelar al firmar.** En la misma transacción de `firmarOrden`:
+`DELETE FROM taller_orden_extracto WHERE id_orden = $1 AND origen = 'PAQUETE'` y luego se copian
+ahí los extractos del paquete confirmado vigente con `origen = 'PAQUETE'`. Borrar antes de copiar hace que **una devolución del jefe y una segunda firma
+no dupliquen** las páginas. Si el jefe cambia el paquete después, la orden conserva las páginas que se
+usaron, igual que los stickers congelados (§37).
+
+Un paquete **en borrador no se muestra al mecánico**. Si la orden es de inspección y el paquete no
+está confirmado, **al jefe** se le avisa: *"el paquete 100 h de este avión no está confirmado"*.
+
+---
+
+## 8. Revisiones
+
+- **"Subir revisión nueva"** desde un manual crea **otro** `taller_manual` y marca el viejo
+  `REEMPLAZADO` con `id_reemplazado_por`. El archivo viejo **no se borra**: sigue legible y archivado.
+- La revisión nueva **hereda** del manual viejo los aviones (`taller_manual_aeronave`), `es_general`,
+  la categoría, el fabricante y el número de parte. El formulario de subida los trae precargados y
+  editables; el jefe solo escribe la revisión nueva.
+- Los extractos **siguen apuntando a la revisión vieja**: sus números de página siguen siendo
+  correctos para ese archivo. **Nada se corre en silencio.**
+- El jefe ve *"N paquetes usan una revisión reemplazada"* (en la tabla de paquetes y en el manual).
+  Al actualizar, cambia cada extracto al manual nuevo con sus páginas nuevas.
+- El mecánico ve esos extractos con el aviso *"de la revisión anterior"*.
+- **Borrar** un manual solo se puede si ningún extracto (de paquete o de orden) lo usa **y** no es
+  la revisión que reemplazó a otro (`id_reemplazado_por` lo apunta). Si no, **409** diciendo cuál de
+  las dos cosas lo impide, con la sugerencia de archivarlo (`ARCHIVADO`). Borrar quita la fila y sus
+  aviones; **el archivo queda en el bucket** (§5).
+
+---
+
+## 9. Pantallas
+
+### 9.1 Menú
+
+Ítem nuevo **"Manuales"** (`/taller/manuales`) en `TallerSidebar` **y** en la sección Taller de
+`AdminSidebar`, en el mismo orden (regla de §39.F: la referencia es el menú del taller; el ADMIN
+agrega, nunca quita). Sub-pestañas con el patrón `inv-tabs` de Inventario:
+
+- **Biblioteca** — todos los roles del taller.
+- **Paquetes** — solo el jefe (`TALLER`) y `ADMIN`.
+
+### 9.2 Visor (un solo componente)
+
+`pdfjs-dist`, **cargado solo al abrir el visor** (import dinámico), para no engordar el bundle.
+
+- Abre el manual por **URL firmada con peticiones por rango** (`disableAutoFetch`, `disableStream`):
+  el visor pide **solo las páginas que se miran**. Abrir el manual de 72 MB no baja 72 MB.
+- **Índice** a un lado, sacado de los marcadores del PDF (`getOutline`). Tocar una entrada salta a su
+  página.
+- **Búsqueda de texto** dentro del manual, página por página, con progreso y botón para cancelar.
+  Buscar en un manual grande termina bajando buena parte de él: es para el jefe en su computadora; la
+  navegación normal es por el índice.
+- Página actual, anterior/siguiente, ir a página, zoom.
+- **Modos** (solo cambian los botones):
+
+| Modo | Dónde | Botones extra |
+|---|---|---|
+| `lectura` | Biblioteca | "Imprimir páginas…" (rango → PDF de §6) |
+| `paquete` | Configurador | "Desde aquí" / "Hasta aquí" → título → "Agregar al paquete" |
+| `orden` | Orden de trabajo | "Desde aquí" / "Hasta aquí" → título → "Agregar a la orden CAAA/2026-…" |
+
+### 9.3 Biblioteca
+
+Filtros por avión (fichas con la matrícula), **"Generales"** y **"Sin asignar"**, búsqueda por título.
+Cada manual muestra categoría, número de parte, revisión, páginas y, si corresponde:
+
+- *Por confirmar*: la asignación la dedujo el sistema.
+- *Reemplazado por …*.
+
+El jefe tiene además:
+
+- **Subir manual** y **Subir revisión nueva**.
+- **Editar**: metadatos, aviones, general, confirmar la asignación.
+- **Archivar**.
+
+### 9.4 Paquetes (configurador del jefe)
+
+- **Tabla**: aviones (flota propia, sin simulador; los externos también, porque la OMA les da
+  mantenimiento) × **25 h · 50 h · 100 h · Anual**. Cada celda: *vacío · borrador · confirmado ·
+  ⚠ usa revisión reemplazada*.
+- **Editor** de una celda:
+  - A la izquierda, la lista de extractos: reordenar, editar título, quitar, vista previa.
+  - A la derecha, el visor en modo `paquete`, con el selector de manual limitado a los del avión y los
+    generales, más "ver todos".
+  - **"Copiar de…"** trae los extractos de otro avión o de otra inspección.
+  - **El estado se elige explícito al guardar**, nunca por efecto secundario:
+    - Paquete en borrador (sugerido, o uno que el jefe está armando): **"Guardar borrador"** (el
+      mecánico no lo ve) y **"Guardar y confirmar"** (desde ahí lo ve).
+    - Paquete confirmado: **"Guardar"** (sigue confirmado) y **"Pasar a borrador"** (el mecánico deja de
+      verlo).
+
+### 9.5 En la orden
+
+Botón **"Manuales de este trabajo"** en la tarjeta del trabajo de **Mi taller** y en
+**`OrdenDetalleModal`** (sin contador: mostrar cuántas páginas lleva pediría una consulta extra por
+tarjeta; el total aparece dentro del modal, en "Abrir e imprimir todo (N págs.)"). Abre un modal con:
+
+- **Del paquete** (título, páginas) y **Agregadas en este trabajo** (quién y cuándo).
+- **"Abrir e imprimir todo (N págs.)"** → un solo PDF (§6). En el celular abre el visor del
+  teléfono, que ya permite imprimir o compartir.
+- **"Agregar páginas de un manual"** → el visor en modo `orden`.
+- **"Traer las páginas de un paquete"**, solo cuando la orden no tiene inspección reconocida (§7).
+- Quitar una página **agregada**, mientras la orden esté abierta. **Las del paquete no se quitan desde
+  la orden**: son del jefe.
+- Avisos: *"de la revisión anterior"*; al jefe, *"el paquete no está confirmado"*.
+
+El configurador está pensado para computadora. El modal de la orden, para el celular (375 px).
+
+### 9.6 Selección de páginas (rediseño tras el primer recorrido, 2026-09-21)
+
+En el primer recorrido con Daniel aparecieron tres problemas: los botones para marcar páginas
+quedaban **debajo del borde de la pantalla** (medido: la barra en el píxel 924 de una ventana de
+922), solo se podía marcar **un rango continuo** por vez, y agregar páginas de **otro manual**
+dependía de un desplegable que no se entendía como paso. Decidido con Daniel:
+
+- **Barra de selección arriba del visor, siempre visible**, en orden: *Manual* → *Páginas* →
+  *Título* → **Agregar**.
+- **Campo «Páginas» como el de imprimir:** `43, 45, 47-50`. Se ordena, se unen los repetidos y
+  los contiguos, y se muestra cuántas páginas son. Error en línea si una página no existe.
+- **Formas de llenarlo sin teclear:** «+ Esta página», «Desde aquí» / «Hasta aquí», y
+  **«+ sección» en cada entrada del índice** (desde su página hasta antes de la siguiente entrada
+  del mismo nivel o superior; pone el nombre de la entrada como título si está vacío).
+- La página que se está viendo lleva la marca **«en la selección»** si está incluida.
+- **Lista agrupada por manual.** Una *sección* = rangos consecutivos del mismo manual con el mismo
+  título; se muestra como `págs. 170, 172, 174–175`, se edita en bloque (título y páginas) y se
+  mueve o quita entera. Botón **«Agregar páginas de otro manual»**.
+- **Sin cambios de esquema:** una sección con páginas sueltas se guarda como varios extractos con el
+  mismo título; el armado del PDF no cambia. `POST /ordenes/:id/manuales` acepta además
+  `rangos: [{pagina_desde, pagina_hasta}]` (hasta 50) para agregar una sección en una sola
+  transacción.
+- El índice muestra «Cargando índice…» mientras carga (antes decía «no trae índice»).
+
+---
+
+## 10. API (`/api/taller`)
+
+| Método y ruta | Roles | Qué hace |
+|---|---|---|
+| `GET /manuales` | READ | lista (filtros `aeronave`, `q`, `incluir_reemplazados`) + cuántos extractos lo usan |
+| `GET /manuales/:id` | READ | detalle + aviones + cadena de revisiones |
+| `GET /manuales/:id/url` | READ | URL firmada (1 h) para el visor |
+| `POST /manuales/subida` | JEFE | reserva una ruta `manuales/<uuid>.pdf` y devuelve un **permiso de subida directa** (`createSignedUploadUrl`, sin `upsert`) |
+| `POST /manuales` | JEFE | registra el manual ya subido (el servidor verifica que el objeto exista y su tamaño) |
+| `POST /manuales/:id/revision` | JEFE | igual que el anterior, y marca el viejo `REEMPLAZADO` |
+| `PATCH /manuales/:id` | JEFE | metadatos, aviones, general, confirmar asignación, archivar |
+| `DELETE /manuales/:id` | JEFE | 409 si algún extracto lo usa o si reemplazó a otro manual; quita la fila, **no el archivo** |
+| `POST /manuales/pdf` | READ | `{extractos:[…]}` → URL del PDF recortado (imprimir desde la biblioteca) |
+| `GET /paquetes-manuales` | READ | la tabla aviones × inspecciones con su estado |
+| `GET /paquetes-manuales/:id_aeronave/:tipo` | READ | el paquete con sus extractos |
+| `PUT /paquetes-manuales/:id_aeronave/:tipo` | JEFE | **reemplaza el set completo** de extractos (reordenar = mandar el orden nuevo) y fija `estado` (**obligatorio**: `BORRADOR` o `CONFIRMADO`). Crea el paquete si no existe |
+| `GET /ordenes/:id/manuales` | READ | lo de §7 + avisos |
+| `POST /ordenes/:id/manuales` | JEFE o mecánico de la orden | agrega un extracto (orden `ABIERTA`) |
+| `POST /ordenes/:id/manuales/paquete` | JEFE o mecánico de la orden | `{tipo}` → copia a la orden el paquete confirmado de ese avión como `MANUAL` (orden `ABIERTA`; 404 si no hay paquete confirmado) |
+| `DELETE /ordenes/:id/manuales/:id_extracto` | JEFE o mecánico de la orden | solo `origen='MANUAL'`, orden `ABIERTA` |
+| `POST /ordenes/:id/manuales/pdf` | READ | URL del PDF de la orden |
+
+`READ` y `JEFE` son los grupos que ya existen en `tallerRoutes.js` (`READ = TALLER, TECNICO, ADMIN`;
+`JEFE = TALLER, ADMIN`). **Mecánico de la orden** = `id_mecanico_asignado = uid OR creado_por = uid OR
+id_aprendiz = uid`: el criterio de "lo mío" de `asignadas=true` (§36) más quien la trabaja como segundo
+(al abrir la orden se puede poner ahí al aprendiz o a otro mecánico, y los dos usan los manuales).
+
+**La subida no pasa por el backend**: el navegador sube directo a Storage con el permiso temporal,
+así 70 MB no cruzan Railway (que tiene `express.json` a 10 MB y `multer` en memoria). Al registrar,
+el **servidor** baja el archivo una vez desde Storage y saca el `sha256` y la cantidad de páginas
+con pdf-lib, de a uno por vez: no se confía en lo que diga el navegador, y un PDF cifrado o roto se
+rechaza antes de entrar a la biblioteca. (Corregido durante el plan: al principio esto lo calculaba
+el navegador.)
+
+Todos los controllers nuevos con `try/catch` (lección de §15.D) y parámetros casteados.
+
+---
+
+## 11. Carga inicial del ZIP
+
+Script en `supabase/dump/manuales_taller/`, con el mismo patrón de `inventario_oma/` y
+`aeronavegabilidad/`: un paso en Python y otro en Node, con `--dry-run` y reporte.
+
+1. **`preparar.py`** — lee el ZIP **en memoria** (sin descomprimirlo a disco):
+   - Une los 144 pedazos del Azteca en orden de nombre. Verificado: `1A1-1A10`, `1A11-1A20`,
+     `1A21-1A30`, `330060003` … `330060143` siguen la numeración de fichas, de `1A1` a `5L20`.
+   - Descarta los 2 duplicados (antes, compara texto de varias páginas para confirmar que son el mismo
+     contenido).
+   - Saca título, número de parte, revisión, páginas y `sha256`.
+   - Escribe un **catálogo JSON** con la categoría y la asignación propuesta. Este archivo se revisa a
+     mano antes de cargar.
+2. **`cargar.js`** — sube con **`railway run`**: la llave de Storage llega por el entorno y **no se
+   imprime ni se guarda local**. Es idempotente por `sha256` (volver a correrlo no duplica). Marca
+   `origen = 'ZIP_2026-09-20'`.
+
+### Asignación propuesta (todo con `necesita_confirmacion = true`)
+
+| Avión | Manuales |
+|---|---|
+| `YS-334-PE` Tomahawk | PA-38 AMM (las dos ediciones), catálogo PA-38, POH PA-38, Lycoming O-235 (partes y operador), overhaul Lycoming |
+| `YS-333-PE` C152 | C152 MM + revisión temporal 5, POH, catálogo, Lycoming O-235, overhaul Lycoming |
+| `YS-270-PE`, `YS-155-PE`, `YS-127-P` | service manuals PA-28 (los dos), catálogos PA-28, overhaul Lycoming; POH 180E al Cherokee y POH Arrow al 127 |
+| **Generales** | AC 43.13-1B, Champion, Slick (overhaul y aplicaciones), Rapco (frenos y bomba), índice de boletines Piper 762-332, Continental M-0 |
+| **Sin asignar** | T303 (AMM, partes, motor), Seneca II (SM, partes, motor), Azteca, Navajo, PA-28-151 |
+
+### Paquetes sugeridos (en borrador)
+
+**100 h y Anual** para cada avión con manual de mantenimiento, con `origen = 'SUGERIDO'`, a partir de
+las secciones del §2. **Antes de proponer un rango se leen las páginas reales**: el índice dice dónde
+empieza la sección, no dónde termina. Cuando hay dos ediciones, se sugiere sobre la más nueva y se
+anota. **25 h y 50 h quedan vacíos**: los fabricantes no los definen y el jefe sabe qué lleva cada uno.
+**El mecánico no ve nada hasta que el jefe confirme.**
+
+### Preguntas que quedan anotadas para el jefe
+
+En `nota_confirmacion` de cada manual, y en el reporte de la carga:
+
+1. ¿Cuál edición del Tomahawk es la vigente (2000 o 2019)?
+2. ¿Cuál service manual del Cherokee es el vigente?
+3. ¿Dónde está el manual del Cessna 310?
+4. ¿De qué aviones son los manuales sin asignar?
+
+---
+
+## 12. Cuenta de demostraciones
+
+- Las cinco tablas nuevas entran al esquema `demo`: después de la migración se **regenera** (§39,
+  runbook).
+- **Configuración (se copia y sobrevive al reinicio):** `taller_manual`, `taller_manual_aeronave`,
+  `taller_paquete_manual` y `taller_paquete_extracto` van **en las dos listas**: `CATALOGO` de
+  `demo/catalogo.js` (se copian de `public`) y `CONSERVAR` de `demo/reset.js` (el reinicio no las
+  vacía). Son documentos del fabricante y paquetes sin nada sensible. Las asignaciones apuntan a las
+  aeronaves por id, y el disfraz del demo cambia nombres, nunca ids, así que siguen siendo correctas.
+  Las columnas que apuntan a `usuario` (`subido_por`, `confirmado_por`, `actualizado_por`,
+  `agregado_por`) son opcionales: la limpieza de referencias huérfanas del reinicio las deja en NULL.
+- **Operación (se vacía en cada reinicio):** `taller_orden_extracto`, como las órdenes de trabajo. Por
+  eso son dos tablas y no una: con una sola, el reinicio dejaba renglones sin paquete ni orden,
+  violaba el CHECK y **abortaba el reinicio entero** la primera vez que alguien agregaba una página a una
+  orden en una demostración.
+- **El bucket se comparte** y el demo tiene rol de jefe: lo que lo hace seguro es la regla de §5 (la
+  app nunca borra ni sobreescribe un objeto) más las rutas con UUID. Lo que suba el demo queda como un
+  archivo más en el bucket, sin tocar los de CAAA.
+- Como la configuración se conserva, **lo que un usuario del demo suba, edite o archive en la biblioteca
+  sobrevive a "Reiniciar demo"** (igual que las plantillas de sticker y los formularios). La biblioteca
+  del demo solo vuelve al original regenerando el catálogo. Se anota en `docs/demo/RUNBOOK.md`.
+
+---
+
+## 13. Pruebas
+
+**Primero, antes de construir el visor:** que `pdfjs` con peticiones por rango funcione contra una URL
+firmada de Supabase (CORS con `Range` permitido y `Content-Range` expuesto). Si no funcionara, cambia
+el plan del visor, así que va en la primera tarea.
+
+**De punta a punta contra Supabase real**, con limpieza total al terminar (patrón de siempre):
+
+- El PDF tiene **exactamente** las páginas pedidas y en el orden pedido. El tamaño queda acotado: un
+  control de que las anotaciones se quitaron.
+- La segunda vez **reutiliza** el archivo (no regenera).
+- Orden abierta = paquete confirmado + agregadas. Paquete en borrador = el mecánico no lo ve.
+- Al firmar se congela; devolver y volver a firmar **no duplica**; cambiar el paquete después no toca
+  la orden firmada.
+- Revisión nueva: los extractos siguen en la vieja y aparece el aviso con la cuenta correcta.
+- Borrar un manual en uso → 409; borrar uno que reemplazó a otro → 409; borrar uno libre quita la fila
+  y **el archivo sigue en el bucket**.
+- Una orden abierta sin mantenimiento enlazado pero con la tarea "Inspección 100 horas" en su
+  cumplimiento resuelve `100HR` (y una con un AD no resuelve nada). "Traer las páginas de un paquete"
+  copia como `MANUAL`, y la firma no las borra.
+- El mecánico que figura como `id_aprendiz` puede agregar páginas; otro mecánico no.
+- **Demo:** agregar una página a una orden en la cuenta de demostraciones y reiniciar el demo → el
+  reinicio termina, la página desaparece y los paquetes siguen ahí.
+- Permisos:
+  - El mecánico no edita paquetes (403).
+  - El mecánico no agrega a la orden de otro (403) ni a una firmada.
+  - Se comprueba **el mensaje**, no solo el código (§33: dos gates pueden compartir el 403).
+- Validaciones: `desde > hasta`, `hasta > paginas`, `PUT` de paquete sin `estado` → 400.
+
+**En el navegador:** visor con un manual real (índice, búsqueda, desde/hasta), configurador completo y
+el modal de la orden a **375 px**. Contraste medido de verdad (§35).
+
+**En producción:** que los 38 archivos quedaron (35 manuales; el plan gratuito obligó a partir tres en dos tomos) (conteo y tamaño en `storage.objects` por SQL) y que
+un PDF de paquete se genera y se abre.
+
+---
+
+## 14. Riesgos
+
+| | |
+|---|---|
+| Plan gratuito de Supabase (confirmado) | tres archivos >50 MB van en dos tomos; ~60% del GB total |
+| Rango + CORS en Supabase | se prueba primero (§13) |
+| Memoria en Railway | ~350 MB de pico por armado; cola de uno en uno |
+| `pdf-lib` arrastra páginas por los links | quitar `/Annots` y `/Thumb` es obligatorio; la prueba acota el tamaño |
+| 10 de los 35 manuales vienen cifrados (RC4, solo contraseña de dueño) | se descifran en la carga; PyMuPDF los abre solos y `is_encrypted` da `False`, así que se detectan por el metadato `encryption` |
+| Manuales escaneados sin texto | la búsqueda no encuentra nada en esos tres; se navega por índice y página |
+
+---
+
+## 15. Fuera de alcance
+
+- Portada o pie en las páginas impresas (decisión de Daniel: tal cual).
+- Buscar en todos los manuales a la vez (enfoque C descartado).
+- OCR de los manuales escaneados.
+- Historial de cambios de un paquete (quién movió qué rango y cuándo).
+- Limpieza automática de los PDF recortados viejos.
+- Los números de página impresos del manual (`2-15`, fichas `1A11`): se trabaja con la página del PDF
+  y el título del extracto dice qué es.

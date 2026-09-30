@@ -25,6 +25,7 @@ export default function TallerSidebar({ isOpen, onClose }) {
     { label: "Trabajos",         path: "/taller/ordenes",          icon: "bi-clipboard2-check" },
     { label: "Aeronavegabilidad", path: "/taller/aeronavegabilidad", icon: "bi-clipboard2-pulse" },
     { label: "Inventario",       path: "/taller/inventario",       icon: "bi-box-seam" },
+    { label: "Manuales",         path: "/taller/manuales",         icon: "bi-book" },
   ];
 
   return (

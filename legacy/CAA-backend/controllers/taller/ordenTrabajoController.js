@@ -17,6 +17,7 @@ const { generarOrdenTrabajoPDF, generarReporteInspeccionPDF } = require("../../u
 const { notificarRoles } = require("../../utils/notificaciones");
 const { notificarStaff } = require("../../utils/webpush");
 const { marca } = require("../../utils/marca");
+const { congelarPaqueteEnOrden } = require("../../services/manualesService");
 
 const LOCK_CORRELATIVO = 4713;
 const num = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
@@ -350,6 +351,11 @@ exports.firmarOrden = catchAsync(async (req, res) => {
       [id, texto, req.user.id_usuario, id_aprendiz || null, txt(r_ii), fecha_firma || null,
        firma_mecanico || null]
     );
+
+    // Las páginas del paquete quedan congeladas en la orden: si el jefe cambia
+    // el paquete más adelante, la orden conserva las que se usaron (spec
+    // 2026-09-20 §7). Devolver y volver a firmar las reemplaza, no las duplica.
+    await congelarPaqueteEnOrden(client, id);
 
     await client.query("COMMIT");
     res.json(r.rows[0]);

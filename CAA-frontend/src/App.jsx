@@ -64,6 +64,7 @@ import TallerAeronavegabilidad from "./pages/Taller/Aeronavegabilidad";
 import TallerInventario from "./pages/Taller/Inventario";
 import MiTaller from "./pages/Taller/MiTaller";
 import TallerOrdenes from "./pages/Taller/OrdenesTrabajo";
+import TallerManuales from "./pages/Taller/Manuales";
 
 const IDLE_MS = 30 * 60 * 1000;
 
@@ -414,6 +415,8 @@ function App() {
           <Route path="/taller/mi-taller"         element={<ProtectedTaller><TallerLayoutAuto><MiTaller /></TallerLayoutAuto></ProtectedTaller>} />
           {/* Pantalla del jefe de taller: las ordenes y el folder por avion. */}
           <Route path="/taller/ordenes"           element={<ProtectedTaller><TallerLayoutAuto><TallerOrdenes /></TallerLayoutAuto></ProtectedTaller>} />
+          {/* Biblioteca de manuales y paquetes de páginas por inspección. */}
+          <Route path="/taller/manuales"          element={<ProtectedTaller><TallerLayoutAuto><TallerManuales /></TallerLayoutAuto></ProtectedTaller>} />
 
           <Route path="/dueno" element={<ProtectedDueno><DuenoDashboard /></ProtectedDueno>} />
 
