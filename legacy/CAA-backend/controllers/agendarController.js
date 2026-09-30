@@ -453,6 +453,10 @@ exports.guardarSolicitud = async (req, res) => {
       [id_solicitud]
     );
     for (const r of previasRes.rows) {
+      // Se guarda incluso cuando creado_en es NULL: la CLAVE presente es lo que
+      // distingue "este slot ya existía" de "es nuevo", y el valor NULL es un
+      // dato válido (slot anterior a la columna). No cambiar por un filtro de
+      // no-nulos: volvería a marcar las horas viejas con la hora del re-guardado.
       marcasPrevias.set(`${r.dia_semana}-${r.id_bloque}-${r.id_aeronave}`, r.creado_en);
     }
 
@@ -532,12 +536,18 @@ exports.guardarSolicitud = async (req, res) => {
       const conParada = v.tipo_vuelo === "RUTA" && v.con_parada === true;
       const paradas = conParada ? normalizarParadas(v.tramos_ruta) : null;
       await client.query(
-        // COALESCE y no el DEFAULT: pasar el parámetro en NULL PISA el default,
-        // así que la hora de un slot nuevo se resuelve acá con now().
+        // Tres casos, y hay que distinguirlos con `has` y no con `?? now()`:
+        //   - el slot ya existía y tenía marca  -> se conserva su marca
+        //   - el slot ya existía SIN marca (es anterior a la columna) -> NULL,
+        //     para que la pantalla siga cayendo a la fecha de la canasta y lo
+        //     muestre como aproximado. Un `?? now()` acá le ponía la hora del
+        //     re-guardado y afirmaba que una solicitud vieja se pidió recién.
+        //   - el slot es nuevo de verdad -> now()
         `INSERT INTO solicitud_vuelo (id_solicitud, id_semana, dia_semana, id_bloque, id_aeronave, tipo_vuelo, id_bloque_fin, es_extracurricular, con_parada, tramos_ruta, creado_en)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, COALESCE($11::timestamp, now()))`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $12 THEN now() ELSE $11::timestamp END)`,
         [id_solicitud, id_semana, v.dia_semana, v.id_bloque, v.id_aeronave, v.tipo_vuelo || 'LOCAL', v.id_bloque_fin || v.id_bloque, v.es_extracurricular === true, conParada, paradas ? JSON.stringify(paradas) : null,
-         marcasPrevias.get(`${v.dia_semana}-${v.id_bloque}-${v.id_aeronave}`) ?? null]
+         marcasPrevias.get(`${v.dia_semana}-${v.id_bloque}-${v.id_aeronave}`) ?? null,
+         !marcasPrevias.has(`${v.dia_semana}-${v.id_bloque}-${v.id_aeronave}`)]
       );
     }
 
