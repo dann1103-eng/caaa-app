@@ -137,6 +137,12 @@ exports.getCalendario = async (req, res) => {
           v.id_alumno,
           COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
           LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
+          lic_al.nombre AS alumno_licencia_nombre,
+          -- Cuándo entró la solicitud. Mismo criterio y mismo to_char que
+          -- adminVueloController.getCalendario (ver el comentario de allá).
+          to_char(ss2.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+          to_char(ss2.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
+          u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
 
           v.id_instructor,
           COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
@@ -172,6 +178,12 @@ exports.getCalendario = async (req, res) => {
         JOIN aeronave ae ON ae.id_aeronave = v.id_aeronave
 
         LEFT JOIN alumno al ON al.id_alumno = v.id_alumno
+        LEFT JOIN licencia lic_al ON lic_al.id_licencia = al.id_licencia
+        -- Acá se parte de la tabla vuelo, así que la canasta del alumno se
+        -- alcanza por (semana, alumno) y no por id_solicitud. Sin backticks: en
+        -- un comentario dentro de un template string cortan la cadena.
+        LEFT JOIN solicitud_semana ss2 ON ss2.id_semana = v.id_semana AND ss2.id_alumno = v.id_alumno
+        LEFT JOIN usuario u_env ON u_env.id_usuario = ss2.enviada_por
         LEFT JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
 
         LEFT JOIN instructor i ON i.id_instructor = v.id_instructor
@@ -225,6 +237,10 @@ exports.getCalendario = async (req, res) => {
         ss.id_alumno,
         COALESCE(u_al.nombre || ' ' || u_al.apellido, 'Sin Alumno') AS alumno_nombre,
         LEFT(u_al.nombre,1) || '.' || split_part(u_al.apellido,' ',1) AS alumno_nombre_corto,
+        lic_al.nombre AS alumno_licencia_nombre,
+        to_char(ss.fecha_creacion,        'YYYY-MM-DD HH24:MI') AS solicitud_creada_en,
+        to_char(ss.enviada_instructor_en, 'YYYY-MM-DD HH24:MI') AS solicitud_enviada_en,
+        u_env.nombre || ' ' || u_env.apellido AS solicitud_enviada_por,
 
         i.id_instructor,
         COALESCE(u_ins.nombre || ' ' || u_ins.apellido, 'Sin Instructor') AS instructor_nombre,
@@ -260,6 +276,8 @@ exports.getCalendario = async (req, res) => {
       JOIN aeronave ae ON ae.id_aeronave = sv.id_aeronave
 
       LEFT JOIN alumno al ON al.id_alumno = ss.id_alumno
+      LEFT JOIN licencia lic_al ON lic_al.id_licencia = al.id_licencia
+      LEFT JOIN usuario u_env ON u_env.id_usuario = ss.enviada_por
       LEFT JOIN usuario u_al ON u_al.id_usuario = al.id_usuario
 
       JOIN instructor i ON i.id_instructor = COALESCE(sv.id_instructor, al.id_instructor)
