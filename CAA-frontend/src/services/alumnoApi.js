@@ -196,3 +196,21 @@ export const firmarAsistenciaClase = async (id_sesion, firma) => {
   const res = await axios.post(`${API_URL}/alumno/mis-clases/${id_sesion}/firmar`, { firma });
   return res.data;
 };
+
+// Constancias del motivo de cancelación (opcionales). Van en un request APARTE
+// del que crea la solicitud: si Storage falla, la cancelación ya quedó enviada.
+export const subirConstanciasCancelacion = async (id_solicitud_cancelacion, archivos) => {
+  const fd = new FormData();
+  for (const a of archivos) fd.append("archivos", a);
+  const res = await axios.post(
+    `${API_URL}/alumno/solicitudes-cancelacion/${id_solicitud_cancelacion}/adjuntos`,
+    fd,
+    { headers: { "Content-Type": "multipart/form-data" } }
+  );
+  return res.data;
+};
+
+export const getUrlConstanciaCancelacion = async (id_adjunto) => {
+  const res = await axios.get(`${API_URL}/alumno/adjuntos-cancelacion/${id_adjunto}/url`);
+  return res.data;
+};

@@ -9,6 +9,7 @@ const accesoEstudianteVuelo = require("../middlewares/accesoEstudianteVuelo");
 
 const alumnoVuelo = require("../controllers/alumno/alumnoVueloController");
 const alumnoCancelacion = require("../controllers/alumno/alumnoCancelacionController");
+const cancelacionAdjunto = require("../controllers/cancelacionAdjuntoController");
 const alumnoPlanVuelo = require("../controllers/alumno/alumnoPlanVueloController");
 const alumnoWb = require("../controllers/alumno/alumnoWbController");
 const alumnoReporte = require("../controllers/alumno/alumnoReporteController");
@@ -39,6 +40,19 @@ const uploadPlan = multer({
     const ext = path.extname(file.originalname).toLowerCase();
     if (ext === ".pdf") cb(null, true);
     else cb(new Error("Solo se aceptan archivos PDF."));
+  },
+});
+
+// Constancias de una solicitud de cancelación: imágenes o PDF, opcionales.
+// Memoria (no disco): el disco de Railway se borra en cada redeploy y de acá
+// el buffer va directo a Supabase Storage.
+const uploadConstancia = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 5 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if ([".pdf", ".jpg", ".jpeg", ".png"].includes(ext)) cb(null, true);
+    else cb(new Error("Solo se aceptan imágenes JPG/PNG o archivos PDF."));
   },
 });
 
@@ -84,6 +98,13 @@ router.get("/mi-aula-virtual", alumnoAccess, aulaCtl.miAulaVirtual);
 router.post("/vuelos/:id_vuelo/solicitar-cancelacion", alumnoAccess, alumnoCancelacion.solicitarCancelacion);
 router.delete("/solicitudes-cancelacion/:id_solicitud_cancelacion", alumnoAccess, alumnoCancelacion.quitarSolicitudCancelacion);
 router.get("/mis-solicitudes-cancelacion", alumnoAccess, alumnoCancelacion.getMisSolicitudesCancelacion);
+
+// Constancias del motivo de cancelación (opcionales). Van en un request aparte
+// del que crea la solicitud, a propósito: ver el comentario del controller.
+router.post("/solicitudes-cancelacion/:id_solicitud_cancelacion/adjuntos", alumnoAccess, uploadConstancia.array("archivos", 5), cancelacionAdjunto.subirAdjuntos);
+router.get("/solicitudes-cancelacion/:id_solicitud_cancelacion/adjuntos", alumnoAccess, cancelacionAdjunto.listarMisAdjuntos);
+router.delete("/adjuntos-cancelacion/:id_adjunto", alumnoAccess, cancelacionAdjunto.borrarMiAdjunto);
+router.get("/adjuntos-cancelacion/:id_adjunto/url", alumnoAccess, cancelacionAdjunto.urlMiAdjunto);
 
 // --- Plan de Vuelo --- (por-vuelo: admite al practicante)
 router.get("/vuelos/:id_vuelo/plan-vuelo", estudianteAccess, alumnoPlanVuelo.getPlanVuelo);

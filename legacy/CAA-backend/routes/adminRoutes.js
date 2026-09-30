@@ -121,6 +121,10 @@ router.get("/auditoria", adminAccess, adminAuditoria.getAuditoria);
 // --- Cancelaciones ---
 router.get("/solicitudes-cancelacion", adminAccess, adminCancelacion.getSolicitudesCancelacion);
 router.post("/solicitudes-cancelacion/:id/resolver", adminAccess, adminCancelacion.resolverSolicitudCancelacion);
+// Constancia adjunta por el alumno. MISMO adminAccess que las dos rutas de
+// arriba: quien puede aprobar o rechazar la solicitud es exactamente quien
+// puede ver su respaldo, sin abrir audiencia nueva.
+router.get("/adjuntos-cancelacion/:id_adjunto/url", adminAccess, require("../controllers/cancelacionAdjuntoController").urlAdjuntoStaff);
 
 // --- Lista de espera (stand-by) — la ordena Turno ---
 const standby = require("../controllers/standbyController");

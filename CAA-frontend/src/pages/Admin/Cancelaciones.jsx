@@ -1,10 +1,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { getSolicitudesCancelacion, resolverSolicitudCancelacion } from "../../services/adminApi";
+import { getSolicitudesCancelacion, resolverSolicitudCancelacion, getUrlConstanciaCancelacionAdmin } from "../../services/adminApi";
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
 import Header from "../../components/Header/Header";
 import "./Cancelaciones.css";
+
+// Las constancias viven en un bucket privado: se abren con una URL firmada que
+// se pide al momento (vale 1 h). No se guarda la URL en el estado para que no
+// quede una vencida dando error.
+async function abrirConstancia(id_adjunto) {
+  try {
+    const { url } = await getUrlConstanciaCancelacionAdmin(id_adjunto);
+    window.open(url, "_blank", "noopener");
+  } catch (e) {
+    toast.error(e.response?.data?.message || "No se pudo abrir la constancia");
+  }
+}
+
+const pesoLegible = (b) => (!b ? "" : b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
+const iconoDe = (tipo) => (String(tipo || "").startsWith("image/") ? "bi-file-earmark-image" : "bi-file-earmark-pdf");
 
 // standalone=true: se usa fuera del shell de ADMIN (ej. instructor con
 // puede_programar, vía /programacion/cancelaciones) — no hay topbar propia
@@ -112,6 +127,32 @@ export default function CancelacionesAdmin({ standalone = false }) {
                   <p><strong>Motivo:</strong> {s.justificacion}</p>
                   <p><strong>Solicitado el:</strong> {new Date(s.fecha_solicitud).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}</p>
                   <p><strong>Cancelaciones este mes:</strong> {s.cancelaciones_mes ?? s.cancelaciones_aceptadas_mes} <span style={{ color: 'var(--c-ink-3)' }}>({s.cancelaciones_aceptadas_mes} aceptadas)</span></p>
+                  {Array.isArray(s.adjuntos) && s.adjuntos.length > 0 && (
+                    <div style={{ marginTop: '10px' }}>
+                      <strong>Constancias adjuntas ({s.adjuntos.length}):</strong>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                        {s.adjuntos.map((ad) => (
+                          <button
+                            key={ad.id_adjunto}
+                            type="button"
+                            onClick={() => abrirConstancia(ad.id_adjunto)}
+                            title={`Abrir ${ad.nombre_archivo}`}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px',
+                              fontSize: '0.78rem', padding: '4px 9px', cursor: 'pointer',
+                              border: '1px solid var(--c-line-2, #d1d5db)', borderRadius: '999px',
+                              background: 'var(--c-surface, #fff)', color: 'var(--c-brand-700)',
+                              maxWidth: '260px',
+                            }}
+                          >
+                            <i className={`bi ${iconoDe(ad.content_type)}`} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.nombre_archivo}</span>
+                            <span style={{ color: 'var(--c-ink-3, #6b7280)' }}>{pesoLegible(ad.tamano_bytes)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {s.con_multa && (
                     <div style={{ marginTop: '12px', color: 'var(--c-danger-700)', backgroundColor: 'var(--c-danger-50)', padding: '8px', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', fontWeight: 600 }}>
                       <i className="bi bi-exclamation-triangle-fill"></i> Multa de ${s.monto_multa}

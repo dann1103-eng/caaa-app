@@ -47,10 +47,14 @@ exports.solicitarCancelacion = catchAsync(async (req, res) => {
     const tieneMulta = estado.proxima_tiene_multa;
     const montoMulta = estado.monto;
 
-    await client.query(`
+    // RETURNING: el frontend necesita el id para subir las constancias
+    // opcionales en un segundo request (ver cancelacionAdjuntoController).
+    const insRes = await client.query(`
       INSERT INTO solicitud_cancelacion (id_vuelo, id_alumno, motivo, estado, tiene_multa, monto_multa)
       VALUES ($1, $2, $3, 'PENDIENTE', $4, $5)
+      RETURNING id_solicitud_cancelacion
     `, [id_vuelo, idAlumno, motivo, tieneMulta, montoMulta]);
+    const idSolicitudCancelacion = insRes.rows[0].id_solicitud_cancelacion;
 
     await logAuditoria(client, { accion: "SOLICITAR_CANCELACION", entidad: "vuelo", id_entidad: id_vuelo, actor: req.user, req, descripcion: `Alumno solicitó cancelación${tieneMulta ? ` (multa ${estado.motivo})` : ""}` });
     await client.query("COMMIT");
@@ -92,7 +96,7 @@ exports.solicitarCancelacion = catchAsync(async (req, res) => {
       }
     })();
 
-    res.json({ message: "Solicitud enviada correctamente", tiene_multa: tieneMulta, monto_multa: montoMulta, motivo: estado.motivo });
+    res.json({ message: "Solicitud enviada correctamente", id_solicitud_cancelacion: idSolicitudCancelacion, tiene_multa: tieneMulta, monto_multa: montoMulta, motivo: estado.motivo });
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

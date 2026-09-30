@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getCondicionesCancelacion, solicitarCancelacion } from "../../services/alumnoApi";
+import { getCondicionesCancelacion, solicitarCancelacion, subirConstanciasCancelacion } from "../../services/alumnoApi";
 import "./CancelarVueloModal.css";
 
 /**
@@ -38,6 +38,12 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
   const tieneMulta = estado.proxima_tiene_multa;
   const bloqueadoSemana = estado.ya_cancelo_esta_semana;
 
+  // Constancias opcionales. NO entran en puedeConfirmar a propósito: adjuntar
+  // nunca es requisito para enviar la solicitud.
+  const MAX_CONSTANCIAS = 5;
+  const [constancias, setConstancias] = useState([]);
+  const [avisoAdjuntos, setAvisoAdjuntos] = useState("");
+
   const puedeConfirmar =
     aceptadoCondiciones &&
     motivo.trim().length > 0 &&
@@ -49,7 +55,21 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
     setError("");
     setSubmitting(true);
     try {
-      await solicitarCancelacion(vuelo.id_vuelo, motivo.trim());
+      const r = await solicitarCancelacion(vuelo.id_vuelo, motivo.trim());
+      // La solicitud ya quedó enviada. Las constancias son un extra: si la
+      // subida falla, NO se revierte ni se muestra como error de la solicitud.
+      if (constancias.length > 0 && r?.id_solicitud_cancelacion) {
+        try {
+          await subirConstanciasCancelacion(r.id_solicitud_cancelacion, constancias);
+        } catch (e) {
+          setAvisoAdjuntos(
+            (e.response?.data?.message || "No se pudieron subir las constancias.") +
+            " Tu solicitud de cancelación SÍ quedó enviada."
+          );
+          setSubmitting(false);
+          return; // el modal queda abierto mostrando el aviso
+        }
+      }
       onCancelado();
     } catch (e) {
       setError(e.response?.data?.message || "No se pudo solicitar la cancelación. Intentá de nuevo.");
@@ -152,6 +172,42 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
             />
           </div>
 
+          {/* Constancias (opcional) */}
+          <div className="cv-field">
+            <label className="cv-label">
+              Constancia del motivo <span style={{ fontWeight: 400, color: "var(--c-ink-3, #6b7280)" }}>(opcional)</span>
+            </label>
+            <p style={{ fontSize: "0.75rem", color: "var(--c-ink-3, #6b7280)", margin: "0 0 6px" }}>
+              Si tenés un respaldo —constancia médica, captura, etc.— podés adjuntarlo.
+              Imágenes JPG o PNG y archivos PDF, hasta {MAX_CONSTANCIAS} archivos de 8 MB cada uno.
+              No hace falta para enviar la solicitud.
+            </p>
+            <input
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,application/pdf"
+              disabled={submitting}
+              onChange={(e) => {
+                setAvisoAdjuntos("");
+                setConstancias(Array.from(e.target.files || []).slice(0, MAX_CONSTANCIAS));
+              }}
+            />
+            {constancias.length > 0 && (
+              <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: "0.78rem" }}>
+                {constancias.map((a, i) => (
+                  <li key={i}>
+                    {a.name} <span style={{ color: "var(--c-ink-3, #6b7280)" }}>({(a.size / 1024 / 1024).toFixed(1)} MB)</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {avisoAdjuntos && (
+            <div className="cv-error" style={{ background: "var(--c-warning-50, #fffbeb)", color: "var(--c-warning-700, #92400e)" }}>
+              {avisoAdjuntos}
+            </div>
+          )}
           {error && <div className="cv-error">{error}</div>}
         </div>
 

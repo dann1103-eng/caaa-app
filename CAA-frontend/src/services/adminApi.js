@@ -280,4 +280,8 @@ export const updatePushConfig = async (cambios) => {
   return res.data;
 };
 
-
+// Constancia adjunta a una solicitud de cancelación, para quien la aprueba.
+export const getUrlConstanciaCancelacionAdmin = async (id_adjunto) => {
+  const res = await axios.get(`${API_URL}/admin/adjuntos-cancelacion/${id_adjunto}/url`);
+  return res.data;
+};

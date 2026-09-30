@@ -32,6 +32,18 @@ exports.getSolicitudesCancelacion = catchAsync(async (req, res) => {
       u.nombre AS alumno_nombre,
       u.apellido AS alumno_apellido,
       sc.tiene_multa AS con_multa,
+      -- Constancias que el alumno adjuntó (puede no haber ninguna: es opcional).
+      -- Va como JSON para no multiplicar filas con un JOIN.
+      COALESCE((
+        SELECT json_agg(json_build_object(
+                 'id_adjunto', ad.id_adjunto,
+                 'nombre_archivo', ad.nombre_archivo,
+                 'content_type', ad.content_type,
+                 'tamano_bytes', ad.tamano_bytes
+               ) ORDER BY ad.id_adjunto)
+          FROM solicitud_cancelacion_adjunto ad
+         WHERE ad.id_solicitud_cancelacion = sc.id_solicitud_cancelacion
+      ), '[]'::json) AS adjuntos,
       sc.monto_multa,
       sc.motivo,
       (
