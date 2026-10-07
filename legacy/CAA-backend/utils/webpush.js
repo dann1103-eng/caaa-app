@@ -145,6 +145,8 @@ async function notificarUsuarios(idsUsuario, payloadObj) {
 }
 
 module.exports = {
-  guardarSuscripcion, eliminarSuscripcion, notificarStaff, notificarPorRol,
+  // notificarUsuarios faltaba acá desde que se escribió: quien la pedía recibía
+  // undefined y el aviso push de las cancelaciones nunca salió.
+  guardarSuscripcion, eliminarSuscripcion, notificarStaff, notificarPorRol, notificarUsuarios,
   vapidPublicKey: PUB, habilitado, ROLES_STAFF, TIPOS_PUSH,
 };

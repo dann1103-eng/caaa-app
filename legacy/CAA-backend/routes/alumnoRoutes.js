@@ -10,7 +10,7 @@ const accesoEstudianteVuelo = require("../middlewares/accesoEstudianteVuelo");
 const alumnoVuelo = require("../controllers/alumno/alumnoVueloController");
 const alumnoCancelacion = require("../controllers/alumno/alumnoCancelacionController");
 const cancelacionAdjunto = require("../controllers/cancelacionAdjuntoController");
-const constancias = require("../utils/constancias");
+const recibirConstancias = require("../middlewares/recibirConstancias");
 const alumnoPlanVuelo = require("../controllers/alumno/alumnoPlanVueloController");
 const alumnoWb = require("../controllers/alumno/alumnoWbController");
 const alumnoReporte = require("../controllers/alumno/alumnoReporteController");
@@ -43,33 +43,6 @@ const uploadPlan = multer({
     else cb(new Error("Solo se aceptan archivos PDF."));
   },
 });
-
-// Constancias de una solicitud de cancelación: imágenes o PDF. Obligatorias en
-// una cancelación de emergencia, opcionales en las demás (lo decide el
-// controller, que es quien sabe cuánto falta para el vuelo).
-// Memoria (no disco): el disco de Railway se borra en cada redeploy y de acá
-// el buffer va directo a Supabase Storage.
-const uploadConstancia = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: constancias.MAX_BYTES, files: constancias.MAX_ARCHIVOS },
-  fileFilter: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    if (constancias.EXTENSIONES_OK.includes(ext)) cb(null, true);
-    else cb(constancias.errorDeTipo(constancias.nombreLegible(file.originalname)));
-  },
-});
-
-// multer envuelto. Sus errores (archivo muy pesado, demasiados, tipo no
-// permitido) llegaban al middleware global y salían como 500 y en inglés
-// ("File too large"): acá son un 400 que el alumno puede entender. De paso se
-// arregla el nombre de cada archivo, que multer lee como latin1.
-// En un pedido que no es multipart multer no hace nada: el JSON sigue andando.
-const recibirConstancias = (req, res, next) =>
-  uploadConstancia.array("archivos", constancias.MAX_ARCHIVOS)(req, res, (err) => {
-    if (err) return res.status(400).json({ message: constancias.mensajeDeSubida(err) });
-    for (const f of req.files || []) f.originalname = constancias.nombreLegible(f.originalname);
-    next();
-  });
 
 const uploadLoadsheet = multer({
   storage: multer.memoryStorage(),
