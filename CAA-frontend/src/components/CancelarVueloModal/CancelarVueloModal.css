@@ -181,6 +181,171 @@
   margin-top: 2px;
 }
 
+.cv-requerido { color: var(--c-danger-700); }
+
+.cv-opcional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.cv-ayuda {
+  font-size: var(--text-xs);
+  color: var(--c-ink-3);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Cancelación de emergencia (menos de 24 h para el vuelo) */
+.cv-emergencia {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--c-danger-50);
+  border: 1px solid var(--c-danger-100);
+  border-radius: var(--radius-sm);
+  color: var(--c-danger-700);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.cv-emergencia > i {
+  font-size: 1.05rem;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+/* Constancias */
+.cv-archivos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cv-archivo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.4rem 0.4rem 0.4rem 0.65rem;
+  background: var(--c-surface-1);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--c-ink-2);
+}
+
+.cv-archivo__nombre {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-ink-1);
+}
+
+.cv-archivo__peso {
+  font-size: var(--text-xs);
+  color: var(--c-ink-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.cv-archivo__quitar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--c-ink-3);
+  cursor: pointer;
+}
+
+.cv-archivo__quitar:hover:not(:disabled) {
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
+}
+
+.cv-adjuntar {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px dashed var(--c-line-2);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-1);
+  color: var(--c-ink-1);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cv-adjuntar:hover:not(:disabled) { background: var(--c-surface-2); }
+
+.cv-adjuntar:focus-visible,
+.cv-archivo__quitar:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.cv-adjuntar:disabled,
+.cv-archivo__quitar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* En una emergencia sin constancia: es lo que falta para poder enviar. */
+.cv-adjuntar--falta {
+  border-color: var(--c-danger-500);
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
+}
+
+.cv-adjuntar--falta:hover:not(:disabled) { background: var(--c-danger-100); }
+
+.cv-aviso {
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--c-warn-700);
+  background: var(--c-warn-50);
+  border: 1px solid var(--c-warn-100);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+}
+
+/* La solicitud se envió, pero alguna constancia no se pudo guardar. */
+.cv-enviada {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  font-size: var(--text-base);
+  line-height: 1.45;
+  color: var(--c-ink-1);
+}
+
+.cv-enviada > i {
+  font-size: 1.3rem;
+  line-height: 1.2;
+  color: var(--c-success-700);
+  flex-shrink: 0;
+}
+
+.cv-enviada p {
+  margin: 0.35rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--c-warn-700);
+}
+
 .cv-error {
   font-size: var(--text-sm);
   color: var(--c-danger-700);

@@ -23,9 +23,18 @@ export const getMiProximoMantenimiento = async () => {
   return res.data;
 };
 
-export const solicitarCancelacion = async (id_vuelo, motivo) => {
-  const res = await axios.post(`${API_URL}/alumno/vuelos/${id_vuelo}/solicitar-cancelacion`, { motivo });
-  return res.data;
+// La solicitud y sus constancias van en UN solo pedido: en una cancelación de
+// emergencia (menos de 24 h para el vuelo) la constancia es requisito, y si
+// fueran dos pedidos podría quedar creada sin respaldo.
+// La respuesta trae `es_emergencia`, `adjuntos` y `aviso_adjuntos` (texto si la
+// solicitud se envió pero alguna constancia no se pudo guardar).
+export const solicitarCancelacion = async (id_vuelo, motivo, archivos = []) => {
+  const url = `${API_URL}/alumno/vuelos/${id_vuelo}/solicitar-cancelacion`;
+  if (archivos.length === 0) return (await axios.post(url, { motivo })).data;
+  const fd = new FormData();
+  fd.append("motivo", motivo);
+  for (const a of archivos) fd.append("archivos", a);
+  return (await axios.post(url, fd, { headers: { "Content-Type": "multipart/form-data" } })).data;
 };
 
 export const quitarSolicitudCancelacion = async (id_solicitud) => {
@@ -197,8 +206,7 @@ export const firmarAsistenciaClase = async (id_sesion, firma) => {
   return res.data;
 };
 
-// Constancias del motivo de cancelación (opcionales). Van en un request APARTE
-// del que crea la solicitud: si Storage falla, la cancelación ya quedó enviada.
+// Agregar constancias a una solicitud que ya existe (mientras siga PENDIENTE).
 export const subirConstanciasCancelacion = async (id_solicitud_cancelacion, archivos) => {
   const fd = new FormData();
   for (const a of archivos) fd.append("archivos", a);
@@ -212,5 +220,11 @@ export const subirConstanciasCancelacion = async (id_solicitud_cancelacion, arch
 
 export const getUrlConstanciaCancelacion = async (id_adjunto) => {
   const res = await axios.get(`${API_URL}/alumno/adjuntos-cancelacion/${id_adjunto}/url`);
+  return res.data;
+};
+
+// En una cancelación de emergencia el servidor no deja quitar la última.
+export const borrarConstanciaCancelacion = async (id_adjunto) => {
+  const res = await axios.delete(`${API_URL}/alumno/adjuntos-cancelacion/${id_adjunto}`);
   return res.data;
 };

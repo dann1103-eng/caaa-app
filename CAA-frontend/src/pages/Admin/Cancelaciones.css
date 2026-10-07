@@ -20,11 +20,29 @@
   flex-direction: column;
 }
 
+/* Cancelación de emergencia pendiente: contorno rojo en toda la tarjeta.
+   El borde cambia de color y un box-shadow interior suma el segundo píxel,
+   así se ven 2 px sin mover el contenido respecto a las demás tarjetas.
+   Contorno completo y no franja lateral (DESIGN.md). */
+.adm-cancel__card--emergencia {
+  border-color: var(--c-danger-500);
+  box-shadow: inset 0 0 0 1px var(--c-danger-500), var(--shadow-sm);
+}
+
 .adm-cancel__card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--sp-2);
   margin-bottom: var(--sp-4);
+}
+
+.adm-cancel__badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+  flex-shrink: 0;
 }
 
 .adm-cancel__card-title {
@@ -41,6 +59,15 @@
   letter-spacing: var(--tracking-wide);
 }
 
+.adm-cancel__badge--emergencia {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--c-danger-500);
+  color: oklch(99% 0 0);
+  text-transform: uppercase;
+}
+
 .adm-cancel__card-body {
   flex-grow: 1;
   font-size: var(--text-base);
@@ -55,6 +82,40 @@
 .adm-cancel__card-body strong {
   font-weight: 600;
   color: var(--c-ink-1);
+}
+
+/* "Pedida 22 h antes del vuelo": en una emergencia es el dato que la hace
+   urgente, así que va en rojo. */
+.adm-cancel__card-body .adm-cancel__anticipacion--emergencia,
+.adm-cancel__card-body .adm-cancel__anticipacion--emergencia strong {
+  color: var(--c-danger-700);
+}
+
+.adm-cancel__anticipacion--emergencia {
+  font-weight: 600;
+}
+
+.adm-cancel__ya-salio,
+.adm-cancel__sin-constancia {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.adm-cancel__card-body .adm-cancel__ya-salio {
+  margin-top: var(--sp-3);
+  background: var(--c-warn-50);
+  color: var(--c-warn-700);
+}
+
+.adm-cancel__card-body .adm-cancel__sin-constancia {
+  margin-top: var(--sp-3);
+  background: var(--c-danger-50);
+  color: var(--c-danger-700);
 }
 
 .adm-cancel__card-actions {

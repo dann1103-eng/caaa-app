@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import Header from "../../components/Header/Header";
 import MiHorarioList from "../../components/MiHorarioList/MiHorarioList";
 import MisClasesList from "../../components/MisClasesList/MisClasesList";
+import MisCancelaciones from "../../components/MisCancelaciones/MisCancelaciones";
 import MetarWidget from "../../components/MetarWidget/MetarWidget";
 import EstadoOperacionesWidget from "../../components/EstadoOperacionesWidget/EstadoOperacionesWidget";
 import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWidget";
@@ -406,52 +407,12 @@ export default function AlumnoDashboard() {
                 )}
               </>
             ) : (
-              <div className="mhl__list" style={{ marginTop: '20px' }}>
-                {estadoCancel && (
-                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '14px', padding: '12px 14px', background: 'var(--c-surface-1)', border: '1px solid var(--c-line-1)', borderRadius: 'var(--radius-md)' }}>
-                    <div style={{ fontSize: 'var(--text-sm)' }}><strong>{estadoCancel.count_mes ?? 0}</strong> este mes</div>
-                    <div style={{ fontSize: 'var(--text-sm)' }}><strong>{estadoCancel.racha_semanas ?? 0}</strong> semana(s) seguida(s)</div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--c-ink-3)', width: '100%' }}>
-                      Recordá: solo <strong>1 cancelación por semana</strong>. La 4ª del mes o la 4ª semana seguida generan multa de $35.
-                      {(estadoCancel.count_mes >= 3 || estadoCancel.racha_semanas >= 3) && (
-                        <span style={{ color: 'var(--c-warn-700)', fontWeight: 600 }}> Tu próxima cancelación podría tener multa.</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {loadingSolicitudes ? (
-                  <div className="mhl__state"><span className="mhl__spinner"/><span>Cargando solicitudes...</span></div>
-                ) : solicitudes.length === 0 ? (
-                  <div className="mhl__state mhl__state--empty">No tienes solicitudes de cancelación de vuelo.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {solicitudes.map((s) => (
-                      <div key={s.id_solicitud_cancelacion} style={{ background: 'var(--c-surface-1)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--c-line-1)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontWeight: 600 }}>Aeronave: {s.aeronave_codigo}</span>
-                          <span className={`mhl__badge mhl__badge--${s.estado ? String(s.estado).toLowerCase() : 'pendiente'}`}>
-                            {s.estado}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--c-ink-2)', marginBottom: '4px' }}>
-                          Fecha Vuelo: {new Date(s.fecha_hora_vuelo).toLocaleString('es-SV', {timeZone: 'America/El_Salvador'})}
-                        </div>
-                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--c-ink-2)', marginBottom: '4px' }}>
-                          Motivo: {s.motivo}
-                        </div>
-                        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--c-ink-3)' }}>
-                          Solicitado el: {new Date(s.creado_en).toLocaleString('es-SV', {timeZone: 'America/El_Salvador'})}
-                        </div>
-                        {s.tiene_multa && (
-                          <div style={{ marginTop: '8px', color: 'var(--c-danger-700)', fontWeight: 600, fontSize: 'var(--text-xs)' }}>
-                            Con multa de ${s.monto_multa}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <MisCancelaciones
+                solicitudes={solicitudes}
+                loading={loadingSolicitudes}
+                estadoCancel={estadoCancel}
+                onRefresh={fetchSolicitudes}
+              />
             )}
 
           </div>

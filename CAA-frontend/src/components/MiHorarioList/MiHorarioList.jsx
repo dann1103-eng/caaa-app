@@ -45,10 +45,15 @@ const ESTADO_CFG = {
 };
 
 function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitarSolicitud, onPlan, onReporte }) {
+  // `fecha_hora_vuelo` es la salida real (en un tramo de ruta, la de la ruta).
+  // Sin ella esto caía a `fecha_vuelo`, que llega como medianoche UTC: el botón
+  // de cancelar desaparecía a las 18:00 del día anterior.
   const fechaReferencia = v.fecha_hora_vuelo || v.fecha_vuelo;
   const esFuturo = new Date(fechaReferencia) > new Date();
   const msRestantes = new Date(fechaReferencia) - new Date();
-  const esEmergencia = esFuturo && msRestantes / (1000 * 60 * 60) <= 24;
+  // Con menos de 24 h la cancelación es de emergencia y pide constancia. Acá es
+  // solo un anticipo con el reloj del teléfono: quien decide es el servidor.
+  const esEmergencia = esFuturo && msRestantes / (1000 * 60 * 60) < 24;
   const esReal = v.aeronave_tipo !== "SIMULADOR";
   const cfg = ESTADO_CFG[v.estado] ?? { label: v.estado, cls: "" };
 
@@ -104,10 +109,10 @@ function VueloCard({ v, weekMode, horasTotales, onSolicitarCancelacion, onQuitar
 
           {esFuturo && v.estado_solicitud_cancelacion !== 'PENDIENTE' && (
             <button
-              className="mhl__btn mhl__btn--cancel"
+              className={`mhl__btn ${esEmergencia ? "mhl__btn--emergency" : "mhl__btn--cancel"}`}
               onClick={onSolicitarCancelacion}
             >
-              Solicitar cancelación
+              {esEmergencia ? "Cancelación de emergencia" : "Solicitar cancelación"}
             </button>
           )}
         </div>

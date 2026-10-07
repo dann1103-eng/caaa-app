@@ -4,6 +4,7 @@ import { getSolicitudesCancelacion, resolverSolicitudCancelacion, getUrlConstanc
 import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
 import Header from "../../components/Header/Header";
+import { pesoLegible, iconoDeConstancia, textoAnticipacion, abrirConUrlFirmada } from "../../utils/constancias";
 import "./Cancelaciones.css";
 
 // Las constancias viven en un bucket privado: se abren con una URL firmada que
@@ -11,15 +12,11 @@ import "./Cancelaciones.css";
 // quede una vencida dando error.
 async function abrirConstancia(id_adjunto) {
   try {
-    const { url } = await getUrlConstanciaCancelacionAdmin(id_adjunto);
-    window.open(url, "_blank", "noopener");
+    await abrirConUrlFirmada(async () => (await getUrlConstanciaCancelacionAdmin(id_adjunto)).url);
   } catch (e) {
     toast.error(e.response?.data?.message || "No se pudo abrir la constancia");
   }
 }
-
-const pesoLegible = (b) => (!b ? "" : b < 1024 * 1024 ? `${Math.round(b / 1024)} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
-const iconoDe = (tipo) => (String(tipo || "").startsWith("image/") ? "bi-file-earmark-image" : "bi-file-earmark-pdf");
 
 // standalone=true: se usa fuera del shell de ADMIN (ej. instructor con
 // puede_programar, vía /programacion/cancelaciones) — no hay topbar propia
@@ -108,8 +105,15 @@ export default function CancelacionesAdmin({ standalone = false }) {
           </div>
         ) : (
           <div className="adm-cancel__list">
-            {solicitudes.map((s) => (
-              <div key={s.id_solicitud} className="adm-cancel__card">
+            {solicitudes.map((s) => {
+              // Emergencia = pedida con menos de 24 h para la salida (lo dice el
+              // servidor). Mientras esté pendiente lleva el contorno rojo: es lo
+              // primero que hay que resolver. En el historial queda solo el badge.
+              const adjuntos = Array.isArray(s.adjuntos) ? s.adjuntos : [];
+              const anticipacion = textoAnticipacion(s.horas_anticipacion);
+              const urgente = tab === 'PENDIENTE' && s.es_emergencia;
+              return (
+              <div key={s.id_solicitud} className={`adm-cancel__card${urgente ? ' adm-cancel__card--emergencia' : ''}`}>
                 <div className="adm-cancel__card-header">
                   <div className="adm-cancel__card-title">
                     <span style={{ fontWeight: 600 }}>{s.alumno_nombre} {s.alumno_apellido}</span>
@@ -117,21 +121,43 @@ export default function CancelacionesAdmin({ standalone = false }) {
                       ({s.aeronave_codigo})
                     </span>
                   </div>
-                  <span className="adm-cancel__badge" style={{
-                    backgroundColor: s.estado === 'PENDIENTE' ? 'var(--c-warn-50)' : s.estado === 'ACEPTADA' ? 'var(--c-success-50)' : s.estado === 'EXPIRADA' ? 'var(--c-surface-2)' : 'var(--c-danger-50)',
-                    color: s.estado === 'PENDIENTE' ? 'var(--c-warn-700)' : s.estado === 'ACEPTADA' ? 'var(--c-success-700)' : s.estado === 'EXPIRADA' ? 'var(--c-ink-2)' : 'var(--c-danger-700)'
-                  }}>{s.estado}</span>
+                  <span className="adm-cancel__badges">
+                    {s.es_emergencia && (
+                      <span className="adm-cancel__badge adm-cancel__badge--emergencia">
+                        <i className="bi bi-exclamation-octagon-fill" aria-hidden="true"></i> Emergencia
+                      </span>
+                    )}
+                    <span className="adm-cancel__badge" style={{
+                      backgroundColor: s.estado === 'PENDIENTE' ? 'var(--c-warn-50)' : s.estado === 'ACEPTADA' ? 'var(--c-success-50)' : s.estado === 'EXPIRADA' ? 'var(--c-surface-2)' : 'var(--c-danger-50)',
+                      color: s.estado === 'PENDIENTE' ? 'var(--c-warn-700)' : s.estado === 'ACEPTADA' ? 'var(--c-success-700)' : s.estado === 'EXPIRADA' ? 'var(--c-ink-2)' : 'var(--c-danger-700)'
+                    }}>{s.estado}</span>
+                  </span>
                 </div>
                 <div className="adm-cancel__card-body">
                   <p><strong>Fecha Vuelo:</strong> {new Date(s.fecha_hora_vuelo).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}</p>
                   <p><strong>Motivo:</strong> {s.justificacion}</p>
                   <p><strong>Solicitado el:</strong> {new Date(s.fecha_solicitud).toLocaleString('es-SV', { timeZone: 'America/El_Salvador' })}</p>
+                  {anticipacion && (
+                    <p className={s.es_emergencia ? 'adm-cancel__anticipacion adm-cancel__anticipacion--emergencia' : 'adm-cancel__anticipacion'}>
+                      <strong>Anticipación:</strong> pedida {anticipacion} antes del vuelo
+                    </p>
+                  )}
+                  {tab === 'PENDIENTE' && s.ya_salio && (
+                    <p className="adm-cancel__ya-salio">
+                      <i className="bi bi-clock-history" aria-hidden="true"></i> La hora de salida de este vuelo ya pasó.
+                    </p>
+                  )}
                   <p><strong>Cancelaciones este mes:</strong> {s.cancelaciones_mes ?? s.cancelaciones_aceptadas_mes} <span style={{ color: 'var(--c-ink-3)' }}>({s.cancelaciones_aceptadas_mes} aceptadas)</span></p>
-                  {Array.isArray(s.adjuntos) && s.adjuntos.length > 0 && (
+                  {s.es_emergencia && adjuntos.length === 0 && (
+                    <p className="adm-cancel__sin-constancia">
+                      <i className="bi bi-file-earmark-x" aria-hidden="true"></i> Sin constancia adjunta
+                    </p>
+                  )}
+                  {adjuntos.length > 0 && (
                     <div style={{ marginTop: '10px' }}>
-                      <strong>Constancias adjuntas ({s.adjuntos.length}):</strong>
+                      <strong>Constancias adjuntas ({adjuntos.length}):</strong>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-                        {s.adjuntos.map((ad) => (
+                        {adjuntos.map((ad) => (
                           <button
                             key={ad.id_adjunto}
                             type="button"
@@ -145,7 +171,7 @@ export default function CancelacionesAdmin({ standalone = false }) {
                               maxWidth: '260px',
                             }}
                           >
-                            <i className={`bi ${iconoDe(ad.content_type)}`} />
+                            <i className={`bi ${iconoDeConstancia(ad.content_type)}`} />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.nombre_archivo}</span>
                             <span style={{ color: 'var(--c-ink-3, #6b7280)' }}>{pesoLegible(ad.tamano_bytes)}</span>
                           </button>
@@ -179,7 +205,8 @@ export default function CancelacionesAdmin({ standalone = false }) {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
