@@ -61,6 +61,7 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
     const problema = problemaDeConstancias(todas);
     if (problema) { setErrorConstancias(problema); return; }
     setErrorConstancias("");
+    setError(""); // si el envío falló por falta de constancia, ya no aplica
     setConstancias(todas);
   };
 

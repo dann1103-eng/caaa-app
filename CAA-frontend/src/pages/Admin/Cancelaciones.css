@@ -170,6 +170,18 @@
     padding: var(--sp-4);
   }
 
+  /* En el teléfono los badges van ARRIBA del nombre: al lado, "Emergencia" y el
+     estado le dejaban 120 px a un nombre completo, que se partía en cuatro
+     renglones. Y arriba es donde primero se mira. */
+  .adm-cancel__card-header {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+  }
+
+  .adm-cancel__badges {
+    justify-content: flex-start;
+  }
+
   .adm-cancel__card-actions {
     flex-direction: column-reverse;
     gap: var(--sp-2);

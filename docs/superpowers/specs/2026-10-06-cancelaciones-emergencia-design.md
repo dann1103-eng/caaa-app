@@ -1,7 +1,7 @@
 # Cancelaciones de emergencia: constancia obligatoria y prioridad visible
 
-**Fecha:** 2026-10-06 · **Estado:** diseño acordado con Daniel (constancia
-obligatoria en emergencias: decisión suya del 2026-10-06)
+**Fecha:** 2026-10-06 · **Estado:** implementado (constancia obligatoria en
+emergencias: decisión de Daniel del 2026-10-06)
 
 ## El problema
 
@@ -153,11 +153,15 @@ esa ventana de milisegundos a segundos.
 
 Qué pasa si una subida falla:
 
-| | emergencia | con margen |
-|---|---|---|
-| resultado | `ROLLBACK`: **no se crea nada** | la solicitud **se crea igual** |
-| archivos ya subidos | se borran de Storage (best-effort) | los que subieron quedan adjuntos |
-| respuesta | 502 con mensaje claro | 200 con `aviso_adjuntos` |
+| | emergencia, no quedó ninguna | emergencia, quedó al menos una | con margen |
+|---|---|---|---|
+| resultado | `ROLLBACK`: **no se crea nada** | la solicitud **se crea** | la solicitud **se crea igual** |
+| archivos | lo intentado se borra de Storage (best-effort) | los que subieron quedan adjuntos | los que subieron quedan adjuntos |
+| respuesta | 502 con mensaje claro | 200 con `aviso_adjuntos` | 200 con `aviso_adjuntos` |
+
+La regla es "al menos una constancia", no "todas las que se eligieron": si de
+tres fotos sube una, la emergencia está respaldada y se envía avisando de las
+que faltaron (el alumno puede agregarlas después desde "Mis cancelaciones").
 
 Así se conserva la garantía de `c1adfa4` para las cancelaciones con margen
 (una falla de Storage nunca las tumba) y se cumple la condición 2 para las de
@@ -183,9 +187,19 @@ después suben aparte. Con margen siguen funcionando. En emergencia reciben el
 
 ### Errores de subida legibles
 
-Las rutas que reciben constancias pasan por un envoltorio de `multer` que
-convierte sus errores en 400 en español ("pesa más de 8 MB", "máximo 5
-archivos", tipo no permitido). Hoy salen como 500.
+Las rutas que reciben constancias pasan por `middlewares/recibirConstancias.js`,
+que envuelve a `multer` y convierte sus errores en 400 en español ("pesa más
+de 8 MB", "máximo 5 archivos", tipo no permitido). Hoy salen como 500.
+
+El mismo middleware arregla dos cosas que salieron al probarlo con pedidos
+reales:
+
+- **Los nombres con tildes se guardaban rotos.** `multer` lee el nombre del
+  archivo como latin1 y los navegadores lo mandan en UTF-8: la constancia del
+  2026-10-06 quedó como "Constancia mÃ©dica .pdf". Se rehace la lectura.
+- **Un archivo de exactamente 8 MB se rechazaba.** `multer` corta cuando el
+  archivo llega al límite, no cuando lo pasa; su límite va en 8 MB + 1 para
+  que coincida con lo que valida el formulario.
 
 ### Después de enviar
 
@@ -233,6 +247,12 @@ nada que priorizar.
 La notificación (in-app y push) a quienes resuelven dice **Cancelación de
 EMERGENCIA** cuando aplica.
 
+**El push no salía nunca.** `utils/webpush.js` define `notificarUsuarios` desde
+el 2026-07-23 pero no la exportaba: el controller recibía `undefined` y el
+`TypeError` se lo comía el `try/catch` del aviso, que es best-effort a
+propósito. El aviso de la campana sí llegaba y por eso nadie lo notó. Salió al
+correr el controller de punta a punta; se arregla exportándola.
+
 Al **aceptar**, el vuelo cancelado queda con `tipo_cancelacion = 'EMERGENCIA'` o
 `'NORMAL'` (hoy queda `NULL`). El CHECK de la columna ya admite los dos valores,
 y el panel "Vuelos cancelados" y el reporte de Turno ya saben mostrarlos.
@@ -264,7 +284,9 @@ Backend (`legacy/CAA-backend/`):
 | `controllers/cancelacionAdjuntoController.js` | no borrar la última constancia de una emergencia; usa `utils/constancias.js` |
 | `controllers/alumno/alumnoVueloController.js` | `fecha_hora_vuelo` en el horario; `es_emergencia` en condiciones |
 | `controllers/admin/adminCancelacionController.js` | listado (emergencia, orden, instantes); `tipo_cancelacion` al aceptar |
-| `routes/alumnoRoutes.js` | `multer` en la ruta de crear; envoltorio de errores |
+| `middlewares/recibirConstancias.js` (nuevo) | `multer` envuelto: errores como 400 en español, nombres con tildes |
+| `routes/alumnoRoutes.js` | el middleware en las dos rutas que reciben archivos |
+| `utils/webpush.js` | exporta `notificarUsuarios` |
 
 Frontend (`CAA-frontend/src/`):
 
@@ -280,21 +302,34 @@ Frontend (`CAA-frontend/src/`):
 
 ## Pruebas
 
-- **Unitarias** (`npm test`, sin red): `utils/constancias.js` del backend y del
-  frontend — tipos, tamaños, cantidad, mensajes.
-- **La regla en SQL**, contra la base pero sin tocar ninguna tabla (filas
-  armadas con `VALUES`): 23 h 59 min es emergencia, 24 h no; no cambia con la
-  zona de la sesión (`SET timezone` a UTC y a El Salvador dan lo mismo).
-- **De punta a punta**, backend local: emergencia sin archivo → 400; con archivo
-  → creada con su adjunto; borrar la última → 400; con margen y sin archivo →
-  creada; vuelo pasado → 400; el listado de quien aprueba trae la emergencia
-  primero y las horas correctas con el proceso en UTC; aceptar deja
-  `tipo_cancelacion = 'EMERGENCIA'`.
-- **En el navegador**, a 1280 y 375 px: el formulario en modo emergencia y la
-  tarjeta con contorno rojo.
+- **Unitarias** (`npm test`, sin red). Backend: 92 (60 de antes + 32). Frontend:
+  31 (23 de antes + 8). Cubren la validación de archivos de los dos lados, el
+  middleware con pedidos HTTP reales, y subir/borrar constancias contra el
+  Storage de mentira (`tests/storageFalso.js`, que ganó borrado y fallas de
+  una sola vez).
+- **La regla en SQL** (`tests/cancelacionEmergenciaSQL.test.js`), contra la
+  base y solo leyendo: 23 h 59 min es emergencia, 24 h no; cada caso corre con
+  la sesión en UTC y en El Salvador y da lo mismo; en las rutas con parada que
+  existen, la salida de cada tramo es la del tramo 1. Sin credenciales de base
+  se salta.
+- **De punta a punta** (`_e2e_cancelaciones.js`, no se commitea): los
+  controllers de verdad contra el esquema real, con la sesión en UTC, dentro de
+  UNA transacción que al final se deshace. Reciben un `db` de mentira que les
+  entrega esa conexión y traduce sus `BEGIN/COMMIT/ROLLBACK` a `SAVEPOINT`, así
+  su lógica transaccional corre entera; los vuelos, la ruta y un bloque horario
+  de prueba se crean ahí adentro y nadie más los ve. 53 comprobaciones, y al
+  terminar el censo de la base es idéntico al de antes de empezar.
+- **En el navegador.** La pantalla de quien aprueba, contra los datos reales en
+  solo lectura y con el backend local en `TZ=UTC`: la solicitud pendiente del
+  2026-10-06 sale con contorno rojo, badge, "pedida 23 h antes del vuelo" y el
+  vuelo a la 1:30 p. m. Las pantallas del alumno, contra un backend de mentira
+  (`_mock_alumno.js`) que usa el middleware real de archivos: modo emergencia,
+  validación, acumulación, un solo pedido multipart, el cambio a emergencia por
+  el 400, el aviso, y "Mis cancelaciones". A 1280 y a 375 px, sin desborde.
 
-Las pruebas de punta a punta van contra el esquema `demo`, no contra los datos
-de CAAA: crear una solicitud avisa a los jefes de pilotos reales.
+Lo que NO se probó: el formulario del alumno contra el backend real en el
+navegador. No hay un alumno de prueba con un vuelo en las próximas 24 h, crear
+uno lo mostraría en la Proyección, y el esquema `demo` está atrasado (abajo).
 
 ## Fuera de alcance
 
