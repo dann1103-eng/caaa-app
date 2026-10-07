@@ -1,4 +1,6 @@
 const db = require("../config/db");
+const { subirArchivo, borrarArchivo, BUCKETS } = require("../utils/storage");
+const { extensionDe } = require("../utils/constancias");
 
 const MONTO_MULTA = 35.0;
 
@@ -163,8 +165,88 @@ const adjuntosJSONSQL = (sc = "sc") => `COALESCE((
          WHERE ad.id_solicitud_cancelacion = ${sc}.id_solicitud_cancelacion
       ), '[]'::json)`;
 
+// ── Constancias en Storage ───────────────────────────────────────────────────
+//
+// Bucket `documentos-alumno`, bajo cancelaciones/<id_solicitud>/. La cuenta de
+// demostraciones comparte el bucket y sus ids chocan con los reales, de ahí el
+// prefijo `demo-` y la regla de abajo: Storage se limpia SIEMPRE por la ruta
+// exacta que se guardó o se intentó, nunca por carpeta.
+
+const TOPE_SUBIDA_MS = 45_000;
+
+const carpetaDeConstancias = (id_solicitud) =>
+  `cancelaciones/${db.esDemo() ? "demo-" : ""}${id_solicitud}`;
+
+/**
+ * Sube UNA constancia. No toca la base. Devuelve la ruta del objeto.
+ *
+ * La ruta se anota en `intentadas` ANTES de subir: si lo que sigue falla, quien
+ * llama sabe qué limpiar aunque esta función no haya llegado a devolver nada.
+ *
+ * Lleva tope porque quien llama tiene una transacción abierta mientras tanto, y
+ * un Storage colgado retendría una conexión del pool sin límite. El cliente de
+ * Storage no sabe abortar: una subida que pierde contra el tope puede terminar
+ * igual más tarde. Si llega, se borra.
+ */
+async function subirConstancia({ id_solicitud, archivo, intentadas }) {
+  const ruta = `${carpetaDeConstancias(id_solicitud)}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extensionDe(archivo.originalname)}`;
+  intentadas.push(ruta);
+  // upsert:false — la ruta es única, y así un reintento nunca pisa un objeto.
+  const subida = subirArchivo(BUCKETS.DOCUMENTOS, ruta, archivo.buffer, archivo.mimetype, { upsert: false });
+  let reloj;
+  const tope = new Promise((_, rechazar) => {
+    reloj = setTimeout(() => rechazar(new Error("La subida a Storage tardó demasiado")), TOPE_SUBIDA_MS);
+  });
+  try {
+    await Promise.race([subida, tope]);
+  } catch (e) {
+    subida.then(() => borrarArchivo(BUCKETS.DOCUMENTOS, ruta)).catch(() => {});
+    throw e;
+  } finally {
+    clearTimeout(reloj);
+  }
+  return ruta;
+}
+
+/**
+ * Sube las constancias EN PARALELO y guarda una fila por cada una que subió.
+ *
+ * Devuelve `{ guardadas, fallo }`. `fallo` es el primer error de subida, o null.
+ * Las que subieron bien quedan guardadas aunque otra haya fallado: quien llama
+ * decide si eso alcanza (con margen, sí; en una emergencia hace ROLLBACK).
+ *
+ * `conn` es la conexión de la transacción de quien llama, o `db` si no hay una.
+ * Un error de la BASE (no de Storage) se relanza tal cual.
+ */
+async function guardarConstancias(conn, { id_solicitud, archivos, id_usuario, intentadas }) {
+  const subidas = await Promise.allSettled(
+    archivos.map((archivo) => subirConstancia({ id_solicitud, archivo, intentadas }))
+  );
+  const guardadas = [];
+  let fallo = null;
+  for (let i = 0; i < subidas.length; i++) {
+    if (subidas[i].status === "rejected") { fallo = fallo || subidas[i].reason; continue; }
+    const a = archivos[i];
+    const ins = await conn.query(
+      `INSERT INTO solicitud_cancelacion_adjunto
+         (id_solicitud_cancelacion, nombre_archivo, archivo_path, content_type, tamano_bytes, subido_por, subido_en)
+       VALUES ($1,$2,$3,$4,$5,$6, ${AHORA_SV})
+       RETURNING id_adjunto, nombre_archivo, content_type, tamano_bytes,
+                 to_char(subido_en, 'YYYY-MM-DD HH24:MI') AS subido_en`,
+      [id_solicitud, a.originalname, subidas[i].value, a.mimetype, a.size, id_usuario]
+    );
+    guardadas.push(ins.rows[0]);
+  }
+  return { guardadas, fallo };
+}
+
+/** Borra objetos de Storage por su ruta exacta. Best-effort: nunca lanza. */
+const borrarDeStorage = (rutas) =>
+  Promise.all((rutas || []).map((ruta) => borrarArchivo(BUCKETS.DOCUMENTOS, ruta)));
+
 module.exports = {
   getEstadoCancelaciones, MONTO_MULTA,
   HORAS_EMERGENCIA, AHORA_SV,
   salidaVueloSQL, esEmergenciaSQL, seriaEmergenciaSQL, comoInstanteSQL, horasSQL, adjuntosJSONSQL,
+  guardarConstancias, borrarDeStorage,
 };

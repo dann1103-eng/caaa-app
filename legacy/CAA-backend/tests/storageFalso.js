@@ -8,7 +8,9 @@
  * No es un archivo de pruebas (no termina en .test.js): lo requieren los que sí.
  *
  * `fallas` fuerza respuestas, la primera que calce gana:
- *   { metodo: "HEAD" | "GET" | "POST" | "POST sign", prefijo, status, body? }
+ *   { metodo: "HEAD" | "GET" | "POST" | "POST sign", prefijo, status, body?, veces? }
+ *   `veces` la gasta: falla esa cantidad de pedidos y después deja pasar (sin
+ *   `veces` falla siempre, como hasta ahora).
  *   status "cortar" corta la conexión antes de contestar (error de red);
  *   status "cortar-a-medias" manda los encabezados de un 200 y un pedazo del
  *   cuerpo, y corta en plena transferencia.
@@ -37,6 +39,7 @@ async function levantarStorageFalso() {
 
       const falla = fallas.find((f) => f.metodo === metodo && clave.startsWith(f.prefijo));
       if (falla) {
+        if (falla.veces != null && --falla.veces <= 0) fallas.splice(fallas.indexOf(falla), 1);
         if (falla.status === "cortar") return req.socket.destroy();
         if (falla.status === "cortar-a-medias") {
           res.writeHead(200, { "content-type": "application/pdf", "content-length": "100000" });
@@ -61,6 +64,13 @@ async function levantarStorageFalso() {
         }
         objetos.set(clave, Buffer.concat(partes));
         return json(200, { Key: clave, Id: "falso" });
+      }
+      // remove([rutas]): DELETE sobre el bucket, con las rutas en el cuerpo.
+      if (req.method === "DELETE") {
+        let rutas = [];
+        try { rutas = JSON.parse(Buffer.concat(partes).toString() || "{}").prefixes || []; } catch { /* cuerpo vacío */ }
+        for (const r of rutas) objetos.delete(`${clave}/${r}`);
+        return json(200, rutas.map((name) => ({ name })));
       }
       return json(405, {});
     });

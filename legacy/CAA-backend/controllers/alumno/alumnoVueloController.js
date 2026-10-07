@@ -1,6 +1,8 @@
 const db = require("../../config/db");
 const catchAsync = require("../../utils/catchAsync");
-const { getEstadoCancelaciones } = require("../../services/cancelacionService");
+const {
+  getEstadoCancelaciones, AHORA_SV, salidaVueloSQL, seriaEmergenciaSQL, comoInstanteSQL, horasSQL,
+} = require("../../services/cancelacionService");
 
 exports.getMiHorario = catchAsync(async (req, res) => {
   const { week = "current" } = req.query;
@@ -19,6 +21,11 @@ exports.getMiHorario = catchAsync(async (req, res) => {
 
   const result = await db.query(`
     SELECT v.*, b.hora_inicio, b.hora_fin, ae.codigo AS aeronave_codigo, rv.estado AS reporte_estado,
+           -- La salida como instante real. La pantalla la usa para ofrecer el
+           -- botón de cancelar hasta esa hora; sin ella caía a fecha_vuelo, que
+           -- llega como medianoche UTC, y el botón desaparecía a las 18:00 de la
+           -- víspera. En un tramo de ruta es la salida de la ruta (tramo 1).
+           ${comoInstanteSQL(salidaVueloSQL("v", "b"))} AS fecha_hora_vuelo,
            sc.id_solicitud_cancelacion, sc.estado AS estado_solicitud_cancelacion,
            TRIM(u_ins.nombre || ' ' || COALESCE(u_ins.apellido, '')) AS instructor_nombre
     FROM vuelo v
@@ -94,12 +101,28 @@ exports.getCondicionesCancelacion = catchAsync(async (req, res) => {
     estado = await getEstadoCancelaciones(idAlumno, idVuelo);
   }
 
+  // ¿Pedir la cancelación de ESTE vuelo ahora sería de emergencia? Lo dice el
+  // servidor para que el formulario no dependa del reloj del teléfono. Solo
+  // sobre un vuelo propio.
+  let emergencia = { es_emergencia: false, horas_para_vuelo: null };
+  if (idAlumno && idVuelo) {
+    const emRes = await db.query(`
+      SELECT ${seriaEmergenciaSQL("v", "b")} AS es_emergencia,
+             ${horasSQL(`${salidaVueloSQL("v", "b")} - ${AHORA_SV}`)} AS horas_para_vuelo
+        FROM vuelo v
+        JOIN bloque_horario b ON b.id_bloque = v.id_bloque
+       WHERE v.id_vuelo = $1 AND v.id_alumno = $2
+    `, [idVuelo, idAlumno]);
+    if (emRes.rows[0]) emergencia = emRes.rows[0];
+  }
+
   res.json({
     condiciones: result.rows,
     // Compat: el modal viejo leía cancelaciones_aceptadas_mes; ahora usamos el
     // conteo unificado PENDIENTE+ACEPTADA.
     cancelaciones_aceptadas_mes: estado.count_mes,
     ...estado,
+    ...emergencia,
   });
 });
 

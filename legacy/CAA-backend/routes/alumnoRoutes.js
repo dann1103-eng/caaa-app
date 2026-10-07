@@ -10,6 +10,7 @@ const accesoEstudianteVuelo = require("../middlewares/accesoEstudianteVuelo");
 const alumnoVuelo = require("../controllers/alumno/alumnoVueloController");
 const alumnoCancelacion = require("../controllers/alumno/alumnoCancelacionController");
 const cancelacionAdjunto = require("../controllers/cancelacionAdjuntoController");
+const constancias = require("../utils/constancias");
 const alumnoPlanVuelo = require("../controllers/alumno/alumnoPlanVueloController");
 const alumnoWb = require("../controllers/alumno/alumnoWbController");
 const alumnoReporte = require("../controllers/alumno/alumnoReporteController");
@@ -43,18 +44,32 @@ const uploadPlan = multer({
   },
 });
 
-// Constancias de una solicitud de cancelación: imágenes o PDF, opcionales.
+// Constancias de una solicitud de cancelación: imágenes o PDF. Obligatorias en
+// una cancelación de emergencia, opcionales en las demás (lo decide el
+// controller, que es quien sabe cuánto falta para el vuelo).
 // Memoria (no disco): el disco de Railway se borra en cada redeploy y de acá
 // el buffer va directo a Supabase Storage.
 const uploadConstancia = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024, files: 5 },
+  limits: { fileSize: constancias.MAX_BYTES, files: constancias.MAX_ARCHIVOS },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if ([".pdf", ".jpg", ".jpeg", ".png"].includes(ext)) cb(null, true);
-    else cb(new Error("Solo se aceptan imágenes JPG/PNG o archivos PDF."));
+    if (constancias.EXTENSIONES_OK.includes(ext)) cb(null, true);
+    else cb(constancias.errorDeTipo(constancias.nombreLegible(file.originalname)));
   },
 });
+
+// multer envuelto. Sus errores (archivo muy pesado, demasiados, tipo no
+// permitido) llegaban al middleware global y salían como 500 y en inglés
+// ("File too large"): acá son un 400 que el alumno puede entender. De paso se
+// arregla el nombre de cada archivo, que multer lee como latin1.
+// En un pedido que no es multipart multer no hace nada: el JSON sigue andando.
+const recibirConstancias = (req, res, next) =>
+  uploadConstancia.array("archivos", constancias.MAX_ARCHIVOS)(req, res, (err) => {
+    if (err) return res.status(400).json({ message: constancias.mensajeDeSubida(err) });
+    for (const f of req.files || []) f.originalname = constancias.nombreLegible(f.originalname);
+    next();
+  });
 
 const uploadLoadsheet = multer({
   storage: multer.memoryStorage(),
@@ -95,13 +110,15 @@ const aulaCtl = require("../controllers/administracion/aulaVirtualController");
 router.get("/mi-aula-virtual", alumnoAccess, aulaCtl.miAulaVirtual);
 
 // --- Cancelaciones ---
-router.post("/vuelos/:id_vuelo/solicitar-cancelacion", alumnoAccess, alumnoCancelacion.solicitarCancelacion);
+// Acepta JSON (sin archivos) o multipart (motivo + archivos). La solicitud y sus
+// constancias entran juntas: en una emergencia, sin constancia no se crea nada.
+router.post("/vuelos/:id_vuelo/solicitar-cancelacion", alumnoAccess, recibirConstancias, alumnoCancelacion.solicitarCancelacion);
 router.delete("/solicitudes-cancelacion/:id_solicitud_cancelacion", alumnoAccess, alumnoCancelacion.quitarSolicitudCancelacion);
 router.get("/mis-solicitudes-cancelacion", alumnoAccess, alumnoCancelacion.getMisSolicitudesCancelacion);
 
-// Constancias del motivo de cancelación (opcionales). Van en un request aparte
-// del que crea la solicitud, a propósito: ver el comentario del controller.
-router.post("/solicitudes-cancelacion/:id_solicitud_cancelacion/adjuntos", alumnoAccess, uploadConstancia.array("archivos", 5), cancelacionAdjunto.subirAdjuntos);
+// Constancias de una solicitud que ya existe: agregar más mientras siga
+// PENDIENTE, verlas y quitarlas.
+router.post("/solicitudes-cancelacion/:id_solicitud_cancelacion/adjuntos", alumnoAccess, recibirConstancias, cancelacionAdjunto.subirAdjuntos);
 router.get("/solicitudes-cancelacion/:id_solicitud_cancelacion/adjuntos", alumnoAccess, cancelacionAdjunto.listarMisAdjuntos);
 router.delete("/adjuntos-cancelacion/:id_adjunto", alumnoAccess, cancelacionAdjunto.borrarMiAdjunto);
 router.get("/adjuntos-cancelacion/:id_adjunto/url", alumnoAccess, cancelacionAdjunto.urlMiAdjunto);

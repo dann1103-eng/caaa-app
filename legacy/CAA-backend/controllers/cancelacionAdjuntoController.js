@@ -1,11 +1,11 @@
 // Constancias adjuntas a una solicitud de cancelación (imágenes o PDF que el
-// alumno sube para respaldar su motivo).
+// alumno sube para respaldar su motivo), una vez que la solicitud ya existe:
+// agregar más, verlas y quitarlas.
 //
-// DECISIÓN DE DISEÑO: adjuntar es OPCIONAL y va en un request APARTE del que
-// crea la solicitud. Si fueran el mismo multipart, una falla de Storage
-// (variables sin configurar, red, cuota) tumbaría la cancelación entera — y el
-// pedido explícito fue que adjuntar nunca sea requisito para cancelar. Así la
-// solicitud queda creada siempre y el adjunto es un extra que puede reintentarse.
+// Las que acompañan el envío entran con la solicitud, en el mismo pedido (ver
+// alumnoCancelacionController.solicitarCancelacion). En una cancelación de
+// EMERGENCIA —pedida con menos de 24 h para la salida— son requisito, y por eso
+// acá no se deja quitar la última.
 //
 // Se reusa el bucket `documentos-alumno`, que ya existe y acepta pdf/jpeg/png;
 // los objetos van bajo el prefijo cancelaciones/<id_solicitud>/.
@@ -13,17 +13,9 @@
 const db = require("../config/db");
 const catchAsync = require("../utils/catchAsync");
 const { logAuditoria } = require("../utils/auditoria");
-const { subirArchivo, urlFirmada, borrarArchivo, storageDisponible, BUCKETS } = require("../utils/storage");
-
-const MAX_ARCHIVOS = 5;
-// Tipos que el bucket documentos-alumno admite. Se valida también acá para dar
-// un 400 con mensaje claro en vez de un error opaco de Storage.
-const TIPOS_OK = new Set(["image/jpeg", "image/png", "application/pdf"]);
-
-const extensionDe = (nombre) => {
-  const m = String(nombre || "").match(/\.([A-Za-z0-9]{1,8})$/);
-  return m ? `.${m[1].toLowerCase()}` : "";
-};
+const { urlFirmada, borrarArchivo, storageDisponible, BUCKETS } = require("../utils/storage");
+const { problemaDeConstancias } = require("../utils/constancias");
+const { esEmergenciaSQL, guardarConstancias, borrarDeStorage } = require("../services/cancelacionService");
 
 /** El id_alumno del usuario autenticado, o null si no tiene ficha. */
 async function idAlumnoDe(conn, id_usuario) {
@@ -61,42 +53,42 @@ exports.subirAdjuntos = catchAsync(async (req, res) => {
   const archivos = req.files || [];
   if (archivos.length === 0) return res.status(400).json({ message: "No llegó ningún archivo." });
   if (!storageDisponible()) {
-    return res.status(503).json({ message: "El almacenamiento de archivos no está configurado. Tu solicitud de cancelación ya quedó enviada; avisá a Administración para mandar la constancia por otro medio." });
+    return res.status(503).json({ message: "En este momento no se pueden recibir constancias. Probá más tarde o avisá a Programación." });
   }
 
   const yaHay = await db.query(
     `SELECT COUNT(*)::int AS n FROM solicitud_cancelacion_adjunto WHERE id_solicitud_cancelacion = $1`,
     [id_solicitud_cancelacion]
   );
-  if (yaHay.rows[0].n + archivos.length > MAX_ARCHIVOS) {
-    return res.status(400).json({ message: `Máximo ${MAX_ARCHIVOS} constancias por solicitud (ya tenés ${yaHay.rows[0].n}).` });
-  }
-  const malo = archivos.find((a) => !TIPOS_OK.has(a.mimetype));
-  if (malo) {
-    return res.status(400).json({ message: `"${malo.originalname}" no es un tipo permitido. Se aceptan imágenes JPG o PNG y archivos PDF.` });
-  }
+  const problema = problemaDeConstancias(archivos, { yaHay: yaHay.rows[0].n });
+  if (problema) return res.status(400).json({ message: problema });
 
-  const creados = [];
-  for (const a of archivos) {
-    const ruta = `cancelaciones/${id_solicitud_cancelacion}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}${extensionDe(a.originalname)}`;
-    await subirArchivo(BUCKETS.DOCUMENTOS, ruta, a.buffer, a.mimetype);
-    const ins = await db.query(
-      `INSERT INTO solicitud_cancelacion_adjunto
-         (id_solicitud_cancelacion, nombre_archivo, archivo_path, content_type, tamano_bytes, subido_por)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id_adjunto, nombre_archivo, content_type, tamano_bytes,
-                 to_char(subido_en, 'YYYY-MM-DD HH24:MI') AS subido_en`,
-      [id_solicitud_cancelacion, a.originalname, ruta, a.mimetype, a.size, req.user.id_usuario]
-    );
-    creados.push(ins.rows[0]);
+  const intentadas = [];
+  let guardadas, fallo;
+  try {
+    ({ guardadas, fallo } = await guardarConstancias(db, {
+      id_solicitud: id_solicitud_cancelacion, archivos, id_usuario: req.user.id_usuario, intentadas,
+    }));
+  } catch (e) {
+    // Falló la base después de subir: lo subido quedaría sin fila que lo nombre.
+    borrarDeStorage([...intentadas]);
+    throw e;
+  }
+  if (fallo) console.error("[cancelacion] no subió una constancia:", fallo.message);
+  if (guardadas.length === 0) {
+    return res.status(502).json({ message: "No se pudieron subir las constancias. Revisá tu conexión y probá de nuevo." });
   }
 
   await logAuditoria(db, {
     accion: "OTRO", entidad: "solicitud_cancelacion", id_entidad: Number(id_solicitud_cancelacion),
-    actor: req.user, req, descripcion: `Alumno adjuntó ${creados.length} constancia(s) a su solicitud de cancelación`,
+    actor: req.user, req, descripcion: `Alumno adjuntó ${guardadas.length} constancia(s) a su solicitud de cancelación`,
   }).catch(() => {});
 
-  res.json({ message: `${creados.length} constancia(s) adjuntada(s)`, adjuntos: creados });
+  res.json({
+    message: `${guardadas.length} constancia(s) adjuntada(s)`,
+    adjuntos: guardadas,
+    aviso_adjuntos: fallo ? `Se guardaron ${guardadas.length} de ${archivos.length}; el resto no se pudo subir.` : null,
+  });
 });
 
 // ── GET /alumno/solicitudes-cancelacion/:id/adjuntos ────────────────────────
@@ -117,21 +109,50 @@ exports.listarMisAdjuntos = catchAsync(async (req, res) => {
 // ── DELETE /alumno/adjuntos-cancelacion/:id_adjunto ─────────────────────────
 exports.borrarMiAdjunto = catchAsync(async (req, res) => {
   const { id_adjunto } = req.params;
-  const r = await db.query(
-    `SELECT a.id_adjunto, a.archivo_path, a.id_solicitud_cancelacion, s.id_alumno, s.estado
-       FROM solicitud_cancelacion_adjunto a
-       JOIN solicitud_cancelacion s ON s.id_solicitud_cancelacion = a.id_solicitud_cancelacion
-      WHERE a.id_adjunto = $1`,
-    [id_adjunto]
-  );
-  if (r.rows.length === 0) return res.status(404).json({ message: "Constancia no encontrada" });
-  const propio = await idAlumnoDe(db, req.user.id_usuario);
-  if (!propio || r.rows[0].id_alumno !== propio) return res.status(403).json({ message: "No tenés acceso a esta constancia" });
-  if (r.rows[0].estado !== "PENDIENTE") return res.status(400).json({ message: "La solicitud ya fue resuelta: la constancia queda como respaldo." });
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    // FOR UPDATE OF s: la SOLICITUD queda bloqueada mientras se cuenta y se
+    // borra. Sin eso, dos borrados simultáneos sobre una emergencia con dos
+    // constancias verían "quedan 2" los dos y la dejarían sin ninguna.
+    const r = await client.query(
+      `SELECT a.id_adjunto, a.archivo_path, s.id_solicitud_cancelacion, s.id_alumno, s.estado,
+              ${esEmergenciaSQL("s", "v", "b")} AS es_emergencia
+         FROM solicitud_cancelacion_adjunto a
+         JOIN solicitud_cancelacion s ON s.id_solicitud_cancelacion = a.id_solicitud_cancelacion
+         JOIN vuelo v ON v.id_vuelo = s.id_vuelo
+         JOIN bloque_horario b ON b.id_bloque = v.id_bloque
+        WHERE a.id_adjunto = $1
+          FOR UPDATE OF s`,
+      [id_adjunto]
+    );
+    const rechazar = async (status, message) => { await client.query("ROLLBACK"); return res.status(status).json({ message }); };
+    if (r.rows.length === 0) return await rechazar(404, "Constancia no encontrada");
+    const fila = r.rows[0];
+    const propio = await idAlumnoDe(client, req.user.id_usuario);
+    if (!propio || fila.id_alumno !== propio) return await rechazar(403, "No tenés acceso a esta constancia");
+    if (fila.estado !== "PENDIENTE") return await rechazar(400, "La solicitud ya fue resuelta: la constancia queda como respaldo.");
 
-  await db.query(`DELETE FROM solicitud_cancelacion_adjunto WHERE id_adjunto = $1`, [id_adjunto]);
-  await borrarArchivo(BUCKETS.DOCUMENTOS, r.rows[0].archivo_path); // best-effort
-  res.json({ message: "Constancia eliminada" });
+    if (fila.es_emergencia) {
+      const cuantas = await client.query(
+        `SELECT COUNT(*)::int AS n FROM solicitud_cancelacion_adjunto WHERE id_solicitud_cancelacion = $1`,
+        [fila.id_solicitud_cancelacion]
+      );
+      if (cuantas.rows[0].n <= 1) {
+        return await rechazar(400, "Una cancelación de emergencia necesita al menos una constancia. Agregá la nueva antes de quitar esta.");
+      }
+    }
+
+    await client.query(`DELETE FROM solicitud_cancelacion_adjunto WHERE id_adjunto = $1`, [id_adjunto]);
+    await client.query("COMMIT");
+    await borrarArchivo(BUCKETS.DOCUMENTOS, fila.archivo_path); // best-effort
+    res.json({ message: "Constancia eliminada" });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 });
 
 // ── GET .../adjuntos-cancelacion/:id_adjunto/url ────────────────────────────
