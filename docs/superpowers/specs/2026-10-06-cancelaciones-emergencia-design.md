@@ -42,8 +42,21 @@ salida   = vuelo.fecha_vuelo + bloque_horario.hora_inicio      (hora de El Salva
 emergencia  ⇔  salida − solicitud_cancelacion.creado_en < 24 h
 ```
 
+**En una ruta con parada, la salida es la del tramo 1.** Cada tramo es su propia
+fila de `vuelo` con un bloque más tardío, cada uno ofrece su botón de cancelar,
+y aceptar la cancelación de cualquiera cancela la ruta entera (CLAUDE.md §28.D).
+Medir contra el bloque del tramo pedido dejaría cancelar como "con margen" y sin
+constancia una ruta que sale en dos horas, con solo pedirlo sobre el tramo 2.
+Las rutas viven en una sola fecha (moverlas de día se rechaza), así que la
+salida del tramo 1 es la de la ruta.
+
 Es un dato **derivado**, no una columna: sale de dos hechos que ya están
 guardados. Sin migración (y por lo tanto sin regenerar el esquema `demo`).
+
+Consecuencia aceptada de que sea derivado: si Turno le cambia el día o el bloque
+a un vuelo que tiene una solicitud pendiente (`editarTripulacion`), la
+clasificación de esa solicitud sigue al horario nuevo. Es raro y el resultado es
+razonable: la prioridad refleja cuándo sale el vuelo hoy.
 
 Para que la cuenta no dependa de la zona de la sesión —la familia de bugs de
 CLAUDE.md §35.A— el `INSERT` escribe `creado_en` explícito con
@@ -56,7 +69,7 @@ fragmentos SQL que los demás consumen (la lección de `soloHorasFacturables`):
 
 | fragmento | qué devuelve |
 |---|---|
-| `salidaVueloSQL(v, b)` | la salida programada, `timestamp` sin zona en hora local |
+| `salidaVueloSQL(v, b)` | la salida programada (la del tramo 1 si es una ruta), `timestamp` sin zona en hora local |
 | `AHORA_SV` | "ahora" en hora de El Salvador |
 | `esEmergenciaSQL(sc, v, b)` | boolean, para una solicitud que ya existe |
 | `seriaEmergenciaSQL(v, b)` | boolean, para un vuelo que todavía no tiene solicitud |
@@ -69,7 +82,9 @@ fragmentos SQL que los demás consumen (la lección de `soloHorasFacturables`):
 `GET /alumno/mi-horario` agrega `fecha_hora_vuelo` (la salida, como instante).
 El cliente ya la leía (`v.fecha_hora_vuelo || v.fecha_vuelo`): con el campo
 presente el botón queda disponible **hasta la hora real de salida**, que es lo
-que el código siempre quiso hacer.
+que el código siempre quiso hacer. En un tramo de ruta el campo trae la salida
+de la ruta: ese campo solo alimenta el botón de cancelar, y una ruta que ya
+salió no se cancela por solicitud (la corta Turno, §28.D).
 
 El servidor pasa a ser la autoridad. `solicitarCancelacion` rechaza con 400:
 
@@ -101,7 +116,11 @@ servidor: hasta 5 archivos, 8 MB cada uno, JPG/PNG/PDF. Hoy un archivo de 9 MB
 recién falla en el servidor, con un mensaje en inglés.
 
 En el horario, el botón de un vuelo a menos de 24 h dice **Cancelación de
-emergencia** y usa el estilo rojo que ya existe.
+emergencia** y usa el estilo rojo que ya existe. Esa etiqueta sale del reloj del
+teléfono y es solo un anticipo: quien decide es el servidor. Si el formulario se
+abrió con margen y se envía ya dentro de las 24 h, el servidor contesta 400 con
+`codigo: "CONSTANCIA_REQUERIDA"` y el formulario pasa a modo emergencia ahí
+mismo, sin perder lo escrito.
 
 ### El envío: una sola petición
 
@@ -109,17 +128,28 @@ emergencia** y usa el estilo rojo que ya existe.
 (`motivo` + `archivos[]`) además del JSON de hoy.
 
 ```
-validar acceso, motivo, estado y hora del vuelo
-validar tipos de archivo
-emergencia y sin archivos        → 400
-emergencia y Storage sin config  → 503
+validar acceso, motivo y archivos (tipo, tamaño, cantidad)
 BEGIN
-  límite de 1 por semana         → 409 (como hoy)
+  candado por alumno (pg_advisory_xact_lock)
+  leer el vuelo: estado, ¿ya salió?, ¿es emergencia?      ← mismo NOW() que el INSERT
+  estado no cancelable o ya salió     → 400
+  emergencia y sin archivos           → 400  CONSTANCIA_REQUERIDA
+  emergencia y Storage sin configurar → 503
+  límite de 1 por semana              → 409 (como hoy)
   INSERT solicitud (creado_en explícito)
-  por cada archivo: subir a Storage, INSERT adjunto
+  subir los archivos a Storage (en paralelo), INSERT de cada adjunto
 COMMIT
 avisar a quien resuelve (después del COMMIT, best-effort)
 ```
+
+La decisión de emergencia va **dentro** de la transacción: `NOW()` es constante
+ahí, así que la validación y el `creado_en` guardado usan el mismo instante. Con
+la validación afuera, una solicitud enviada justo al cruzar las 24 h pasaba como
+"con margen" y quedaba guardada como emergencia sin constancia.
+
+El candado por alumno serializa dos envíos simultáneos (dos pestañas, doble
+toque): hoy los dos pasarían el límite semanal, y la subida de archivos alarga
+esa ventana de milisegundos a segundos.
 
 Qué pasa si una subida falla:
 
@@ -134,8 +164,16 @@ Así se conserva la garantía de `c1adfa4` para las cancelaciones con margen
 emergencia. Daniel aceptó el costo: si Storage está caído, una emergencia no se
 puede enviar por la app.
 
-Cada subida lleva un tope de 45 s: la transacción queda abierta mientras se
-sube, y sin tope un Storage colgado retendría una conexión del pool.
+Los archivos se suben **en paralelo** y cada subida lleva un tope de 45 s: la
+transacción queda abierta mientras se sube, y sin tope un Storage colgado
+retendría una conexión del pool. El cliente de Storage no sabe abortar, así que
+una subida que pierde contra el tope puede terminar igual más tarde: si llega,
+se borra.
+
+Storage se limpia **siempre por la ruta exacta** guardada o intentada, nunca por
+carpeta: la cuenta de demostraciones comparte el bucket y sus ids chocan con los
+reales. Por lo mismo, las constancias subidas desde `demo` van bajo
+`cancelaciones/demo-<id>/`.
 
 La respuesta agrega `es_emergencia`, `adjuntos` y `aviso_adjuntos`.
 
@@ -155,7 +193,9 @@ Los endpoints de `c1adfa4` se conservan, con dos cambios:
 
 - `DELETE /alumno/adjuntos-cancelacion/:id`: en una emergencia **no se puede
   borrar la última constancia** (400). Sin esto la regla se salta adjuntando y
-  borrando.
+  borrando. La solicitud se bloquea (`FOR UPDATE`) mientras se cuenta y se
+  borra: dos borrados simultáneos sobre una emergencia con dos archivos pasarían
+  los dos la cuenta.
 - `DELETE /alumno/solicitudes-cancelacion/:id` (retirar la solicitud): además
   de borrar la fila, borra de Storage sus archivos (best-effort, después del
   COMMIT). Hoy quedan huérfanos, y ahora van a ser constancias médicas.
@@ -196,6 +236,21 @@ EMERGENCIA** cuando aplica.
 Al **aceptar**, el vuelo cancelado queda con `tipo_cancelacion = 'EMERGENCIA'` o
 `'NORMAL'` (hoy queda `NULL`). El CHECK de la columna ya admite los dos valores,
 y el panel "Vuelos cancelados" y el reporte de Turno ya saben mostrarlos.
+
+### Una solicitud pendiente cuando el vuelo ya salió
+
+Con solicitudes que pueden llegar minutos antes, esto deja de ser raro. La lista
+solo las vence al día siguiente (por fecha), así que durante el día siguen
+arriba con el botón Aceptar. Dos cambios:
+
+- El listado agrega `ya_salio`, y la tarjeta lo dice: "La hora de salida ya
+  pasó". Sigue pendiente y se puede resolver: aceptar después de la hora es una
+  decisión legítima (el alumno avisó y no llegó).
+- **Aceptar se rechaza con 409 si el vuelo —o cualquier tramo de su ruta— ya
+  está en curso o completado** (`SALIDA_HANGAR`, `EN_VUELO`, `EN_PROGRESO`,
+  `REGRESO_HANGAR`, `FINALIZANDO`, `COMPLETADO`). Hoy aceptar pasa a `CANCELADO`
+  todo lo que no esté cancelado o completado, o sea que cancelaría un avión en
+  vuelo. Rechazar la solicitud sigue permitido siempre.
 
 ## Archivos
 
