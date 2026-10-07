@@ -1585,7 +1585,22 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-09-28.**
+> **Última revisión: 2026-10-06.**
+>
+> ### 🚨 Cancelaciones de emergencia (§43)
+> - **Desplegar la rama `claude/cancelaciones-adjuntos-prioridad-57c3c5`**: al 2026-10-06 está
+>   terminada y probada, sin fusionar a `master`. Sin migración.
+> - **El esquema `demo` está dos migraciones atrás** (le faltan la tabla
+>   `solicitud_cancelacion_adjunto` y la columna `solicitud_vuelo.creado_en`): hoy la pantalla de
+>   Cancelaciones de la cuenta de demostraciones falla. Se arregla regenerándolo
+>   (`docs/demo/RUNBOOK.md` §3), que la deja fuera de servicio un rato.
+> - **La constancia de la solicitud 33 quedó guardada como "Constancia mÃ©dica .pdf"** (el nombre
+>   con tilde se rompía al subir; ya no pasa). Corregirla es un `UPDATE` de una fila en producción.
+> - **Probar el formulario del alumno contra el backend real** una vez desplegado: se probó contra
+>   un servidor de mentira, y el backend aparte (§43.F).
+> - **Avisar al instructor asignado al vuelo**: la condición 4 que acepta el alumno lo promete y
+>   hoy solo se avisa a quienes resuelven (jefes de pilotos, Programación, Turno, Admin).
+> - Menores de la revisión del código, sin tocar: están listados en la spec.
 >
 > ### 🧾 La cuenta de demostraciones no puede emitir recibos ni facturas (§42)
 > El esquema `demo` no tiene `recibo_correlativo_seq` ni `factura_correlativo_seq`
@@ -3416,3 +3431,82 @@ suites del backend fallan con *Cannot find module* y la app en Vite queda **en b
 `Failed to resolve import`. No es el cambio: `npm install` en ESE worktree (comprobar antes que
 `node_modules` no sea un enlace compartido) y revertir el `package-lock.json` si solo cambió
 los finales de línea.
+
+---
+
+## 43. Sesión 2026-10-06 — Cancelaciones de emergencia: constancia obligatoria y prioridad visible
+
+**ESTADO: terminado y probado en la rama `claude/cancelaciones-adjuntos-prioridad-57c3c5`, SIN
+desplegar** (espera el visto bueno de Daniel). Sin migración. Spec:
+`docs/superpowers/specs/2026-10-06-cancelaciones-emergencia-design.md` · Plan en `docs/superpowers/plans/`.
+
+### A. El pedido, y lo que ya existía
+Daniel pidió poder adjuntar comprobantes al cancelar y que las emergencias se distingan para quien
+aprueba. **Adjuntar ya estaba en producción**: Samuel lo subió el 2026-09-30 (`c1adfa4`), opcional y
+en un segundo pedido. Lo que faltaba era todo lo demás: la "emergencia" no existía en el sistema
+(`esEmergencia` estaba calculado en `MiHorarioList.jsx` desde el commit inicial y nunca se usó).
+
+### B. La regla
+**Emergencia = solicitud pedida con menos de 24 h para la salida.** Dato derivado
+(`salida − creado_en`), sin columna. Vive en fragmentos SQL de `services/cancelacionService.js`
+(`salidaVueloSQL`, `esEmergenciaSQL`, `seriaEmergenciaSQL`, `comoInstanteSQL`): quien necesite
+saberlo los usa, nadie rehace la cuenta. En una **ruta con parada la salida es la del tramo 1**.
+**Decisión de Daniel: en emergencia la constancia es OBLIGATORIA** (lo decía la condición 2 y el
+sistema no lo cumplía). Con margen sigue opcional.
+
+### C. Qué cambió
+- **Envío:** la solicitud y sus constancias entran en UN pedido multipart y una transacción. En
+  emergencia, si ninguna constancia queda guardada no se crea nada (502); con margen una falla de
+  Storage nunca tumba la cancelación (200 + `aviso_adjuntos`).
+- **Alumno:** formulario en modo emergencia (lo decide el servidor, no el reloj del teléfono),
+  archivos que se acumulan, validación antes de subir. "Mis cancelaciones" es un componente propio
+  (`components/MisCancelaciones/`): ver, agregar y quitar constancias mientras esté pendiente; en
+  emergencia no se puede quitar la última.
+- **Quien aprueba** (`pages/Admin/Cancelaciones.jsx`): contorno rojo, badge, "pedida X antes del
+  vuelo", emergencias primero y después la salida más próxima. Aceptar deja
+  `vuelo.tipo_cancelacion` (antes NULL) y **se rechaza con 409 si el avión ya salió**.
+
+### D. Cinco fallos que ya estaban en producción (encontrados en el camino)
+1. **El botón de cancelar desaparecía a las 18:00 de la víspera.** `mi-horario` no mandaba
+   `fecha_hora_vuelo` y el cliente caía a `fecha_vuelo` (DATE = medianoche UTC). De 26 solicitudes
+   históricas, ninguna del día del vuelo.
+2. **Quien aprueba veía las horas 6 h antes** (el vuelo de las 13:30 a las 7:30): `timestamp` sin
+   zona leído por el proceso en UTC. Otra aparición de §35.A/§40.
+3. **"Mis cancelaciones" mostraba "Fecha Vuelo: Invalid Date"** (el endpoint no mandaba el campo).
+4. **El push a los jefes de pilotos nunca salió**: `utils/webpush.js` define `notificarUsuarios`
+   desde el 2026-07-23 y no la exportaba; el `TypeError` se lo comía el `try/catch` del aviso.
+5. **Los nombres de archivo con tildes se guardaban rotos** (multer los lee como latin1).
+
+### E. La revisión del código encontró tres más (corregidos)
+Agregar constancias después guardaba en autocommit (fila confirmada con el archivo borrado) · el
+candado por alumno se esperaba y podía retener el pool entero (ahora `pg_try_advisory_xact_lock` →
+409) · **la pantalla nueva contra el backend anterior** guardaba la solicitud sin motivo y sin
+archivos contestando 200 (Express 4 no lee un multipart sin `multer`).
+
+### F. 🔑 Cómo se probó sin escribir en la base
+`legacy/CAA-backend/_e2e_cancelaciones.js` (gitignored, 63 comprobaciones): corre los controllers
+**de verdad** contra el esquema real dentro de UNA transacción que al final se deshace. Les inyecta
+un `db` de mentira (`require.cache`) que entrega esa misma conexión y traduce sus
+`BEGIN/COMMIT/ROLLBACK` a `SAVEPOINT`. Los vuelos, la ruta y hasta un bloque horario de prueba se
+crean ahí adentro; Storage es `tests/storageFalso.js`. El censo de la base queda idéntico.
+**Sirve para cualquier controller con transacción propia** y evita lo que impide probar en `public`
+(un vuelo de prueba sale en la Proyección; crear una solicitud avisa a gente real).
+- Límite: la transacción dura segundos y solo bloquea filas de prueba. **No** montar un servidor
+  entero sobre una transacción abierta: los jobs de `server.js` tomarían bloqueos sobre filas reales.
+- Las pantallas del alumno se probaron contra `_mock_alumno.js` (usa el middleware real de archivos
+  y tiene un modo "backend viejo"). No se probaron contra el backend real en el navegador.
+
+### 🚨 Trampas de esta sesión
+1. **Antes de construir, mirar si ya existe.** El worktree se llamaba como el pedido y la mitad del
+   pedido estaba en `master` hacía una semana.
+2. **Pantalla nueva + backend viejo = datos perdidos en silencio.** Al cambiar la forma de un
+   pedido (JSON → multipart), probar las cuatro combinaciones y no solo la nueva contra la nueva.
+3. **`multer` rechaza un archivo de exactamente el límite** (corta al llegar, no al pasar): su
+   límite va en `MAX + 1`. Lo encontró una prueba con pedidos HTTP reales.
+4. **Los candados de aviso de transacción duran hasta el final de la transacción EXTERNA**: en el
+   arnés de savepoints, un alumno que ya pidió algo conserva su candado. Para simular "otro envío en
+   curso" hay que usar un alumno que todavía no lo tomó, desde otra conexión.
+5. **Un `catch(() => [])` sobre una consulta dentro de una transacción esconde el error pero la
+   transacción queda abortada igual**: todo lo que sigue falla con 25P02.
+6. **El esquema `demo` no se regeneró tras las dos últimas migraciones** (§24): la regla de §39 no
+   se cumple sola.

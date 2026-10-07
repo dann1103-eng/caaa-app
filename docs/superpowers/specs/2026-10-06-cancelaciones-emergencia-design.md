@@ -300,10 +300,45 @@ Frontend (`CAA-frontend/src/`):
 | `pages/Alumno/Dashboard.jsx` | usa el componente nuevo |
 | `pages/Admin/Cancelaciones.{jsx,css}` | contorno, badge, anticipación, "sin constancia" |
 
+## Lo que encontró la revisión del código
+
+Una revisión independiente del diff, antes de desplegar. Ningún defecto crítico;
+tres importantes, corregidos:
+
+1. **Agregar constancias después guardaba las filas en autocommit.** Si la base
+   fallaba en la segunda, la primera ya estaba confirmada y la limpieza le
+   borraba el archivo: quedaba una constancia que no se podía abrir (y en una
+   emergencia el alumno podía entonces quitar la original). Ahora
+   `subirAdjuntos` va en dos tiempos: sube **sin** transacción abierta, y
+   registra lo subido en una transacción corta que bloquea la solicitud y
+   vuelve a validar estado y cantidad. O quedan todas las filas o ninguna.
+   En el servicio: `subirConstancias` (solo Storage) + `registrarConstancias`
+   (solo base, exige transacción); `guardarConstancias` las encadena para el
+   envío, que ya tiene la suya.
+2. **El candado por alumno se esperaba.** Quien lo tiene puede estar subiendo
+   hasta 45 s con la transacción abierta, y cada envío que se quedaba esperando
+   retenía una conexión del pool (10 para toda la app). Ahora es
+   `pg_try_advisory_xact_lock`: el segundo envío simultáneo recibe 409 enseguida.
+3. **La pantalla nueva contra el backend anterior.** Es lo que pasa si en un
+   despliegue Vercel termina antes que Railway, o si el de Railway falla. Ese
+   backend no tiene `multer` en la ruta de crear y Express 4 deja `req.body`
+   vacío: guardaba la solicitud **sin motivo y sin archivos** y contestaba 200.
+   El formulario reconoce al backend nuevo porque contesta `es_emergencia` (o
+   `CONSTANCIA_REQUERIDA`); al anterior le habla como antes, en dos pasos.
+
+Y uno menor que se veía: la anticipación se redondeaba, así que una solicitud
+pedida 23 h 50 min antes decía "pedida 24 h" al lado del badge. Ahora trunca.
+
+Quedaron sin tocar, anotados: aceptar tiene una ventana de milisegundos entre
+comprobar que el vuelo no salió y cancelarlo; `borrarMiAdjunto` espera a Storage
+con la conexión tomada; una subida que Storage reportó fallida pero llegó queda
+huérfana; un archivo de 0 bytes cumple la regla; y `MiHorarioList` desmonta el
+formulario si la lista se recarga con él abierto (ya pasaba).
+
 ## Pruebas
 
-- **Unitarias** (`npm test`, sin red). Backend: 92 (60 de antes + 32). Frontend:
-  31 (23 de antes + 8). Cubren la validación de archivos de los dos lados, el
+- **Unitarias** (`npm test`, sin red). Backend: 95 (60 de antes + 35). Frontend:
+  32 (23 de antes + 9). Cubren la validación de archivos de los dos lados, el
   middleware con pedidos HTTP reales, y subir/borrar constancias contra el
   Storage de mentira (`tests/storageFalso.js`, que ganó borrado y fallas de
   una sola vez).
@@ -317,15 +352,18 @@ Frontend (`CAA-frontend/src/`):
   UNA transacción que al final se deshace. Reciben un `db` de mentira que les
   entrega esa conexión y traduce sus `BEGIN/COMMIT/ROLLBACK` a `SAVEPOINT`, así
   su lógica transaccional corre entera; los vuelos, la ruta y un bloque horario
-  de prueba se crean ahí adentro y nadie más los ve. 53 comprobaciones, y al
-  terminar el censo de la base es idéntico al de antes de empezar.
+  de prueba se crean ahí adentro y nadie más los ve. 63 comprobaciones, y al
+  terminar el censo de la base es idéntico al de antes de empezar. Los defectos
+  1 y 2 de la revisión se reprodujeron ahí antes de corregirlos (52 de 57).
 - **En el navegador.** La pantalla de quien aprueba, contra los datos reales en
   solo lectura y con el backend local en `TZ=UTC`: la solicitud pendiente del
   2026-10-06 sale con contorno rojo, badge, "pedida 23 h antes del vuelo" y el
   vuelo a la 1:30 p. m. Las pantallas del alumno, contra un backend de mentira
   (`_mock_alumno.js`) que usa el middleware real de archivos: modo emergencia,
   validación, acumulación, un solo pedido multipart, el cambio a emergencia por
-  el 400, el aviso, y "Mis cancelaciones". A 1280 y a 375 px, sin desborde.
+  el 400, el aviso, y "Mis cancelaciones". A 1280 y a 375 px, sin desborde. El
+  mismo servidor de mentira tiene un modo "backend viejo" para el punto 3 de la
+  revisión: ahí la pantalla manda la solicitud en JSON y después los archivos.
 
 Lo que NO se probó: el formulario del alumno contra el backend real en el
 navegador. No hay un alumno de prueba con un vuelo en las próximas 24 h, crear

@@ -10,6 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-06-cancelaciones-emergencia-design.md`
 
+> **Estado (2026-10-06): tareas 1 a 10 completadas y revisadas.** Lo que cambió
+> respecto de este plan —el middleware propio, los tres defectos de la revisión
+> del código, el push que no salía— está en la spec, que es la que quedó al día.
+> De la tarea 11 falta la prueba contra el esquema `demo`: se reemplazó por una
+> prueba de punta a punta dentro de una transacción que se deshace
+> (`_e2e_cancelaciones.js`), porque `demo` está dos migraciones atrás.
+
 ---
 
 ## Mapa de archivos
