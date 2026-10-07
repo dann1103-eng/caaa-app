@@ -209,34 +209,59 @@ async function subirConstancia({ id_solicitud, archivo, intentadas }) {
 }
 
 /**
- * Sube las constancias EN PARALELO y guarda una fila por cada una que subió.
+ * Sube las constancias a Storage EN PARALELO. No toca la base.
  *
- * Devuelve `{ guardadas, fallo }`. `fallo` es el primer error de subida, o null.
- * Las que subieron bien quedan guardadas aunque otra haya fallado: quien llama
- * decide si eso alcanza (con margen, sí; en una emergencia hace ROLLBACK).
- *
- * `conn` es la conexión de la transacción de quien llama, o `db` si no hay una.
- * Un error de la BASE (no de Storage) se relanza tal cual.
+ * Devuelve `{ subidas, fallo }`: `subidas` son las que llegaron
+ * (`{ archivo, ruta }`, en el orden en que se eligieron) y `fallo` es el primer
+ * error de subida, o null. Que una falle no frena a las demás: quien llama
+ * decide si lo que subió alcanza.
  */
-async function guardarConstancias(conn, { id_solicitud, archivos, id_usuario, intentadas }) {
-  const subidas = await Promise.allSettled(
+async function subirConstancias({ id_solicitud, archivos, intentadas }) {
+  const resultados = await Promise.allSettled(
     archivos.map((archivo) => subirConstancia({ id_solicitud, archivo, intentadas }))
   );
-  const guardadas = [];
+  const subidas = [];
   let fallo = null;
-  for (let i = 0; i < subidas.length; i++) {
-    if (subidas[i].status === "rejected") { fallo = fallo || subidas[i].reason; continue; }
-    const a = archivos[i];
+  resultados.forEach((r, i) => {
+    if (r.status === "fulfilled") subidas.push({ archivo: archivos[i], ruta: r.value });
+    else fallo = fallo || r.reason;
+  });
+  return { subidas, fallo };
+}
+
+/**
+ * Guarda una fila por cada constancia ya subida. Devuelve las filas.
+ *
+ * ⚠️ `conn` tiene que ser la conexión de una TRANSACCIÓN abierta. Si un INSERT
+ * falla, quien llama hace ROLLBACK y borra de Storage todo lo que se intentó, y
+ * eso solo es correcto si ninguna fila quedó confirmada. Con una conexión en
+ * autocommit, la primera fila ya estaba guardada cuando la segunda fallaba, y la
+ * limpieza le borraba el archivo: quedaba una constancia que no se podía abrir.
+ */
+async function registrarConstancias(conn, { id_solicitud, subidas, id_usuario }) {
+  const guardadas = [];
+  for (const { archivo, ruta } of subidas) {
     const ins = await conn.query(
       `INSERT INTO solicitud_cancelacion_adjunto
          (id_solicitud_cancelacion, nombre_archivo, archivo_path, content_type, tamano_bytes, subido_por, subido_en)
        VALUES ($1,$2,$3,$4,$5,$6, ${AHORA_SV})
        RETURNING id_adjunto, nombre_archivo, content_type, tamano_bytes,
                  to_char(subido_en, 'YYYY-MM-DD HH24:MI') AS subido_en`,
-      [id_solicitud, a.originalname, subidas[i].value, a.mimetype, a.size, id_usuario]
+      [id_solicitud, archivo.originalname, ruta, archivo.mimetype, archivo.size, id_usuario]
     );
     guardadas.push(ins.rows[0]);
   }
+  return guardadas;
+}
+
+/**
+ * Sube y registra, para quien YA tiene su transacción abierta (el envío de la
+ * solicitud, que necesita el id recién insertado para armar la ruta).
+ * Devuelve `{ guardadas, fallo }`. Un error de la BASE se relanza tal cual.
+ */
+async function guardarConstancias(conn, { id_solicitud, archivos, id_usuario, intentadas }) {
+  const { subidas, fallo } = await subirConstancias({ id_solicitud, archivos, intentadas });
+  const guardadas = await registrarConstancias(conn, { id_solicitud, subidas, id_usuario });
   return { guardadas, fallo };
 }
 
@@ -248,5 +273,5 @@ module.exports = {
   getEstadoCancelaciones, MONTO_MULTA,
   HORAS_EMERGENCIA, AHORA_SV,
   salidaVueloSQL, esEmergenciaSQL, seriaEmergenciaSQL, comoInstanteSQL, horasSQL, adjuntosJSONSQL,
-  guardarConstancias, borrarDeStorage,
+  subirConstancias, registrarConstancias, guardarConstancias, borrarDeStorage,
 };

@@ -62,10 +62,14 @@ export async function abrirConUrlFirmada(pedirUrl) {
 /**
  * Cuánto antes del vuelo se pidió la cancelación, para leer de un vistazo:
  * "24 min", "23 h", "4 días". Recibe horas; vacío si no hay dato.
+ *
+ * Siempre hacia ABAJO: este texto va al lado del badge de emergencia, que
+ * significa "menos de 24 h". Redondeando, una solicitud pedida 23 h 50 min
+ * antes decía "pedida 24 h antes del vuelo" justo al lado de EMERGENCIA.
  */
 export function textoAnticipacion(horas) {
   if (horas == null || !(horas >= 0)) return "";
-  if (horas < 1) return `${Math.max(1, Math.round(horas * 60))} min`;
-  if (horas < 48) return `${Math.round(horas)} h`;
+  if (horas < 1) return `${Math.max(1, Math.floor(horas * 60))} min`;
+  if (horas < 48) return `${Math.floor(horas)} h`;
   return `${Math.floor(horas / 24)} días`;
 }

@@ -63,10 +63,19 @@ test("la anticipación se dice en minutos, horas o días según el tamaño", () 
   assert.equal(textoAnticipacion(0.4), "24 min");
   assert.equal(textoAnticipacion(0.01), "1 min");
   assert.equal(textoAnticipacion(1), "1 h");
-  assert.equal(textoAnticipacion(22.5), "23 h");
+  assert.equal(textoAnticipacion(22.5), "22 h");
   assert.equal(textoAnticipacion(47.4), "47 h");
+  assert.equal(textoAnticipacion(47.99), "47 h");
   assert.equal(textoAnticipacion(48), "2 días");
   assert.equal(textoAnticipacion(100), "4 días");
   assert.equal(textoAnticipacion(null), "");
   assert.equal(textoAnticipacion(-3), "");
+});
+
+// Va al lado del badge EMERGENCIA, que significa "menos de 24 h". Redondeando,
+// una solicitud pedida 23 h 50 min antes decía "pedida 24 h antes del vuelo".
+test("la anticipación nunca se redondea hacia arriba", () => {
+  assert.equal(textoAnticipacion(23.99), "23 h");
+  assert.equal(textoAnticipacion(23.5), "23 h");
+  assert.equal(textoAnticipacion(0.99), "59 min");
 });

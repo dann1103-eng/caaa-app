@@ -15,7 +15,9 @@ const catchAsync = require("../utils/catchAsync");
 const { logAuditoria } = require("../utils/auditoria");
 const { urlFirmada, borrarArchivo, storageDisponible, BUCKETS } = require("../utils/storage");
 const { problemaDeConstancias } = require("../utils/constancias");
-const { esEmergenciaSQL, guardarConstancias, borrarDeStorage } = require("../services/cancelacionService");
+const {
+  esEmergenciaSQL, subirConstancias, registrarConstancias, borrarDeStorage,
+} = require("../services/cancelacionService");
 
 /** El id_alumno del usuario autenticado, o null si no tiene ficha. */
 async function idAlumnoDe(conn, id_usuario) {
@@ -56,27 +58,56 @@ exports.subirAdjuntos = catchAsync(async (req, res) => {
     return res.status(503).json({ message: "En este momento no se pueden recibir constancias. Probá más tarde o avisá a Programación." });
   }
 
-  const yaHay = await db.query(
+  const cuantasHay = async (conn) => (await conn.query(
     `SELECT COUNT(*)::int AS n FROM solicitud_cancelacion_adjunto WHERE id_solicitud_cancelacion = $1`,
     [id_solicitud_cancelacion]
-  );
-  const problema = problemaDeConstancias(archivos, { yaHay: yaHay.rows[0].n });
+  )).rows[0].n;
+  const problema = problemaDeConstancias(archivos, { yaHay: await cuantasHay(db) });
   if (problema) return res.status(400).json({ message: problema });
 
+  // 1) Subir, SIN transacción abierta: puede tardar, y mientras tanto no tiene
+  //    que retener una conexión del pool ni un bloqueo sobre la solicitud.
   const intentadas = [];
-  let guardadas, fallo;
+  const { subidas, fallo } = await subirConstancias({ id_solicitud: id_solicitud_cancelacion, archivos, intentadas });
+  if (fallo) console.error("[cancelacion] no subió una constancia:", fallo.message);
+  if (subidas.length === 0) {
+    return res.status(502).json({ message: "No se pudieron subir las constancias. Revisá tu conexión y probá de nuevo." });
+  }
+
+  // 2) Registrar lo subido en una transacción corta: o quedan todas las filas o
+  //    ninguna. Antes los INSERT iban uno por uno en autocommit; si el segundo
+  //    fallaba, el primero ya estaba guardado y la limpieza le borraba el archivo.
+  //    La solicitud se bloquea para que lo que se validó arriba siga valiendo:
+  //    mientras se subía pudo resolverse, o pudo entrar otro agregado.
+  const client = await db.connect();
+  let guardadas;
   try {
-    ({ guardadas, fallo } = await guardarConstancias(db, {
-      id_solicitud: id_solicitud_cancelacion, archivos, id_usuario: req.user.id_usuario, intentadas,
-    }));
+    await client.query("BEGIN");
+    const ahora = await client.query(
+      `SELECT estado FROM solicitud_cancelacion WHERE id_solicitud_cancelacion = $1 FOR UPDATE`,
+      [id_solicitud_cancelacion]
+    );
+    const rechazo =
+      ahora.rows.length === 0 ? [404, "Solicitud no encontrada"]
+      : ahora.rows[0].estado !== "PENDIENTE" ? [400, "La solicitud ya fue resuelta: no se le pueden agregar constancias."]
+      : null;
+    const yaNoCaben = rechazo ? null : problemaDeConstancias(subidas.map((s) => s.archivo), { yaHay: await cuantasHay(client) });
+    if (rechazo || yaNoCaben) {
+      await client.query("ROLLBACK");
+      borrarDeStorage([...intentadas]);
+      return res.status(rechazo ? rechazo[0] : 400).json({ message: rechazo ? rechazo[1] : yaNoCaben });
+    }
+    guardadas = await registrarConstancias(client, {
+      id_solicitud: id_solicitud_cancelacion, subidas, id_usuario: req.user.id_usuario,
+    });
+    await client.query("COMMIT");
   } catch (e) {
-    // Falló la base después de subir: lo subido quedaría sin fila que lo nombre.
+    await client.query("ROLLBACK").catch(() => {});
+    // Ninguna fila quedó confirmada, así que todo lo subido sobra.
     borrarDeStorage([...intentadas]);
     throw e;
-  }
-  if (fallo) console.error("[cancelacion] no subió una constancia:", fallo.message);
-  if (guardadas.length === 0) {
-    return res.status(502).json({ message: "No se pudieron subir las constancias. Revisá tu conexión y probá de nuevo." });
+  } finally {
+    client.release();
   }
 
   await logAuditoria(db, {

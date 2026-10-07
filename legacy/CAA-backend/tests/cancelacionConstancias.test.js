@@ -98,6 +98,48 @@ test("un error de la base no se disfraza de fallo de subida: se relanza", async 
   );
 });
 
+// Agregar constancias a una solicitud que ya existe va en dos tiempos: se sube
+// sin transacción (puede tardar) y lo subido se registra en una transacción
+// corta. Con los INSERT en autocommit, si el segundo fallaba el primero ya
+// estaba guardado y la limpieza le borraba el archivo.
+test("subirConstancias sube sin tocar la base y dice qué llegó", async () => {
+  falso.fallas.push({ metodo: "POST", prefijo: `${BUCKET}/cancelaciones/77/`, status: 500, veces: 1 });
+  const intentadas = [];
+  const { subidas, fallo } = await servicio.subirConstancias({
+    id_solicitud: 77, intentadas, archivos: [archivo("a.jpg"), archivo("b.jpg"), archivo("c.jpg")],
+  });
+  assert.ok(fallo);
+  assert.equal(subidas.length, 2);
+  assert.equal(intentadas.length, 3);
+  for (const s of subidas) {
+    assert.ok(falso.objetos.has(`${BUCKET}/${s.ruta}`), "lo que dice que subió, está en Storage");
+    assert.match(s.archivo.originalname, /^[abc]\.jpg$/);
+  }
+});
+
+test("registrarConstancias guarda una fila por subida, con la conexión que le dan", async () => {
+  const conn = conexionFalsa();
+  const guardadas = await servicio.registrarConstancias(conn, {
+    id_solicitud: 77, id_usuario: 9,
+    subidas: [{ archivo: archivo("a.jpg"), ruta: "cancelaciones/77/x.jpg" }, { archivo: archivo("b.pdf", "application/pdf"), ruta: "cancelaciones/77/y.pdf" }],
+  });
+  assert.deepEqual(guardadas.map((g) => g.nombre_archivo), ["a.jpg", "b.pdf"]);
+  assert.deepEqual(conn.filas.map((f) => f.archivo_path), ["cancelaciones/77/x.jpg", "cancelaciones/77/y.pdf"]);
+});
+
+test("si la base falla en la segunda fila, registrarConstancias lo relanza", async () => {
+  let n = 0;
+  const conn = { query: async () => { if (++n === 2) throw new Error("terminating connection"); return { rows: [{ id_adjunto: n }] }; } };
+  await assert.rejects(
+    servicio.registrarConstancias(conn, {
+      id_solicitud: 77, id_usuario: 9,
+      subidas: [{ archivo: archivo("a.jpg"), ruta: "r1" }, { archivo: archivo("b.jpg"), ruta: "r2" }, { archivo: archivo("c.jpg"), ruta: "r3" }],
+    }),
+    /terminating connection/
+  );
+  assert.equal(n, 2, "no sigue insertando después del fallo");
+});
+
 // La cuenta de demostraciones comparte el bucket y sus ids chocan con los reales.
 test("desde la cuenta demo las constancias van a su propia carpeta", async () => {
   const conn = conexionFalsa();

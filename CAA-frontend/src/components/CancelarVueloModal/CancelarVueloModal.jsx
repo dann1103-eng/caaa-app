@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getCondicionesCancelacion, solicitarCancelacion } from "../../services/alumnoApi";
+import { getCondicionesCancelacion, solicitarCancelacion, subirConstanciasCancelacion } from "../../services/alumnoApi";
 import {
   ACCEPT_CONSTANCIAS, MAX_CONSTANCIAS, problemaDeConstancias, pesoLegible, iconoDeConstancia,
 } from "../../utils/constancias";
@@ -19,6 +19,13 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
   const [condiciones, setCondiciones] = useState([]);
   const [estado, setEstado] = useState({ count_mes: 0, racha_semanas: 0, ya_cancelo_esta_semana: false, proxima_tiene_multa: false, motivo: null, monto: 0 });
   const [esEmergencia, setEsEmergencia] = useState(false);
+  // ¿El backend sabe recibir la solicitud y sus constancias en un solo pedido?
+  // Lo delata que conteste `es_emergencia`. Uno anterior a este cambio no lo
+  // hace, y ante un multipart crearía la solicitud SIN motivo y SIN archivos
+  // contestando 200 (no lee ese cuerpo). Pasa en la ventana de un despliegue,
+  // cuando la pantalla nueva llega antes que el servidor nuevo. A ese se le
+  // habla como antes: primero la solicitud, después las constancias.
+  const [unSoloPedido, setUnSoloPedido] = useState(false);
   const [loadingCond, setLoadingCond] = useState(true);
   const [aceptadoCondiciones, setAceptadoCondiciones] = useState(false);
   const [aceptadoMulta, setAceptadoMulta] = useState(false);
@@ -39,6 +46,7 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
           monto: res.monto ?? 0,
         });
         setEsEmergencia(!!res.es_emergencia);
+        setUnSoloPedido(typeof res.es_emergencia === "boolean");
       })
       .catch(() => setCondiciones([]))
       .finally(() => setLoadingCond(false));
@@ -89,6 +97,19 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
     setError("");
     setSubmitting(true);
     try {
+      if (!unSoloPedido && constancias.length > 0) {
+        // En dos pasos (ver `unSoloPedido`). Si la subida falla, la solicitud
+        // ya quedó enviada: se avisa, no se muestra como error del envío.
+        const r = await solicitarCancelacion(vuelo.id_vuelo, motivo.trim());
+        try {
+          await subirConstanciasCancelacion(r.id_solicitud_cancelacion, constancias);
+        } catch (e) {
+          setAvisoAdjuntos(e.response?.data?.message || "No se pudieron subir las constancias. Podés agregarlas desde \"Mis cancelaciones\".");
+          return;
+        }
+        onCancelado();
+        return;
+      }
       const r = await solicitarCancelacion(vuelo.id_vuelo, motivo.trim(), constancias);
       if (r?.aviso_adjuntos) {
         setAvisoAdjuntos(r.aviso_adjuntos);
@@ -98,7 +119,9 @@ export default function CancelarVueloModal({ vuelo, onClose, onCancelado }) {
     } catch (e) {
       if (e.response?.data?.codigo === "CONSTANCIA_REQUERIDA") {
         // El formulario se abrió con margen y se envió ya dentro de las 24 h:
-        // pasa a modo emergencia acá mismo, sin perder lo escrito.
+        // pasa a modo emergencia acá mismo, sin perder lo escrito. Ese código
+        // solo lo manda el backend nuevo, así que el próximo envío va en uno.
+        setUnSoloPedido(true);
         setEsEmergencia(true);
         setError("Tu vuelo ya está a menos de 24 horas: ahora es una cancelación de emergencia y necesita una constancia. Adjuntala y volvé a enviar.");
       } else {

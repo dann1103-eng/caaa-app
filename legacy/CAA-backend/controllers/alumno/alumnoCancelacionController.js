@@ -15,11 +15,16 @@ const { notificarUsuarios } = require("../../utils/webpush");
 // (MiHorarioList.jsx). Acá se exigen, no solo se muestran.
 const ESTADOS_CANCELABLES = ["PUBLICADO", "AJUSTADO", "PROGRAMADO", "EN_ESPERA_TRAMO"];
 
-// Candado de aviso por alumno (4711 es el de la firma de la vouchera). Serializa
+// Candado de aviso por alumno (4711 es el de la firma de la vouchera). Impide
 // dos envíos simultáneos del mismo alumno —dos pestañas, doble toque—: sin él
 // los dos pasan el límite de 1 por semana, y la subida de archivos alarga esa
 // ventana de milisegundos a segundos. Es de aviso porque no hay una fila que
 // bloquear: la solicitud todavía no existe.
+//
+// Se PRUEBA, no se espera (pg_try_...): el que lo tiene puede estar subiendo
+// archivos hasta 45 s con la transacción abierta, y cada envío que se quedara
+// esperándolo retendría una conexión del pool (son 10 para toda la app). El
+// segundo recibe un 409 enseguida.
 const CANDADO_SOLICITUD = 4712;
 
 // La solicitud y sus constancias entran en UN solo pedido y una sola
@@ -78,7 +83,10 @@ exports.solicitarCancelacion = catchAsync(async (req, res) => {
     const idAlumno = al.id_alumno;
     const esEmergencia = al.es_emergencia === true;
 
-    await client.query(`SELECT pg_advisory_xact_lock(${CANDADO_SOLICITUD}, $1::int)`, [idAlumno]);
+    const candado = await client.query(`SELECT pg_try_advisory_xact_lock(${CANDADO_SOLICITUD}, $1::int) AS libre`, [idAlumno]);
+    if (!candado.rows[0].libre) {
+      return await rechazar(409, { message: "Ya se está enviando otra solicitud de cancelación tuya. Esperá un momento y revisá \"Mis cancelaciones\"." });
+    }
 
     if (!ESTADOS_CANCELABLES.includes(al.vuelo_estado)) {
       return await rechazar(400, { message: "Este vuelo ya no se puede cancelar desde la app. Si necesitás ayuda, avisá a Programación o a Turno." });
