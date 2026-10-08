@@ -23,6 +23,8 @@ import {
   rechazarOfertaStandby
 } from "../../services/alumnoApi";
 import { API_URL, SOCKET_URL } from "../../api/axiosConfig";
+import { MARCA } from "../../marca";
+import { bibliotecaPara } from "../../utils/biblioteca";
 import "./Dashboard.css";
 
 const CARD_ICONS = {
@@ -63,6 +65,7 @@ export default function AlumnoDashboard() {
   // propias del alumno de tierra sin partir la pantalla en dos.
   const vuela = user.vuela !== false;
   const navigate = useNavigate();
+  const biblioteca = bibliotecaPara(user, MARCA.biblioteca_url);
 
   // Arranca en "clases" para quien no vuela: las tres pestañas de vuelo están
   // ocultas, y sin esto el panel abría en una pestaña invisible y se quedaba en
@@ -267,9 +270,18 @@ export default function AlumnoDashboard() {
                 : "Revisá tus clases, tus notas y tu cuenta."}
             </p>
           </div>
+          <div className="dash__top-actions">
+          {/* La biblioteca de la escuela, a un toque. También está en el menú
+              de arriba, pero en el teléfono ese menú queda detrás de la
+              hamburguesa. La ve también el alumno que no vuela. */}
+          {biblioteca && (
+            <a className="btn-biblioteca" href={biblioteca} target="_blank" rel="noopener noreferrer">
+              <i className="bi bi-bookshelf"></i> Biblioteca
+            </a>
+          )}
           {vuela && (
-          <button 
-              className="btn-agendar" 
+          <button
+              className="btn-agendar"
               onClick={() => navigate("/alumno/agendar")}
               disabled={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0}
               title={info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "No tenés vuelos habilitados para esta semana" : ""}
@@ -277,6 +289,7 @@ export default function AlumnoDashboard() {
               <i className="bi bi-plus-lg"></i> {info?.limite_vuelos_avion === 0 && info?.limite_vuelos_simulador === 0 ? "Vuelos deshabilitados" : "Agendar clase"}
             </button>
           )}
+          </div>
         </div>
 
         {/* ── Info cards ── */}

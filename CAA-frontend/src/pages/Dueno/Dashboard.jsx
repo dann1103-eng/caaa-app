@@ -11,6 +11,7 @@ import AvisosTurnoWidget from "../../components/AvisosTurnoWidget/AvisosTurnoWid
 import VueloResumenCard from "../../components/VueloResumenCard/VueloResumenCard";
 import PushToggle from "../../components/PushToggle/PushToggle";
 import { MARCA } from "../../marca";
+import { bibliotecaPara } from "../../utils/biblioteca";
 import "../Proyeccion/PaginaProgramacion.css";
 import "./Dashboard.css";
 
@@ -114,6 +115,7 @@ export default function DuenoDashboard() {
   // la salida de hangar (`salida_real`, timestamp real del evento) — de ahí en
   // adelante, aunque el vuelo siga en curso o ya haya cerrado, cuenta como uno.
   const operacionesRealizadas = vuelosHoy.filter((v) => v.salida_real).length;
+  const biblioteca = bibliotecaPara(JSON.parse(localStorage.getItem("user") || "null"), MARCA.biblioteca_url);
 
   return (
     <div className="pp duo">
@@ -174,6 +176,14 @@ export default function DuenoDashboard() {
         <MetarWidget />
         <EstadoFlotaWidget />
         <WindyWidget />
+
+        {/* Va al final y no en la barra de arriba: esta pantalla es un vistazo
+            pasivo en el teléfono, y arriba ya compiten el reloj y "Salir". */}
+        {biblioteca && (
+          <a className="duo__biblioteca" href={biblioteca} target="_blank" rel="noopener noreferrer">
+            <i className="bi bi-bookshelf" /> Biblioteca de la escuela
+          </a>
+        )}
       </main>
     </div>
   );

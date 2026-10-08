@@ -96,6 +96,47 @@
   cursor: not-allowed;
 }
 
+/* Los botones de la cabecera: Biblioteca (secundario) y Agendar (primario). */
+.dash__top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Acceso a la biblioteca de la escuela. En contorno: el relleno navy es del
+   botón principal de la pantalla (Agendar), y no puede haber dos. */
+.btn-biblioteca {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: var(--c-surface-0);
+  color: var(--c-brand-700);
+  border: 1px solid var(--c-brand-700);
+  /* 11 y no 12: con el borde queda en los mismos 44 px que Agendar. */
+  padding: 11px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  min-height: 44px;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.btn-biblioteca:hover {
+  background: var(--c-brand-50);
+  color: var(--c-brand-900);
+}
+
+.btn-biblioteca:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
 /* ── Info cards ── */
 .dash__cards {
   display: grid;
@@ -332,6 +373,12 @@
     align-items: stretch;
     gap: 16px;
     margin-bottom: 20px;
+  }
+
+  /* En el teléfono los botones se reparten el ancho; si no entran lado a
+     lado, cada uno ocupa su renglón. */
+  .dash__top-actions > * {
+    flex: 1 1 140px;
   }
 
   .dash__title {

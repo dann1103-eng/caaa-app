@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import PushToggle from "../PushToggle/PushToggle";
 import { MARCA, IMG } from "../../marca";
+import { bibliotecaPara } from "../../utils/biblioteca";
 const PROY_KEY = window.__APP_CONFIG__?.PROYECCION_KEY || "";
 
 export default function Header() {
@@ -11,6 +12,8 @@ export default function Header() {
   const user = JSON.parse(localStorage.getItem("user"));
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
+  // Este Header también lo ve el taller (en /perfil): bibliotecaPara lo deja afuera.
+  const biblioteca = bibliotecaPara(user, MARCA.biblioteca_url);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -69,6 +72,16 @@ export default function Header() {
                     <i className="bi bi-speedometer2 header__action-icon" />
                     <span>Dashboard</span>
                   </Link>
+
+                  {/* La biblioteca de la escuela (una carpeta de Drive). Va
+                      segunda, apenas después del Dashboard, para que quede a
+                      la mano: es lo que más buscan los alumnos. */}
+                  {biblioteca && (
+                    <a href={biblioteca} target="_blank" rel="noopener noreferrer" className="header__action-link" onClick={closeMenu} title="Biblioteca de la escuela (se abre en otra pestaña)">
+                      <i className="bi bi-bookshelf header__action-icon" />
+                      <span>Biblioteca</span>
+                    </a>
+                  )}
 
                   {(["ADMIN", "PROGRAMACION", "TURNO"].includes(user.rol) || user.puede_programar) && (
                     <>

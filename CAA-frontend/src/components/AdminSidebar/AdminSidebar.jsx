@@ -5,6 +5,8 @@ import { io as socketIO } from "socket.io-client";
 import { SOCKET_URL } from "../../api/axiosConfig";
 const PROY_KEY = window.__APP_CONFIG__?.PROYECCION_KEY || "";
 import DemoReset from "../DemoReset/DemoReset";
+import { MARCA } from "../../marca";
+import { bibliotecaPara } from "../../utils/biblioteca";
 import "./AdminSidebar.css";
 
 export default function AdminSidebar({ isOpen, onClose }) {
@@ -42,6 +44,11 @@ export default function AdminSidebar({ isOpen, onClose }) {
     if (onClose) onClose();
   };
 
+  // La biblioteca de la escuela (una carpeta de Drive). Se lee en cada render y
+  // no en una constante del módulo: la marca cambia con la sesión, y la cuenta
+  // de demostraciones no trae enlace.
+  const biblioteca = bibliotecaPara(user, MARCA.biblioteca_url);
+
   // Navegación del super-usuario ADMIN, agrupada en 3 secciones. Todo coexiste
   // en este mismo shell (Operaciones, Administración, Taller) — sin saltar de layout.
   const secciones = [
@@ -63,6 +70,8 @@ export default function AdminSidebar({ isOpen, onClose }) {
         // Practicar el peso y balance es una herramienta de VUELO, no de
         // mantenimiento: estaba en Taller y ahí no la busca nadie.
         { label: "Practicar loadsheet", path: "/admin/loadsheet/practica", icon: "bi-clipboard-data" },
+        // Va en Operaciones y no en Taller: el taller es justo quien no la ve.
+        ...(biblioteca ? [{ label: "Biblioteca", path: biblioteca, icon: "bi-bookshelf", external: true }] : []),
       ],
     },
     {

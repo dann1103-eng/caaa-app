@@ -30,6 +30,13 @@ const RESPALDO = {
   aeropuerto_base: "MSSS",
   direccion: "Aeropuerto Internacional de Ilopango, Hangar 38B",
   codigo_oma: "CO-OMA-CAAA-014",
+  // Vacío en el respaldo, y no el enlace de CAAA, por dos motivos. Cada marca
+  // se arma como { ...RESPALDO, ...suya }: con el enlace acá, la marca de
+  // demostraciones lo heredaría y un prospecto terminaría en el Drive de la
+  // escuela. Y la clave tiene que existir en TODAS las marcas: aplicarMarca()
+  // hace Object.assign sobre el mismo objeto, así que una clave que una marca
+  // no trae se queda con el valor de la sesión anterior.
+  biblioteca_url: "",
 };
 
 // Se empaquetan LAS DOS marcas, no solo la activa. El bundle es uno solo y lo

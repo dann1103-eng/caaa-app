@@ -90,6 +90,25 @@
 }
 .duo__push-btn:disabled { opacity: 0.6; }
 
+/* Acceso a la biblioteca de la escuela, al pie. En contorno y sin relleno: en
+   esta pantalla lo único que pide atención es la operación del día. */
+.duo__biblioteca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--pp-card-border);
+  border-radius: 10px;
+  background: var(--pp-card-bg);
+  color: var(--pp-text-bright);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.duo__biblioteca:hover { border-color: var(--pp-text-main); }
+
 /* Vuelos de hoy: tarjetas apiladas (no la tabla de 7 columnas de Proyección,
    que en un teléfono angosto obligaba a scroll horizontal y recortaba
    matrícula/almas/llegada). Cada VueloResumenCard muestra todo sin recortar. */

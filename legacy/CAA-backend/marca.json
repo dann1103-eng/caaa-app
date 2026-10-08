@@ -26,7 +26,9 @@
       "direccion": "Aeropuerto Internacional de Ilopango, Hangar 38B",
       "codigo_oma": "CO-OMA-CAAA-014",
       "telefonos": "Tels: (503) 2295-0029 · (503) 2295-7811",
-      "correo": "informacion@caaa-sv.com"
+      "correo": "informacion@caaa-sv.com",
+      "_biblioteca_url": "La biblioteca de la escuela (una carpeta de Google Drive). Si está, aparece el botón 'Biblioteca' para todos menos el taller; vacío = sin botón. Solo la usa el frontend (src/utils/biblioteca.js).",
+      "biblioteca_url": "https://drive.google.com/open?id=14RwFkPzo8enUEBmThX12czFu-GU_299B"
     },
     "_molde": "Modo 'tu marca': se activa poniendo 'activa': 'molde'. Sirve para mostrarle a un prospecto, en vivo, cómo se vería el sistema con lo suyo.",
     "molde": {
@@ -48,7 +50,9 @@
       "direccion": "Tu dirección, Tu ciudad",
       "codigo_oma": "CO-OMA-XXXX-000",
       "telefonos": "Tels: (000) 0000-0000",
-      "correo": "info@tuescuela.com"
+      "correo": "info@tuescuela.com",
+      "_biblioteca_url": "Vacío A PROPÓSITO: la cuenta de demostraciones no tiene que mandar a un prospecto al Drive de la escuela. La clave tiene que existir igual (ver el respaldo en generate-marca.mjs).",
+      "biblioteca_url": ""
     }
   }
 }
