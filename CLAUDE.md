@@ -1585,11 +1585,14 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 
 ## 24. Pendientes vigentes (lista única — actualizar acá, no en las secciones de sesión)
 
-> **Última revisión: 2026-10-06.**
+> **Última revisión: 2026-10-08.**
 >
-> ### 🚨 Cancelaciones de emergencia (§43)
-> - **Desplegar la rama `claude/cancelaciones-adjuntos-prioridad-57c3c5`**: al 2026-10-06 está
->   terminada y probada, sin fusionar a `master`. Sin migración.
+> ### 🚨 Cancelaciones de emergencia (§43) y botón Biblioteca (§44)
+> - **Desplegar la rama `claude/cancelaciones-adjuntos-prioridad-57c3c5`**: al 2026-10-08 trae las
+>   cancelaciones de emergencia y el botón Biblioteca, terminados y probados, sin fusionar a
+>   `master`. Sin migración.
+> - **La carpeta de Drive de la biblioteca tiene que estar compartida** con quienes la van a abrir
+>   (alumnos e instructores): el botón solo lleva al enlace, el permiso lo da Drive.
 > - **El esquema `demo` está dos migraciones atrás** (le faltan la tabla
 >   `solicitud_cancelacion_adjunto` y la columna `solicitud_vuelo.creado_en`): hoy la pantalla de
 >   Cancelaciones de la cuenta de demostraciones falla. Se arregla regenerándolo
@@ -3510,3 +3513,37 @@ crean ahí adentro; Storage es `tests/storageFalso.js`. El censo de la base qued
    transacción queda abortada igual**: todo lo que sigue falla con 25P02.
 6. **El esquema `demo` no se regeneró tras las dos últimas migraciones** (§24): la regla de §39 no
    se cumple sola.
+
+---
+
+## 44. Sesión 2026-10-08 — Botón "Biblioteca" (la carpeta de documentos de la escuela)
+
+**ESTADO: en la misma rama que §43, SIN desplegar.** Sin migración, sin backend (solo frontend y
+`marca.json`).
+
+Un enlace a la biblioteca de la escuela —una carpeta de Google Drive— para **todos menos el taller**
+(`TALLER` y `TECNICO`). Pedido de Daniel: que al alumno le quede a la mano.
+
+| Quién | Dónde lo ve |
+|---|---|
+| Alumno | botón en su panel, al lado de "Agendar clase" (también el alumno que no vuela) + menú de arriba |
+| Instructor, Programación, Turno | menú de arriba (`Header.jsx`), segundo después de Dashboard |
+| Admin, Administración | menú lateral, sección **Operaciones** (`AdminSidebar.jsx`) |
+| Dueño | al pie de su pantalla (arriba ya compiten el reloj y "Salir") |
+| Taller, Mecánico | **no lo ven**, tampoco en `/perfil`, que les muestra el mismo `Header` |
+
+- **El enlace vive en `marca.json`** (`marcas.caaa.biblioteca_url`), no en el código: es de cada
+  escuela. Cambiarlo es editar ese archivo y desplegar.
+- **La cuenta de demostraciones no lo trae** (`marcas.molde.biblioteca_url` vacío **a propósito**): un
+  prospecto no tiene que terminar en el Drive de CAAA. Vacío = sin botón.
+- ⚠️ **La clave tiene que existir en TODAS las marcas y en el `RESPALDO` de `generate-marca.mjs`.**
+  `aplicarMarca()` hace `Object.assign` sobre el mismo objeto `MARCA`: una clave que una marca no trae
+  **se queda con el valor de la sesión anterior**. Y el respaldo va vacío, no con el enlace de CAAA,
+  porque cada marca se arma como `{ ...RESPALDO, ...suya }` y la de demostraciones lo heredaría.
+  **Vale para cualquier campo nuevo de la marca que una escuela pueda no tener.**
+- Quién lo ve se decide en un solo lugar, `src/utils/biblioteca.js` → `bibliotecaPara(user, url)`, que
+  además solo deja pasar un enlace `http(s)`. `MARCA.biblioteca_url` se lee en cada render, nunca en
+  una constante de módulo (§39).
+- **Verificado en el navegador** con una sesión por rol (contra un backend de mentira): lo ven los
+  siete roles que corresponde, no lo ven `TALLER` ni `TECNICO`, y con una sesión de demostraciones
+  (marca "TU ESCUELA") no aparece en ningún lado. A 1280 y 375 px, sin desborde.
