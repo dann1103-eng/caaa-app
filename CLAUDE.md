@@ -1588,9 +1588,8 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 > **Última revisión: 2026-10-08.**
 >
 > ### 🚨 Cancelaciones de emergencia (§43) y botón Biblioteca (§44)
-> - **Desplegar la rama `claude/cancelaciones-adjuntos-prioridad-57c3c5`**: al 2026-10-08 trae las
->   cancelaciones de emergencia y el botón Biblioteca, terminados y probados, sin fusionar a
->   `master`. Sin migración.
+> - ~~Desplegar la rama~~ → **subido a `master` el 2026-10-08** (cancelaciones de emergencia y
+>   botón Biblioteca).
 > - **La carpeta de Drive de la biblioteca tiene que estar compartida** con quienes la van a abrir
 >   (alumnos e instructores): el botón solo lleva al enlace, el permiso lo da Drive.
 > - **El esquema `demo` está dos migraciones atrás** (le faltan la tabla
@@ -1599,8 +1598,9 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 >   (`docs/demo/RUNBOOK.md` §3), que la deja fuera de servicio un rato.
 > - **La constancia de la solicitud 33 quedó guardada como "Constancia mÃ©dica .pdf"** (el nombre
 >   con tilde se rompía al subir; ya no pasa). Corregirla es un `UPDATE` de una fila en producción.
-> - **Probar el formulario del alumno contra el backend real** una vez desplegado: se probó contra
->   un servidor de mentira, y el backend aparte (§43.F).
+> - **Probar el formulario del alumno contra el backend real**, ahora que está desplegado: se probó
+>   contra un servidor de mentira, y el backend aparte (§43.F). La primera cancelación real de un
+>   alumno es esa prueba: mirarla.
 > - **Avisar al instructor asignado al vuelo**: la condición 4 que acepta el alumno lo promete y
 >   hoy solo se avisa a quienes resuelven (jefes de pilotos, Programación, Turno, Admin).
 > - Menores de la revisión del código, sin tocar: están listados en la spec.
@@ -3439,8 +3439,10 @@ los finales de línea.
 
 ## 43. Sesión 2026-10-06 — Cancelaciones de emergencia: constancia obligatoria y prioridad visible
 
-**ESTADO: terminado y probado en la rama `claude/cancelaciones-adjuntos-prioridad-57c3c5`, SIN
-desplegar** (espera el visto bueno de Daniel). Sin migración. Spec:
+**ESTADO: subido a `master` el 2026-10-08** (rama `claude/cancelaciones-adjuntos-prioridad-57c3c5`,
+avance directo: `origin/master` no se había movido), con el visto bueno de Daniel. Sin migración.
+⚠️ **Desde este deploy un alumno no puede enviar una cancelación con menos de 24 h sin adjuntar
+algo, y puede pedirla hasta la hora del vuelo.** Spec:
 `docs/superpowers/specs/2026-10-06-cancelaciones-emergencia-design.md` · Plan en `docs/superpowers/plans/`.
 
 ### A. El pedido, y lo que ya existía
@@ -3518,8 +3520,8 @@ crean ahí adentro; Storage es `tests/storageFalso.js`. El censo de la base qued
 
 ## 44. Sesión 2026-10-08 — Botón "Biblioteca" (la carpeta de documentos de la escuela)
 
-**ESTADO: en la misma rama que §43, SIN desplegar.** Sin migración, sin backend (solo frontend y
-`marca.json`).
+**ESTADO: subido a `master` el 2026-10-08**, en el mismo push que §43. Sin migración, sin backend
+(solo frontend y `marca.json`).
 
 Un enlace a la biblioteca de la escuela —una carpeta de Google Drive— para **todos menos el taller**
 (`TALLER` y `TECNICO`). Pedido de Daniel: que al alumno le quede a la mano.
