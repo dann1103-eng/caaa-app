@@ -117,6 +117,18 @@ El primer comando rehace la estructura; el segundo copia el catálogo y siembra 
 escenario. **Mientras tanto la cuenta de demostraciones no funciona**, así que
 conviene no hacerlo cinco minutos antes de una reunión.
 
+⚠️ **Corrido así, desde tu máquina, el aula queda sin material de estudio**: esos
+tres documentos se suben de verdad a Storage y las llaves solo están en el
+servidor. El escenario lo dice (`aula: sin storage configurado…`) y sigue. Para
+dejarlo completo, repetir el reinicio con las llaves —apretando **Reiniciar
+demo** desde la app, o con el segundo comando detrás de `railway run`:
+
+```bash
+railway run node -e "require('dotenv').config();require('./demo/reset').reiniciar({log:console.log}).then(r=>{console.log(r.aula);process.exit(0)})"
+```
+
+Tiene que terminar con `materiales: 3`.
+
 > Intentar mantener los dos esquemas en paralelo a mano **no es viable**: las
 > migraciones nombran `public.` explícitamente casi 100 veces, así que
 > re-ejecutarlas no las llevaría a `demo`. Regenerar es más simple y hace que la

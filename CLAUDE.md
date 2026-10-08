@@ -1592,12 +1592,12 @@ los alumnos no tenían equivalente. Se agregó el gemelo:
 >   botón Biblioteca).
 > - **La carpeta de Drive de la biblioteca tiene que estar compartida** con quienes la van a abrir
 >   (alumnos e instructores): el botón solo lleva al enlace, el permiso lo da Drive.
-> - **El esquema `demo` está dos migraciones atrás** (le faltan la tabla
->   `solicitud_cancelacion_adjunto` y la columna `solicitud_vuelo.creado_en`): hoy la pantalla de
->   Cancelaciones de la cuenta de demostraciones falla. Se arregla regenerándolo
->   (`docs/demo/RUNBOOK.md` §3), que la deja fuera de servicio un rato.
-> - **La constancia de la solicitud 33 quedó guardada como "Constancia mÃ©dica .pdf"** (el nombre
->   con tilde se rompía al subir; ya no pasa). Corregirla es un `UPDATE` de una fila en producción.
+> - ~~El esquema `demo` estaba dos migraciones atrás~~ → **regenerado el 2026-10-08** (94 tablas,
+>   mismas columnas que `public`; la lista de quien aprueba y "Mis cancelaciones" ya responden dentro
+>   de `demo`). Censo de `public` antes y después: ni una fila ni una secuencia movida. Lo que
+>   **sigue faltando** son las dos secuencias de correlativos (el punto de abajo, §42).
+> - ~~La constancia de la solicitud 33 quedó guardada como "Constancia mÃ©dica .pdf"~~ → **corregida
+>   el 2026-10-08** ("Constancia médica .pdf"); no queda ningún nombre roto en la tabla.
 > - **Probar el formulario del alumno contra el backend real**, ahora que está desplegado: se probó
 >   contra un servidor de mentira, y el backend aparte (§43.F). La primera cancelación real de un
 >   alumno es esa prueba: mirarla.
